@@ -1,0 +1,68 @@
+struct Array
+{
+    get: fn(size_t) -> real,
+    set: fn(size_t, real) -> ()
+}
+
+fn get_array(data: &u8) -> Array
+{
+    Array
+    {
+        get: |i| {
+            bitcast[&[real]](data)(i)
+        },
+        set: |i, r| {
+            bitcast[&mut[real]](data)(i) = r; 
+        }
+    }
+
+}
+
+struct ParticleSystem
+{
+
+    capacity_m: size_t,
+    capacity_X: [size_t * 3],
+    capacity_V: [size_t * 3],
+    capacity_F: [size_t * 3],
+    capacity_F_old: [size_t * 3],
+    np: fn() -> size_t,
+    nc: fn() -> [size_t * 3],
+    l: fn() -> Vector,
+    masses: fn(size_t) -> &mut &u8,
+    coordinates: fn(size_t) -> &mut [&u8 * 3],
+    velocities: fn(size_t) -> &mut [&u8 * 3],
+    forces: fn(size_t) -> &mut [&u8 * 3],
+    forces_old: fn(size_t) -> &mut [&u8 * 3],
+    data_coordinates: &u8,
+    data_velocities: &u8,
+    data_forces: &u8,
+    data_forces_old: &u8
+}
+
+fn get_particle_system(initial_capacity: size_t, np: size_t, nc: [size_t * 3], l: Vector, data_masses: &u8, data_coordinates: &u8, data_velocities: &u8, data_forces: &u8, data_forces_old: &u8, constants: Constants, data_addresses: &u8) -> ParticleSystem
+{
+    ParticleSystem
+    {
+        capacity_m: initial_capacity,
+        capacity_X: [initial_capacity, initial_capacity, initial_capacity],
+        capacity_V: [initial_capacity, initial_capacity, initial_capacity],
+        capacity_F: [initial_capacity, initial_capacity, initial_capacity],
+        capacity_F_old: [initial_capacity, initial_capacity, initial_capacity],
+        np: || {np},
+        nc: || {nc},
+        l: || {l},
+        masses: |i| {&mut bitcast[&mut[&u8]](data_masses)(i)},
+        coordinates: |i| {&mut bitcast[&mut[[&u8 * 3]]](data_coordinates)(i)},
+        velocities: |i| {&mut bitcast[&mut[[&u8 * 3]]](data_velocities)(i)},
+        forces: |i| {&mut bitcast[&mut[[&u8 * 3]]](data_forces)(i)},
+        forces_old: |i| {&mut bitcast[&mut[[&u8 * 3]]](data_forces_old)(i)},
+        constants: || {constants},
+        addresses: || {get_array_of_addresses(np, data_addresses)},
+        data_coordinates: || {data_coordinates},
+        data_velocities: || {data_velocities},
+        data_forces: || {data_forces},
+        data_forces_old: || {data_forces},
+        data_addresses: || {data_addresses}
+    }
+}

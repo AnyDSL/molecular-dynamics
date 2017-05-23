@@ -1,0 +1,2 @@
+fn alloc_array(size: size_t) -> Buffer { alloc_cpu(size as i32) }
+

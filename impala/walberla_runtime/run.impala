@@ -1,0 +1,97 @@
+static mut P_data_ : ParticleSystemData;
+
+extern
+fn initialize_particle_system(np: size_t, ghost_layer: size_t, l: &[real]) -> () { 
+    init_constants(&mut P_data_.constants);
+    let l_v = get_vector([l(0), l(1), l(2)]);    
+    let P = allocate_particle_system(np, ghost_layer, l_v, P_data_.constants); 
+    for i in loop(0 as size_t, np) {
+        let node = allocate_particle_node();
+        let p = get_particle_from_node(*node);
+        p.setCoordinates(get_vector([EPS, EPS, EPS]));
+        push_front(node, P);
+    }
+    init_addresses(P);
+    P_data_ = get_data_struct_from_particle_system(P);
+}
+
+
+extern
+fn reinitialize_particle_system(np: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    if(P.np() != np) {
+        let mut data_addresses : &u8;
+        if(P.np() > np) {
+            let mut i = 0 as size_t;
+            let nc = P.nc();
+            let mut end = 1 as size_t;
+            
+            for d in @loop(0 as size_t, DIM) {
+                end *= nc(d);
+            }
+            
+            for j in loop(np, P.np()) {
+                for c in loop(i, end) {
+                    let head = P.head(c);
+                    if(*head != 0 as &ParticleList) {
+                        let node = remove(head);
+                        deallocate_particle_node(node);
+                    }
+                    else {
+                        ++i;
+                    }
+                }
+            }
+            data_addresses = P.data_addresses();
+        }
+        else {
+            
+            for j in loop(P.np(), np) {
+                let node = allocate_particle_node();
+                let p = get_particle_from_node(*node);
+                p.setCoordinates(get_vector([EPS, EPS, EPS]));
+                push_front(node, P);
+            }
+            deallocate(P.data_addresses());
+            data_addresses = allocate(np * sizeof[&u8]() as size_t);
+        }
+        let data_cells = P.data_cells();
+        let P_new = get_particle_system(np, P.nc(), P.ghost_layer(), P.l(), data_cells, P.constants(), data_addresses);
+        init_addresses(P_new);
+        P_data_ = get_data_struct_from_particle_system(P_new);
+
+    }
+}
+
+extern
+fn set_coordinates(X: &[real], i: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let p = get_particle(P.addresses().get(i));
+    p.setCoordinates(get_vector([X(0), X(1), X(2)]));
+}
+extern
+fn set_velocities(V: &[real], i: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let p = get_particle(P.addresses().get(i));
+    p.setVelocities(get_vector([V(0), V(1), V(2)]));
+}
+
+extern
+fn set_mass(m: real, i: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let p = get_particle(P.addresses().get(i));
+    p.setMass(m);
+}
+
+
+extern
+fn sort_particle_system() -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    move_particles(P);
+}
+
+extern
+fn clean_up() -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    deallocate_particle_system(P);
+}

@@ -1,0 +1,26 @@
+struct Constants {
+    r_cut: real,
+    sigma: real,
+    epsilon: real
+}
+
+fn force(p1: Particle, p2: Particle, write1: bool, write2: bool, constants: Constants) -> ()
+{
+    let sqr = |x : real| {x*x};
+    let dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
+    let r = dist.reduce(sqr, |x,y|{x+y}, 0.0);
+    if(r <= sqr(constants.r_cut)) {
+        let sigma = constants.sigma;
+        let epsilon = constants.epsilon;
+        let mut s = sqr(sigma)/r;
+        s = sqr(s)*s;
+        let f = 24.0 * epsilon * s / r * (1.0 - 2.0 * s);
+        let tmp = scale_vector(f, dist);
+        if(write1) {
+            p1.setForces(add_vectors(p1.getForces(), tmp));
+        }
+        if(write2) {
+            p2.setForces(sub_vectors(p2.getForces(), tmp));
+        }
+    }
+}

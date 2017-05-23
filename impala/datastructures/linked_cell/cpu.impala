@@ -1,0 +1,191 @@
+struct ParticleSystem {
+    np: fn() -> size_t,
+    nc: fn() -> [size_t * 3],
+    ghost_layer: fn() -> size_t,
+    start: fn() -> [size_t * 3],
+    end: fn() -> [size_t * 3],
+    l: fn() -> Vector,
+    head: fn(size_t) -> &mut &ParticleList,
+    constants: fn() -> Constants,
+    addresses: fn() -> ArrayOfAddresses,
+    data_cells: fn() -> &u8,
+    data_addresses: fn() -> &u8
+}
+
+
+
+fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, l: Vector, data_cells: &u8, constants: Constants, data_addresses: &u8) -> ParticleSystem {
+    ParticleSystem {
+        np: || {np},
+        nc: || {nc},
+        ghost_layer: || {ghost_layer},
+        start: || {
+            let mut start : [size_t * 3];
+            for d in @loop(0 as size_t, DIM) {
+                start(d) = ghost_layer;
+            }
+            start
+        },
+        end: || {
+            let mut end : [size_t * 3];
+            for d in @loop(0 as size_t, DIM) {
+                end(d) = nc(d) - ghost_layer;
+            }
+            end
+        },
+        l: || {l},
+        head: |i| {&mut bitcast[&mut[&ParticleList]](data_cells)(i)},
+        constants: || {constants},
+        addresses: || {get_array_of_addresses(np, data_addresses)},
+        data_cells: || {data_cells},
+        data_addresses: || {data_addresses}
+    }
+}
+
+struct ParticleSystemData {
+    np: size_t,
+    nc: [size_t * 3],
+    ghost_layer: size_t,
+    l: [real * 3],
+    constants: Constants,
+    data_cells: &u8,
+    data_addresses: &u8,
+}
+
+fn get_particle_system_from_data_struct(PSD: ParticleSystemData) -> ParticleSystem {
+    get_particle_system(PSD.np, PSD.nc, PSD.ghost_layer, get_vector(PSD.l), PSD.data_cells, PSD.constants, PSD.data_addresses)
+}
+
+fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData {
+    ParticleSystemData {
+        np: P.np(),
+        nc: P.nc(),
+        ghost_layer: P.ghost_layer(),
+        l: P.l().x(),
+        constants: P.constants(),
+        data_cells: P.data_cells(),
+        data_addresses: P.data_addresses()
+    }
+}
+
+
+fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () {
+    let p = get_particle_from_node(*node);
+    let kc = compute_cell_position(p, P.nc(), P.l());
+    let root = P.head(index(kc, P.nc()));
+    insert(root, node);
+}
+
+fn push_front(node: &mut ParticleList, P: ParticleSystem) -> () {
+    let root = P.head(0 as size_t);
+    insert(root, node);
+}
+
+fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constants: Constants) -> ParticleSystem {
+    let mut nc : [size_t * 3];
+    let mut pnc = 1 as size_t;
+    let l_extended = increase_vector(2.0*(ghost_layer as real)*constants.r_cut, l); 
+    for d in @loop(0 as size_t, DIM){
+        nc(d) = math.floor(l.x()(d)/constants.r_cut) as size_t + (2 as size_t * ghost_layer);
+        pnc *= nc(d);
+    }
+    let data_cells = allocate_and_initialize(pnc * sizeof[&ParticleList]() as size_t, 0);
+    let data_addresses = allocate(np * sizeof[&u8]() as size_t);
+    let P = get_particle_system(np, nc, ghost_layer, l_extended, data_cells, constants, data_addresses);
+    P
+}
+
+fn deallocate_particle_system(P: ParticleSystem) -> () {
+    let z = 0 as size_t;
+    let start = [z,z,z];
+    let end = P.nc();
+    for i in loop(start(0), end(0)) {
+        for j in loop(start(1), end(1)) {
+            for k in loop(start(2), end(2)) {
+                let ic = [i,j,k];
+                let head = P.head(index(ic, P.nc()));
+                delete_list(head);
+            }
+        }
+    }
+    deallocate(P.data_cells());
+    deallocate(P.data_addresses());
+}
+
+fn print_particle_system(P: ParticleSystem) -> (){    
+    let mut ic_start : [size_t * 3];
+    let ic_end = P.nc();
+    for d in @loop(0 as size_t, DIM) {
+        ic_start(d) = 0 as size_t;
+    }
+
+    for i in loop(ic_start(0), ic_end(0)) {
+        for j in loop(ic_start(1), ic_end(1)) {
+            for k in loop(ic_start(2), ic_end(2)) {
+                let ic = [i,j,k];
+                if(*P.head(index(ic, P.nc())) != 0 as &ParticleList) {
+                    print_string("Cell (");
+                    print_long(i as i64);
+                    print_string(", ");
+                    print_long(j as i64);
+                    print_string(", ");
+                    print_long(k as i64);
+                    print_string("): ");
+                    print_string(" (Index: ");
+                    print_long(index(ic, P.nc()) as i64);
+                    print_string(" ) ");
+                    for pl in iterate_over_list(*P.head(index(ic, P.nc()))) {
+                        print_long(pl as i64);
+                        print_char(' ');
+                    }
+                    print_char('\n');
+                }
+            }
+        }
+    }
+}
+
+fn compute_cell_position(p: Particle, nc: [size_t * 3], l: Vector) -> [size_t * 3] {
+    let mut kc : [size_t * 3];
+    let coordinates_x = p.getCoordinates().x();
+    let l_x = l.x();
+    for d in @loop((0 as size_t), DIM) {
+        kc(d) = math.floor(coordinates_x(d) * (nc(d) as real) / l_x(d)) as size_t;
+    }
+    kc
+}
+
+
+
+struct ArrayOfAddresses {
+    size: fn() -> size_t,
+    get: fn(size_t) -> &u8,
+    set: fn(size_t, &u8) -> () 
+}
+
+fn get_array_of_addresses(size: size_t, data: &u8) -> ArrayOfAddresses {
+    ArrayOfAddresses {
+        size: || {size},
+        get: |i| {bitcast[&[&u8]](data)(i)},
+        set: |i, ptr| {
+            bitcast[&mut[&u8]](data)(i) = ptr;
+        }
+    }
+}
+
+fn init_addresses(P: ParticleSystem) -> () {
+    let mut pos = 0 as size_t;
+    let addresses = P.addresses();
+    for ic, pl in iterate_over_particle_system(P.start(), P.end(), P) {
+        if(pl != 0 as &ParticleList) {
+            addresses.set(pos++, (*pl).data);
+        }
+    }
+}
+
+
+
+
+
+
+

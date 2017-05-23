@@ -1,0 +1,23 @@
+fn integrate_x(P: ParticleSystem, i: size_t, dt: real) -> ()
+{
+    let a = dt * 0.5 / P.masses().get(i);
+    let f = P.forces().get(i);
+    let tmp1 = scale_vector(a, f);
+    let v = P.velocities().get(i);
+    let tmp2 = add_vectors(v, tmp1);
+    let tmp3 = scale_vector(dt, tmp2);
+    let x = P.coordinates().get(i);
+    P.coordinates().set(i, add_vectors(x, tmp3));
+    P.forces_old().set(i, f);
+}
+
+fn integrate_v(P: ParticleSystem, i: size_t, dt: real) -> ()
+{ 
+    let a = dt * 0.5 / P.masses().get(i);
+    let f = P.forces().get(i);
+    let f_old = P.forces_old().get(i);
+    let tmp1 = add_vectors(f, f_old);
+    let tmp2 = scale_vector(a, tmp1);
+    let v = P.velocities().get(i);
+    P.velocities().set(i, add_vectors(v, tmp2)); 
+}

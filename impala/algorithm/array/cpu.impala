@@ -1,0 +1,176 @@
+
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, Constants) -> ()) -> ()
+{
+    let start = 0 as size_t;
+    let lut = P.lut();
+    for i in par_loop(start, P.np()) {
+        let p = P.getParticle(i);
+        p.setForces(get_null_vector());
+    }
+    /*
+    initialize(lut.data, lut.rows()*lut.cols()*sizeof[u8]() as size_t, 0i32); 
+    
+    for i in par_loop(start, P.np()){
+        for j in loop(start, P.np()) {
+            if(i != j)
+            {
+                let mut row = i;
+                let mut col = j; 
+                if (i > j) {
+                    row = j; 
+                    col = i;
+                } 
+                
+                if(row >= lut.rows()) {
+                    let tmp = col;
+                    col = row;
+                    row = tmp;
+                    col -= lut.rows();
+                    row -= lut.rows();
+
+                }
+                let flag = cmpxchg(&mut bitcast[&mut[u8]](lut.data)(row*lut.cols() + col), 0u8, 1u8);
+                if (flag(1) == true)
+                {
+                    force(P.getParticle(i), P.getParticle(j), P.constants());
+                }
+            }
+        }
+    }*/
+    
+    for i in loop(start, P.np()) {
+        for j in loop(i+(1 as size_t), P.np()) {
+            let p1 = P.getParticle(i);
+            let p2 = P.getParticle(j);
+            force(p1, p2, P.constants());
+        }
+    }
+}
+
+fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> () {
+    for i in loop(0 as size_t, P.np()) {
+        f(P.getParticle(i), dt);
+    }
+}
+
+fn move_particles(P: ParticleSystem) -> () {
+    for i in loop(0 as size_t, P.np()) {
+        boundary(P.getParticle(i), P.l());
+    }
+}
+
+
+fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
+{
+    let start = 0 as size_t;
+    let fp = open_file(fname);
+    let N = P.np();
+
+    fprint_line(fp, "# vtk DataFile Version 2.0");
+    fprint_string(fp, "Step ");
+    fprint_size_t(fp, step);
+    fprint_line(fp, " data");
+    fprint_line(fp, "ASCII");
+    fprint_line(fp, "DATASET UNSTRUCTURED_GRID");
+    fprint_string(fp, "POINTS ");
+    fprint_size_t(fp, N);
+    fprint_line(fp, " double");
+    loop(start, N, |i| {
+        let p = P.getParticle(i);
+        p.getCoordinates().fprint(fp);
+        fprint_string(fp, "\n");
+    });
+    fprint_string(fp, "\n\n");
+    fprint_string(fp, "CELLS ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, " ");
+    fprint_size_t(fp, (2 as size_t)*N);
+
+    fprint_string(fp, "\n");
+    loop(start, N, |i| {
+        fprint_string(fp, "1 ");
+        fprint_size_t(fp, i);
+        fprint_string(fp, "\n");
+    });
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "CELL_TYPES ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    loop(start, N, |i| {
+        fprint_string(fp, "1");
+        fprint_string(fp, "\n");
+    });
+
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "POINT_DATA ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    @loop(start, DIM, |d| {
+        fprint_string(fp, "SCALARS velocity_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        $loop(start, N, |i| {
+
+            let p = P.getParticle(i);
+            let v = p.getVelocities();
+            let x = v.x();
+            fprint_double(fp, x(d));
+            fprint_string(fp, "\n");
+        });
+        fprint_string(fp, "\n");
+    });
+
+    @loop(start, DIM, |d| {
+        fprint_string(fp, "SCALARS force_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        $loop(start, N, |i| {
+
+            let p = P.getParticle(i);
+            let v = p.getForces();
+            let x = v.x();
+            fprint_double(fp, x(d));
+            fprint_string(fp, "\n");
+        });
+        fprint_string(fp, "\n");
+    });
+
+
+    fprint_string(fp, "SCALARS mass");
+    fprint_line(fp, " double");
+    fprint_line(fp, "LOOKUP_TABLE default");
+    loop(start, N, |i| {
+        let p = P.getParticle(i);
+        let m = p.getMass();
+        fprint_double(fp, m);
+        fprint_string(fp, "\n");
+    });
+    fprint_string(fp, "\n");
+
+
+    close_file(fp);
+}
+
+
+fn print_statistics(P: ParticleSystem, t: real) -> ()
+{
+
+    let sqr = |x : real| {x*x};
+    let mut e : real = 0.0;
+    loop(0 as size_t, P.np(), |i| {
+        let p = P.getParticle(i);
+        let v = p.getVelocities().reduce(sqr, |x,y|{x+y}, 0.0);
+        e += 0.5 * p.getMass() * v;
+    });
+    print_string("t: ");
+    print_double(t);
+    print_string("\tE: ");
+    print_double(e);
+    print_char('\n');
+}

@@ -1,0 +1,94 @@
+fn init_constants(constants: &mut Constants) -> () {
+    constants.r_cut = 2.5;
+    constants.sigma = 1.0;
+    constants.epsilon = 5.0;
+}
+
+fn init_particle_system(l: Vector, constants: Constants) -> ParticleSystem {
+    let mut limit1 : [size_t * 3];
+    let mut limit2 : [size_t * 3];
+    for d in @loop(0 as size_t, DIM) {
+        limit1(d) = 10 as size_t;
+        limit2(d) = 10 as size_t;
+    }
+    limit1(0) = 100 as size_t;
+    let mut np1 = 1 as size_t;
+    let mut np2 = 1 as size_t;
+    for d in @loop(0 as size_t, DIM) {
+        np1 *= limit1(d);
+        np2 *= limit2(d);
+    }
+    let ghost_layer = 1 as size_t;
+    let P = allocate_particle_system(np1 + np2, ghost_layer, l, constants);
+    
+    let factor = math.pow(2.0, 1.0/6.0)*P.constants().sigma;
+    let mut p : Particle;
+    let mut base : [real * 3];
+    //base(0) = 50.0;
+    base(0) = 50.0;
+    base(1) = 100.0;
+    base(2) = 100.0;
+    let mut ip : [size_t * 3];
+    for d in @loop(0 as size_t, DIM) {
+        ip(d) = 0 as size_t;
+    }
+    while(ip(0) < limit1(0)) {
+        while(ip(1) < limit1(1)) {
+            while(ip(2) < limit1(2)) {
+                let node = allocate_particle_node();
+                p = get_particle_from_node(*node);
+                p.setMass(1.0);
+                p.setVelocities(get_null_vector());
+                let mut X : [real * 3];
+                for d in @loop(0 as size_t, DIM) {
+                    X(d) = base(d) + ip(d) as real * factor;
+                }
+                p.setCoordinates(get_vector(X));
+                let pos = ip(2)*limit1(0)*limit1(1) + ip(1)*limit1(1) + ip(0);
+                insert_particle(node, pos, P); 
+                ++ip(2);
+            }
+            ++ip(1);
+            ip(2) = 0 as size_t;
+        }
+        ++ip(0);
+        ip(1) = 0 as size_t;
+    }
+
+
+
+    base(0) = 100.0;
+    base(1) = 125.0;
+    base(2) = 100.0;
+
+    for d in @loop(0 as size_t, DIM) {
+        ip(d) = 0 as size_t;
+    }
+    while(ip(0) < limit2(0)) {
+        while(ip(1) < limit2(1)) {
+            while(ip(2) < limit2(2)) {
+                let node = allocate_particle_node();
+                p = get_particle_from_node(*node);
+                p.setMass(1.0);
+                p.setVelocities(get_vector([0.0, -300.0, 0.0]));
+                let mut X : [real * 3];
+
+                for d in @loop(0 as size_t, DIM) {
+                    X(d) = base(d) + ip(d) as real * factor;
+                }
+                p.setCoordinates(get_vector(X));
+                let pos = ip(2)*limit1(0)*limit1(1) + ip(1)*limit1(1) + ip(0);
+                insert_particle(node, pos, P); 
+                ++ip(2);
+            }
+            ++ip(1);
+            ip(2) = 0 as size_t;
+        }
+        ++ip(0);
+        ip(1) = 0 as size_t;
+    }
+
+    init_addresses(P);
+    P
+}
+

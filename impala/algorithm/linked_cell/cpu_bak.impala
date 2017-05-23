@@ -1,0 +1,251 @@
+
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, Constants) -> ()) -> ()
+{
+    for ic, pl1 in @iterate_over_particle_system(P.start(), P.end(), P) {
+        let p1 = get_particle_from_node(*pl1);
+        p1.setForces(get_null_vector());
+    }
+    for ic, pl1 in @iterate_over_particle_system(P.start(), P.end(), P) {
+        let p1 = get_particle_from_node(*pl1);
+        let mut jc_start = ic; 
+        let mut jc_end = ic;
+        for d in @loop(0 as size_t, DIM) {
+            jc_start(d) -= 1 as size_t;
+            jc_end(d) += 1 as size_t;
+        }
+        for jc, pl2 in iterate_over_particle_system(jc_start, jc_end, P) {
+            if((pl1 as ptr_t < pl2 as ptr_t)) {
+                let p2 = get_particle_from_node(*pl2);
+                force(p1, p2, P.constants());   
+            }
+        }
+    }
+}
+
+fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> ()
+{
+    for ic, pl in @iterate_over_particle_system(P.start(), P.end(), P) {
+        let p = get_particle_from_node(*pl);
+        f(p, dt);
+    }
+}
+
+fn move_particles(P: ParticleSystem) -> () {
+    let z = 0 as size_t;
+    for ic, root in @iterate_over_particle_cells(P.start(), P.end(), P) {
+        let mut q : &mut &ParticleList = root;
+        let mut i : &ParticleList = *q;
+        
+        while(i != 0 as &ParticleList) {    
+            let p = get_particle_from_node(*i); 
+            //boundary(p, P);
+            let kc = compute_cell_position(p, P.nc(), P.l());
+            let mut moving_node : &mut ParticleList;
+            if(ic(0) != kc(0) || ic(1) != kc(1) || ic(2) != kc(2)) {
+                moving_node = remove(q);
+                insert(P.head(index(kc, P.nc())), moving_node);
+            }
+            else {
+                q = (&(*i).next) as &mut& ParticleList;
+            }
+            i = (*q);
+        }
+    }
+
+}
+fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
+{
+    let start = 0 as size_t;
+    let fp = open_file(fname);
+    let N = P.np();
+
+    fprint_line(fp, "# vtk DataFile Version 2.0");
+    fprint_string(fp, "Step ");
+    fprint_size_t(fp, step);
+    fprint_line(fp, " data");
+    fprint_line(fp, "ASCII");
+    fprint_line(fp, "DATASET UNSTRUCTURED_GRID");
+    fprint_string(fp, "POINTS ");
+    fprint_size_t(fp, N);
+    fprint_line(fp, " double");
+    
+    let addresses = P.addresses();
+
+    for i in loop(start, N) {
+        let p = get_particle(addresses.get(i));
+        p.getCoordinates().fprint(fp);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n\n");
+    fprint_string(fp, "CELLS ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, " ");
+    fprint_size_t(fp, (2 as size_t)*N);
+
+    fprint_string(fp, "\n");
+    for i in loop(start, N){
+        fprint_string(fp, "1 ");
+        fprint_size_t(fp, i);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "CELL_TYPES ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    for i in loop(start, N) {
+        fprint_string(fp, "1");
+        fprint_string(fp, "\n");
+    }
+
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "POINT_DATA ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    for d in loop(start, DIM) {
+        fprint_string(fp, "SCALARS velocity_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        for i in loop(start, N) {
+            let p = get_particle(addresses.get(i));
+            let v = p.getVelocities();
+            let x = v.x();
+            fprint_double(fp, x(d));
+            fprint_string(fp, "\n");
+        }
+        fprint_string(fp, "\n");
+    }
+    for d in loop(start, DIM) {
+        fprint_string(fp, "SCALARS force_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        for i in loop(start, N) {
+            let p = get_particle(addresses.get(i));
+            let v = p.getForces();
+            let x = v.x();
+            fprint_double(fp, x(d));
+            fprint_string(fp, "\n");
+        }
+        fprint_string(fp, "\n");
+    }
+
+    fprint_string(fp, "SCALARS mass");
+    fprint_line(fp, " double");
+    fprint_line(fp, "LOOKUP_TABLE default");
+    for i in loop(start, N) {
+        let p = get_particle(addresses.get(i));
+        let m = p.getMass();
+        fprint_double(fp, m);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n");
+    close_file(fp);
+}
+
+/*
+fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
+{
+    let start = 0 as size_t;
+    let fp = open_file(fname);
+    let N = P.np();
+
+    let z = 0 as size_t;
+    let start = [z,z,z];
+    let end = P.nc();
+
+    fprint_line(fp, "# vtk DataFile Version 2.0");
+    fprint_string(fp, "Step ");
+    fprint_size_t(fp, step);
+    fprint_line(fp, " data");
+    fprint_line(fp, "ASCII");
+    fprint_line(fp, "DATASET UNSTRUCTURED_GRID");
+    fprint_string(fp, "POINTS ");
+    fprint_size_t(fp, N);
+    fprint_line(fp, " double");
+
+    for ic, pl in iterate_over_particle_system(start, end, P) {
+        let p = get_particle_from_cell(*pl);
+        p.getCoordinates().fprint(fp);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n\n");
+    fprint_string(fp, "CELLS ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, " ");
+    fprint_size_t(fp, (2 as size_t)*N);
+
+    fprint_string(fp, "\n");
+    for i in loop(start, N){
+        fprint_string(fp, "1 ");
+        fprint_size_t(fp, i);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "CELL_TYPES ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    for i in loop(start, N) {
+        fprint_string(fp, "1");
+        fprint_string(fp, "\n");
+    }
+
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "POINT_DATA ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    for d in loop(start, DIM) {
+        fprint_string(fp, "SCALARS velocity_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        for ic, pl in iterate_over_particle_system(start, end, P) {
+            let p = get_particle_from_cell(*pl);
+            let v = p.getVelocities();
+            let x = v.x();
+            fprint_double(fp, x(d));
+            fprint_string(fp, "\n");
+        }
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "SCALARS mass");
+    fprint_line(fp, " double");
+    fprint_line(fp, "LOOKUP_TABLE default");
+    for ic, pl in iterate_over_particle_system(start, end, P) {
+        let p = get_particle_from_cell(*pl);
+        let m = p.getMass();
+        fprint_double(fp, m);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n");
+
+
+    close_file(fp);
+    
+}
+*/
+
+fn print_statistics(P: ParticleSystem, t: real) -> ()
+{
+
+    let sqr = |x : real| {x*x};
+    let e : real = 0.0;
+    /*
+    loop(0 as size_t, P.np(), |i| {
+        let v = P.velocities().get(i).reduce(sqr, |x,y|{x+y}, 0.0);
+        e += 0.5 * P.masses().get(i) * v;
+    });*/
+    print_string("t: ");
+    print_double(t);
+    print_string("\tE: ");
+    print_double(e);
+    print_char('\n');
+}

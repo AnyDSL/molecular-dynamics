@@ -1,0 +1,58 @@
+
+
+fn iterate_over_particle_cells(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &mut &ParticleList) -> ()) -> () {
+    for i in loop(start(0), end(0)) {
+        for j in loop(start(1), end(1)) {
+            for k in loop(start(2), end(2)){
+                let ic = [i,j,k];
+                f(ic, P.head(index(ic, P.nc())));
+            }
+        }
+    }
+}
+
+
+fn iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
+    for ic, head in iterate_over_particle_cells(start, end, P) {
+        for pl in iterate_over_list(**head) {
+            f(ic, pl);
+        }
+    }
+    /* 
+    for i in loop(start(0), end(0)) {
+        for j in loop(start(1), end(1)) {
+            for k in loop(start(2), end(2)) {
+                let ic = [i,j,k];
+
+                for pl in iterate_over_list(*P.head(index(ic, P.nc()))) {
+                    f(ic, pl);
+                }
+            }
+        }
+    }*/
+}
+
+fn iterate_over_particle_system_with_ghost_layers(start: [size_t * 3], end: [size_t * 3], lower_boundary: [size_t * 3], upper_boundary :[size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList, bool) -> ()) -> () {
+    for ic, head in iterate_over_particle_cells(start, end, P) {
+        let mut write = true;
+        for d in @loop(0 as size_t, DIM) {
+            if(ic(d) < lower_boundary(d) || ic(d) >= upper_boundary(d)) {
+                write = false;
+                break;
+            }
+        }
+        for pl in iterate_over_list(**head) {
+            f(ic, pl, write);
+        }
+    }
+}
+
+fn iterate_over_list(ptr: &ParticleList, body: fn(&ParticleList) -> ()) -> () {
+    if((ptr) != (0 as & ParticleList)) { 
+        body(ptr);
+        iterate_over_list((*ptr).next, body, return)
+    }
+}
+
+
+
