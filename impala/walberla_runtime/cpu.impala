@@ -9,12 +9,16 @@ fn initialize_particle_system(np: size_t, ghost_layer: size_t, l: &[real]) -> ()
         let node = allocate_particle_node();
         let p = get_particle_from_node(*node);
         p.setCoordinates(get_vector([EPS, EPS, EPS]));
-        push_front(node, P);
+        push_node(node, P);
     }
     init_addresses(P);
     P_data_ = get_data_struct_from_particle_system(P);
 }
 
+extern fn get_address_at(i: size_t) -> size_t {
+    let P = get_particle_system_from_data_struct(P_data_);
+    P.addresses().get(i) as size_t
+}
 
 extern
 fn reinitialize_particle_system(np: size_t) -> () {
@@ -50,7 +54,7 @@ fn reinitialize_particle_system(np: size_t) -> () {
                 let node = allocate_particle_node();
                 let p = get_particle_from_node(*node);
                 p.setCoordinates(get_vector([EPS, EPS, EPS]));
-                push_front(node, P);
+                push_node(node, P);
             }
             deallocate(P.data_addresses());
             data_addresses = allocate(np * sizeof[&u8]() as size_t);
@@ -61,6 +65,17 @@ fn reinitialize_particle_system(np: size_t) -> () {
         P_data_ = get_data_struct_from_particle_system(P_new);
 
     }
+}
+
+extern 
+fn get_number_of_particles() -> size_t {
+    let P = get_particle_system_from_data_struct(P_data_);
+    P.np()
+}
+
+extern fn print_particle_system_() -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    print_particle_system(P);
 }
 
 extern

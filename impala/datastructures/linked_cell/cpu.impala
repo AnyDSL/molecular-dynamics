@@ -52,8 +52,8 @@ struct ParticleSystemData {
     data_addresses: &u8,
 }
 
-fn get_particle_system_from_data_struct(PSD: ParticleSystemData) -> ParticleSystem {
-    get_particle_system(PSD.np, PSD.nc, PSD.ghost_layer, get_vector(PSD.l), PSD.data_cells, PSD.constants, PSD.data_addresses)
+fn get_particle_system_from_data_struct(P_data: ParticleSystemData) -> ParticleSystem {
+    get_particle_system(P_data.np, P_data.nc, P_data.ghost_layer, get_vector(P_data.l), P_data.data_cells, P_data.constants, P_data.data_addresses)
 }
 
 fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData {
@@ -76,8 +76,12 @@ fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () 
     insert(root, node);
 }
 
-fn push_front(node: &mut ParticleList, P: ParticleSystem) -> () {
-    let root = P.head(0 as size_t);
+fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
+    let mut pos : [size_t * 3];
+    for d in @loop(0 as size_t, DIM) {
+        pos(d) = P.nc()(d) / 2 as size_t;
+    }
+    let root = P.head(index(pos, P.nc()));
     insert(root, node);
 }
 
@@ -135,7 +139,7 @@ fn print_particle_system(P: ParticleSystem) -> (){
                     print_long(index(ic, P.nc()) as i64);
                     print_string(" ) ");
                     for pl in iterate_over_list(*P.head(index(ic, P.nc()))) {
-                        print_long(pl as i64);
+                        print_long((*pl).data as i64);
                         print_char(' ');
                     }
                     print_char('\n');
