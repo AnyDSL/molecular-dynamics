@@ -1,7 +1,5 @@
 
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> ()) -> ()
-{
-
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> ()) -> () {
     for ic, pl1 in @iterate_over_particle_system(P.start(), P.end(), P) {
         let p1 = get_particle_from_node(*pl1);
         p1.setForces(get_null_vector());

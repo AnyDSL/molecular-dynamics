@@ -38,7 +38,6 @@ fn iterate_over_particle_system_with_ghost_layers(start: [size_t * 3], end: [siz
         for d in @loop(0 as size_t, DIM) {
             if(ic(d) < lower_boundary(d) || ic(d) >= upper_boundary(d)) {
                 write = false;
-                break;
             }
         }
         for pl in iterate_over_list(**head) {
