@@ -1,5 +1,5 @@
 
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, Constants) -> ()) -> ()
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> ()) -> ()
 {
     let start = 0 as size_t;
     let lut = P.lut();
@@ -42,7 +42,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, Constants) -> 
         for j in loop(i+(1 as size_t), P.np()) {
             let p1 = P.getParticle(i);
             let p2 = P.getParticle(j);
-            force(p1, p2, P.constants());
+            force(p1, p2, true, true, P.constants());
         }
     }
 }
