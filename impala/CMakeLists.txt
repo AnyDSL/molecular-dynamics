@@ -41,7 +41,7 @@ anydsl_runtime_wrap(MD_PROGRAM
 #FILES intrinsics/intrinsics_cpu.impala common.impala datastructures/${DATASTRUCTURE}/cpu.impala utilities/${DATASTRUCTURE}/cpu.impala algorithm/${DATASTRUCTURE}/cpu.impala initialization/body_collision.impala potential/lennard_jones.impala integration/verlet.impala boundary/rigid_walls.impala time_integration/cpu.impala run/cpu.impala )
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
-add_executable(md main.c ${MD_PROGRAM} clib/fileIO.c clib/allocate.c)
+add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(md PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
 add_test("md" md)

@@ -25,6 +25,8 @@ typedef struct ParticleSystem {
     uintptr_t *addresses;
 } ParticleSystem;
 
+void compute_cell_position(Particle *p, ParticleSystem *P, size_t jc[DIM]);
+
 void allocate_particle_system(size_t np, real l[DIM], size_t ghost_layer, Constants constants, ParticleSystem *P);
 
 void deallocate_particle_system(ParticleSystem P);

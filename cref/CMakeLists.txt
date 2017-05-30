@@ -4,8 +4,9 @@ PROJECT(C-MD)
 
 SET (CMAKE_C_COMPILER "/simdata/ja42rica/anydsl/llvm_build/bin/clang")
 INCLUDE_DIRECTORIES(include)
+INCLUDE_DIRECTORIES(../clib)
 
-FILE( GLOB_RECURSE PROJ_SOURCES source/*.c )
+FILE( GLOB_RECURSE PROJ_SOURCES source/*.c ../clib/*.c ../clib/*.h)
 FILE( GLOB_RECURSE PROJ_HEADERS include/*.h )
 
 #FIND_PACKAGE( OpenMP REQUIRED)

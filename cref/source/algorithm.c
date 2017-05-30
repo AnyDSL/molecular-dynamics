@@ -81,9 +81,7 @@ void move_particles(ParticleSystem P) {
                 size_t jc[DIM];
                 while(pl != NULL) {
                     boundary(&pl->p, P);
-                    for(size_t d = 0; d < DIM; ++d) {
-                        jc[d] = (size_t)floor(pl->p.x[d] * P.nc[d] / P.l[d]);
-                    }
+                    compute_cell_position(&pl->p, &P, jc);
                     if(ic[0] != jc[0] || ic[1] != jc[1] || ic[2] != jc[2]) {
                         removeNode(q);
                         insertNode(&(P.grid[compute_index(jc, P.nc)]), pl);

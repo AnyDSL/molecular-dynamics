@@ -11,7 +11,8 @@ fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk
         t += dt;
         
         if(vtk == true && count % (10 as size_t) == (0 as size_t)) {
-            generate_filename(i, &mut str, 32 as size_t);
+            let lang = "impala";
+            generate_filename(i, "impala", &mut str, 32 as size_t);
             fprint_particle_system(str, i, P);
             ++i;
         }

@@ -5,11 +5,11 @@
 #include <initialization.h>
 #include <algorithm.h>
 
-void run_simulation(real l[DIM], real const dt, real const t_end, bool const vtk) {
+void run_simulation(const size_t np, real l[DIM], real const dt, real const t_end, bool const vtk) {
     ParticleSystem P;
     Constants c;
     init_constants(&c);
-    init_particle_system(l, c, &P);
+    init_random(np, l, c, &P);
     time_integration(0.0, t_end, dt, P, vtk);
     deallocate_particle_system(P);
 }
@@ -24,7 +24,7 @@ void time_integration(real t_start, real t_end, real const dt, ParticleSystem P,
    while(t < t_end) {
        t += dt; 
        if(vtk == true && count % 10 == 0) {
-           generate_filename(i, str, 32);
+           generate_filename(i, "c", str, 32);
            fprint_particle_system(str, i, P);
            ++i;
        }

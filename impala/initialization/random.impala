@@ -1,0 +1,43 @@
+fn init_constants(constants: &mut Constants) -> () {
+    constants.r_cut = 2.5;
+    constants.sigma = 1.0;
+    constants.epsilon = 5.0;
+}
+
+fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
+    c_random_seed(89 as u32);
+    let ghost_layer = 1 as size_t;
+    let P = allocate_particle_system(np, ghost_layer, l, constants);
+    
+    let mut i = 0 as size_t;
+    while(i < np) {
+        let node = allocate_particle_node();
+        let p = get_particle_from_node(*node);
+        p.setMass(1.0);
+        let v_max : real = 500.0;
+        let mut X : [real * 3];
+        let mut V : [real * 3];
+        for d in @loop(0 as size_t, DIM) {
+            X(d) = l.x()(d) * c_random() as real;
+            let tmp = v_max*c_random() as real;
+            if(flip_coin()) {
+                V(d) = tmp;
+            }
+            else {
+                V(d) = -tmp;
+            }
+        }
+        p.setCoordinates(get_vector(X));
+        p.setVelocities(get_vector(V));
+        let pos = i;
+        insert_particle(node, pos, P); 
+        ++i;
+    }
+    init_addresses(P);
+    P
+}
+
+fn flip_coin() -> bool {
+    if(c_random() > 0.5) { true } else {false}
+}
+

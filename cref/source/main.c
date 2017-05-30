@@ -10,17 +10,17 @@
 
 
 void print_usage(char *name) {
-    printf("Usage: %s dt steps -vtk\n", name);
+    printf("Usage: %s dt steps particles -vtk\n", name);
 }
 int main(int argc, char** argv) {
-    if(argc != 3 && argc != 4) {
+    if(argc != 4 && argc != 5) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
 
     bool vtk = false;
-    if(argc == 4) {
-        if(strlen(argv[3]) != 4 || strncmp(argv[3], "-vtk", 4) != 0) {
+    if(argc == 5) {
+        if(strlen(argv[4]) != 4 || strncmp(argv[4], "-vtk", 4) != 0) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
@@ -28,7 +28,6 @@ int main(int argc, char** argv) {
             vtk = true;
         }
     }
-
     double l[DIM];
     l[0] = 250;
     l[1] = 250;
@@ -37,7 +36,7 @@ int main(int argc, char** argv) {
     real dt = atof(argv[1]);
     struct timeval t1, t2;
     gettimeofday(&t1, NULL);
-    run_simulation(l, dt, atol(argv[2])*dt, vtk);
+    run_simulation(atol(argv[3]), l, dt, atol(argv[2])*dt, vtk);
     gettimeofday(&t2, NULL);
     double seconds = (t2.tv_sec - t1.tv_sec);      // sec
     seconds += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
