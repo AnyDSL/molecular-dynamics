@@ -71,7 +71,7 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
 
 fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () {
     let p = get_particle_from_node(*node);
-    let kc = compute_cell_position(p, P.nc(), P.l());
+    let kc = compute_cell_position(p, P);
     let root = P.head(index(kc, P.nc()));
     insert(root, node);
 }
@@ -149,12 +149,14 @@ fn print_particle_system(P: ParticleSystem) -> (){
     }
 }
 
-fn compute_cell_position(p: Particle, nc: [size_t * 3], l: Vector) -> [size_t * 3] {
+fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
     let coordinates_x = p.getCoordinates().x();
-    let l_x = l.x();
+    let l_x = P.l().x();
+    let offset = P.ghost_layer() as real * P.constants().r_cut;
+    let nc = P.nc();
     for d in @loop((0 as size_t), DIM) {
-        kc(d) = math.floor(coordinates_x(d) * (nc(d) as real) / l_x(d)) as size_t;
+        kc(d) = math.floor((coordinates_x(d) + offset) * (nc(d) as real) / l_x(d)) as size_t;
     }
     kc
 }

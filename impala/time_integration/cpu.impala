@@ -1,5 +1,3 @@
-static PS : ParticleSystem;
-
 fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk: bool) -> ()
 {
     let mut t : real = t_start; 
@@ -9,7 +7,6 @@ fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk
     let mut str : [u8 * 32];
     compute_force(P, force);
     //print_particle_system(P);
-    
     while(t < t_end) {
         t += dt;
         

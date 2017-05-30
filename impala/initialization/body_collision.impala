@@ -4,14 +4,15 @@ fn init_constants(constants: &mut Constants) -> () {
     constants.epsilon = 5.0;
 }
 
-fn init_particle_system(l: Vector, constants: Constants) -> ParticleSystem {
+fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
     let mut limit1 : [size_t * 3];
     let mut limit2 : [size_t * 3];
+    let N = math.floor(math.pow(np as real / 11.0, 1.0/3.0)) as size_t;
     for d in @loop(0 as size_t, DIM) {
-        limit1(d) = 10 as size_t;
-        limit2(d) = 10 as size_t;
+        limit1(d) = N;
+        limit2(d) = N;
     }
-    limit1(0) = 100 as size_t;
+    limit1(0) = limit1(0) * 10 as size_t;
     let mut np1 = 1 as size_t;
     let mut np2 = 1 as size_t;
     for d in @loop(0 as size_t, DIM) {

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(ANYDSL-MD C)
 enable_testing()
 
+SET(CMAKE_C_COMPILER "/simdata/ja42rica/anydsl/llvm_build/bin/clang")
 find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
@@ -36,8 +37,8 @@ set(IMPALA_FLAGS --log-level info)
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    #FILES intrinsics/intrinsics_cpu.impala common.impala datastructures/${DATASTRUCTURE}/cpu.impala algorithm/${DATASTRUCTURE}/cpu.impala initialization/${DATASTRUCTURE}/planets.impala potential/gravitation.impala integration/verlet.impala boundary/rigid_walls.impala time_integration/cpu.impala run/${DATASTRUCTURE}/cpu.impala)
-    FILES intrinsics/intrinsics_cpu.impala common.impala datastructures/${DATASTRUCTURE}/cpu.impala utilities/${DATASTRUCTURE}/cpu.impala algorithm/${DATASTRUCTURE}/cpu.impala initialization/test.impala potential/lennard_jones.impala integration/verlet.impala boundary/rigid_walls.impala time_integration/cpu.impala run/cpu.impala )
+    FILES intrinsics/intrinsics_cpu.impala common.impala datastructures/${DATASTRUCTURE}/cpu.impala utilities/${DATASTRUCTURE}/cpu.impala algorithm/${DATASTRUCTURE}/cpu.impala initialization/random.impala potential/lennard_jones.impala integration/verlet.impala boundary/rigid_walls.impala time_integration/cpu.impala run/cpu.impala )
+#FILES intrinsics/intrinsics_cpu.impala common.impala datastructures/${DATASTRUCTURE}/cpu.impala utilities/${DATASTRUCTURE}/cpu.impala algorithm/${DATASTRUCTURE}/cpu.impala initialization/body_collision.impala potential/lennard_jones.impala integration/verlet.impala boundary/rigid_walls.impala time_integration/cpu.impala run/cpu.impala )
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
 add_executable(md main.c ${MD_PROGRAM} clib/fileIO.c clib/allocate.c)
