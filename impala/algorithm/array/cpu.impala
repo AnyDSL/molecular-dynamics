@@ -55,7 +55,7 @@ fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> () {
 
 fn move_particles(P: ParticleSystem) -> () {
     for i in loop(0 as size_t, P.np()) {
-        boundary(P.getParticle(i), P.l());
+        boundary(P.getParticle(i), P);
     }
 }
 

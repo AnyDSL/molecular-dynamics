@@ -92,6 +92,13 @@ fn set_velocities(V: &[real], i: size_t) -> () {
 }
 
 extern
+fn set_forces(F: &[real], i: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let p = get_particle(P.addresses().get(i));
+    p.setForces(get_vector([F(0), F(1), F(2)]));
+}
+
+extern
 fn set_mass(m: real, i: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let p = get_particle(P.addresses().get(i));
@@ -119,6 +126,16 @@ fn get_velocities(V: &mut [real], i: size_t) -> () {
 }
 
 extern
+fn get_forces(F: &mut [real], i: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let p = get_particle(P.addresses().get(i));
+    let tmp = p.getForces();
+    for d in @loop(0 as size_t, DIM) {
+        F(d) = tmp.x()(d); 
+    }
+}
+
+extern
 fn get_mass(i: size_t) -> real {
     let P = get_particle_system_from_data_struct(P_data_);
     let p = get_particle(P.addresses().get(i));
@@ -126,7 +143,7 @@ fn get_mass(i: size_t) -> real {
 }
 
 extern
-fn move_particle_system() -> () {
+fn sort_particle_system() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     move_particles(P);
 }
