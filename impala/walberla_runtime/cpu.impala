@@ -172,3 +172,13 @@ fn clean_up() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     deallocate_particle_system(P);
 }
+
+extern 
+fn fprint_particles(step: size_t, rank: i32) -> ()  {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let mut str : [u8 * 32];
+    if(rank == 0) {
+        generate_filename(step, "impala", &mut str, 32 as size_t);
+        fprint_particle_system(str, step, P);
+    }
+}
