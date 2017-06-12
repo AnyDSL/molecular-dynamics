@@ -63,9 +63,9 @@ extern "C" {
     void print_particle_system_();
     size_t get_number_of_particles();
     size_t get_address_at(size_t);
-    void position_update();
+    void position_update(double);
     void force_update();
-    void velocity_update();
+    void velocity_update(double);
     void fprint_particles(size_t, int);
 }
 
@@ -136,7 +136,7 @@ int main( int argc, char ** argv )
    WALBERLA_LOG_INFO_ON_ROOT("dt: " << dt);
    realProperties["dt"] = dt;
 
-   const int visSpacing = mainConf.getParameter<int>("visSpacing",  1000 );
+   const int visSpacing = mainConf.getParameter<int>("visSpacing",  1 );
    WALBERLA_LOG_INFO_ON_ROOT("visSpacing: " << visSpacing);
    const std::string path = mainConf.getParameter<std::string>("path",  "vtk_out" );
    WALBERLA_LOG_INFO_ON_ROOT("path: " << path);
@@ -238,8 +238,7 @@ int main( int argc, char ** argv )
    Vec3 min, max;
    Vec3 shift;
    size_t const ghost_layer = 1;
-
-   /*
+/*
    bool initialized = false;
    for (auto blkIt = forest->begin(); blkIt != forest->end(); ++blkIt) {
        IBlock & currentBlock = *blkIt;
@@ -277,33 +276,26 @@ int main( int argc, char ** argv )
        }
    }
 
-   WALBERLA_LOG_INFO_ON_ROOT("l[0]: " << l[0]); 
-   WALBERLA_LOG_INFO_ON_ROOT("l[1]: " << l[1]); 
-   WALBERLA_LOG_INFO_ON_ROOT("l[2]: " << l[2]); 
    initialize_particle_system(np_local, ghost_layer, l);
-   */
-
-   WALBERLA_LOG_INFO_ON_ROOT("#particles on root: " << np_local); 
-   //print_particle_system_();
+*/
    tt.stop("Cell creation");
-
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - START ***");
    WcTimingPool tp;
    tt.start("Simulation Loop");
    tp["Total"].start();
    for (int i=0; i < simulationSteps; ++i)
-   //for (int i=0; i < 2; ++i)
    {
        if( i % 10 == 0 )
        {
            WALBERLA_LOG_DEVEL_ON_ROOT( "Timestep " << i << " / " << simulationSteps );
        }
-
+       vtkWriter->write( true );
        tp["Solver"].start();
-       ///////////////* Solver Begin */////////////////
 
+       ///////////////* Solver Begin */////////////////
        for (auto blkIt = forest->begin(); blkIt != forest->end(); ++blkIt)
        {
+           tp["Initialization"].start();
            IBlock & currentBlock = *blkIt;
            auto aabb = currentBlock.getAABB();
            
@@ -314,6 +306,8 @@ int main( int argc, char ** argv )
            max[1] = aabb.yMax();
            max[2] = aabb.zMax();
            for(size_t d = 0; d < DIM; ++d) {
+               //WALBERLA_LOG_INFO_ON_ROOT("min[" << d << "]" << min[d]);
+               //WALBERLA_LOG_INFO_ON_ROOT("max[" << d << "]" << max[d]);
                if(min[d] < 0) {
                    shift[d] = -min[d];
                    l[d] = max[d] + shift[d];
@@ -323,6 +317,7 @@ int main( int argc, char ** argv )
                    shift[d] = 0.0;
                }
            }
+
            Storage * storage = currentBlock.getData< Storage >( storageID );
            BodyStorage& localStorage = (*storage)[0];
            BodyStorage& shadowStorage = (*storage)[1];
@@ -330,11 +325,11 @@ int main( int argc, char ** argv )
            initialize_particle_system(np_local, ghost_layer, l);
            //reinitialize_particle_system(np_local);
            //WALBERLA_LOG_INFO_ON_ROOT("#particles on root: " << np_local); 
-
            size_t j = 0;
            for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
                //WALBERLA_LOG_INFO_ON_ROOT("address " << j << " on root: " << get_address_at(j)); 
                double mass = bodyIt->getMass();
+               //double mass = 1.0;
                auto position = bodyIt->getPosition();
                auto velocity = bodyIt->getLinearVel();
                auto force = bodyIt->getForce();
@@ -344,6 +339,13 @@ int main( int argc, char ** argv )
                    V[d] = velocity[d];
                    F[d] = force[d];
                }
+               //WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
+               //WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
+               //log_vector(position);
+               //WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
+               //log_vector(velocity);
+               //WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
+               //log_vector(force);
                set_mass(mass, j);
                set_coordinates(X, j);
                set_velocities(V, j);
@@ -354,6 +356,7 @@ int main( int argc, char ** argv )
            for( auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
                //WALBERLA_LOG_INFO_ON_ROOT("address " << j << " on root: " << get_address_at(j)); 
                double mass = bodyIt->getMass();
+               //double mass = 1.0;
                auto position = bodyIt->getPosition();
                auto velocity = bodyIt->getLinearVel();
                double X[DIM], V[DIM], F[DIM];
@@ -368,19 +371,23 @@ int main( int argc, char ** argv )
                set_forces(F, j);
                ++j;
            }
+            tp["Initialization"].end();
+
+            tp["Linked-Cell"].start();
            // Linked-Cell Algorithm
+           //fprint_particles((size_t)i, 0); 
            if(i == 0) {
                sort_particle_system();
                force_update();
            }
-           position_update();
+           position_update((double)dt);
            sort_particle_system();
            force_update();
-           velocity_update();
-           /*WALBERLA_ROOT_SECTION() {
-               fprint_particles((size_t)i, 0);
-           }*/
+           velocity_update((double)dt);
 
+            tp["Linked-Cell"].end();
+
+            tp["Write-Back"].start();
            j = 0;
            for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
                double X[DIM], V[DIM], F[DIM];
@@ -389,30 +396,36 @@ int main( int argc, char ** argv )
                get_forces(F, j);
                Vec3 force, velocity, position;
                for(size_t d = 0; d < DIM; ++d) {
+                   //position[d] = std::min(std::max(X[d] - shift[d], min[d]), max[d]);
                    position[d] = X[d] - shift[d];
                    velocity[d] = V[d];
                    force[d] = F[d];
                }
+
+               //WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
+               //WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
+               //log_vector(position);
+               //WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
+               //log_vector(velocity);
+               //WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
+               //log_vector(force);
                bodyIt->setPosition(position);
                bodyIt->setLinearVel(velocity);
                bodyIt->setForce(force);
                ++j;
            }
            clean_up();
+            tp["Write-Back"].start();
 
        }
        ///////////////* Solver End */////////////////
+       
 
 
        tp["Solver"].end();
        tp["Sync"].start();
        pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
        tp["Sync"].end();
-
-       //      if( i % visSpacing == 0 )
-       //      {
-       //         vtkWriter->write( true );
-       //      }
    }
    tp["Total"].end();
    tt.stop("Simulation Loop");

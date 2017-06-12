@@ -23,47 +23,46 @@ extern fn get_address_at(i: size_t) -> size_t {
 extern
 fn reinitialize_particle_system(np: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    if(P.np() != np) {
-        let mut data_addresses : &u8;
-        if(P.np() > np) {
-            let mut i = 0 as size_t;
-            let nc = P.nc();
-            let mut end = 1 as size_t;
-            
+    let np_old = P.np();
+    if(np_old != np) {
+        let constants = P.constants();
+        let data_cells = P.data_cells();
+        let ghost_layer = P.ghost_layer();
+        let l = increase_vector(-2.0*(ghost_layer as real)*constants.r_cut, P.l());
+        let nc = P.nc();
+        deallocate(P.data_addresses());
+        let data_addresses = allocate(np * sizeof[&u8]() as size_t);
+        let P_new = get_particle_system(np, nc, ghost_layer, l, data_cells, constants, data_addresses);
+        if(np_old > np) {
+            let mut end = 1 as size_t; 
             for d in @loop(0 as size_t, DIM) {
                 end *= nc(d);
             }
-            
-            for j in loop(np, P.np()) {
-                for c in loop(i, end) {
-                    let head = P.head(c);
-                    if(*head != 0 as &ParticleList) {
-                        let node = remove(head);
-                        deallocate_particle_node(node);
-                    }
-                    else {
-                        ++i;
-                    }
+            let mut j = np;
+            let mut c = 0 as size_t;
+            while (j+1 as size_t < np_old && c < end) {
+                let head = P_new.head(c);
+                let node = remove(head);
+                if(node != 0 as &mut ParticleList) {
+                    deallocate_particle_node(node);
+                    ++j;
+                }
+                else {
+                    ++c;
                 }
             }
-            data_addresses = P.data_addresses();
         }
-        else {
-            
-            for j in loop(P.np(), np) {
+        else {        
+            for j in loop(np_old, np) {
                 let node = allocate_particle_node();
                 let p = get_particle_from_node(*node);
                 p.setCoordinates(get_vector([EPS, EPS, EPS]));
-                push_node(node, P);
+                push_node(node, P_new);
             }
-            deallocate(P.data_addresses());
-            data_addresses = allocate(np * sizeof[&u8]() as size_t);
         }
-        let data_cells = P.data_cells();
-        let P_new = get_particle_system(np, P.nc(), P.ghost_layer(), P.l(), data_cells, P.constants(), data_addresses);
         init_addresses(P_new);
         P_data_ = get_data_struct_from_particle_system(P_new);
-
+        
     }
 }
 
