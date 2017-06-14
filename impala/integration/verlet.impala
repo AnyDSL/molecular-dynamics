@@ -8,6 +8,9 @@ fn integrate_x(p: Particle, dt: real) -> ()
     let v = p.getVelocities();
     let tmp2 = add_vectors(v, tmp1);
     let tmp3 = scale_vector(dt, tmp2);
+    //print_string("tmp3: ");
+    //tmp3.print();
+    //print_string("\n");
     let x = p.getCoordinates();
     p.setCoordinates(add_vectors(x, tmp3));
     p.setForces_old(f);

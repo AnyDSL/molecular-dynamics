@@ -180,9 +180,16 @@ fn get_array_of_addresses(size: size_t, data: &u8) -> ArrayOfAddresses {
 }
 
 fn init_addresses(P: ParticleSystem) -> () {
+    let z = 0 as size_t;
+    let mut ic_start : [size_t * 3];
+    for d in @loop(0 as size_t, DIM) {
+        ic_start(d) = z;
+    }
+    let ic_end = P.nc();
     let mut pos = 0 as size_t;
     let addresses = P.addresses();
-    for ic, pl in iterate_over_particle_system(P.start(), P.end(), P) {
+    for ic, pl in iterate_over_particle_system(ic_start, ic_end, P) {
+    //for ic, pl in iterate_over_particle_system(P.start(), P.end(), P) {
         if(pl != 0 as &ParticleList) {
             addresses.set(pos++, (*pl).data);
         }

@@ -44,7 +44,16 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
 
 fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> ()
 {
-    for ic, pl in @iterate_over_particle_system(P.start(), P.end(), P) {
+    let z = 0 as size_t;
+    let mut ic_start : [size_t * 3];
+    for d in @loop(0 as size_t, DIM) {
+        ic_start(d) = z;
+    }
+    let ic_end = P.nc();
+    for ic, pl in @iterate_over_particle_system(ic_start, ic_end, P) {
+        //print_string("Cell:");
+        //print_long((*pl).data as i64);
+        //print_string("\n");
         let p = get_particle_from_node(*pl);
         f(p, dt);
     }

@@ -28,24 +28,24 @@ fn reinitialize_particle_system(np: size_t) -> () {
         let constants = P.constants();
         let data_cells = P.data_cells();
         let ghost_layer = P.ghost_layer();
-        let l = increase_vector(-2.0*(ghost_layer as real)*constants.r_cut, P.l());
+        let l = P.l();
         let nc = P.nc();
         deallocate(P.data_addresses());
         let data_addresses = allocate(np * sizeof[&u8]() as size_t);
         let P_new = get_particle_system(np, nc, ghost_layer, l, data_cells, constants, data_addresses);
         if(np_old > np) {
-            let mut end = 1 as size_t; 
+            let mut end = 1 as size_t;
             for d in @loop(0 as size_t, DIM) {
                 end *= nc(d);
             }
-            let mut j = np;
+            let mut j = np_old as size_t;
             let mut c = 0 as size_t;
-            while (j+1 as size_t < np_old && c < end) {
+            while (j > np as size_t && c < end) {
                 let head = P_new.head(c);
                 let node = remove(head);
                 if(node != 0 as &mut ParticleList) {
                     deallocate_particle_node(node);
-                    ++j;
+                    --j;
                 }
                 else {
                     ++c;
@@ -61,8 +61,7 @@ fn reinitialize_particle_system(np: size_t) -> () {
             }
         }
         init_addresses(P_new);
-        P_data_ = get_data_struct_from_particle_system(P_new);
-        
+        P_data_ = get_data_struct_from_particle_system(P_new);        
     }
 }
 
@@ -180,4 +179,11 @@ fn fprint_particles(step: size_t, rank: i32) -> ()  {
         generate_filename(step, "impala", &mut str, 32 as size_t);
         fprint_particle_system(str, step, P);
     }
+}
+
+
+extern 
+fn print_particles() -> ()  {
+    let P = get_particle_system_from_data_struct(P_data_);
+    print_particle_system(P);
 }

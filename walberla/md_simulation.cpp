@@ -67,6 +67,7 @@ extern "C" {
     void force_update();
     void velocity_update(double);
     void fprint_particles(size_t, int);
+    void print_particles();
 }
 
 constexpr size_t DIM = 3;
@@ -237,16 +238,17 @@ int main( int argc, char ** argv )
    uint_t np_local = 0;
    Vec3 min, max;
    Vec3 shift;
-   size_t const ghost_layer = 1;
-/*
+   size_t const ghost_layer = 2;
    bool initialized = false;
    for (auto blkIt = forest->begin(); blkIt != forest->end(); ++blkIt) {
+
        IBlock & currentBlock = *blkIt;
        Storage * storage = currentBlock.getData< Storage >( storageID );
        BodyStorage& localStorage = (*storage)[0];
        BodyStorage& shadowStorage = (*storage)[1];
        np_local = std::max(np_local, localStorage.size() + shadowStorage.size());
        auto aabb = currentBlock.getAABB();
+
        if(!initialized) {
            min[0] = aabb.xMin();
            min[1] = aabb.yMin();
@@ -277,7 +279,6 @@ int main( int argc, char ** argv )
    }
 
    initialize_particle_system(np_local, ghost_layer, l);
-*/
    tt.stop("Cell creation");
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - START ***");
    WcTimingPool tp;
@@ -297,8 +298,8 @@ int main( int argc, char ** argv )
        {
            tp["Initialization"].start();
            IBlock & currentBlock = *blkIt;
+           /*
            auto aabb = currentBlock.getAABB();
-           
            min[0] = aabb.xMin();
            min[1] = aabb.yMin();
            min[2] = aabb.zMin();
@@ -317,13 +318,17 @@ int main( int argc, char ** argv )
                    shift[d] = 0.0;
                }
            }
-
+           */
            Storage * storage = currentBlock.getData< Storage >( storageID );
            BodyStorage& localStorage = (*storage)[0];
            BodyStorage& shadowStorage = (*storage)[1];
            np_local = localStorage.size() + shadowStorage.size();
-           initialize_particle_system(np_local, ghost_layer, l);
-           //reinitialize_particle_system(np_local);
+           //initialize_particle_system(np_local, ghost_layer, l);
+           //print_particles();
+           
+           //WALBERLA_LOG_INFO_ON_ROOT("Reinitialization"); 
+           reinitialize_particle_system(np_local);
+           //print_particles();
            //WALBERLA_LOG_INFO_ON_ROOT("#particles on root: " << np_local); 
            size_t j = 0;
            for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
@@ -339,13 +344,15 @@ int main( int argc, char ** argv )
                    V[d] = velocity[d];
                    F[d] = force[d];
                }
-               //WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
-               //WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
-               //log_vector(position);
-               //WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
-               //log_vector(velocity);
-               //WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
-               //log_vector(force);
+               /*
+               WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
+               WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
+               log_vector(position);
+               WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
+               log_vector(velocity);
+               WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
+               log_vector(force);
+               */
                set_mass(mass, j);
                set_coordinates(X, j);
                set_velocities(V, j);
@@ -376,6 +383,7 @@ int main( int argc, char ** argv )
             tp["Linked-Cell"].start();
            // Linked-Cell Algorithm
            //fprint_particles((size_t)i, 0); 
+           //print_particles(); 
            if(i == 0) {
                sort_particle_system();
                force_update();
@@ -402,19 +410,21 @@ int main( int argc, char ** argv )
                    force[d] = F[d];
                }
 
-               //WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
-               //WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
-               //log_vector(position);
-               //WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
-               //log_vector(velocity);
-               //WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
-               //log_vector(force);
+               /*
+               WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
+               WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
+               log_vector(position);
+               WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
+               log_vector(velocity);
+               WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
+               log_vector(force);
+               */
                bodyIt->setPosition(position);
                bodyIt->setLinearVel(velocity);
                bodyIt->setForce(force);
                ++j;
            }
-           clean_up();
+           //clean_up();
             tp["Write-Back"].start();
 
        }
@@ -429,7 +439,7 @@ int main( int argc, char ** argv )
    }
    tp["Total"].end();
    tt.stop("Simulation Loop");
-   //clean_up();
+   clean_up();
    MPI_Barrier(MPI_COMM_WORLD);
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - END ***");
 

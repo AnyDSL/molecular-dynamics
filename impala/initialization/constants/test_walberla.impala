@@ -1,5 +1,5 @@
 fn init_constants(constants: &mut Constants) -> () {
-    constants.r_cut = 0.5;
+    constants.r_cut = 2.5;
     constants.sigma = 1.0;
     constants.epsilon = 5.0;
 }
