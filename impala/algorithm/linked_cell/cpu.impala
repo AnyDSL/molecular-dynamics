@@ -32,7 +32,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         }
         for pl1 in iterate_over_list(**head) {
             let p1 = get_particle_from_node(*pl1);
-            for jc, pl2, write_j, in iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
+            for jc, pl2, write_j, in @iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
                     let p2 = get_particle_from_node(*pl2);
                     force(p1, p2, write_i, write_j, P.constants());
@@ -42,8 +42,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
     }
 }
 
-fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> ()
-{
+fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> () {
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
     for d in @loop(0 as size_t, DIM) {
@@ -51,9 +50,6 @@ fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> ()
     }
     let ic_end = P.nc();
     for ic, pl in @iterate_over_particle_system(ic_start, ic_end, P) {
-        //print_string("Cell:");
-        //print_long((*pl).data as i64);
-        //print_string("\n");
         let p = get_particle_from_node(*pl);
         f(p, dt);
     }

@@ -125,9 +125,9 @@ int main( int argc, char ** argv )
    WALBERLA_LOG_INFO_ON_ROOT("vMax: " << vMax);
    realProperties["vMax"] = vMax;
 
-   //int warmupSteps = mainConf.getParameter<int>("warmupSteps", 0 );
-   //WALBERLA_LOG_INFO_ON_ROOT("warmupSteps: " << warmupSteps);
-   //integerProperties["warmupSteps"] = warmupSteps;
+   int warmupSteps = mainConf.getParameter<int>("warmupSteps", 0 );
+   WALBERLA_LOG_INFO_ON_ROOT("warmupSteps: " << warmupSteps);
+   integerProperties["warmupSteps"] = warmupSteps;
 
    int simulationSteps = mainConf.getParameter<int>("simulationSteps", 200 );
    WALBERLA_LOG_INFO_ON_ROOT("simulationSteps: " << simulationSteps);
@@ -179,8 +179,6 @@ int main( int argc, char ** argv )
    MPI_Barrier(MPI_COMM_WORLD);
    // add block data
    auto storageID           = forest->addBlockData(createStorageDataHandling<BodyTuple>(), "Storage");
-   //auto ccdID               = forest->addBlockData(ccd::createHashGridsDataHandling( globalBodyStorage, storageID ), "CCD");
-   //auto fcdID               = forest->addBlockData(fcd::createSimpleFCDDataHandling<BodyTuple>(), "FCD");
 
    WALBERLA_LOG_INFO_ON_ROOT("*** SYNCCALL ***");
    pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
@@ -217,11 +215,11 @@ int main( int argc, char ** argv )
          if (sp != NULL) ++numParticles;
       }
    }
-
    tt.stop("Particle Creation");
       
+   WALBERLA_LOG_INFO_ON_ROOT("#particles per process: " << numParticles);
    mpi::reduceInplace(numParticles, mpi::SUM);
-   WALBERLA_LOG_INFO_ON_ROOT("#particles created: " << numParticles);
+   WALBERLA_LOG_INFO_ON_ROOT("#particles in total: " << numParticles);
 
    WALBERLA_LOG_INFO_ON_ROOT("*** SETUP - END ***");
 
@@ -238,7 +236,7 @@ int main( int argc, char ** argv )
    uint_t np_local = 0;
    Vec3 min, max;
    Vec3 shift;
-   size_t const ghost_layer = 2;
+   size_t const ghost_layer = 10;
    bool initialized = false;
    for (auto blkIt = forest->begin(); blkIt != forest->end(); ++blkIt) {
 
@@ -290,7 +288,12 @@ int main( int argc, char ** argv )
        {
            WALBERLA_LOG_DEVEL_ON_ROOT( "Timestep " << i << " / " << simulationSteps );
        }
-       vtkWriter->write( true );
+       tp["Visualization"].start();
+       if( i % visSpacing == 0 )
+       {
+           vtkWriter->write( true );
+       }
+       tp["Visualization"].end();
        tp["Solver"].start();
 
        ///////////////* Solver Begin */////////////////
@@ -298,43 +301,14 @@ int main( int argc, char ** argv )
        {
            tp["Initialization"].start();
            IBlock & currentBlock = *blkIt;
-           /*
-           auto aabb = currentBlock.getAABB();
-           min[0] = aabb.xMin();
-           min[1] = aabb.yMin();
-           min[2] = aabb.zMin();
-           max[0] = aabb.xMax();
-           max[1] = aabb.yMax();
-           max[2] = aabb.zMax();
-           for(size_t d = 0; d < DIM; ++d) {
-               //WALBERLA_LOG_INFO_ON_ROOT("min[" << d << "]" << min[d]);
-               //WALBERLA_LOG_INFO_ON_ROOT("max[" << d << "]" << max[d]);
-               if(min[d] < 0) {
-                   shift[d] = -min[d];
-                   l[d] = max[d] + shift[d];
-               }
-               else {
-                   l[d] = max[d];
-                   shift[d] = 0.0;
-               }
-           }
-           */
            Storage * storage = currentBlock.getData< Storage >( storageID );
            BodyStorage& localStorage = (*storage)[0];
            BodyStorage& shadowStorage = (*storage)[1];
            np_local = localStorage.size() + shadowStorage.size();
-           //initialize_particle_system(np_local, ghost_layer, l);
-           //print_particles();
-           
-           //WALBERLA_LOG_INFO_ON_ROOT("Reinitialization"); 
            reinitialize_particle_system(np_local);
-           //print_particles();
-           //WALBERLA_LOG_INFO_ON_ROOT("#particles on root: " << np_local); 
            size_t j = 0;
            for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
-               //WALBERLA_LOG_INFO_ON_ROOT("address " << j << " on root: " << get_address_at(j)); 
                double mass = bodyIt->getMass();
-               //double mass = 1.0;
                auto position = bodyIt->getPosition();
                auto velocity = bodyIt->getLinearVel();
                auto force = bodyIt->getForce();
@@ -361,29 +335,22 @@ int main( int argc, char ** argv )
            }
 
            for( auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
-               //WALBERLA_LOG_INFO_ON_ROOT("address " << j << " on root: " << get_address_at(j)); 
                double mass = bodyIt->getMass();
-               //double mass = 1.0;
                auto position = bodyIt->getPosition();
                auto velocity = bodyIt->getLinearVel();
                double X[DIM], V[DIM], F[DIM];
                for(size_t d = 0; d < DIM; ++d) {
                    X[d] = position[d] + shift[d];
                    V[d] = velocity[d];
-                   F[d] = 0.0;
                }
                set_mass(mass, j);
                set_coordinates(X, j);
                set_velocities(V, j);
-               set_forces(F, j);
                ++j;
            }
-            tp["Initialization"].end();
+           tp["Initialization"].end();
 
-            tp["Linked-Cell"].start();
-           // Linked-Cell Algorithm
-           //fprint_particles((size_t)i, 0); 
-           //print_particles(); 
+           tp["Linked-Cell"].start();
            if(i == 0) {
                sort_particle_system();
                force_update();
@@ -392,10 +359,9 @@ int main( int argc, char ** argv )
            sort_particle_system();
            force_update();
            velocity_update((double)dt);
+           tp["Linked-Cell"].end();
 
-            tp["Linked-Cell"].end();
-
-            tp["Write-Back"].start();
+           tp["Write-Back"].start();
            j = 0;
            for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
                double X[DIM], V[DIM], F[DIM];
@@ -404,7 +370,6 @@ int main( int argc, char ** argv )
                get_forces(F, j);
                Vec3 force, velocity, position;
                for(size_t d = 0; d < DIM; ++d) {
-                   //position[d] = std::min(std::max(X[d] - shift[d], min[d]), max[d]);
                    position[d] = X[d] - shift[d];
                    velocity[d] = V[d];
                    force[d] = F[d];
@@ -424,8 +389,7 @@ int main( int argc, char ** argv )
                bodyIt->setForce(force);
                ++j;
            }
-           //clean_up();
-            tp["Write-Back"].start();
+           tp["Write-Back"].start();
 
        }
        ///////////////* Solver End */////////////////
@@ -437,9 +401,9 @@ int main( int argc, char ** argv )
        pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
        tp["Sync"].end();
    }
+   clean_up();
    tp["Total"].end();
    tt.stop("Simulation Loop");
-   clean_up();
    MPI_Barrier(MPI_COMM_WORLD);
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - END ***");
 
