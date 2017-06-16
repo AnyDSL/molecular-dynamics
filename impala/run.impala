@@ -1,3 +1,13 @@
+extern
+fn run_simulation(np: size_t, l: &[real], dt : real, t_end : real, vtk: bool) -> () {
+    let mut constants : Constants;
+    init_constants(&mut constants);
+    let v = get_vector([l(0), l(1), l(2)]);    
+    let P = init_particle_system(np, v, constants);
+    time_integration(0.0, t_end, dt, P, vtk);
+    deallocate_particle_system(P);
+}
+
 fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk: bool) -> ()
 {
     let mut t : real = t_start; 
@@ -17,10 +27,10 @@ fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk
             ++i;
         }
         
-        update(P, dt, integrate_x);
+        update(P, P.start(), P.end(), dt, integrate_x);
         move_particles(P);
         compute_force(P, force);
-        update(P, dt, integrate_v);
+        update(P, P.start(), P.end(), dt, integrate_v);
         //print_statistics(P, t); 
         ++count;
     }

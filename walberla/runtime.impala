@@ -155,13 +155,19 @@ fn force_update() -> () {
 extern
 fn position_update(dt: real) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    update(P, dt, integrate_x);
+    let z = 0 as size_t;
+    let mut ic_start : [size_t * 3];
+    for d in @loop(0 as size_t, DIM) {
+        ic_start(d) = z;
+    }
+    let ic_end = P.nc();
+    update(P, ic_start, ic_end, dt, integrate_x);
 }
 
 extern
 fn velocity_update(dt: real) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    update(P, dt, integrate_v);
+    update(P, P.start(), P.end(), dt, integrate_v);
 }
 
 

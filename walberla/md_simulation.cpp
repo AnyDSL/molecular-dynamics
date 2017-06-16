@@ -236,7 +236,7 @@ int main( int argc, char ** argv )
    uint_t np_local = 0;
    Vec3 min, max;
    Vec3 shift;
-   size_t const ghost_layer = 10;
+   size_t const ghost_layer = 1;
    bool initialized = false;
    for (auto blkIt = forest->begin(); blkIt != forest->end(); ++blkIt) {
 
