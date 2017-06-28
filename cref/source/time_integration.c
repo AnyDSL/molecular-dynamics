@@ -9,7 +9,7 @@ void run_simulation(const size_t np, real l[DIM], real const dt, real const t_en
     ParticleSystem P;
     Constants c;
     init_constants(&c);
-    init_random(np, l, c, &P);
+    init_body_collision(np, l, c, &P);
     time_integration(0.0, t_end, dt, P, vtk);
     deallocate_particle_system(P);
 }

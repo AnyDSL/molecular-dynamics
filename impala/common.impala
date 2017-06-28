@@ -254,6 +254,14 @@ fn delete_list(root: &mut &ParticleList) -> () {
     }
 }
 
+fn iterate_over_list(ptr: &ParticleList, body: fn(&ParticleList) -> ()) -> () {
+    if((ptr) != (0 as & ParticleList)) { 
+        body(ptr);
+        iterate_over_list((*ptr).next, body, return)
+    }
+}
+
+
 fn loop(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
     if lower < upper {
         body(lower);

@@ -116,7 +116,7 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
     deallocate(P.data_addresses());
 }
 
-fn print_particle_system(P: ParticleSystem) -> (){    
+/*fn print_particle_system(P: ParticleSystem) -> (){    
     let mut ic_start : [size_t * 3];
     let ic_end = P.nc();
     for d in @loop(0 as size_t, DIM) {
@@ -147,7 +147,7 @@ fn print_particle_system(P: ParticleSystem) -> (){
             }
         }
     }
-}
+}*/
 
 fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
@@ -178,7 +178,6 @@ fn get_array_of_addresses(size: size_t, data: &u8) -> ArrayOfAddresses {
         }
     }
 }
-
 fn init_addresses(P: ParticleSystem) -> () {
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
@@ -195,10 +194,34 @@ fn init_addresses(P: ParticleSystem) -> () {
         }
     }
 }
-
-
-
-
-
-
+fn iterate_over_particle_cells(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
+    for i in loop(start(0), end(0)) {
+        for j in loop(start(1), end(1)) {
+            for k in loop(start(2), end(2)){
+                let ic = [i,j,k];
+                f(ic, *P.head(index(ic, P.nc())));
+            }
+        }
+    }
+}
+fn iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
+    for ic, head in iterate_over_particle_cells(start, end, P) {
+        for pl in iterate_over_list(head) {
+            f(ic, pl);
+        }
+    }
+}
+fn iterate_over_particle_system_with_ghost_layers(start: [size_t * 3], end: [size_t * 3], lower_boundary: [size_t * 3], upper_boundary :[size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList, bool) -> ()) -> () {
+    for ic, head in iterate_over_particle_cells(start, end, P) {
+        let mut write = true;
+        for d in @loop(0 as size_t, DIM) {
+            if(ic(d) < lower_boundary(d) || ic(d) >= upper_boundary(d)) {
+                write = false;
+            }
+        }
+        for pl in iterate_over_list(head) {
+            f(ic, pl, write);
+        }
+    }
+}
 

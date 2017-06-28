@@ -2,7 +2,7 @@ CMAKE_MINIMUM_REQUIRED( VERSION 2.6 )
 PROJECT(C-MD)
 
 
-SET (CMAKE_C_COMPILER "/simdata/ja42rica/anydsl/llvm_build/bin/clang")
+SET (CMAKE_C_COMPILER "/simdata/schmitt/anydsl/llvm_build/bin/clang")
 INCLUDE_DIRECTORIES(include)
 INCLUDE_DIRECTORIES(../clib)
 

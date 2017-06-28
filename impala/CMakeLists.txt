@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(ANYDSL-MD C)
 enable_testing()
 
-SET(CMAKE_C_COMPILER "/simdata/ja42rica/anydsl/llvm_build/bin/clang")
+SET(CMAKE_C_COMPILER "/simdata/schmitt/anydsl/llvm_build/bin/clang")
 find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
@@ -23,7 +23,7 @@ string(TOLOWER "${INIT}" INIT)
 message(STATUS "Selected particle initialization method: ${INIT}")
 
 set(CLANG_FLAGS -O3 -march=native)
-set(IMPALA_FLAGS --log-level info)
+set(IMPALA_FLAGS --log-level warn)
 
 #set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL")
 #if(NOT BACKEND)
@@ -44,7 +44,7 @@ set(IMPALA_FLAGS --log-level info)
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES intrinsics/intrinsics_cpu.impala common.impala datastructures/${DATASTRUCTURE}.impala utilities/${DATASTRUCTURE}.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala potential/lennard_jones.impala integration/verlet.impala boundary/default.impala run.impala )
+    FILES intrinsics/intrinsics_cpu.impala common.impala potential/lennard_jones.impala datastructures/${DATASTRUCTURE}.impala boundary/default.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala run.impala)
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
 add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)
