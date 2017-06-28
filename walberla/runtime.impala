@@ -71,10 +71,11 @@ fn get_number_of_particles() -> size_t {
     P.np()
 }
 
+/*
 extern fn print_particle_system_() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     print_particle_system(P);
-}
+}*/
 
 extern
 fn set_coordinates(X: &[real], i: size_t) -> () {
@@ -185,11 +186,4 @@ fn fprint_particles(step: size_t, rank: i32) -> ()  {
         generate_filename(step, "impala", &mut str, 32 as size_t);
         fprint_particle_system(str, step, P);
     }
-}
-
-
-extern 
-fn print_particles() -> ()  {
-    let P = get_particle_system_from_data_struct(P_data_);
-    print_particle_system(P);
 }
