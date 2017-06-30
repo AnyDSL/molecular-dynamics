@@ -1,19 +1,36 @@
-extern
-fn run_simulation(np: size_t, l: &[real], dt : real, t_end : real, vtk: bool) -> () {
+static mut P_data_ : ParticleSystemData;
+
+extern 
+fn initialize_system(np: size_t, l: &[real]) -> () {
+    let mut P = get_particle_system_from_data_struct(P_data_);
     let mut constants : Constants;
     init_constants(&mut constants);
     let v = get_vector([l(0), l(1), l(2)]);    
-    let P = init_particle_system(np, v, constants);
-    time_integration(0.0, t_end, dt, P, vtk);
-    deallocate_particle_system(P);
+    P = init_particle_system(np, v, constants);
+    P_data_ = get_data_struct_from_particle_system(P);
 }
-fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk: bool) -> ()
+
+extern
+fn deallocate_system() -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    deallocate_particle_system(P);
+    P_data_ = get_data_struct_from_particle_system(P);
+}
+
+extern 
+fn time_integration(t_start: real, t_end: real, dt: real, vtk: bool) -> ()
 {
+    let P = get_particle_system_from_data_struct(P_data_);
     let mut t : real = t_start; 
     let mut count = 0 as size_t;
     let mut i = 0 as size_t;
-
     let mut str : [u8 * 32];
+    if(vtk == true && count % (10 as size_t) == (0 as size_t)) {
+        let lang = "impala";
+        generate_filename(i, "impala", &mut str, 32 as size_t);
+        fprint_particle_system(str, i, P);
+        ++i;
+    }
     compute_force(P, force);
     //print_particle_system(P);
     while(t < t_end) {
@@ -33,4 +50,5 @@ fn time_integration(t_start: real, t_end: real, dt: real, P: ParticleSystem, vtk
         //print_statistics(P, t); 
         ++count;
     }
+    P_data_ = get_data_struct_from_particle_system(P);
 }

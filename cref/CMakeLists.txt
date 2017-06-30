@@ -5,6 +5,7 @@ PROJECT(C-MD)
 SET (CMAKE_C_COMPILER "/simdata/schmitt/anydsl/llvm_build/bin/clang")
 INCLUDE_DIRECTORIES(include)
 INCLUDE_DIRECTORIES(../clib)
+include_directories(${LIKWID_DIR}/include)
 
 FILE( GLOB_RECURSE PROJ_SOURCES source/*.c ../clib/*.c ../clib/*.h)
 FILE( GLOB_RECURSE PROJ_HEADERS include/*.h )
@@ -16,7 +17,7 @@ FILE( GLOB_RECURSE PROJ_HEADERS include/*.h )
 #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 #endif()
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native -DLIKWID_PERFMON")
 ADD_EXECUTABLE(md ${PROJ_SOURCES} ${PROJ_HEADERS})
 
 #SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g -fsanitize=memory -fno-omit-frame-pointer")
@@ -24,6 +25,6 @@ ADD_EXECUTABLE(md ${PROJ_SOURCES} ${PROJ_HEADERS})
 #SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 #SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -g -fsanitize=memory -fno-omit-frame-pointer")
 set_target_properties(md PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
-target_link_libraries(md m)
+target_link_libraries(md m -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
 
 # Debugging flags

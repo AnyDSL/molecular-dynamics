@@ -1,25 +1,32 @@
 #include <stdio.h>
-
 #include <fileIO.h>
 #include <time_integration.h>
 #include <initialization.h>
 #include <algorithm.h>
 
-void run_simulation(const size_t np, real l[DIM], real const dt, real const t_end, bool const vtk) {
-    ParticleSystem P;
+static ParticleSystem P;
+
+void initialize_system(const size_t np, real l[DIM]) {
     Constants c;
     init_constants(&c);
-    init_body_collision(np, l, c, &P);
-    time_integration(0.0, t_end, dt, P, vtk);
+    init_random(np, l, c, &P);
+}
+
+void deallocate_system() {
     deallocate_particle_system(P);
 }
 
-void time_integration(real t_start, real t_end, real const dt, ParticleSystem P, bool const vtk) {
+void time_integration(real t_start, real t_end, real const dt, bool const vtk) {
    real t = t_start;
    size_t count = 0;
    size_t i = 0;
    unsigned char str[32];
-
+   if(vtk == true && count % 10 == 0) {
+       generate_filename(i, "c", str, 32);
+       fprint_particle_system(str, i, P);
+       ++i;
+   }
+   
    compute_force(P);
    while(t < t_end) {
        t += dt; 
