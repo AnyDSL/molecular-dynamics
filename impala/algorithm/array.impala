@@ -1,5 +1,10 @@
 
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> ()) -> ()
+static mut collisions_ : size_t = 1 as size_t;
+extern fn get_number_of_collisions() -> size_t {
+    collisions_ - 1 as size_t
+}
+
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), count_collisions: bool) -> ()
 {
     let start = 0 as size_t;
     let lut = P.lut();
@@ -43,6 +48,10 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
             let p1 = P.getParticle(i);
             let p2 = P.getParticle(j);
             force(p1, p2, true, true, P.constants());
+
+            if(count_collisions && collisions_ > 0 as size_t) // overflow detection 
+                ++collisions_;
+            }
         }
     }
 }

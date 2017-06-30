@@ -6,7 +6,13 @@
 #include <integration.h>
 #include <boundary.h>
 
-void compute_force(ParticleSystem P) {
+static size_t  collisions_ = 1;
+
+size_t get_number_of_collisions() {
+    return collisions_ - 1;
+}
+
+void compute_force(ParticleSystem P, bool const count_collisions) {
     size_t ic[DIM];
     for(ic[0] = P.start[0]; ic[0] < P.end[0]; ++ic[0]) {
         for(ic[1] = P.start[1]; ic[1] < P.end[1]; ++ic[1]) {
@@ -59,6 +65,9 @@ void compute_force(ParticleSystem P) {
                                 }
                                 for(ParticleList * restrict pl2 = P.grid[compute_index(jc, P.nc)]; pl2 != NULL; pl2 = pl2->next) {
                                     if(pl1 < pl2) {
+                                        if(count_collisions && collisions_ > 0) { // overflow detection 
+                                            collisions_ = collisions_ + 1; 
+                                        }
                                         force(&pl1->p, &pl2->p, write_i, write_j, P.constants);
                                     }
                                 }

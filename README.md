@@ -1,7 +1,8 @@
 # AnyDSL-MD: Molecular dynamics based on AnyDSL
 ## Impala
 ### Building
-cmake . -DAnyDSL-runtime_DIR=<PATH_TO_ANYDSL_RUNTIME> -DLIKWID_DIR=<PATH_TO_LIKWID>
+cmake . -DAnyDSL-runtime_DIR=<PATH_TO_ANYDSL_RUNTIME> -DLIKWID_DIR=<PATH_TO_LIKWID> -DLIKWID_PERFMON=ON/OFF -DCOUNT_COLLISIONS=ON/OFF   
+make  
 ### Configuration
 ccmake .
 ### Running
@@ -13,7 +14,8 @@ particles: number of particles
 
 ## C Reference
 ### Building
-cmake . -DLIKWID_DIR=<PATH_TO_LIKWID>
+cmake . -DLIKWID_DIR=<PATH_TO_LIKWID> -DLIKWID_PERFMON=ON/OFF -DCOUNT_COLLISIONS=ON/OFF  
+make  
 ### Running
 ./md dt steps particles [-vtk]  
 dt: time step length  

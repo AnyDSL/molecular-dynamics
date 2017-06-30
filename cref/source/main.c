@@ -7,8 +7,14 @@
 #include <likwid.h>
 
 #include <common.h>
+#include <algorithm.h>
 #include <time_integration.h>
 
+#ifdef COUNT_COLLISIONS
+#define count_collisions true
+#else
+#define count_collisions false
+#endif
 
 void print_usage(char *name) {
     printf("Usage: %s dt steps particles -vtk\n", name);
@@ -42,7 +48,7 @@ int main(int argc, char** argv) {
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_START("Compute");
     gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, vtk);
+    time_integration(0.0, atol(argv[2])*dt, dt, vtk, count_collisions);
     gettimeofday(&t2, NULL);
     LIKWID_MARKER_STOP("Compute");
     LIKWID_MARKER_CLOSE;
@@ -55,6 +61,12 @@ int main(int argc, char** argv) {
     }
     else {
         printf("Elapsed Time: %f s\n", seconds);
+    }
+    if(count_collisions) {
+        if(get_number_of_collisions() + 1 == 0) {
+            printf("Maximum number of countable collisions reached\n");
+        }
+        printf("Number of collisons: %lu\n", get_number_of_collisions());
     }
     deallocate_system();
 

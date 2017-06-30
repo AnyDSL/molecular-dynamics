@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
 project(ANYDSL-MD C)
-enable_testing()
+#enable_testing()
 
 #SET(CMAKE_C_COMPILER "/simdata/schmitt/llvm_build/bin/clang")
 find_package(AnyDSL-runtime REQUIRED)
@@ -23,31 +23,27 @@ endif()
 string(TOLOWER "${INIT}" INIT)
 message(STATUS "Selected particle initialization method: ${INIT}")
 
+
+option(LIKWID_PERFMON "LIKWID_PERFMON" OFF)
+option(COUNT_COLLISIONS "COUNT_COLLISIONS" OFF)
+
+if(LIKWID_PERFMON)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLIKWID_PERFMON")
+endif()
+if(COUNT_COLLISIONS)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOUNT_COLLISIONS")
+endif()
+
 set(CLANG_FLAGS -O3 -march=native)
 set(IMPALA_FLAGS --log-level error)
-
-#set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL")
-#if(NOT BACKEND)
-#    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX, NVVM, CUDA, OPENCL" FORCE)
-#endif()
-#string(TOLOWER "${BACKEND}" BACKEND)
-#message(STATUS "Selected backend: ${BACKEND}")
-
-#set(BACKEND_FILE intrinsics_${BACKEND}.impala)
-
-#if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
-#    set(DEVICE "cpu")
-#else()
-#    set(DEVICE "acc")
-#endif()
-
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native -D${LIKWID_PERFMON}")
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES intrinsics/intrinsics_cpu.impala common.impala potential/lennard_jones.impala datastructures/${DATASTRUCTURE}.impala boundary/default.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala run.impala)
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native -DLIKWID_PERFMON")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native -D${LIKWID_PERFMON}")
 add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
 set_target_properties(md PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
