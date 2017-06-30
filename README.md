@@ -13,7 +13,7 @@ particles: number of particles
 
 ## C Reference
 ### Building
-cmake . -DAnyDSL-runtime_DIR=<PATH_TO_ANYDSL_RUNTIME> -DLIKWID_DIR=<PATH_TO_LIKWID>
+cmake . -DLIKWID_DIR=<PATH_TO_LIKWID>
 ### Running
 ./md dt steps particles [-vtk]  
 dt: time step length  
