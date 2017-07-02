@@ -178,6 +178,7 @@ fn get_array_of_addresses(size: size_t, data: &u8) -> ArrayOfAddresses {
         }
     }
 }
+
 fn init_addresses(P: ParticleSystem) -> () {
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
@@ -188,12 +189,13 @@ fn init_addresses(P: ParticleSystem) -> () {
     let mut pos = 0 as size_t;
     let addresses = P.addresses();
     for ic, pl in iterate_over_particle_system(ic_start, ic_end, P) {
-    //for ic, pl in iterate_over_particle_system(P.start(), P.end(), P) {
         if(pl != 0 as &ParticleList) {
-            addresses.set(pos++, (*pl).data);
+            let p : ParticleList = *pl;
+            addresses.set(pos++, p.data);
         }
     }
 }
+
 fn iterate_over_particle_cells(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
     for i in loop(start(0), end(0)) {
         for j in loop(start(1), end(1)) {
@@ -204,6 +206,7 @@ fn iterate_over_particle_cells(start: [size_t * 3], end: [size_t * 3], P: Partic
         }
     }
 }
+
 fn iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
     for ic, head in iterate_over_particle_cells(start, end, P) {
         for pl in iterate_over_list(head) {
@@ -211,6 +214,7 @@ fn iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: Parti
         }
     }
 }
+
 fn iterate_over_particle_system_with_ghost_layers(start: [size_t * 3], end: [size_t * 3], lower_boundary: [size_t * 3], upper_boundary :[size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList, bool) -> ()) -> () {
     for ic, head in iterate_over_particle_cells(start, end, P) {
         let mut write = true;
