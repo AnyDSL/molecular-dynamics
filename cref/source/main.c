@@ -5,7 +5,6 @@
 #include <math.h>
 #include <sys/time.h>
 #include <likwid.h>
-#include <omp.h>
 
 #include <common.h>
 #include <algorithm.h>
@@ -18,7 +17,7 @@
 #endif
 
 void print_usage(char *name) {
-    printf("Usage: %s dt steps particles -vtk\n", name);
+    printf("Usage: %s dt steps particles numthreads [-vtk]\n", name);
 }
 
 int main(int argc, char** argv) {
@@ -38,7 +37,6 @@ int main(int argc, char** argv) {
             vtk = true;
         }
     }
-    omp_set_num_threads(atoi(argv[4]));
     double l[3];
     l[0] = 250;
     l[1] = 250;
@@ -50,7 +48,7 @@ int main(int argc, char** argv) {
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_START("Compute");
     gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, vtk, count_collisions);
+    time_integration(0.0, atol(argv[2])*dt, dt, atol(argv[4]), vtk, count_collisions);
     gettimeofday(&t2, NULL);
     LIKWID_MARKER_STOP("Compute");
     LIKWID_MARKER_CLOSE;

@@ -3,6 +3,7 @@
 #include <time_integration.h>
 #include <initialization.h>
 #include <algorithm.h>
+#include <omp.h>
 
 static ParticleSystem P;
 
@@ -16,29 +17,30 @@ void deallocate_system() {
     deallocate_particle_system(P);
 }
 
-void time_integration(real t_start, real t_end, real const dt, bool const vtk, bool const count_collisions) {
-   real t = t_start;
-   size_t count = 0;
-   size_t i = 0;
-   unsigned char str[32];
-   if(vtk == true && count % 10 == 0) {
-       generate_filename(i, "c", str, 32);
-       fprint_particle_system(str, i, P);
-       ++i;
-   }
-   
-   compute_force(P, count_collisions);
-   while(t < t_end) {
-       t += dt; 
-       if(vtk == true && count % 10 == 0) {
-           generate_filename(i, "c", str, 32);
-           fprint_particle_system(str, i, P);
-           ++i;
-       }
-       update_coordinates(P, dt);
-       compute_force(P, count_collisions);
-       update_velocities(P, dt);
-       ++count;
-   }
+void time_integration(real t_start, real t_end, real const dt, int const numthreads, bool const vtk, bool const count_collisions) {
+    omp_set_num_threads(numthreads);
+    real t = t_start;
+    size_t count = 0;
+    size_t i = 0;
+    unsigned char str[32];
+    if(vtk == true && count % 10 == 0) {
+        generate_filename(i, "c", str, 32);
+        fprint_particle_system(str, i, P);
+        ++i;
+    }
+
+    compute_force(P, count_collisions);
+    while(t < t_end) {
+        t += dt; 
+        if(vtk == true && count % 10 == 0) {
+            generate_filename(i, "c", str, 32);
+            fprint_particle_system(str, i, P);
+            ++i;
+        }
+        update_coordinates(P, dt);
+        compute_force(P, count_collisions);
+        update_velocities(P, dt);
+        ++count;
+    }
 
 }
