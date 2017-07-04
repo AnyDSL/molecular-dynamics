@@ -6,6 +6,8 @@
 #include "allocate.h"
 #include "random.h"
 
+static real const V_MAX = 200;
+
 void init_constants(Constants *constants) {
     constants->r_cut = 2.5;
     constants->sigma = 1.0;
@@ -60,7 +62,7 @@ void init_body_collision(size_t const np, double l[DIM], Constants constants, Pa
                     node->p.v[d] = 0.0;
                     node->p.x[d] = base[d] + (real)ip[d] * factor;
                 }
-                node->p.v[1] = -300.0;
+                node->p.v[1] = -V_MAX;
                 size_t jc[DIM];
 
                 real const offset = constants.r_cut * P->ghost_layer;
@@ -86,16 +88,62 @@ void init_random(size_t const np, double l[DIM], Constants constants, ParticleSy
 
         ParticleList *node = (ParticleList *)allocate(sizeof(ParticleList));
         node->p.m = 1.0;
-        real const v_max = 500;
         for(size_t d = 0; d < DIM; ++d) {
             node->p.x[d] = l[d] * c_random();
-            real const tmp = v_max * c_random();
+            real const tmp = V_MAX * c_random();
             node->p.v[d] = flip_coin() ? tmp : -tmp;
         }
         size_t jc[DIM];
         compute_cell_position(&node->p, P, jc);
         insertNode(&P->grid[compute_index(jc, P->nc)], node);
     }
+
+    init_addresses(P);
+}
+
+void init_grid(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {
+    c_random_seed(89);
+    size_t limit[DIM];
+    real N = floor(pow(np, 1.0/3.0+EPS));
+    real spacing = 3.0*constants.r_cut;
+    real l_new[DIM];
+    for(size_t d = 0; d < DIM; ++d) {
+        l_new[d] = (N+1.0)*spacing;
+        limit[d] = (size_t)N;
+    }
+    allocate_particle_system(np, l_new, 1, constants, P);
+    size_t ip[DIM];
+    size_t pos = 0;
+    for(ip[0] = 0; ip[0] < limit[0]; ++ip[0]) {
+        for(ip[1] = 0; ip[1] < limit[1]; ++ip[1]) {
+            for(ip[2] = 0; ip[2] < limit[2]; ++ip[2]) {
+                ParticleList *node = (ParticleList *)allocate(sizeof(ParticleList));
+                node->p.m = 1.0;
+                for(size_t d = 0; d < DIM; ++d) {
+                    node->p.x[d] = spacing + ip[d] * spacing;
+                    real const tmp = V_MAX * c_random();
+                    node->p.v[d] = flip_coin() ? tmp : -tmp;
+                }
+                size_t jc[DIM];
+                compute_cell_position(&node->p, P, jc);
+                insertNode(&P->grid[compute_index(jc, P->nc)], node);
+                ++pos;
+            }
+        }
+    }
+    for(size_t i = pos; i < np; ++i) {
+        ParticleList *node = (ParticleList *)allocate(sizeof(ParticleList));
+        node->p.m = 1.0;
+        for(size_t d = 0; d < DIM; ++d) {
+            node->p.x[d] = l_new[d] * c_random();
+            real const tmp = V_MAX * c_random();
+            node->p.v[d] = flip_coin() ? tmp : -tmp;
+        }
+        size_t jc[DIM];
+        compute_cell_position(&node->p, P, jc);
+        insertNode(&P->grid[compute_index(jc, P->nc)], node);
+    }
+
 
     init_addresses(P);
 }

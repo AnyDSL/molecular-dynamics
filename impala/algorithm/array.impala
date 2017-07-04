@@ -45,19 +45,18 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
     
     for i in loop(start, P.np()) {
         for j in loop(i+(1 as size_t), P.np()) {
+            if(count_collisions && collisions_ > 0 as size_t) { // overflow detection 
+                collisions_ = collisions_+1 as size_t;
+            }
             let p1 = P.getParticle(i);
             let p2 = P.getParticle(j);
             force(p1, p2, true, true, P.constants());
-
-            if(count_collisions && collisions_ > 0 as size_t) // overflow detection 
-                ++collisions_;
-            }
         }
     }
 }
 
-fn update(P: ParticleSystem, dt: real, f: fn(Particle, real) -> ()) -> () {
-    for i in loop(0 as size_t, P.np()) {
+fn update(P: ParticleSystem, start: size_t, end: size_t, dt: real, f: fn(Particle, real) -> ()) -> () {
+    for i in loop(start, end) {
         f(P.getParticle(i), dt);
     }
 }

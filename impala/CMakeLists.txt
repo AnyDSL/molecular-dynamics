@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(ANYDSL-MD C)
 #enable_testing()
 
-SET(CMAKE_C_COMPILER "/home/jonas/Software/anydsl/llvm_build/bin/clang")
+SET(CMAKE_C_COMPILER "/simdata/schmitt/anydsl/llvm_build/bin/clang")
 find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)

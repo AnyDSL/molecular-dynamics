@@ -1,3 +1,5 @@
+static V_MAX : real = 200.0;
+
 fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
     let mut limit1 : [size_t * 3];
     let mut limit2 : [size_t * 3];
@@ -13,17 +15,17 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         np1 *= limit1(d);
         np2 *= limit2(d);
     }
-        let ghost_layer = 1 as size_t;
-        let P = allocate_particle_system(np1 + np2, ghost_layer, l, constants);
-        
-        let factor = math.pow(2.0, 1.0/6.0)*P.constants().sigma;
-        let mut p : Particle;
-        let mut base : [real * 3];
-        //base(0) = 50.0;
-        base(0) = (l.x()(0)/2 as real) - (limit1(0) as real * factor / 2 as real);
-        base(1) = 100.0;
-        base(2) = 100.0;
-        let mut ip : [size_t * 3];
+    let ghost_layer = 1 as size_t;
+    let P = allocate_particle_system(np1 + np2, ghost_layer, l, constants);
+
+    let factor = math.pow(2.0, 1.0/6.0)*P.constants().sigma;
+    let mut p : Particle;
+    let mut base : [real * 3];
+    //base(0) = 50.0;
+    base(0) = (l.x()(0)/2 as real) - (limit1(0) as real * factor / 2 as real);
+    base(1) = 100.0;
+    base(2) = 100.0;
+    let mut ip : [size_t * 3];
     for d in @loop(0 as size_t, DIM) {
         ip(d) = 0 as size_t;
     }
@@ -65,7 +67,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
                 let node = allocate_particle_node();
                 p = get_particle_from_node(node);
                 p.setMass(1.0);
-                p.setVelocities(get_vector([0.0, -300.0, 0.0]));
+                p.setVelocities(get_vector([0.0, -V_MAX, 0.0]));
                 let mut X : [real * 3];
 
                 for d in @loop(0 as size_t, DIM) {
