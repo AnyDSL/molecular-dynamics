@@ -4,7 +4,7 @@ include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
 set(CLANG_FLAGS -O3 -march=native)
-set(IMPALA_FLAGS --log-level info)
+set(IMPALA_FLAGS --log-level error)
 set(IMPALA_SRC_DIR ../impala)
 
 # examples based on the "mapping"

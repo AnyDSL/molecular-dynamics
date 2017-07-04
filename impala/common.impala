@@ -269,8 +269,8 @@ fn loop(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
     }
 }
 
-fn par_loop(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
-    for i in parallel(@get_thread_count(), lower as i32, upper as i32) {
+fn par_loop(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> ()) -> () {
+    for i in parallel(numthreads, lower as i32, upper as i32) {
         body(i as size_t);
     }
 }

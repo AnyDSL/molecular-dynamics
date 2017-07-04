@@ -206,9 +206,27 @@ fn iterate_over_particle_cells(start: [size_t * 3], end: [size_t * 3], P: Partic
         }
     }
 }
+fn parallel_iterate_over_particle_cells(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, numthreads: int, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
+    for i in par_loop(start(0), end(0), numthreads) {
+        for j in loop(start(1), end(1)) {
+            for k in loop(start(2), end(2)){
+                let ic = [i,j,k];
+                f(ic, *P.head(index(ic, P.nc())));
+            }
+        }
+    }
+}
 
 fn iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
     for ic, head in iterate_over_particle_cells(start, end, P) {
+        for pl in iterate_over_list(head) {
+            f(ic, pl);
+        }
+    }
+}
+
+fn parallel_iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, numthreads: int, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
+    for ic, head in parallel_iterate_over_particle_cells(start, end, P, numthreads) {
         for pl in iterate_over_list(head) {
             f(ic, pl);
         }

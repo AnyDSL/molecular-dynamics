@@ -5,6 +5,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <likwid.h>
+#include <omp.h>
 
 #include <common.h>
 #include <algorithm.h>
@@ -21,14 +22,15 @@ void print_usage(char *name) {
 }
 
 int main(int argc, char** argv) {
-    if(argc != 4 && argc != 5) {
+
+    if(argc != 5 && argc != 6) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
 
     bool vtk = false;
-    if(argc == 5) {
-        if(strlen(argv[4]) != 4 || strncmp(argv[4], "-vtk", 4) != 0) {
+    if(argc == 6) {
+        if(strlen(argv[5]) != 4 || strncmp(argv[5], "-vtk", 4) != 0) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
@@ -36,7 +38,7 @@ int main(int argc, char** argv) {
             vtk = true;
         }
     }
-
+    omp_set_num_threads(atoi(argv[4]));
     double l[3];
     l[0] = 250;
     l[1] = 250;

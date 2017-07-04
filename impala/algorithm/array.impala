@@ -4,18 +4,18 @@ extern fn get_number_of_collisions() -> size_t {
     collisions_ - 1 as size_t
 }
 
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), count_collisions: bool) -> ()
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int, count_collisions: bool) -> ()
 {
     let start = 0 as size_t;
     let lut = P.lut();
-    for i in par_loop(start, P.np()) {
+    for i in par_loop(start, P.np(), numthreads) {
         let p = P.getParticle(i);
         p.setForces(get_null_vector());
     }
-    /*
+    
     initialize(lut.data, lut.rows()*lut.cols()*sizeof[u8]() as size_t, 0i32); 
     
-    for i in par_loop(start, P.np()){
+    for i in par_loop(start, P.np(), numthreads){
         for j in loop(start, P.np()) {
             if(i != j)
             {
@@ -37,12 +37,17 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 let flag = cmpxchg(&mut bitcast[&mut[u8]](lut.data)(row*lut.cols() + col), 0u8, 1u8);
                 if (flag(1) == true)
                 {
-                    force(P.getParticle(i), P.getParticle(j), P.constants());
+                    if(count_collisions && collisions_ > 0 as size_t) { // overflow detection 
+                        atomic(1u32, &mut collisions_, 1 as size_t);
+                    }
+                    let p1 = P.getParticle(i);
+                    let p2 = P.getParticle(j);
+                    force(p1, p2, true, true, P.constants());
                 }
             }
         }
-    }*/
-    
+    }
+   /* 
     for i in loop(start, P.np()) {
         for j in loop(i+(1 as size_t), P.np()) {
             if(count_collisions && collisions_ > 0 as size_t) { // overflow detection 
@@ -52,11 +57,11 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
             let p2 = P.getParticle(j);
             force(p1, p2, true, true, P.constants());
         }
-    }
+    }*/
 }
 
-fn update(P: ParticleSystem, start: size_t, end: size_t, dt: real, f: fn(Particle, real) -> ()) -> () {
-    for i in loop(start, end) {
+fn update(P: ParticleSystem, start: size_t, end: size_t, dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
+    for i in par_loop(start, end, numthreads) {
         f(P.getParticle(i), dt);
     }
 }

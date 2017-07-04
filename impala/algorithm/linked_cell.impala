@@ -2,8 +2,8 @@ static mut collisions_ : size_t = 1 as size_t;
 extern fn get_number_of_collisions() -> u64 {
     collisions_ - 1 as size_t
 }
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), count_collisions: bool) -> () {
-    for ic, pl1 in iterate_over_particle_system(P.start(), P.end(), P) {
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int, count_collisions: bool) -> () {
+    for ic, pl1 in parallel_iterate_over_particle_system(P.start(), P.end(), P, numthreads) {
         let p1 = get_particle_from_node(pl1);
         p1.setForces(get_null_vector());
     }
@@ -13,7 +13,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         ic_start(d) = z;
     }
     let ic_end = P.nc();
-    for ic, head in iterate_over_particle_cells(ic_start, ic_end, P) {
+    for ic, head in parallel_iterate_over_particle_cells(ic_start, ic_end, P, numthreads) {
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
         let mut write_i = true;
@@ -38,7 +38,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
             for jc, pl2, write_j, in iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
                     if(count_collisions && collisions_ > 0 as size_t) { // overflow detection 
-                        collisions_ = collisions_ + 1 as size_t; 
+                        atomic(1u32, &mut collisions_, 1 as size_t); 
                     }
                     let p2 = get_particle_from_node(pl2);
                     force(p1, p2, write_i, write_j, P.constants());
@@ -47,8 +47,8 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         }
     }
 }
-fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, f: fn(Particle, real) -> ()) -> () {
-    for ic, pl in @iterate_over_particle_system(start, end, P) {
+fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
+    for ic, pl in parallel_iterate_over_particle_system(start, end, P, numthreads) {
         let p = get_particle_from_node(pl);
         f(p, dt);
     }

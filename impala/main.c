@@ -14,21 +14,21 @@
 
 typedef double real;
 extern void initialize_system(size_t, real *);
-extern void time_integration(real, real, real, bool, bool);
+extern void time_integration(real, real, real, int, bool, bool);
 extern void deallocate_system();
 extern size_t get_number_of_collisions();
 void print_usage(char *name) {
-    printf("Usage: %s dt steps particles -vtk\n", name);
+    printf("Usage: %s dt steps particles numthreads -vtk\n", name);
 }
 int main(int argc, char** argv) {
-    if(argc != 4 && argc != 5) {
+    if(argc != 5 && argc != 6) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
 
     bool vtk = false;
-    if(argc == 5) {
-        if(strlen(argv[4]) != 4 || strncmp(argv[4], "-vtk", 4) != 0) {
+    if(argc == 6) {
+        if(strlen(argv[5]) != 4 || strncmp(argv[5], "-vtk", 4) != 0) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_START("Compute");
     gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, vtk, count_collisions);
+    time_integration(0.0, atol(argv[2])*dt, dt, atoi(argv[4]), vtk, count_collisions);
     gettimeofday(&t2, NULL);
     LIKWID_MARKER_STOP("Compute");
     LIKWID_MARKER_CLOSE;
