@@ -14,7 +14,7 @@
 
 typedef double real;
 extern void initialize_system(size_t, real *);
-extern void time_integration(real, real, real, int, bool, bool);
+extern void time_integration(real, real, real, int, bool);
 extern void deallocate_system();
 extern size_t get_number_of_collisions();
 void print_usage(char *name) {
@@ -46,9 +46,10 @@ int main(int argc, char** argv) {
     real dt = atof(argv[1]);
     struct timeval t1, t2;
     LIKWID_MARKER_INIT;
+    LIKWID_MARKER_THREADINIT;
     LIKWID_MARKER_START("Compute");
     gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, atoi(argv[4]), vtk, count_collisions);
+    time_integration(0.0, atol(argv[2])*dt, dt, atoi(argv[4]), vtk);
     gettimeofday(&t2, NULL);
     LIKWID_MARKER_STOP("Compute");
     LIKWID_MARKER_CLOSE;

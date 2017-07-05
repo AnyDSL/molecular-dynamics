@@ -1,0 +1,5 @@
+extern fn get_number_of_collisions() -> u64 {
+    0 as size_t
+}
+
+fn count_collision() -> () {}

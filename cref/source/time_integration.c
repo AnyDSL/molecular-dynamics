@@ -17,7 +17,7 @@ void deallocate_system() {
     deallocate_particle_system(P);
 }
 
-void time_integration(real t_start, real t_end, real const dt, int const numthreads, bool const vtk, bool const count_collisions) {
+void time_integration(real t_start, real t_end, real const dt, int const numthreads, bool const vtk) {
     omp_set_num_threads(numthreads);
     real t = t_start;
     size_t count = 0;
@@ -29,7 +29,7 @@ void time_integration(real t_start, real t_end, real const dt, int const numthre
         ++i;
     }
 
-    compute_force(P, count_collisions);
+    compute_force(P);
     while(t < t_end) {
         t += dt; 
         if(vtk == true && count % 10 == 0) {
@@ -38,7 +38,7 @@ void time_integration(real t_start, real t_end, real const dt, int const numthre
             ++i;
         }
         update_coordinates(P, dt);
-        compute_force(P, count_collisions);
+        compute_force(P);
         update_velocities(P, dt);
         ++count;
     }

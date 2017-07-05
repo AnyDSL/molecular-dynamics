@@ -41,9 +41,9 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native -D${LIKWID_PERFMON}")
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES intrinsics/intrinsics_cpu.impala common.impala potential/lennard_jones.impala datastructures/${DATASTRUCTURE}.impala boundary/default.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala run.impala)
+    FILES intrinsics/intrinsics_cpu.impala common.impala potential/lennard_jones.impala datastructures/${DATASTRUCTURE}.impala boundary/default.impala count_collisions/${COUNT_COLLISIONS}.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala run.impala)
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native -D${LIKWID_PERFMON}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
 add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
 set_target_properties(md PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)

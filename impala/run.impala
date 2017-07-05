@@ -18,7 +18,7 @@ fn deallocate_system() -> () {
 }
 
 extern 
-fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: bool, count_collisions: bool) -> ()
+fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: bool) -> ()
 {
     let P = get_particle_system_from_data_struct(P_data_);
     let mut t : real = t_start; 
@@ -31,7 +31,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
         fprint_particle_system(str, i, P);
         ++i;
     }
-    compute_force(P, force, numthreads, count_collisions);
+    compute_force(P, force, numthreads);
     //print_particle_system(P);
     while(t < t_end) {
         t += dt;
@@ -45,7 +45,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
         
         update(P, P.start(), P.end(), dt, numthreads, integrate_x);
         move_particles(P);
-        compute_force(P, force, numthreads, count_collisions);
+        compute_force(P, force, numthreads);
         update(P, P.start(), P.end(), dt, numthreads, integrate_v);
         //print_statistics(P, t); 
         ++count;

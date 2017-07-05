@@ -1,8 +1,5 @@
-static mut collisions_ : size_t = 1 as size_t;
-extern fn get_number_of_collisions() -> u64 {
-    collisions_ - 1 as size_t
-}
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int, count_collisions: bool) -> () {
+
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
     for ic, pl1 in parallel_iterate_over_particle_system(P.start(), P.end(), P, numthreads) {
         let p1 = get_particle_from_node(pl1);
         p1.setForces(get_null_vector());
@@ -37,9 +34,8 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
             let p1 = get_particle_from_node(pl1);
             for jc, pl2, write_j, in iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
-                    if(count_collisions && collisions_ > 0 as size_t) { // overflow detection 
-                        atomic(1u32, &mut collisions_, 1 as size_t); 
-                    }
+                    count_collision();
+                    let p1 = get_particle_from_node(pl1);
                     let p2 = get_particle_from_node(pl2);
                     force(p1, p2, write_i, write_j, P.constants());
                 }

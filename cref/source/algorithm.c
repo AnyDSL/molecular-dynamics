@@ -7,13 +7,19 @@
 #include <boundary.h>
 #include <omp.h>
 
+#ifdef COUNT_COLLISIONS
+#define count_collisions true
+#else
+#define count_collisions false
+#endif
+
 static size_t  collisions_ = 1;
 
 size_t get_number_of_collisions() {
     return collisions_ - 1;
 }
 
-void compute_force(ParticleSystem P, bool const count_collisions) {
+void compute_force(ParticleSystem P) {
     #pragma omp parallel for schedule(static)
     for(size_t i = P.start[0]; i < P.end[0]; ++i) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {

@@ -46,9 +46,10 @@ int main(int argc, char** argv) {
     real dt = atof(argv[1]);
     struct timeval t1, t2;
     LIKWID_MARKER_INIT;
+    LIKWID_MARKER_THREADINIT;
     LIKWID_MARKER_START("Compute");
     gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, atol(argv[4]), vtk, count_collisions);
+    time_integration(0.0, atol(argv[2])*dt, dt, atol(argv[4]), vtk);
     gettimeofday(&t2, NULL);
     LIKWID_MARKER_STOP("Compute");
     LIKWID_MARKER_CLOSE;

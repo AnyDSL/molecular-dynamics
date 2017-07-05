@@ -1,0 +1,10 @@
+static mut collisions_ : size_t = 1 as size_t;
+extern fn get_number_of_collisions() -> u64 {
+    collisions_ - 1 as size_t
+}
+
+fn count_collision() -> () {
+   if(collisions_ > 0 as size_t) {
+       atomic(1u32, &mut collisions_, 1 as size_t); 
+   }
+}
