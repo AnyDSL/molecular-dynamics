@@ -21,9 +21,9 @@ size_t get_number_of_collisions() {
 
 void compute_force(ParticleSystem P) {
     #pragma omp parallel for schedule(static)
-    for(size_t i = P.start[0]; i < P.end[0]; ++i) {
+    for(size_t k = P.start[2]; k < P.end[2]; ++k) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
-            for(size_t k = P.start[2]; k < P.end[2]; ++k) {
+            for(size_t i = P.start[0]; i < P.end[0]; ++i) {
                 size_t ic[DIM];
                 ic[0] = i;
                 ic[1] = j;
@@ -42,9 +42,9 @@ void compute_force(ParticleSystem P) {
         ic_end[d] = P.nc[d];
     }
     #pragma omp parallel for schedule(static)
-    for(size_t i = ic_start[0]; i < ic_end[0]; ++i) {
-        for(size_t j  = ic_start[1]; j < ic_end[1]; ++j) {
-            for(size_t k = ic_start[2]; k < ic_end[2]; ++k) {
+    for(size_t k = P.start[2]; k < P.end[2]; ++k) {
+        for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
+            for(size_t i = P.start[0]; i < P.end[0]; ++i) {
                 size_t ic[DIM];
                 ic[0] = i;
                 ic[1] = j;
@@ -68,9 +68,9 @@ void compute_force(ParticleSystem P) {
                     }
                 }
                 for(ParticleList * restrict pl1=P.grid[compute_index(ic, P.nc)]; pl1!=NULL; pl1=pl1->next) {
-                    for(jc[0] = jc_start[0]; jc[0] < jc_end[0]; ++jc[0]) {
+                    for(jc[2] = jc_start[2]; jc[2] < jc_end[2]; ++jc[2]) {
                         for(jc[1] = jc_start[1]; jc[1] < jc_end[1]; ++jc[1]) {
-                            for(jc[2] = jc_start[2]; jc[2] < jc_end[2]; ++jc[2]) {
+                            for(jc[0] = jc_start[0]; jc[0] < jc_end[0]; ++jc[0]) {
                                 bool write_j = true;
                                 for(size_t d = 0; d < DIM; ++d) {
                                     if(jc[d] < P.start[d] || jc[d] >= P.end[d])
@@ -98,9 +98,9 @@ void compute_force(ParticleSystem P) {
 
 void move_particles(ParticleSystem P) {
     size_t ic[DIM];
-    for(ic[0] = P.start[0]; ic[0] < P.end[0]; ++ic[0]) {
+    for(ic[2] = P.start[2]; ic[2] < P.end[2]; ++ic[2]) {
         for(ic[1] = P.start[1]; ic[1] < P.end[1]; ++ic[1]) {
-            for(ic[2] = P.start[2]; ic[2] < P.end[2]; ++ic[2]) {
+            for(ic[0] = P.start[0]; ic[0] < P.end[0]; ++ic[0]) {
                 ParticleList **q = &(P.grid[compute_index(ic, P.nc)]);
                 ParticleList *pl = *q;
                 size_t jc[DIM];
@@ -125,9 +125,9 @@ void move_particles(ParticleSystem P) {
 
 void update_coordinates(ParticleSystem P, real const dt) {
     #pragma omp parallel for schedule(static)
-    for(size_t i = P.start[0]; i < P.end[0]; ++i) {
+    for(size_t k = P.start[2]; k < P.end[2]; ++k) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
-            for(size_t k = P.start[2]; k < P.end[2]; ++k) {
+            for(size_t i = P.start[0]; i < P.end[0]; ++i) {
                 size_t ic[DIM];
                 ic[0] = i;
                 ic[1] = j;
@@ -143,9 +143,9 @@ void update_coordinates(ParticleSystem P, real const dt) {
 
 void update_velocities(ParticleSystem P, real const dt) {
     #pragma omp parallel for schedule(static)
-    for(size_t i = P.start[0]; i < P.end[0]; ++i) {
+    for(size_t k = P.start[2]; k < P.end[2]; ++k) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
-            for(size_t k = P.start[2]; k < P.end[2]; ++k) {
+            for(size_t i = P.start[0]; i < P.end[0]; ++i) {
                 size_t ic[DIM];
                 ic[0] = i;
                 ic[1] = j;
