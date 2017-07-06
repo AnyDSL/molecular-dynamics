@@ -52,9 +52,9 @@ fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, n
 fn move_particles(P: ParticleSystem) -> () {
     let start = P.start();
     let end = P.end();
-    for i in loop(start(0), end(0)) {
+    for k in loop(start(2), end(2)) {
         for j in loop(start(1), end(1)) {
-            for k in loop(start(2), end(2)){
+            for i in loop(start(0), end(0)){
                 let ic = [i,j,k];
                 let mut q : &mut& ParticleList = P.head(index(ic, P.nc()));
                 let mut i : &ParticleList = *q;
