@@ -7,8 +7,8 @@ INCLUDE_DIRECTORIES(include)
 INCLUDE_DIRECTORIES(../clib)
 include_directories(${LIKWID_DIR}/include)
 
-FILE( GLOB_RECURSE PROJ_SOURCES source/*.c ../clib/*.c ../clib/*.h)
-FILE( GLOB_RECURSE PROJ_HEADERS include/*.h )
+FILE( GLOB_RECURSE PROJ_SOURCES source/*.c ../clib/*.c )
+FILE( GLOB_RECURSE PROJ_HEADERS include/*.h ../clib/*.h)
 
 #FIND_PACKAGE( OpenMP REQUIRED)
 #if(OPENMP_FOUND)
