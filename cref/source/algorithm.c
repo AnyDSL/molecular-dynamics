@@ -24,11 +24,7 @@ void compute_force(ParticleSystem P) {
     for(size_t k = P.start[2]; k < P.end[2]; ++k) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
             for(size_t i = P.start[0]; i < P.end[0]; ++i) {
-                size_t ic[DIM];
-                ic[0] = i;
-                ic[1] = j;
-                ic[2] = k;
-                for(ParticleList * restrict pl=P.grid[compute_index(ic, P.nc)]; pl!=NULL; pl=pl->next) {
+                for(ParticleList * restrict pl=P.grid[i + P.nc[0] * (j + P.nc[1] * k)]; pl!=NULL; pl=pl->next) {
                     for(size_t d =0; d < DIM; ++d) {
                         pl->p.F[d] = 0.0;
                     }
@@ -42,44 +38,66 @@ void compute_force(ParticleSystem P) {
         ic_end[d] = P.nc[d];
     }
     #pragma omp parallel for schedule(static)
-    for(size_t k = P.start[2]; k < P.end[2]; ++k) {
-        for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
-            for(size_t i = P.start[0]; i < P.end[0]; ++i) {
-                size_t ic[DIM];
-                ic[0] = i;
-                ic[1] = j;
-                ic[2] = k;
+    for(size_t k1 = ic_start[2]; k1 < ic_end[2]; ++k1) {
+        for(size_t j1  = ic_start[1]; j1 < ic_end[1]; ++j1) {
+            for(size_t i1 = ic_start[0]; i1 < ic_end[0]; ++i1) {
+                size_t k2_start, j2_start, i2_start;
+                size_t k2_end, j2_end, i2_end;
                 bool write_i = true;
-                size_t jc[DIM], jc_start[DIM], jc_end[DIM];
-                for(size_t d = 0; d < DIM; ++d) {
-                    if(ic[d] >= P.start[d]) {
-                        jc_start[d] = ic[d] - 1;
-                    }
-                    else {
-                        jc_start[d] = ic[d] + 1;
-                        write_i = false;
-                    }
-                    if(ic[d] < P.end[d]) {
-                        jc_end[d] = ic[d] + 2;
-                    }
-                    else {
-                        jc_end[d] = ic[d];
-                        write_i = false;
-                    }
+                if(i1 >= P.start[0]) {
+                    i2_start = i1 - 1;
                 }
-                for(ParticleList * restrict pl1=P.grid[compute_index(ic, P.nc)]; pl1!=NULL; pl1=pl1->next) {
-                    for(jc[2] = jc_start[2]; jc[2] < jc_end[2]; ++jc[2]) {
-                        for(jc[1] = jc_start[1]; jc[1] < jc_end[1]; ++jc[1]) {
-                            for(jc[0] = jc_start[0]; jc[0] < jc_end[0]; ++jc[0]) {
+                else {
+                    i2_start = i1 + 1;
+                    write_i = false;
+                }
+                if(i1 < P.end[0]) {
+                    i2_end = i1 + 2;
+                }
+                else {
+                    i2_end = i1;
+                    write_i = false;
+                }
+
+                if(j1 >= P.start[1]) {
+                    j2_start = j1 - 1;
+                }
+                else {
+                    j2_start = j1 + 1;
+                    write_i = false;
+                }
+                if(j1 < P.end[1]) {
+                    j2_end = j1 + 2;
+                }
+                else {
+                    j2_end = j1;
+                    write_i = false;
+                }
+
+                if(k1 >= P.start[2]) {
+                    k2_start = k1 - 1;
+                }
+                else {
+                    k2_start = k1 + 1;
+                    write_i = false;
+                }
+                if(k1 < P.end[2]) {
+                    k2_end = k1 + 2;
+                }
+                else {
+                    k2_end = k1;
+                    write_i = false;
+                }
+
+                for(ParticleList * restrict pl1=P.grid[i1 + P.nc[0] * (j1 + P.nc[1] * k1)]; pl1!=NULL; pl1=pl1->next) {
+                    for(size_t k2 = k2_start; k2 < k2_end; ++k2) {
+                        for(size_t j2 = j2_start; j2 < j2_end; ++j2) {
+                            for(size_t i2 = i2_start; i2 < i2_end; ++i2) {
                                 bool write_j = true;
-                                for(size_t d = 0; d < DIM; ++d) {
-                                    if(jc[d] < P.start[d] || jc[d] >= P.end[d])
-                                    {
-                                        write_j = false;
-                                        break;
-                                    }
+                                if(i2 < P.start[0] || i2 >= P.end[0] || j2 < P.start[1] || j2 >= P.end[1] || k2 < P.start[2] || k2 >= P.end[2]) {
+                                    write_j = false;
                                 }
-                                for(ParticleList * restrict pl2 = P.grid[compute_index(jc, P.nc)]; pl2 != NULL; pl2 = pl2->next) {
+                                for(ParticleList * restrict pl2 = P.grid[i2 + P.nc[0]*(j2 + P.nc[1] * k2)]; pl2 != NULL; pl2 = pl2->next) {
                                     if(pl1 < pl2) {
                                         if(count_collisions && collisions_ > 0) { // overflow detection 
                                             collisions_ = collisions_ + 1; 
@@ -97,19 +115,18 @@ void compute_force(ParticleSystem P) {
 }
 
 void move_particles(ParticleSystem P) {
-    size_t ic[DIM];
-    for(ic[2] = P.start[2]; ic[2] < P.end[2]; ++ic[2]) {
-        for(ic[1] = P.start[1]; ic[1] < P.end[1]; ++ic[1]) {
-            for(ic[0] = P.start[0]; ic[0] < P.end[0]; ++ic[0]) {
-                ParticleList **q = &(P.grid[compute_index(ic, P.nc)]);
+    for(size_t k = P.start[2]; k < P.end[2]; ++k) {
+        for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
+            for(size_t i = P.start[0]; i < P.end[0]; ++i) {
+                ParticleList **q = &(P.grid[i + P.nc[0] * (j + P.nc[1] * k)]);
                 ParticleList *pl = *q;
                 size_t jc[DIM];
                 while(pl != NULL) {
                     boundary(&pl->p, P);
                     compute_cell_position(&pl->p, &P, jc);
-                    if(ic[0] != jc[0] || ic[1] != jc[1] || ic[2] != jc[2]) {
+                    if(i != jc[0] || j != jc[1] || k != jc[2]) {
                         removeNode(q);
-                        insertNode(&(P.grid[compute_index(jc, P.nc)]), pl);
+                        insertNode(&(P.grid[jc[0] + P.nc[0] * (jc[1] + P.nc[1] * jc[2])]), pl);
                     }
                     else {
                         q = &pl->next;
@@ -128,11 +145,7 @@ void update_coordinates(ParticleSystem P, real const dt) {
     for(size_t k = P.start[2]; k < P.end[2]; ++k) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
             for(size_t i = P.start[0]; i < P.end[0]; ++i) {
-                size_t ic[DIM];
-                ic[0] = i;
-                ic[1] = j;
-                ic[2] = k;
-                for(ParticleList * restrict pl=P.grid[compute_index(ic, P.nc)]; pl!=NULL; pl=pl->next) {
+                for(ParticleList * restrict pl=P.grid[i + P.nc[0] * (j + P.nc[1] * k)]; pl!=NULL; pl=pl->next) {
                     update_x(&pl->p, dt);
                 }
             }
@@ -146,11 +159,7 @@ void update_velocities(ParticleSystem P, real const dt) {
     for(size_t k = P.start[2]; k < P.end[2]; ++k) {
         for(size_t j  = P.start[1]; j < P.end[1]; ++j) {
             for(size_t i = P.start[0]; i < P.end[0]; ++i) {
-                size_t ic[DIM];
-                ic[0] = i;
-                ic[1] = j;
-                ic[2] = k;
-                for(ParticleList * restrict pl=P.grid[compute_index(ic, P.nc)]; pl!=NULL; pl=pl->next) {
+                for(ParticleList * restrict pl=P.grid[i + P.nc[0] * (j + P.nc[1] * k)]; pl!=NULL; pl=pl->next) {
                     update_v(&pl->p, dt);
                 }
             }
