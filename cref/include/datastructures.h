@@ -20,6 +20,8 @@ typedef struct ParticleSystem {
     size_t start[DIM];
     size_t end[DIM];
     real l[DIM];
+    real tmp[DIM];
+    real offset;
     Cell *grid;
     Constants constants;
     uintptr_t *addresses;

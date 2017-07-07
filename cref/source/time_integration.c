@@ -17,8 +17,7 @@ void deallocate_system() {
     deallocate_particle_system(P);
 }
 
-void time_integration(real t_start, real t_end, real const dt, int const numthreads, bool const vtk) {
-    omp_set_num_threads(numthreads);
+void time_integration(real t_start, real t_end, real const dt, bool const vtk) {
     real t = t_start;
     size_t count = 0;
     size_t i = 0;

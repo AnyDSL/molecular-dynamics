@@ -15,9 +15,8 @@ size_t compute_index(const size_t ic[DIM], const size_t nc[DIM]) {
 }
 
 void compute_cell_position(Particle *p, ParticleSystem *P, size_t jc[DIM]) {
-    real const offset = P->constants.r_cut * P->ghost_layer;
     for(size_t d = 0; d < DIM; ++d) {
-        jc[d] = (size_t)floor((p->x[d] + offset) * P->nc[d] / P->l[d]);
+        jc[d] = (size_t)floor((p->x[d] + P->offset) * P->tmp[d]);
     }
 }
 
@@ -29,10 +28,12 @@ void allocate_particle_system(size_t np, real l[DIM], size_t ghost_layer, Consta
         P->l[d] = l[d] + 2.0*ghost_layer*constants.r_cut;
         P->nc[d] = (size_t)floor(P->l[d]/constants.r_cut) + 2*ghost_layer;
         pnc *= P->nc[d];
+        P->tmp[d] = P->nc[d]/P->l[d];
         P->start[d] = ghost_layer;
         P->end[d] = P->nc[d] - ghost_layer;
     }
     P->ghost_layer = ghost_layer;
+    P->offset = constants.r_cut * ghost_layer;
     P->grid = (Cell *)allocate_and_initialize(pnc*sizeof(Cell), 0);
     P->addresses = (size_t *)allocate(P->np*sizeof(size_t));
     P->constants = constants;

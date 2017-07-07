@@ -22,14 +22,14 @@ void print_usage(char *name) {
 
 int main(int argc, char** argv) {
 
-    if(argc != 5 && argc != 6) {
+    if(argc != 4 && argc != 5) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
 
     bool vtk = false;
-    if(argc == 6) {
-        if(strlen(argv[5]) != 4 || strncmp(argv[5], "-vtk", 4) != 0) {
+    if(argc == 5) {
+        if(strlen(argv[4]) != 4 || strncmp(argv[4], "-vtk", 4) != 0) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
     LIKWID_MARKER_THREADINIT;
     LIKWID_MARKER_START("Compute");
     gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, atol(argv[4]), vtk);
+    time_integration(0.0, atol(argv[2])*dt, dt, vtk);
     gettimeofday(&t2, NULL);
     LIKWID_MARKER_STOP("Compute");
     LIKWID_MARKER_CLOSE;

@@ -5,6 +5,8 @@ struct ParticleSystem {
     start: fn() -> [size_t * 3],
     end: fn() -> [size_t * 3],
     l: fn() -> Vector,
+    tmp: fn() -> Vector,
+    offset: fn() -> real,
     head: fn(size_t) -> &mut &ParticleList,
     constants: fn() -> Constants,
     addresses: fn() -> ArrayOfAddresses,
@@ -34,6 +36,11 @@ fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, l: Vec
             end
         },
         l: || {l},
+        tmp: ||{
+            let a = get_vector([nc(0) as real, nc(1) as real, nc(2) as real]);
+            div_vectors(a, l)
+        },
+        offset: || {ghost_layer as real * constants.r_cut},
         head: |i| {&mut bitcast[&mut[&ParticleList]](data_cells)(i)},
         constants: || {constants},
         addresses: || {get_array_of_addresses(np, data_addresses)},
@@ -152,11 +159,10 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
 fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
     let coordinates_x = p.getCoordinates().x();
-    let l_x = P.l().x();
-    let offset = P.ghost_layer() as real * P.constants().r_cut;
+    let tmp = P.tmp().x();
     let nc = P.nc();
     for d in @loop((0 as size_t), DIM) {
-        kc(d) = math.floor((coordinates_x(d) + offset) * (nc(d) as real) / l_x(d)) as size_t;
+        kc(d) = math.floor((coordinates_x(d) + P.offset()) * tmp(d)) as size_t;
     }
     kc
 }

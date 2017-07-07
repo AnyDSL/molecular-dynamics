@@ -99,6 +99,10 @@ fn sub_vectors(a: Vector, b: Vector) -> Vector {
     a.append(|x,y|{x-y}, b)
 }
 
+fn div_vectors(a: Vector, b: Vector) -> Vector {
+    a.append(|x,y|{x/y}, b)
+}
+
 fn scale_vector(alpha: real, v: Vector) -> Vector {
     v.map(|x|{alpha*x})
 }
