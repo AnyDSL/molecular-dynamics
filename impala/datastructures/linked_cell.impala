@@ -101,6 +101,8 @@ fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constant
         pnc *= nc(d);
     }
     let data_cells = allocate_and_initialize(pnc * sizeof[&ParticleList]() as size_t, 0);
+    //print_long(pnc as i64);
+    //print_char('\n');
     let data_addresses = allocate(np * sizeof[&u8]() as size_t);
     let P = get_particle_system(np, nc, ghost_layer, l_extended, data_cells, constants, data_addresses);
     P

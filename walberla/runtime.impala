@@ -150,7 +150,7 @@ fn sort_particle_system() -> () {
 extern
 fn force_update() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    compute_force(P, force, 1, false);
+    compute_force(P, force, 1);
 }
 
 extern

@@ -30,11 +30,11 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 write_i = false;
             };
         }
-        for pl1 in iterate_over_list(head) {
+        for pl1 in @iterate_over_list(head) {
             let p1 = get_particle_from_node(pl1);
             for jc, pl2, write_j, in iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
-                    count_collision();
+                    @count_collision();
                     let p1 = get_particle_from_node(pl1);
                     let p2 = get_particle_from_node(pl2);
                     force(p1, p2, write_i, write_j, P.constants());

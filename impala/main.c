@@ -45,16 +45,20 @@ int main(int argc, char** argv) {
     initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
-    LIKWID_MARKER_INIT;
-    LIKWID_MARKER_THREADINIT;
-    LIKWID_MARKER_START("Compute");
-    gettimeofday(&t1, NULL);
-    time_integration(0.0, atol(argv[2])*dt, dt, atoi(argv[4]), vtk);
-    gettimeofday(&t2, NULL);
-    LIKWID_MARKER_STOP("Compute");
-    LIKWID_MARKER_CLOSE;
-    double seconds = (t2.tv_sec - t1.tv_sec);      // sec
-    seconds += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
+    double seconds = 0.0;
+    for(size_t i = 0; i < 100; ++i) { 
+        LIKWID_MARKER_INIT;
+        LIKWID_MARKER_THREADINIT;
+        LIKWID_MARKER_START("Compute");
+        gettimeofday(&t1, NULL);
+        time_integration(0.0, atol(argv[2])*dt, dt, atoi(argv[4]), vtk);
+        gettimeofday(&t2, NULL);
+        LIKWID_MARKER_STOP("Compute");
+        LIKWID_MARKER_CLOSE;
+        seconds += (t2.tv_sec - t1.tv_sec);      // sec
+        seconds += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
+    }
+    seconds /= 100.0;
     if(seconds > 60.0) {
         unsigned long minutes = (unsigned long)(floor(seconds / 60.0));
         seconds -= minutes * 60.0;
