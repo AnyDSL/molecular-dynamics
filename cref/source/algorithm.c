@@ -99,7 +99,8 @@ void compute_force(ParticleSystem P) {
                                 }
                                 for(ParticleList * restrict pl2 = P.grid[i2 + P.nc[0]*(j2 + P.nc[1] * k2)]; pl2 != NULL; pl2 = pl2->next) {
                                     if(pl1 < pl2) {
-                                        if(count_collisions && collisions_ > 0) { // overflow detection 
+                                        if(count_collisions) { 
+                                            if(collisions_ > 0)// overflow detection 
                                             collisions_ = collisions_ + 1; 
                                         }
                                         force(&pl1->p, &pl2->p, write_i, write_j, P.constants);

@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
     real dt = atof(argv[1]);
     struct timeval t1, t2;
     double seconds = 0.0;
-    for(size_t i = 0; i < 100; ++i) { 
+    for(size_t i = 0; i < 1; ++i) { 
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         seconds += (t2.tv_sec - t1.tv_sec);      // sec
         seconds += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
     }
-    seconds /= 100.0;
+    seconds /= 1.0;
     if(seconds > 60.0) {
         unsigned long minutes = (unsigned long)(floor(seconds / 60.0));
         seconds -= minutes * 60.0;
