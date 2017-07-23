@@ -45,8 +45,10 @@ int main(int argc, char** argv) {
     initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
-    double seconds = 0.0;
-    for(size_t i = 0; i < 1; ++i) { 
+    size_t const nsamples = 100;
+    double average = 0.0;
+    double samples[nsamples];
+    for(size_t i = 0; i < nsamples; ++i) { 
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
@@ -55,18 +57,28 @@ int main(int argc, char** argv) {
         gettimeofday(&t2, NULL);
         LIKWID_MARKER_STOP("Compute");
         LIKWID_MARKER_CLOSE;
-        seconds += (t2.tv_sec - t1.tv_sec);      // sec
-        seconds += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
+        double time = 0.0;
+        time += (t2.tv_sec - t1.tv_sec);      // sec
+        time += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
+        average += time;
+        samples[i] = time;
     }
-    seconds /= 1.0;
-    if(seconds > 60.0) {
-        unsigned long minutes = (unsigned long)(floor(seconds / 60.0));
-        seconds -= minutes * 60.0;
-        printf("Elapsed Time: %lu min %f s\n", minutes, seconds);
+    average /= nsamples;
+    double stdev = 0;
+    for(size_t i = 0; i < nsamples; ++i) {
+        double tmp = samples[i] - average;
+        stdev += tmp*tmp;
     }
-    else {
-        printf("Elapsed Time: %f s\n", seconds);
-    }
+    stdev = sqrt(stdev/(nsamples-1));
+    /*if(average > 60.0) {
+        unsigned long minutes = (unsigned long)(floor(average / 60.0));
+        average -= minutes * 60.0;
+        printf("Elapsed Time: %lu min %f s\n", minutes, average);
+    }*/
+    //else {
+    //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
+    printf("%f\t%f\n", average, stdev);
+    //}
     if(count_collisions) {
         if(get_number_of_collisions() + 1 == 0) {
             printf("Maximum number of countable collisions reached\n");
