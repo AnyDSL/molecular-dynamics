@@ -1,7 +1,7 @@
-static V_MAX : real = 200.0;
+static V_MAX : real = 100.0;
 
 fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
-    c_random_seed(89 as u32);
+    c_random_seed(0 as i64);
     let ghost_layer = 1 as size_t;
     let P = allocate_particle_system(np, ghost_layer, l, constants);
     
@@ -12,15 +12,17 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         p.setMass(1.0);
         let mut X : [real * 3];
         let mut V : [real * 3];
-        for d in @loop(0 as size_t, DIM) {
+        let tmp = 2.0*V_MAX*c_random() as real - V_MAX;
+
+        let mut norm = 0.0;
+        for d in loop(0 as size_t, DIM) @{
             X(d) = l.x()(d) * c_random() as real;
-            let tmp = V_MAX*c_random() as real;
-            if(flip_coin()) {
-                V(d) = tmp;
-            }
-            else {
-                V(d) = -tmp;
-            }
+            V(d) = 2.0 * c_random() - 1.0;
+            norm += V(d)*V(d);
+        }
+        norm = math.sqrt(norm);
+        for d in loop(0 as size_t, DIM) {
+            V(d) = V(d) / norm * tmp; 
         }
         p.setCoordinates(get_vector(X));
         p.setVelocities(get_vector(V));
@@ -31,8 +33,3 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     init_addresses(P);
     P
 }
-
-fn flip_coin() -> bool {
-    if(c_random() > 0.5) { true } else {false}
-}
-

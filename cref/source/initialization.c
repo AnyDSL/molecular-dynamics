@@ -82,7 +82,7 @@ bool flip_coin() {
 
 void init_random(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {
 
-    c_random_seed(89);
+    c_random_seed(0);
     allocate_particle_system(np, l, 1, constants, P);
     for(size_t i = 0; i < np; ++i) {
 
@@ -102,7 +102,7 @@ void init_random(size_t const np, double l[DIM], Constants constants, ParticleSy
 }
 
 void init_grid(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {
-    c_random_seed(89);
+    c_random_seed(0);
     size_t limit[DIM];
     real N = floor(pow(np, 1.0/3.0+EPS));
     real spacing = 3.0*constants.r_cut;

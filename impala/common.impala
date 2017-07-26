@@ -15,7 +15,7 @@ extern "C"
     fn allocate_and_initialize(size_t, i32) -> &u8;
     fn initialize(&u8, size_t, i32) -> ();
     fn deallocate(&u8) -> ();
-    fn c_random_seed(u32) -> ();
+    fn c_random_seed(i64) -> ();
     fn c_random() -> f64;
 }
 

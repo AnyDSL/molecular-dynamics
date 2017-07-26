@@ -25,7 +25,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     let mut count = 0 as size_t;
     let mut i = 0 as size_t;
     let mut str : [u8 * 32];
-    if(vtk == true && count % (10 as size_t) == (0 as size_t)) {
+    if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
         let lang = "impala";
         generate_filename(i, "impala", &mut str, 32 as size_t);
         fprint_particle_system(str, i, P);
@@ -36,7 +36,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     while(t < t_end) {
         t += dt;
         
-        if(vtk == true && count % (10 as size_t) == (0 as size_t)) {
+        if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
             let lang = "impala";
             generate_filename(i, "impala", &mut str, 32 as size_t);
             fprint_particle_system(str, i, P);

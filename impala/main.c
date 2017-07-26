@@ -41,6 +41,9 @@ int main(int argc, char** argv) {
     l[0] = 250;
     l[1] = 250;
     l[2] = 250;
+    //l[0] = 32;
+    //l[1] = 32;
+    //l[2] = 32;
     //dt = 0.00005;
     initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
@@ -48,12 +51,13 @@ int main(int argc, char** argv) {
     size_t const nsamples = 100;
     double average = 0.0;
     double samples[nsamples];
+    int nthreads = atoi(argv[4]);
     for(size_t i = 0; i < nsamples; ++i) { 
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
         gettimeofday(&t1, NULL);
-        time_integration(0.0, atol(argv[2])*dt, dt, atoi(argv[4]), vtk);
+        time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
         gettimeofday(&t2, NULL);
         LIKWID_MARKER_STOP("Compute");
         LIKWID_MARKER_CLOSE;
@@ -77,7 +81,7 @@ int main(int argc, char** argv) {
     }*/
     //else {
     //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
-    printf("%f\t%f\n", average, stdev);
+    printf("%i\t%f\t%f\n", nthreads, average, stdev);
     //}
     if(count_collisions) {
         if(get_number_of_collisions() + 1 == 0) {

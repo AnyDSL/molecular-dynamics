@@ -1,2 +1,2 @@
 #!/bin/sh
-inkscape -D -z --file=$1 --export-pdf=image.pdf --export-latex
+inkscape -D -z --file=$1.svg --export-pdf=$1.pdf --export-latex

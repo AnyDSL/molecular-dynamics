@@ -77,7 +77,16 @@ int main(int argc, char** argv) {
     }*/
     //else {
     //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
-    printf("%f\t%f\n", average, stdev);
+
+    #pragma omp parallel 
+    {
+        #pragma omp single 
+        {
+            printf("%i\t%f\t%f\n", omp_get_num_threads(), average, stdev);
+        }
+    }
+
+
     //}
     if(count_collisions) {
         if(get_number_of_collisions() + 1 == 0) {

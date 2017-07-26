@@ -1,9 +1,9 @@
 #include "random.h"
 
-void c_random_seed(unsigned int seed) {
-    srand(seed);
+void c_random_seed(long int seed) {
+    srand48(seed);
 }
 
 double c_random() {
-    return (double)rand() / (double)RAND_MAX;
+    return drand48();
 }
