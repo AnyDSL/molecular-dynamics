@@ -42,13 +42,13 @@ int main(int argc, char** argv) {
     l[1] = 250;
     l[2] = 250;
     //dt = 0.00005;
-    initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
     size_t const nsamples = 100;
     double average = 0.0;
     double samples[nsamples];
     for(size_t i = 0; i < nsamples; ++i) { 
+        initialize_system(atol(argv[3]), l);
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
         time += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
         average += time;
         samples[i] = time;
+        deallocate_system();
     }
     average /= (double)nsamples;
     double stdev = 0;
@@ -94,7 +95,6 @@ int main(int argc, char** argv) {
         }
         printf("Number of collisons: %lu\n", get_number_of_collisions());
     }
-    deallocate_system();
 
     return EXIT_SUCCESS;
 }

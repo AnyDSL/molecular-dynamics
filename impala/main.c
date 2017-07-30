@@ -41,18 +41,18 @@ int main(int argc, char** argv) {
     l[0] = 250;
     l[1] = 250;
     l[2] = 250;
-    //l[0] = 32;
-    //l[1] = 32;
-    //l[2] = 32;
     //dt = 0.00005;
-    initialize_system(atol(argv[3]), l);
+    //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
     size_t const nsamples = 100;
     double average = 0.0;
     double samples[nsamples];
     int nthreads = atoi(argv[4]);
+
     for(size_t i = 0; i < nsamples; ++i) { 
+
+        initialize_system(atol(argv[3]), l);
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
@@ -64,8 +64,10 @@ int main(int argc, char** argv) {
         double time = 0.0;
         time += (t2.tv_sec - t1.tv_sec);      // sec
         time += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
+        printf("Runtime: %f s\n", time);
         average += time;
         samples[i] = time;
+        deallocate_system();
     }
     average /= nsamples;
     double stdev = 0;
@@ -89,7 +91,6 @@ int main(int argc, char** argv) {
         }
         printf("Number of collisons: %lu\n", get_number_of_collisions());
     }
-    deallocate_system();
 
     return EXIT_SUCCESS;
 }
