@@ -1,4 +1,4 @@
-static V_MAX : real = 200.0;
+static V_MAX : real = 100.0;
 
 fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
     let mut limit1 : [size_t * 3];

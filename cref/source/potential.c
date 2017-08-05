@@ -1,6 +1,7 @@
 #include <potential.h>
 
-void force(Particle* restrict p1, Particle* restrict p2, bool const write1, bool const write2, Constants const constants) {
+
+void force(Particle* p1, Particle* p2, bool const write1, bool const write2, Constants const constants) {
     real r = 0.0;
     real dist[DIM];
     for(size_t d = 0; d < DIM; ++d) {

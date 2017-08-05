@@ -1,6 +1,6 @@
 
 fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
-    for ic, pl1 in parallel_iterate_over_particle_system(P.start(), P.end(), P, numthreads) {
+    for ic, pl1 in $parallel_iterate_over_particle_system(P.start(), P.end(), P, numthreads) @{
         let p1 = get_particle_from_node(pl1);
         p1.setForces(get_null_vector());
     }
@@ -10,7 +10,23 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         ic_start(d) = z;
     }
     let ic_end = P.nc();
-    for ic, head in parallel_iterate_over_particle_cells(ic_start, ic_end, P, numthreads) {
+    /*
+    print_string("ic_start: ");
+    print_long(ic_start(0) as i64);
+    print_string(", ");
+    print_long(ic_start(1) as i64);
+    print_string(", ");
+    print_long(ic_start(2) as i64);
+    print_string("\n");
+    print_string("ic_end: ");
+    print_long(ic_end(0) as i64);
+    print_string(", ");
+    print_long(ic_end(1) as i64);
+    print_string(", ");
+    print_long(ic_end(2) as i64);
+    print_string("\n");
+    */
+    for ic, head in $parallel_iterate_over_particle_cells(ic_start, ic_end, P, numthreads) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
         let mut write_i = true;
@@ -30,11 +46,11 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 write_i = false;
             };
         }
-        for pl1 in @iterate_over_list(head) {
+        for pl1 in iterate_over_list(head) @{
             let p1 = get_particle_from_node(pl1);
-            for jc, pl2, write_j, in iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
+            for jc, pl2, write_j, in $iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
+                @count_collision();
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
-                    @count_collision();
                     let p1 = get_particle_from_node(pl1);
                     let p2 = get_particle_from_node(pl2);
                     force(p1, p2, write_i, write_j, P.constants());
@@ -44,7 +60,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
     }
 }
 fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
-    for ic, pl in parallel_iterate_over_particle_system(start, end, P, numthreads) {
+    for ic, pl in $parallel_iterate_over_particle_system(start, end, P, numthreads) @{
         let p = get_particle_from_node(pl);
         f(p, dt);
     }
@@ -54,7 +70,7 @@ fn move_particles(P: ParticleSystem) -> () {
     let end = P.end();
     for k in loop(start(2), end(2)) {
         for j in loop(start(1), end(1)) {
-            for i in loop(start(0), end(0)){
+            for i in loop(start(0), end(0)) @{
                 let ic = [i,j,k];
                 let mut q : &mut& ParticleList = P.head(index(ic, P.nc()));
                 let mut i : &ParticleList = *q;

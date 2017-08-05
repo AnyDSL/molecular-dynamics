@@ -34,19 +34,18 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     compute_force(P, force, numthreads);
     //print_particle_system(P);
     while(t < t_end) {
-        t += dt;
-        
+        t += dt;        
+        update(P, P.start(), P.end(), dt, numthreads, integrate_x);
+        move_particles(P);
+        compute_force(P, force, numthreads);
+        update(P, P.start(), P.end(), dt, numthreads, integrate_v);
         if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
             let lang = "impala";
             generate_filename(i, "impala", &mut str, 32 as size_t);
             fprint_particle_system(str, i, P);
             ++i;
         }
-        
-        update(P, P.start(), P.end(), dt, numthreads, integrate_x);
-        move_particles(P);
-        compute_force(P, force, numthreads);
-        update(P, P.start(), P.end(), dt, numthreads, integrate_v);
+
         //print_statistics(P, t); 
         ++count;
     }

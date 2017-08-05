@@ -10,6 +10,7 @@ fn force(p1: Particle, p2: Particle, write1: bool, write2: bool, constants: Cons
     let dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
     let r = dist.reduce(sqr, |x,y|{x+y}, 0.0);
     if(r <= sqr(constants.r_cut)) {
+
         let sigma = constants.sigma;
         let epsilon = constants.epsilon;
         let mut s = sqr(sigma)/r;

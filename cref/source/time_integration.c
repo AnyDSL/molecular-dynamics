@@ -22,7 +22,7 @@ void time_integration(real t_start, real t_end, real const dt, bool const vtk) {
     size_t count = 0;
     size_t i = 0;
     unsigned char str[32];
-    if(vtk == true && count % 10 == 0) {
+    if(vtk == true && count % 1 == 0) {
         generate_filename(i, "c", str, 32);
         fprint_particle_system(str, i, P);
         ++i;
@@ -31,15 +31,17 @@ void time_integration(real t_start, real t_end, real const dt, bool const vtk) {
     compute_force(P);
     while(t < t_end) {
         t += dt; 
-        if(vtk == true && count % 10 == 0) {
+        update_coordinates(P, dt);
+        compute_force(P);
+        update_velocities(P, dt);
+        if(vtk == true && count % 1 == 0) {
             generate_filename(i, "c", str, 32);
             fprint_particle_system(str, i, P);
             ++i;
         }
-        update_coordinates(P, dt);
-        compute_force(P);
-        update_velocities(P, dt);
+
         ++count;
+
     }
 
 }

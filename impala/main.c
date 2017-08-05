@@ -49,6 +49,12 @@ int main(int argc, char** argv) {
     double average = 0.0;
     double samples[nsamples];
     int nthreads = atoi(argv[4]);
+    for(size_t i = 0; i < 50; ++i) { 
+        initialize_system(atol(argv[3]), l);
+        time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
+        deallocate_system();
+    }
+
 
     for(size_t i = 0; i < nsamples; ++i) { 
 
@@ -64,7 +70,7 @@ int main(int argc, char** argv) {
         double time = 0.0;
         time += (t2.tv_sec - t1.tv_sec);      // sec
         time += (t2.tv_usec - t1.tv_usec) * 1e-6;   // us to sec
-        printf("Runtime: %f s\n", time);
+        //printf("Runtime: %f s\n", time);
         average += time;
         samples[i] = time;
         deallocate_system();

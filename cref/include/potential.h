@@ -8,4 +8,5 @@ typedef struct {
     real epsilon;
 } Constants;
 
+
 void force(Particle * restrict p1, Particle * restrict p2, bool const write1, bool const write2, Constants const constants);

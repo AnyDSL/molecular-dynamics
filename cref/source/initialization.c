@@ -6,7 +6,7 @@
 #include "allocate.h"
 #include "random.h"
 
-static real const V_MAX = 200;
+static real const V_MAX = 100;
 
 void init_constants(Constants *constants) {
     constants->r_cut = 2.5;
@@ -16,12 +16,13 @@ void init_constants(Constants *constants) {
 
 void init_body_collision(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {
     size_t limit1[DIM], limit2[DIM];
-    size_t np1 = 1, np2 = 1;
+    size_t N = (size_t)floor(pow(np / 11.0, 1.0/3.0));
     for(size_t d = 0; d < DIM; ++d) {
-        limit1[d] = 10;
-        limit2[d] = 10;
+        limit1[d] = N;
+        limit2[d] = N;
     }
-    limit1[0] = 100;
+    limit1[0] = limit1[0] * 10;
+    size_t np1 = 1, np2 = 1;
     for(size_t d = 0; d < DIM; ++d) {
         np1 *= limit1[d];
         np2 *= limit2[d];
@@ -30,10 +31,10 @@ void init_body_collision(size_t const np, double l[DIM], Constants constants, Pa
     allocate_particle_system(np1+np2, l, 1, constants, P);
     size_t ip[DIM];
     real base[DIM];
-    base[0] = 50.0;
+    real const factor = pow(2.0, 1.0/6.0)*P->constants.sigma;
+    base[0] = l[0] / 2.0 - limit1[0] * factor / 2.0;
     base[1] = 100.0;
     base[2] = 100.0;
-    real const factor = pow(2.0, 1.0/6.0)*P->constants.sigma;
     for(ip[0] = 0; ip[0] < limit1[0]; ++ip[0]) {
         for(ip[1] = 0; ip[1] < limit1[1]; ++ip[1]) {
             for(ip[2] = 0; ip[2] < limit1[2]; ++ip[2]) {
@@ -49,7 +50,7 @@ void init_body_collision(size_t const np, double l[DIM], Constants constants, Pa
             }
         }
     }
-    base[0] = 100.0;
+    base[0] = l[0] / 2.0 - limit1[0] * factor / 2.0;
     base[1] = 125.0;
     base[2] = 100.0;
 
@@ -76,10 +77,6 @@ void init_body_collision(size_t const np, double l[DIM], Constants constants, Pa
     init_addresses(P);
 }
 
-bool flip_coin() {
-    return c_random() > 0.5 ? true : false;
-}
-
 void init_random(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {
 
     c_random_seed(0);
@@ -90,8 +87,17 @@ void init_random(size_t const np, double l[DIM], Constants constants, ParticleSy
         node->p.m = 1.0;
         for(size_t d = 0; d < DIM; ++d) {
             node->p.x[d] = l[d] * c_random();
-            real const tmp = V_MAX * c_random();
-            node->p.v[d] = flip_coin() ? tmp : -tmp;
+        }
+        real const tmp = 2.0 * V_MAX * c_random() - V_MAX;
+        real norm = 0.0;
+        real V[DIM];
+        for(size_t d = 0; d < DIM; ++d) {
+            V[d] = 2.0 * c_random() - 1.0;
+            norm += V[d]*V[d];
+        }
+        norm = sqrt(norm);
+        for(size_t d = 0; d < DIM; ++d) {
+            node->p.v[d] = V[d] / norm * tmp;
         }
         size_t jc[DIM];
         compute_cell_position(&node->p, P, jc);
@@ -121,8 +127,17 @@ void init_grid(size_t const np, double l[DIM], Constants constants, ParticleSyst
                 node->p.m = 1.0;
                 for(size_t d = 0; d < DIM; ++d) {
                     node->p.x[d] = spacing + ip[d] * spacing;
-                    real const tmp = V_MAX * c_random();
-                    node->p.v[d] = flip_coin() ? tmp : -tmp;
+                }
+                real const tmp = 2.0 * V_MAX * c_random() - V_MAX;
+                real norm = 0.0;
+                real V[DIM];
+                for(size_t d = 0; d < DIM; ++d) {
+                    V[d] = 2.0 * c_random() - 1.0;
+                    norm += V[d]*V[d];
+                }
+                norm = sqrt(norm);
+                for(size_t d = 0; d < DIM; ++d) {
+                    node->p.v[d] = V[d] / norm * tmp;
                 }
                 size_t jc[DIM];
                 compute_cell_position(&node->p, P, jc);
@@ -136,8 +151,17 @@ void init_grid(size_t const np, double l[DIM], Constants constants, ParticleSyst
         node->p.m = 1.0;
         for(size_t d = 0; d < DIM; ++d) {
             node->p.x[d] = l_new[d] * c_random();
-            real const tmp = V_MAX * c_random();
-            node->p.v[d] = flip_coin() ? tmp : -tmp;
+        }
+        real const tmp = 2.0 * V_MAX * c_random() - V_MAX;
+        real norm = 0.0;
+        real V[DIM];
+        for(size_t d = 0; d < DIM; ++d) {
+            V[d] = 2.0 * c_random() - 1.0;
+            norm += V[d]*V[d];
+        }
+        norm = sqrt(norm);
+        for(size_t d = 0; d < DIM; ++d) {
+            node->p.v[d] = V[d] / norm * tmp;
         }
         size_t jc[DIM];
         compute_cell_position(&node->p, P, jc);

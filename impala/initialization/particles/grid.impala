@@ -1,3 +1,4 @@
+//static V_MAX : real = 1e-4;
 static V_MAX : real = 100.0;
 
 
@@ -7,7 +8,8 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     let mut limit : [size_t * 3];
     let N = math.floor(math.pow(np as real, 1.0/3.0+EPS));
     let mut tmp : [real * 3];
-    let spacing = 3.0 * constants.r_cut;
+    //let spacing =  0.98* constants.r_cut;
+    let spacing =  3.0* constants.r_cut;
     for d in @loop(0 as size_t, DIM) {
         tmp(d) = (N+1.0) * spacing;
         limit(d) = N as size_t;
@@ -61,14 +63,19 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         let mut V : [real * 3];
         for d in @loop(0 as size_t, DIM) {
             X(d) = domain.x()(d) * c_random() as real;
-            let tmp = V_MAX*c_random() as real;
-            if(flip_coin()) {
-                V(d) = tmp;
-            }
-            else {
-                V(d) = -tmp;
-            }
         }
+        let tmp = 2.0*V_MAX*c_random() as real - V_MAX;
+
+        let mut norm = 0.0;
+        for d in loop(0 as size_t, DIM) @{
+            V(d) = 2.0 * c_random() - 1.0;
+            norm += V(d)*V(d);
+        }
+        norm = math.sqrt(norm);
+        for d in loop(0 as size_t, DIM) {
+            V(d) = V(d) / norm * tmp; 
+        }
+
         p.setCoordinates(get_vector(X));
         p.setVelocities(get_vector(V));
         insert_particle(node, pos, P); 
