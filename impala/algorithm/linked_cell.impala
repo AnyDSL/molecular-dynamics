@@ -54,10 +54,6 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                     force(p1, p2, write_i, write_j, P.constants());
                 }
             }
-            let p1 = get_particle_from_node(pl1);
-            let F = p1.getForces();
-            let F_new = scale_vector(P.constants().tmp1, F); 
-            p1.setForces(F_new);
         }
     }
 }

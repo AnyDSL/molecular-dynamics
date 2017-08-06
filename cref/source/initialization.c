@@ -12,10 +12,10 @@ void init_constants(Constants *constants) {
     constants->r_cut = 2.5;
     constants->sigma = 1.0;
     constants->epsilon = 5.0;
-    real tmp = constants->sigma*constants->sigma*constants->sigma;
-    tmp = tmp * tmp;
-    constants->tmp1 = 24.0*constants->epsilon*tmp*tmp;
-    constants->tmp2 = 1.0/(2.0*tmp);
+    real const sigma3 = constants->sigma*constants->sigma*constants->sigma;
+    real const sigma6 = sigma3 * sigma3;
+    constants->tmp1 = 24.0*constants->epsilon*sigma6;
+    constants->tmp2 = 2.0*sigma6;
 }
 
 void init_body_collision(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {

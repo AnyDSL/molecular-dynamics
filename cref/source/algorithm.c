@@ -96,9 +96,6 @@ void compute_force(ParticleSystem P) {
                             }
                         }
                     }
-                    for(size_t d = 0; d < DIM; ++d) {
-                        pl1->p.F[d] *= P.constants.tmp1;
-                    }
                 }
             }
         }

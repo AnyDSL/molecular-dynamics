@@ -24,8 +24,8 @@ void force(Particle* p1, Particle* p2, bool const write1, bool const write2, Con
             if(collisions_ > 0)// overflow detection
                 collisions_ += 1;
         }
-        real const tmp = 1.0/sqr(sqr(r));
-        real const f = tmp * (constants.tmp2 - r*tmp);
+        real const r8_inv = 1.0/sqr(sqr(r));
+        real const f = constants.tmp1 * r8_inv * (1.0 - r*r8_inv*constants.tmp2);
         real F[DIM];
         for(size_t d = 0; d < DIM; ++d) {
             F[d] = f * dist[d];

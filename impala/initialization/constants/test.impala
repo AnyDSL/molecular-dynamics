@@ -3,10 +3,10 @@ fn init_constants(constants: &mut Constants) -> () {
     constants.sigma = 1.0;
     constants.epsilon = 5.0;
     //constants.epsilon = 1.0;
-    let mut tmp = constants.sigma * constants.sigma * constants.sigma;
-    tmp = tmp * tmp;
-    constants.tmp1 = 24.0 * constants.epsilon * tmp;
-    constants.tmp2 = 1.0/(2.0*tmp);
+    let sigma3 = constants.sigma * constants.sigma * constants.sigma;
+    let sigma6 = sigma3 * sigma3;
+    constants.tmp1 = 24.0 * constants.epsilon * sigma6;
+    constants.tmp2 = 2.0 * sigma6;
 }
 
 
