@@ -3,7 +3,6 @@
 #include <datastructures.h>
 #include <potential.h>
 
-size_t get_number_of_collisions(); 
 void compute_force(ParticleSystem P);
 void move_particles(ParticleSystem P);
 void update_coordinates(ParticleSystem P, real const dt);

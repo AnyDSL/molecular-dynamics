@@ -7,19 +7,6 @@
 #include <boundary.h>
 #include <omp.h>
 
-#ifdef COUNT_COLLISIONS
-#define count_collisions true
-#else
-#define count_collisions false
-#endif
-
-static size_t collisions_ = 1;
-
-size_t get_number_of_collisions() {
-    return collisions_ - 1;
-}
-
-
 
 void compute_force(ParticleSystem P) {
     #pragma omp parallel for schedule(static)
@@ -93,7 +80,7 @@ void compute_force(ParticleSystem P) {
                     write_i = false;
                 }
 
-                for(ParticleList * pl1=P.grid[i1 + P.nc[0] * (j1 + P.nc[1] * k1)]; pl1!=NULL; pl1=pl1->next) {
+                for(ParticleList * restrict pl1=P.grid[i1 + P.nc[0] * (j1 + P.nc[1] * k1)]; pl1!=NULL; pl1=pl1->next) {
                     for(size_t k2 = k2_start; k2 < k2_end; ++k2) {
                         for(size_t j2 = j2_start; j2 < j2_end; ++j2) {
                             for(size_t i2 = i2_start; i2 < i2_end; ++i2) {
@@ -101,18 +88,16 @@ void compute_force(ParticleSystem P) {
                                 if(i2 < P.start[0] || i2 >= P.end[0] || j2 < P.start[1] || j2 >= P.end[1] || k2 < P.start[2] || k2 >= P.end[2]) {
                                     write_j = false;
                                 }
-                                for(ParticleList * pl2 = P.grid[i2 + P.nc[0]*(j2 + P.nc[1] * k2)]; pl2 != NULL; pl2 = pl2->next) {
-                                    if(count_collisions) { 
-                                        if(collisions_ > 0)// overflow detection 
-                                            collisions_ += 1; 
-                                    }
-
+                                for(ParticleList * restrict pl2 = P.grid[i2 + P.nc[0]*(j2 + P.nc[1] * k2)]; pl2 != NULL; pl2 = pl2->next) {
                                     if(pl1 < pl2) {
                                         force(&pl1->p, &pl2->p, write_i, write_j, P.constants);
                                     }
                                 }
                             }
                         }
+                    }
+                    for(size_t d = 0; d < DIM; ++d) {
+                        pl1->p.F[d] *= P.constants.tmp1;
                     }
                 }
             }

@@ -166,12 +166,6 @@ fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let nc = P.nc();
     for d in @loop((0 as size_t), DIM) {
         kc(d) = math.floor((coordinates_x(d) + P.offset()) * tmp(d)) as size_t;
-        /*if(kc(d) < P.start()(d)) {
-            kc(d) = P.start()(d);
-        }
-        else if(kc(d) >= P.end()(d)) {
-            kc(d) = P.end()(d) - 1 as size_t;
-        }*/
     }
     kc
 }

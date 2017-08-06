@@ -6,12 +6,16 @@
 #include "allocate.h"
 #include "random.h"
 
-static real const V_MAX = 100;
+static real const V_MAX = 10;
 
 void init_constants(Constants *constants) {
     constants->r_cut = 2.5;
     constants->sigma = 1.0;
     constants->epsilon = 5.0;
+    real tmp = constants->sigma*constants->sigma*constants->sigma;
+    tmp = tmp * tmp;
+    constants->tmp1 = 24.0*constants->epsilon*tmp*tmp;
+    constants->tmp2 = 1.0/(2.0*tmp);
 }
 
 void init_body_collision(size_t const np, double l[DIM], Constants constants, ParticleSystem *P) {
@@ -111,7 +115,7 @@ void init_grid(size_t const np, double l[DIM], Constants constants, ParticleSyst
     c_random_seed(0);
     size_t limit[DIM];
     real N = floor(pow(np, 1.0/3.0+EPS));
-    real spacing = 3.0*constants.r_cut;
+    real spacing = 2.0*constants.r_cut;
     real l_new[DIM];
     for(size_t d = 0; d < DIM; ++d) {
         l_new[d] = (N+1.0)*spacing;
