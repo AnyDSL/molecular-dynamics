@@ -68,7 +68,7 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
         np: P.np(),
         nc: P.nc(),
         ghost_layer: P.ghost_layer(),
-        l: P.l().x(),
+        l: P.l().get(),
         constants: P.constants(),
         data_cells: P.data_cells(),
         data_addresses: P.data_addresses()
@@ -95,9 +95,9 @@ fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
 fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constants: Constants) -> ParticleSystem {
     let mut nc : [size_t * 3];
     let mut pnc = 1 as size_t;
-    let l_extended = increase_vector(2.0*(ghost_layer as real)*constants.r_cut, l); 
+    let l_extended = increase_vector(l, 2.0*(ghost_layer as real)*constants.r_cut); 
     for d in @loop(0 as size_t, DIM){
-        nc(d) = math.floor(l.x()(d)/constants.r_cut) as size_t + (2 as size_t * ghost_layer);
+        nc(d) = math.floor(l.get()(d)/constants.r_cut) as size_t + (2 as size_t * ghost_layer);
         pnc *= nc(d);
     }
     let data_cells = allocate_and_initialize(pnc * sizeof[&ParticleList]() as size_t, 0);
@@ -161,8 +161,8 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
 
 fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
-    let coordinates_x = p.getCoordinates().x();
-    let tmp = P.tmp().x();
+    let coordinates_x = p.getCoordinates().get();
+    let tmp = P.tmp().get();
     let nc = P.nc();
     for d in @loop((0 as size_t), DIM) {
         kc(d) = math.floor((coordinates_x(d) + P.offset()) * tmp(d)) as size_t;

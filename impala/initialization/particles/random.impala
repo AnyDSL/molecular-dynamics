@@ -16,7 +16,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
 
         let mut norm = 0.0;
         for d in loop(0 as size_t, DIM) @{
-            X(d) = l.x()(d) * c_random() as real;
+            X(d) = l.get()(d) * c_random() as real;
             V(d) = 2.0 * c_random() - 1.0;
             norm += V(d)*V(d);
         }

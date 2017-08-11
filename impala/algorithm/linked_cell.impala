@@ -151,7 +151,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
         for i in loop(start, N) {
             let p = get_particle(addresses.get(i));
             let v = p.getVelocities();
-            let x = v.x();
+            let x = v.get();
             fprint_double(fp, x(d));
             fprint_string(fp, "\n");
         }
@@ -165,7 +165,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
         for i in loop(start, N) {
             let p = get_particle(addresses.get(i));
             let v = p.getForces();
-            let x = v.x();
+            let x = v.get();
             fprint_double(fp, x(d));
             fprint_string(fp, "\n");
         }

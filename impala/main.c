@@ -13,10 +13,10 @@
 #endif
 
 typedef double real;
-extern void initialize_system(size_t, real *);
-extern void time_integration(real, real, real, int, bool);
-extern void deallocate_system();
-extern size_t get_number_of_collisions();
+void initialize_system(size_t, real *);
+void time_integration(real, real, real, int, bool);
+void deallocate_system();
+size_t get_number_of_collisions();
 void print_usage(char *name) {
     printf("Usage: %s dt steps particles numthreads -vtk\n", name);
 }
@@ -45,15 +45,16 @@ int main(int argc, char** argv) {
     //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
-    size_t const nsamples = 100;
+    size_t const nsamples = 1;
     double average = 0.0;
     double samples[nsamples];
     int nthreads = atoi(argv[4]);
+    /*
     for(size_t i = 0; i < 50; ++i) { 
         initialize_system(atol(argv[3]), l);
         time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
         deallocate_system();
-    }
+    }*/
 
 
     for(size_t i = 0; i < nsamples; ++i) { 

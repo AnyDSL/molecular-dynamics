@@ -39,7 +39,7 @@ fn get_particle_system_from_data_struct(P_data: ParticleSystemData) -> ParticleS
 fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData {
     ParticleSystemData {
         np: P.np(),
-        l: P.l().x(),
+        l: P.l().get(),
         constants: P.constants(),
         lut_data: P.lut().data,
         data: P.data()

@@ -29,7 +29,8 @@ struct Constants {
 fn force(p1: Particle, p2: Particle, write1: bool, write2: bool, constants: Constants) -> () {
     let sqr = |x : real| {x*x};
     let dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
-    let r = dist.reduce(sqr, |x,y|{x+y}, 0.0);
+    let dist_sqr = dist.map(sqr);
+    let r = dist_sqr.reduce(|x,y|{x+y}, 0.0);
     if(r < sqr(constants.r_cut)) {
         @count_collision();
         let r_8_inv = 1.0/sqr(sqr(r));

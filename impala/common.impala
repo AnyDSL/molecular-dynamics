@@ -30,53 +30,53 @@ static SIZEOFPARTICLE = ((1 as size_t) + (4 as size_t) * DIM) * (sizeof[real]() 
 
 struct Vector
 {
-    x: fn() -> [real * 3],
-    append: fn(fn(real, real) -> real, Vector) -> Vector,
+    get: fn() -> [real * 3],
+    combine: fn(fn(real, real) -> real, Vector) -> Vector,
     map: fn(fn(real) -> real) -> Vector,
-    reduce: fn(fn(real) -> real, fn(real, real) -> real, real) -> real,
+    reduce: fn(fn(real, real) -> real, real) -> real,
     print: fn() -> (),
     fprint: fn(u64) -> ()
 }
 
-fn get_vector(x: [real * 3]) -> Vector
+fn get_vector(data: [real * 3]) -> Vector
 {
     Vector { 
-        x: || {x},
-        append: |f: fn(real, real) -> real, v: Vector| {
+        get: || {data},
+        combine: |f: fn(real, real) -> real, v: Vector| {
             let mut res : [real * 3];
-            let v_x = v.x();
-            @loop((0 as size_t), DIM, |d| {
-                    res(d) = f(x(d), v_x(d)); 
-            });
+            let v_data = v.get();
+            for d in @loop((0 as size_t), DIM) {
+                    res(d) = f(data(d), v_data(d)); 
+            }
             get_vector(res)
         },
         map: |f: fn(real) -> real| {
             let mut res : [real * 3];
-            @loop(0 as size_t, DIM, |d| {
-                res(d) = f(x(d)); 
-            });
+            for d in @loop(0 as size_t, DIM) {
+                res(d) = f(data(d)); 
+            }
             get_vector(res)
         },
-        reduce: |f: fn(real) -> real, g: fn(real, real) -> real, empty: real| {
+        reduce: |f: fn(real, real) -> real, empty: real| {
             let mut acc = empty;
-            @loop(0 as size_t, DIM, |d| {
-                acc = g(acc, f(x(d))); 
-            });
+            for d in @loop(0 as size_t, DIM) {
+                acc = f(acc, data(d)); 
+            }
             acc
         },
         print: || { 
-            @loop(0 as size_t, DIM-(1 as size_t), |d| {
-                 print_double(x(d));
+            for d in @loop(0 as size_t, DIM-(1 as size_t)) {
+                 print_double(data(d));
                  print_char(' ');
-            });
-            print_double(x(DIM-(1 as size_t)));
+            }
+            print_double(data(DIM-(1 as size_t)));
         },
         fprint: |fp| { 
-            @loop(0 as size_t, DIM-(1 as size_t), |d| {
-                 fprint_double(fp, x(d));
+            for d in @loop(0 as size_t, DIM-(1 as size_t)) {
+                 fprint_double(fp, data(d));
                  fprint_char(fp, ' ');
-            });
-            fprint_double(fp, x(DIM-(1 as size_t)));
+            }
+            fprint_double(fp, data(DIM-(1 as size_t)));
         }
 
     }
@@ -85,30 +85,38 @@ fn get_vector(x: [real * 3]) -> Vector
 fn get_null_vector() -> Vector
 {
     let mut res : [real * 3];
-    @loop(0 as size_t, DIM, |d| {
+    for d in loop(0 as size_t, DIM) {
         res(d) = 0.0; 
-    });
+    }
     get_vector(res)
 }
 
 fn add_vectors(a: Vector, b: Vector) -> Vector {
-    a.append(|x,y|{x+y}, b)
+    a.combine(|x,y|{x+y}, b)
 }
 
 fn sub_vectors(a: Vector, b: Vector) -> Vector {
-    a.append(|x,y|{x-y}, b)
+    a.combine(|x,y|{x-y}, b)
 }
 
 fn div_vectors(a: Vector, b: Vector) -> Vector {
-    a.append(|x,y|{x/y}, b)
+    a.combine(|x,y|{x/y}, b)
 }
 
 fn scale_vector(alpha: real, v: Vector) -> Vector {
     v.map(|x|{alpha*x})
 }
 
-fn increase_vector(alpha: real, v: Vector) -> Vector {
+fn increase_vector(v: Vector, alpha: real) -> Vector {
     v.map(|x|{x + alpha})
+}
+
+fn square_vector(v: Vector) -> Vector {
+    v.map(|x|{x*x})
+}
+
+fn vector_sum(v : Vector) -> real {
+    v.reduce(|x,y|{x+y}, 0 as real)
 }
 
 struct Particle {
@@ -124,62 +132,61 @@ struct Particle {
     setForces_old: fn(Vector) -> ()
 }
 
-fn get_particle(data: &u8) -> Particle 
-{
+fn get_particle(data: &u8) -> Particle {
     Particle {
         getMass: || {bitcast[&[real]](data)(0)},
         getCoordinates: || {
             let mut res : [real * 3];
-            @loop(0 as size_t, DIM, |d| {
-                res(d) = bitcast[&[real]](data)((1 as size_t)+d); 
-            });
+            for d in @loop(0 as size_t, DIM) {
+                res(d) = bitcast[&[real]](data)(1 as size_t + d); 
+            }
             get_vector(res)
         },
         getVelocities: || {
             let mut res : [real * 3];
-            @loop(0 as size_t, DIM, |d| {
-                res(d) = bitcast[&[real]](data)((1 as size_t)+DIM+d); 
-            });
+            for d in @loop(0 as size_t, DIM) {
+                res(d) = bitcast[&[real]](data)( 1 as size_t + DIM + d); 
+            }
             get_vector(res)
         },
         getForces: || {
             let mut res : [real * 3];
-            @loop(0 as size_t, DIM, |d| {
-                res(d) = bitcast[&[real]](data)((1 as size_t)+(2 as size_t)*DIM+d); 
-            });
+            for d in @loop(0 as size_t, DIM) {
+                res(d) = bitcast[&[real]](data)(1 as size_t + 2 as size_t * DIM + d); 
+            }
             get_vector(res)
         },
         getForces_old: || {
             let mut res : [real * 3];
-            @loop(0 as size_t, DIM, |d| {
-                res(d) = bitcast[&[real]](data)((1 as size_t)+(3 as size_t)*DIM+d); 
-            });
+            for d in @loop(0 as size_t, DIM) {
+                res(d) = bitcast[&[real]](data)( 1 as size_t + 3 as size_t * DIM + d); 
+            }
             get_vector(res)
         },
         setMass: |m| {bitcast[&mut[real]](data)(0) = m;}, 
         setCoordinates: |v| {
-            let x = v.x();
-            @loop(0 as size_t, DIM, |d| {
-                bitcast[&mut[real]](data)((1 as size_t)+d) = x(d); 
-            });
+            let x = v.get();
+            for d in @loop(0 as size_t, DIM) {
+                bitcast[&mut[real]](data)(1 as size_t + d) = x(d); 
+            }
         },
         setVelocities: |v| {
-            let x = v.x();
-            @loop(0 as size_t, DIM, |d| {
-                bitcast[&mut[real]](data)((1 as size_t)+DIM+d) = x(d); 
-            });
+            let x = v.get();
+            for d in @loop(0 as size_t, DIM) {
+                bitcast[&mut[real]](data)(1 as size_t + DIM + d) = x(d); 
+            }
         },
         setForces: |v| {
-            let x = v.x();
-            @loop(0 as size_t, DIM, |d| {
-                bitcast[&mut[real]](data)((1 as size_t)+(2 as size_t)*DIM+d) = x(d); 
-            });
+            let x = v.get();
+            for d in @loop(0 as size_t, DIM) {
+                bitcast[&mut[real]](data)(1 as size_t + 2 as size_t * DIM + d) = x(d); 
+            }
         },
         setForces_old: |v| {
-            let x = v.x();
-            @loop(0 as size_t, DIM, |d| {
-                bitcast[&mut[real]](data)((1 as size_t)+(3 as size_t)*DIM+d) = x(d); 
-            });
+            let x = v.get();
+            for d in @loop(0 as size_t, DIM) {
+                bitcast[&mut[real]](data)(1 as size_t + 3 as size_t * DIM + d) = x(d); 
+            }
         }
     }
 }
@@ -280,6 +287,11 @@ fn par_loop(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> (
 }
 
 fn index(ic: [size_t * 3], nc: [size_t * 3]) -> size_t {
-    ic(0) + nc(0)*(ic(1) + nc(1)*ic(2))
+    fn rec(i: size_t) -> size_t {
+        if(i == DIM - 1 as size_t) {ic(i)}
+        else {ic(i) + nc(i) * rec(i + 1 as size_t)} 
+    }
+    @rec(0 as size_t)
+    //ic(0) + nc(0)*(ic(1) + nc(1)*ic(2))
 }
 

@@ -123,7 +123,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
 
             let p = P.getParticle(i);
             let v = p.getVelocities();
-            let x = v.x();
+            let x = v.get();
             fprint_double(fp, x(d));
             fprint_string(fp, "\n");
         });
@@ -139,7 +139,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
 
             let p = P.getParticle(i);
             let v = p.getForces();
-            let x = v.x();
+            let x = v.get();
             fprint_double(fp, x(d));
             fprint_string(fp, "\n");
         });
@@ -170,7 +170,8 @@ fn print_statistics(P: ParticleSystem, t: real) -> ()
     let mut e : real = 0.0;
     loop(0 as size_t, P.np(), |i| {
         let p = P.getParticle(i);
-        let v = p.getVelocities().reduce(sqr, |x,y|{x+y}, 0.0);
+        let V_sqr = p.getVelocities().map(sqr);
+        let v = V_sqr.reduce(|x,y|{x+y}, 0.0);
         e += 0.5 * p.getMass() * v;
     });
     print_string("t: ");

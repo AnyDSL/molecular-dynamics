@@ -6,7 +6,8 @@ fn force(p1: Particle, p2: Particle, constants: Constants) -> ()
 {
     let sqr = |x : real| {x*x};
     let dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
-    let r = dist.reduce(sqr, |x,y|{x+y}, 0.0);
+    let dist_sqr = dist.map(sqr);
+    let r = dist_sqr.reduce(|x,y|{x+y}, 0.0);
     let f = p1.getMass() * p2.getMass() / (math.sqrt(r)*r);
     let tmp = scale_vector(f, dist);
     p1.setForces(add_vectors(p1.getForces(), tmp));
