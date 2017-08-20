@@ -6,31 +6,15 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
     }
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
-    for d in @loop(0 as size_t, DIM) {
+    for d in @loop(0 as size_t, dimension()) {
         ic_start(d) = z;
     }
     let ic_end = P.nc();
-    /*
-    print_string("ic_start: ");
-    print_long(ic_start(0) as i64);
-    print_string(", ");
-    print_long(ic_start(1) as i64);
-    print_string(", ");
-    print_long(ic_start(2) as i64);
-    print_string("\n");
-    print_string("ic_end: ");
-    print_long(ic_end(0) as i64);
-    print_string(", ");
-    print_long(ic_end(1) as i64);
-    print_string(", ");
-    print_long(ic_end(2) as i64);
-    print_string("\n");
-    */
     for ic, head in $parallel_iterate_over_particle_cells(ic_start, ic_end, P, numthreads) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
         let mut write_i = true;
-        for d in @loop(0 as size_t, DIM) {
+        for d in @loop(0 as size_t, dimension()) {
             if(ic(d) >= P.start()(d)) {
                 jc_start(d) = ic(d) - 1 as size_t;
             } 
@@ -143,7 +127,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "POINT_DATA ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    for d in loop(start, DIM) {
+    for d in loop(start, dimension()) {
         fprint_string(fp, "SCALARS velocity_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
@@ -157,7 +141,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
         }
         fprint_string(fp, "\n");
     }
-    for d in loop(start, DIM) {
+    for d in loop(start, dimension()) {
         fprint_string(fp, "SCALARS force_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");

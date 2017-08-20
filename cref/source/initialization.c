@@ -14,6 +14,7 @@ void init_constants(Constants *constants) {
     constants->epsilon = 5.0;
     real const sigma3 = constants->sigma*constants->sigma*constants->sigma;
     real const sigma6 = sigma3 * sigma3;
+    constants->r_cut_sqr = sqr(constants->r_cut);
     constants->tmp1 = 24.0*constants->epsilon*sigma6;
     constants->tmp2 = 2.0*sigma6;
 }

@@ -19,7 +19,7 @@ void force(Particle* p1, Particle* p2, bool const write1, bool const write2, Con
         dist[d] = p2->x[d] - p1->x[d];
         r += sqr(dist[d]);
     }
-    if(r < sqr(constants.r_cut)) {
+    if(r < constants.r_cut_sqr) {
         if(count_collisions) {
             if(collisions_ > 0)// overflow detection
                 collisions_ += 1;

@@ -6,6 +6,7 @@ typedef struct {
     real r_cut;
     real sigma;
     real epsilon;
+    real r_cut_sqr;
     real tmp1;
     real tmp2;
 } Constants;

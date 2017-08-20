@@ -1,5 +1,5 @@
 static mut P_data_ : ParticleSystemData;
-
+static mut array : [i32];
 extern 
 fn initialize_system(np: size_t, l: &[real]) -> () {
     let mut P = get_particle_system_from_data_struct(P_data_);
@@ -20,6 +20,9 @@ fn deallocate_system() -> () {
 extern 
 fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: bool) -> ()
 {
+    for i in loop(0 as size_t, numthreads as size_t) {
+        array(0) = i as i32;
+    }
     let P = get_particle_system_from_data_struct(P_data_);
     let mut t : real = t_start; 
     let mut count = 0 as size_t;
@@ -49,5 +52,5 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
         //print_statistics(P, t); 
         ++count;
     }
-    P_data_ = get_data_struct_from_particle_system(P);
+    P_data_ = get_data_struct_from_particle_system(P); 
 }

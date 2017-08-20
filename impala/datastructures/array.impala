@@ -10,17 +10,17 @@ struct ParticleSystem {
     data: fn() -> &u8
 }
 
-fn get_particle_system(np: size_t, l: Vector, data: &u8, lut: LookupTable, constants: Constants) -> ParticleSystem {
+fn get_particle_system(np: size_t, l: Vector, particle_data: &u8, lut_data: &u8, constants: Constants) -> ParticleSystem {
     ParticleSystem {
         np: || {np},
         l: || {l},
         start: || {0 as size_t},
         end: || {np},
         ghost_layer: ||  {0 as size_t},
-        getParticle: |i| {get_particle(&bitcast[&[u8]](data)(i*SIZEOFPARTICLE))},
-        lut: || {lut},
+        getParticle: |i| {get_particle(&bitcast[&[u8]](particle_data)(i*size_of_particle()))},
+        lut: || {get_lookup_table(lut_data, np)},
         constants: || {constants},
-        data: || {data}
+        data: || {particle_data}
     }
 }
 
@@ -33,7 +33,7 @@ struct ParticleSystemData {
 }
 
 fn get_particle_system_from_data_struct(P_data: ParticleSystemData) -> ParticleSystem {
-    get_particle_system(P_data.np, get_vector(P_data.l), P_data.data, get_lookup_table(P_data.lut_data, P_data.np), P_data.constants)
+    get_particle_system(P_data.np, get_vector(P_data.l), P_data.data, P_data.lut_data, P_data.constants)
 }
 
 fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData {
@@ -41,7 +41,7 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
         np: P.np(),
         l: P.l().get(),
         constants: P.constants(),
-        lut_data: P.lut().data,
+        lut_data: P.lut().data(),
         data: P.data()
     }
 }
@@ -49,9 +49,9 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
 
 
 fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constants: Constants) -> ParticleSystem {
-    let data = allocate(np * SIZEOFPARTICLE);
-    let lut = allocate_lookup_table(np);
-    get_particle_system(np, l, data, lut, constants) 
+    let particle_data = allocate(np * size_of_particle());
+    let lut_data = allocate_lookup_table(np);
+    get_particle_system(np, l, particle_data, lut_data, constants) 
 }
 
 fn deallocate_particle_system(P: ParticleSystem) -> () {
@@ -74,29 +74,23 @@ fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () 
 struct LookupTable {
     rows: fn() -> size_t,
     cols: fn() -> size_t,
-    data: &u8
+    data: fn() -> &u8
 }
 
 fn get_lookup_table(data: &u8, size: size_t) -> LookupTable {
     LookupTable {
         rows: || {size/2 as size_t + 0 as size_t},
         cols: || {size},
-        data: data
+        data: || {data}
     }
 }
 
-fn allocate_lookup_table(size: size_t) -> LookupTable {
-    LookupTable {
-        rows: || {size/2 as size_t + 0 as size_t},
-        //rows: || {size},
-        cols: || {size},
-        data: {allocate((size * (size / 2 as size_t + 0 as size_t) * sizeof[u8]() as size_t))}
-        //data: {allocate(size * size)}
-    }
+fn allocate_lookup_table(size: size_t) -> &u8 {
+    allocate((size * (size / 2 as size_t) * sizeof[u8]() as size_t))
 }
 
 fn deallocate_lookup_table(lut: LookupTable) -> () {
-    deallocate(lut.data);
+    deallocate(lut.data());
 }
 
 

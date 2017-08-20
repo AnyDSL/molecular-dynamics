@@ -2,15 +2,15 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
 {
     let start = 0 as size_t;
     let lut = P.lut();
-    for i in par_loop(start, P.np(), numthreads) {
+    for i in par_loop(start, P.np(), numthreads) @{
         let p = P.getParticle(i);
         p.setForces(get_null_vector());
     }
     
-    initialize(lut.data, lut.rows()*lut.cols()*sizeof[u8]() as size_t, 0i32); 
+    initialize(lut.data(), lut.rows()*lut.cols()*sizeof[u8]() as size_t, 0i32); 
     
-    for i in par_loop(start, P.np(), numthreads){
-        for j in loop(start, P.np()) {
+    for i in $ par_loop(start, P.np(), numthreads) {
+        for j in  loop(start, P.np()) @{
             if(i != j)
             {
                 let mut row = i;
@@ -28,10 +28,9 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                     row -= lut.rows();
 
                 }
-                let flag = cmpxchg(&mut bitcast[&mut[u8]](lut.data)(row*lut.cols() + col), 0u8, 1u8);
+                let flag = cmpxchg(&mut bitcast[&mut[u8]](lut.data())(row*lut.cols() + col), 0u8, 1u8);
                 if (flag(1) == true)
                 {
-                    @count_collision();
                     let p1 = P.getParticle(i);
                     let p2 = P.getParticle(j);
                     force(p1, p2, true, true, P.constants());
@@ -114,7 +113,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "POINT_DATA ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    @loop(start, DIM, |d| {
+    @loop(start, dimension(), |d| {
         fprint_string(fp, "SCALARS velocity_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
@@ -130,7 +129,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
         fprint_string(fp, "\n");
     });
 
-    @loop(start, DIM, |d| {
+    @loop(start, dimension(), |d| {
         fprint_string(fp, "SCALARS force_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");

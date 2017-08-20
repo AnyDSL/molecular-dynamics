@@ -45,12 +45,12 @@ int main(int argc, char** argv) {
     //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
+    //size_t const nsamples = 100;
     size_t const nsamples = 1;
     double average = 0.0;
     double samples[nsamples];
     int nthreads = atoi(argv[4]);
-    /*
-    for(size_t i = 0; i < 50; ++i) { 
+    /*for(size_t i = 0; i < 50; ++i) { 
         initialize_system(atol(argv[3]), l);
         time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
         deallocate_system();

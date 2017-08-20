@@ -6,13 +6,13 @@ fn boundary(p: Particle, P: ParticleSystem) -> () {
     let r_cut = P.constants().r_cut;
     let offset = ghost_layer as real * r_cut;
 
-    for d in @loop(0 as size_t, DIM) {
+    for d in @loop(0 as size_t, dimension()) {
         if(x(d) + offset < 0.0) {
-            x(d) = EPS - offset;
+            x(d) = epsilon() - offset;
             change = true;
         }
         else if(x(d) + offset > l(d)) {
-            x(d) = l(d) - offset - EPS;
+            x(d) = l(d) - offset - epsilon();
             change = true;
         }
     }
