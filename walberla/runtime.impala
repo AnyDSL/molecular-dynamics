@@ -8,7 +8,7 @@ fn initialize_particle_system(np: size_t, ghost_layer: size_t, l: &[real]) -> ()
     for i in loop(0 as size_t, np) {
         let node = allocate_particle_node();
         let p = get_particle_from_node(*node);
-        p.setCoordinates(get_vector([EPS, EPS, EPS]));
+        p.setCoordinates(get_vector([epsilon(), epsilon(), epsilon()]));
         push_node(node, P);
     }
     init_addresses(P);
@@ -35,7 +35,7 @@ fn reinitialize_particle_system(np: size_t) -> () {
         let P_new = get_particle_system(np, nc, ghost_layer, l, data_cells, constants, data_addresses);
         if(np_old > np) {
             let mut end = 1 as size_t;
-            for d in @loop(0 as size_t, DIM) {
+            for d in @loop(0 as size_t, dimension()) {
                 end *= nc(d);
             }
             let mut j = np_old as size_t;
@@ -56,7 +56,7 @@ fn reinitialize_particle_system(np: size_t) -> () {
             for j in loop(np_old, np) {
                 let node = allocate_particle_node();
                 let p = get_particle_from_node(*node);
-                p.setCoordinates(get_vector([EPS, EPS, EPS]));
+                p.setCoordinates(get_vector([epsilon(), epsilon(), epsilon()]));
                 push_node(node, P_new);
             }
         }
@@ -109,8 +109,8 @@ fn get_coordinates(X: &mut [real], i: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let p = get_particle(P.addresses().get(i));
     let tmp = p.getCoordinates();
-    for d in @loop(0 as size_t, DIM) {
-        X(d) = tmp.x()(d); 
+    for d in @loop(0 as size_t, dimension()) {
+        X(d) = tmp.get()(d); 
     }
 }
 
@@ -119,8 +119,8 @@ fn get_velocities(V: &mut [real], i: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let p = get_particle(P.addresses().get(i));
     let tmp = p.getVelocities();
-    for d in @loop(0 as size_t, DIM) {
-        V(d) = tmp.x()(d); 
+    for d in @loop(0 as size_t, dimension()) {
+        V(d) = tmp.get()(d); 
     }
 }
 
@@ -129,8 +129,8 @@ fn get_forces(F: &mut [real], i: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let p = get_particle(P.addresses().get(i));
     let tmp = p.getForces();
-    for d in @loop(0 as size_t, DIM) {
-        F(d) = tmp.x()(d); 
+    for d in @loop(0 as size_t, dimension()) {
+        F(d) = tmp.get()(d); 
     }
 }
 
@@ -158,7 +158,7 @@ fn position_update(dt: real) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
-    for d in @loop(0 as size_t, DIM) {
+    for d in @loop(0 as size_t, dimension()) {
         ic_start(d) = z;
     }
     let ic_end = P.nc();

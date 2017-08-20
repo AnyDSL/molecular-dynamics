@@ -1,17 +1,17 @@
 fn boundary(p: Particle, P: ParticleSystem) -> () {
-    let mut x = p.getCoordinates().x();
+    let mut x = p.getCoordinates().get();
     let mut change = false;
     let r_cut = P.constants().r_cut;
     let ghost_layer = P.ghost_layer();
-    for d in @loop(0 as size_t, DIM) {
-        let lower = ghost_layer as real * r_cut;
-        let upper = P.l().x()(d) - lower;
+    for d in @loop(0 as size_t, dimension()) {
+        let lower = P.offset();
+        let upper = P.l().get()(d) - lower;
         if(x(d) < lower) {
-            x(d) = lower + EPS;
+            x(d) = lower + epsilon();
             change = true;
         }
         else if(x(d) > upper) {
-            x(d) = upper - EPS;
+            x(d) = upper - epsilon();
             change = true;
         }
     }

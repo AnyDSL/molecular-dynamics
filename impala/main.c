@@ -45,21 +45,22 @@ int main(int argc, char** argv) {
     //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
-    //size_t const nsamples = 100;
-    size_t const nsamples = 1;
+    size_t const nsamples = 100;
+    //size_t const nsamples = 1;
     double average = 0.0;
     double samples[nsamples];
     int nthreads = atoi(argv[4]);
-    /*for(size_t i = 0; i < 50; ++i) { 
-        initialize_system(atol(argv[3]), l);
+    size_t np = atol(argv[3]);
+    for(size_t i = 0; i < 50; ++i) { 
+        initialize_system(np, l);
         time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
         deallocate_system();
-    }*/
+    }
 
 
     for(size_t i = 0; i < nsamples; ++i) { 
 
-        initialize_system(atol(argv[3]), l);
+        initialize_system(np, l);
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
@@ -90,7 +91,7 @@ int main(int argc, char** argv) {
     }*/
     //else {
     //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
-    printf("%i\t%f\t%f\n", nthreads, average, stdev);
+    printf("%lu\t%f\t%f\n", np, average, stdev);
     //}
     if(count_collisions) {
         if(get_number_of_collisions() + 1 == 0) {
