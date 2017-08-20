@@ -32,6 +32,7 @@ void allocate_particle_system(size_t np, real l[DIM], size_t ghost_layer, Consta
         P->end[d] = P->nc[d] - ghost_layer;
     }
     P->ghost_layer = ghost_layer;
+    P->r_cut_inv = 1.0/constants.r_cut;
     P->offset = constants.r_cut * ghost_layer;
     P->grid = (Cell *)allocate_and_initialize(pnc*sizeof(Cell), 0);
     P->addresses = (size_t *)allocate(P->np*sizeof(size_t));
