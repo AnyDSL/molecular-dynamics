@@ -30,7 +30,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 write_i = false;
             };
         }
-        for pl1 in iterate_over_list(head) @{
+        for pl1 in $iterate_over_list(head) @{
             for jc, pl2, write_j, in $iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
                     let p1 = get_particle_from_node(pl1);
@@ -50,7 +50,7 @@ fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, n
 fn move_particles(P: ParticleSystem) -> () {
     let start = P.start();
     let end = P.end();
-    for k in loop(start(2), end(2)) {
+    for k in $loop(start(2), end(2)) {
         for j in loop(start(1), end(1)) {
             for i in loop(start(0), end(0)) @{
                 let ic = [i,j,k];

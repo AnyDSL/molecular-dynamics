@@ -1,4 +1,4 @@
-static V_MAX : real = 100.0;
+static V_MAX : real = 10.0;
 
 fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
     let mut limit1 : [size_t * 3];
@@ -56,7 +56,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
 
 
     base(0) = (l.get()(0) - limit2(0) as real * factor) / 2 as real;
-    base(1) = 125.0;
+    base(1) = 115.0;
     base(2) = 100.0;
 
     for d in @loop(0 as size_t, dimension()) {

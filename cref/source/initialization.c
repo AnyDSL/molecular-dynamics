@@ -56,7 +56,7 @@ void init_body_collision(size_t const np, double l[DIM], Constants constants, Pa
         }
     }
     base[0] = l[0] / 2.0 - limit1[0] * factor / 2.0;
-    base[1] = 125.0;
+    base[1] = 115.0;
     base[2] = 100.0;
 
     for(ip[0] = 0; ip[0] < limit2[0]; ++ip[0]) {

@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     }*/
     //else {
     //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
-    printf("%lu\t%f\t%f\n", np, average, stdev);
+    printf("%i\t%f\t%f\n", nthreads, average, stdev);
     //}
     if(count_collisions) {
         if(get_number_of_collisions() + 1 == 0) {

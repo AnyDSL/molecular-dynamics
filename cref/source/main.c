@@ -45,16 +45,16 @@ int main(int argc, char** argv) {
     //dt = 0.00005;
     real dt = atof(argv[1]);
     struct timeval t1, t2;
-    //size_t const nsamples = 100;
-    size_t const nsamples = 1;
+    size_t const nsamples = 100;
+    //size_t const nsamples = 1;
     double average = 0.0;
     double samples[nsamples];
-    /*
+    
     for(size_t i = 0; i < 50; ++i) { 
         initialize_system(atol(argv[3]), l);
         time_integration(0.0, atol(argv[2])*dt, dt, vtk);
         deallocate_system();
-    }*/
+    }
 
     for(size_t i = 0; i < nsamples; ++i) { 
         initialize_system(atol(argv[3]), l);
