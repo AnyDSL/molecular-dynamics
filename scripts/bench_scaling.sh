@@ -1,5 +1,5 @@
 #!/bin/sh
-sleep 180
+sleep 300
 cd ./cref
 ./bench_strong_scaling.sh >> ../strong_scaling_c.dat
 cd ../cref

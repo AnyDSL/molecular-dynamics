@@ -90,13 +90,11 @@ void init_random(size_t const np, double l[DIM], Constants constants, ParticleSy
 
         ParticleList *node = (ParticleList *)allocate(sizeof(ParticleList));
         node->p.m = 1.0;
-        for(size_t d = 0; d < DIM; ++d) {
-            node->p.x[d] = l[d] * c_random();
-        }
         real const tmp = 2.0 * V_MAX * c_random() - V_MAX;
         real norm = 0.0;
         real V[DIM];
         for(size_t d = 0; d < DIM; ++d) {
+            node->p.x[d] = l[d] * c_random();
             V[d] = 2.0 * c_random() - 1.0;
             norm += V[d]*V[d];
         }
