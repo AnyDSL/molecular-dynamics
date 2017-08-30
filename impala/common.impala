@@ -81,14 +81,7 @@ fn get_vector(data: [real * 3]) -> Vector
     }
 }
 
-fn get_null_vector() -> Vector
-{
-    let mut res : [real * 3];
-    for d in loop(0 as size_t, dimension()) {
-        res(d) = 0.0; 
-    }
-    get_vector(res)
-}
+fn get_null_vector() -> Vector {get_vector([0 as real,..3])};
 
 fn add_vectors(a: Vector, b: Vector) -> Vector {
     a.combine(|x,y|{x+y}, b)

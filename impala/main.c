@@ -38,24 +38,24 @@ int main(int argc, char** argv) {
     }
 
     double l[3];
-    l[0] = 250;
-    l[1] = 250;
-    l[2] = 250;
+    l[0] = 100;
+    l[1] = 100;
+    l[2] = 100;
     //dt = 0.00005;
     //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
     struct timeval t1, t2;
-    size_t const nsamples = 100;
-    //size_t const nsamples = 1;
+    //size_t const nsamples = 100;
+    size_t const nsamples = 1;
     double average = 0.0;
     double samples[nsamples];
     int nthreads = atoi(argv[4]);
     size_t np = atol(argv[3]);
-    for(size_t i = 0; i < 50; ++i) { 
+    /*for(size_t i = 0; i < 50; ++i) { 
         initialize_system(np, l);
         time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
         deallocate_system();
-    }
+    }*/
 
 
     for(size_t i = 0; i < nsamples; ++i) { 

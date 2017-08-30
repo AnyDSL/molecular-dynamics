@@ -39,9 +39,9 @@ int main(int argc, char** argv) {
         }
     }
     double l[3];
-    l[0] = 250;
-    l[1] = 250;
-    l[2] = 250;
+    l[0] = 100;
+    l[1] = 100;
+    l[2] = 100;
     //dt = 0.00005;
     real dt = atof(argv[1]);
     struct timeval t1, t2;

@@ -10,7 +10,7 @@ static ParticleSystem P;
 void initialize_system(const size_t np, real l[DIM]) {
     Constants c;
     init_constants(&c);
-    init_random(np, l, c, &P);
+    init_grid(np, l, c, &P);
 }
 
 void deallocate_system() {
