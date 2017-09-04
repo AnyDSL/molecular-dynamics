@@ -125,6 +125,16 @@ fn get_velocities(V: &mut [real], i: size_t) -> () {
 }
 
 extern
+fn get_cell_position(pos: &mut [size_t], i: size_t) -> () { 
+    let P = get_particle_system_from_data_struct(P_data_);
+    let p = get_particle(P.addresses().get(i));
+    let kc = compute_cell_position(p, P);
+    for d in @loop(0 as size_t, dimension()) {
+        pos(d) = kc(d); 
+    }
+}
+
+extern
 fn get_forces(F: &mut [real], i: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let p = get_particle(P.addresses().get(i));
@@ -151,6 +161,12 @@ extern
 fn force_update() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     compute_force(P, force, 1);
+}
+
+extern
+fn number_of_ghost_particles() -> size_t {
+    let P = get_particle_system_from_data_struct(P_data_);
+    count_ghost_particles(P)
 }
 
 extern

@@ -34,7 +34,7 @@ void fprint_string(uintptr_t fp, unsigned char const *str) {
 void fprint_line(uintptr_t fp, unsigned char const *str) {
     fprintf((FILE *)fp, "%s\n", str);
 }
-void fprint_double(uintptr_t fp, double d) {
+void fprint_f64(uintptr_t fp, double d) {
     if(isnan(d)) {
         fprintf((FILE *)fp, "%f", 0.0);
     }
@@ -43,7 +43,7 @@ void fprint_double(uintptr_t fp, double d) {
     }
 }
 
-void fprint_float(uintptr_t fp, float f) {
+void fprint_f32(uintptr_t fp, float f) {
     if(isnan(f)) {
         fprintf((FILE *)fp, "%f", 0.0);
     }
@@ -52,7 +52,7 @@ void fprint_float(uintptr_t fp, float f) {
     }
 }
 
-void fprint_int(uintptr_t fp, int i) {
+void fprint_i32(uintptr_t fp, int i) {
     fprintf((FILE *)fp, "%d", i);
 }
 
@@ -61,6 +61,6 @@ void fprint_size_t(uintptr_t fp, size_t i) {
     fprintf((FILE *)fp, "%lu", i);
 }
 
-void fprint_char(uintptr_t fp, unsigned char c) {
+void fprint_u8(uintptr_t fp, unsigned char c) {
     fputc((int)c, (FILE *)fp);
 }

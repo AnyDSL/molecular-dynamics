@@ -14,13 +14,13 @@ void close_file(uintptr_t fp);
 void fprint_string(uintptr_t fp, unsigned char const *str);
 
 void fprint_line(uintptr_t fp, unsigned char const *str);
-void fprint_double(uintptr_t fp, double d);
+void fprint_f64(uintptr_t fp, double d);
 
-void fprint_float(uintptr_t fp, float f);
+void fprint_f32(uintptr_t fp, float f);
 
-void fprint_int(uintptr_t fp, int i);
+void fprint_i32(uintptr_t fp, int i);
 
 void fprint_size_t(uintptr_t fp, size_t i);
 
-void fprint_char(uintptr_t fp, unsigned char c);
+void fprint_u8(uintptr_t fp, unsigned char c);
 

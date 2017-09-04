@@ -6,11 +6,11 @@ extern "C"
     fn close_file(u64) -> ();
     fn fprint_string(u64, &[u8]) -> ();
     fn fprint_line(u64, &[u8]) -> ();
-    fn fprint_double(u64, f64) -> ();
-    fn fprint_float(u64, f32) -> ();
-    fn fprint_int(u64, i32) -> ();
+    fn fprint_f64(u64, f64) -> ();
+    fn fprint_f32(u64, f32) -> ();
+    fn fprint_i32(u64, i32) -> ();
     fn fprint_size_t(u64, size_t) -> ();
-    fn fprint_char(u64, u8) -> ();
+    fn fprint_u8(u64, u8) -> ();
     fn allocate(size_t) -> &u8;
     fn allocate_and_initialize(size_t, i32) -> &u8;
     fn initialize(&u8, size_t, i32) -> ();
@@ -23,7 +23,7 @@ type size_t = u64;
 type ptr_t = u64;
 type real = f64;
 fn dimension() -> size_t {3 as size_t}
-fn epsilon() -> real {1e-12}
+fn epsilon() -> real {1e-5}
 fn size_of_particle() -> size_t {((1 as size_t) + (4 as size_t) * dimension()) * (sizeof[real]() as size_t)} 
 
 struct Vector
@@ -65,17 +65,17 @@ fn get_vector(data: [real * 3]) -> Vector
         },
         print: || { 
             for d in @loop(0 as size_t, dimension()-(1 as size_t)) {
-                 print_double(data(d));
+                 print_f64(data(d));
                  print_char(' ');
             }
-            print_double(data(dimension()-(1 as size_t)));
+            print_f64(data(dimension()-(1 as size_t)));
         },
         fprint: |fp| { 
             for d in @loop(0 as size_t, dimension()-(1 as size_t)) {
-                 fprint_double(fp, data(d));
-                 fprint_char(fp, ' ');
+                 fprint_f64(fp, data(d));
+                 fprint_u8(fp, ' ');
             }
-            fprint_double(fp, data(dimension()-(1 as size_t)));
+            fprint_f64(fp, data(dimension()-(1 as size_t)));
         }
 
     }
@@ -186,7 +186,7 @@ fn get_particle(data: &u8) -> Particle {
 fn print_particle(p: Particle) -> () {
     print_string("Particle\n");
     print_string("Mass: ");
-    print_double(p.getMass() as double);
+    print_f64(p.getMass() as double);
     print_string("\nCoordinates: ");
     p.getCoordinates().print();
     print_string("\nVelocities: ");
@@ -223,7 +223,7 @@ fn get_particle_from_node(pl: &ParticleList) -> Particle {
 fn print_particle_node(pl: &ParticleList) -> () {
     let p = get_particle_from_node(*pl);
     print_string("ParticleList\n");
-    print_long(pl as i64);
+    print_i64(pl as i64);
     print_particle(p);
 }
 
@@ -231,7 +231,7 @@ fn print_particle_node(pl: &ParticleList) -> () {
 fn insert(root: &mut &ParticleList, pl: &mut ParticleList) -> () {
 
     //print_string("*root: ");
-    //print_long(*root as i64);
+    //print_i64(*root as i64);
     //print_char('\n');
     (*pl).next = *root;
     *root = pl;

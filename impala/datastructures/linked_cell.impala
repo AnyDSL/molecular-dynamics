@@ -234,6 +234,22 @@ fn iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: Parti
     }
 }
 
+fn count_ghost_particles(P: ParticleSystem) -> size_t {
+    let mut count : size_t = 0 as size_t;
+    for i in loop(0 as size_t, P.np()) {
+        let p = get_particle(P.addresses().get(i));
+        let kc = compute_cell_position(p, P);
+        let mut ghost = false;
+        for d in loop(0 as size_t, dimension()) {
+            if(kc(d) < P.start()(d) || kc(d) >= P.end()(d)) {
+                ghost = true;
+            }
+        }
+        if(ghost) {++count;}
+    }
+    count
+}
+
 fn parallel_iterate_over_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, numthreads: int, f: fn([size_t * 3], &ParticleList) -> ()) -> () {
     for ic, head in parallel_iterate_over_particle_cells(start, end, P, numthreads) {
         for pl in iterate_over_list(head) {

@@ -57,6 +57,7 @@ extern "C" {
     void set_forces(double[], size_t);
     void get_coordinates(double[], size_t);
     void get_velocities(double[], size_t);
+    void get_cell_position(size_t[], size_t);
     double get_mass(size_t);
     void get_forces(double[], size_t);
     void sort_particle_system();
@@ -68,6 +69,7 @@ extern "C" {
     void velocity_update(double);
     void fprint_particles(size_t, int);
     void print_particles();
+    size_t number_of_ghost_particles();
 }
 
 constexpr size_t DIM = 3;
@@ -156,7 +158,7 @@ int main( int argc, char ** argv )
    }
 
    //write domain decomposition to file
-   vtk::writeDomainDecomposition(*forest, path );
+   vtk::writeDomainDecomposition(*forest);
 
    WALBERLA_LOG_INFO_ON_ROOT("simulationDomain: " << forest->getDomain());
    integerProperties["sim_x"] = int64_c(forest->getDomain().maxCorner()[0]);
@@ -185,7 +187,7 @@ int main( int argc, char ** argv )
 
    WALBERLA_LOG_INFO_ON_ROOT("*** VTK ***");
 
-   auto vtkOutput   = make_shared<SphereVtkOutput>(storageID, *forest) ;
+   auto vtkOutput   = make_shared<SphereVtkOutput>(storageID, *forest);
    //auto vtkWriter   = vtk::createVTKOutput_PointData(vtkOutput, "Bodies", 1, path, "simulation_step", false, false);
 
    WALBERLA_LOG_INFO_ON_ROOT("*** SETUP - START ***");
@@ -266,15 +268,16 @@ int main( int argc, char ** argv )
        }
    }
    for(size_t d = 0; d < DIM; ++d) {
-       if(min[d] < 0) {
+       if(min[d] > 0.0 || min[d] < 0.0) {
            shift[d] = -min[d];
            l[d] = max[d] + shift[d];
        }
-       else {
-           l[d] = max[d];
+       else  {
            shift[d] = 0.0;
+           l[d] = max[d];
        }
    }
+   WALBERLA_LOG_INFO("Domain: (" << min[0] << ", " << min[1] << ", " << min[2] << ") (" << max[0] << ", " << max[1] << ", " << max[2] << ")");  
 
    initialize_particle_system(np_local, ghost_layer, l);
    //tt.stop("Cell creation");
@@ -287,12 +290,12 @@ int main( int argc, char ** argv )
        {
            WALBERLA_LOG_DEVEL_ON_ROOT( "Timestep " << i << " / " << simulationSteps );
        }
-       tt.start("Visualization");
+        //tt.start("Visualization");
        /*if( i % visSpacing == 0 )
        {
            vtkWriter->write( true );
        }*/
-       tt.stop("Visualization");
+	    //tt.stop("Visualization");
        
        tt.start("Solver");
        ///////////////* Solver Begin */////////////////
@@ -302,8 +305,9 @@ int main( int argc, char ** argv )
            Storage * storage = currentBlock.getData< Storage >( storageID );
            BodyStorage& localStorage = (*storage)[0];
            BodyStorage& shadowStorage = (*storage)[1];
-           /*if(i % visSpacing == 0) {
-               uint_t nLocalParticles, nGhostParticlesm;
+           /*
+           if(i % visSpacing == 0) {
+               uint_t nLocalParticles, nGhostParticles;
                nLocalParticles = localStorage.size();
                nGhostParticles = shadowStorage.size();
                mpi::reduceInplace(nLocalParticles, mpi::SUM);
@@ -336,7 +340,7 @@ int main( int argc, char ** argv )
                ++j;
            }
 
-           for( auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
+           for(auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
                double mass = bodyIt->getMass();
                auto position = bodyIt->getPosition();
                auto velocity = bodyIt->getLinearVel();
@@ -348,8 +352,30 @@ int main( int argc, char ** argv )
                set_mass(mass, j);
                set_coordinates(X, j);
                set_velocities(V, j);
+               size_t cell[DIM];
+               get_cell_position(cell, j);
                ++j;
            }
+           /*
+           if(i % visSpacing == 0) {
+               j = 0;
+               for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
+                   auto X = bodyIt->getPosition();
+                   size_t cell[DIM];
+                   get_cell_position(cell, j);
+                   WALBERLA_LOG_INFO("Local Particle " << j << " position " << "(" <<  X[0] << ", " << X[1] << ", " << X[2] << ")" << " in cell " << "(" <<  cell[0] << ", " << cell[1] << ", " << cell[2] << ")");
+                   ++j;
+               }
+
+               for(auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
+                   auto X = bodyIt->getPosition();
+                   size_t cell[DIM];
+                   get_cell_position(cell, j);
+                   WALBERLA_LOG_INFO("Ghost Particle " << j << " position " << "(" <<  X[0] << ", " << X[1] << ", " << X[2] << ")" << " in cell " << "(" <<  cell[0] << ", " << cell[1] << ", " << cell[2] << ")");
+                   ++j;
+               }
+           }
+           */
            tt.stop("pe -> Impala");
 
            tt.start("Impala kernel");
@@ -357,12 +383,21 @@ int main( int argc, char ** argv )
                sort_particle_system();
                force_update();
            }
-
+           
            tt.start("Position integration");
            position_update((double)dt);
            tt.stop("Position integration");
            tt.start("Particle Distribution");
            sort_particle_system();
+           /*
+           if(i % visSpacing == 0) {
+               size_t nGhostParticles;
+               nGhostParticles = number_of_ghost_particles();
+               mpi::reduceInplace(nGhostParticles, mpi::SUM);
+               WALBERLA_LOG_INFO_ON_ROOT("Impala: Ghost particles: " << nGhostParticles);
+           }*/
+
+           MPI_Barrier(MPI_COMM_WORLD);
            tt.stop("Particle Distribution");
            tt.start("Force calculation");
            force_update();
