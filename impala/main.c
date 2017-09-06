@@ -6,17 +6,17 @@
 #include <sys/time.h>
 #include <likwid.h>
 
-#ifdef COUNT_COLLISIONS
-#define count_collisions true
+#ifdef COUNT_FORCE_EVALUATIONS
+#define count_force_evaluations true
 #else
-#define count_collisions false
+#define count_force_evaluations false
 #endif
 
 typedef double real;
 void initialize_system(size_t, real *);
 void time_integration(real, real, real, int, bool);
 void deallocate_system();
-size_t get_number_of_collisions();
+size_t get_number_of_force_evaluations();
 void print_usage(char *name) {
     printf("Usage: %s dt steps particles numthreads -vtk\n", name);
 }
@@ -38,9 +38,9 @@ int main(int argc, char** argv) {
     }
 
     double l[3];
-    l[0] = 100;
-    l[1] = 100;
-    l[2] = 100;
+    l[0] = 200;
+    l[1] = 200;
+    l[2] = 200;
     //dt = 0.00005;
     //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);
@@ -93,11 +93,11 @@ int main(int argc, char** argv) {
     //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
     printf("%i\t%f\t%f\n", nthreads, average, stdev);
     //}
-    if(count_collisions) {
-        if(get_number_of_collisions() + 1 == 0) {
-            printf("Maximum number of countable collisions reached\n");
+    if(count_force_evaluations) {
+        if(get_number_of_force_evaluations() + 1 == 0) {
+            printf("Maximum number of countable force_evaluations reached\n");
         }
-        printf("Number of collisons: %lu\n", get_number_of_collisions());
+        printf("Number of collisons: %lu\n", get_number_of_force_evaluations());
     }
 
     return EXIT_SUCCESS;

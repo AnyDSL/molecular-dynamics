@@ -1,0 +1,141 @@
+fn print_error(index: size_t, component: &[u8], error: &[u8]) -> () {
+    print_string("Error in ");
+    print_string(component);
+    print_string(" of particle ");
+    print_i64(index as i64);
+    print_string(": ");
+    print_string(error);
+    print_string("\n");
+}
+
+fn check_invariants(P: ParticleSystem) -> bool {
+    let mut status = true;
+    
+    // Check simulation parameters
+    let domain = P.l();
+    let start = P.start();
+    let end = P.end();
+    let zero_array = [null(),..3];
+    let nc = P.nc();
+    for d in map_range(null(), dimension()) {
+        if(domain.get()(d) < 0.0) {
+            print_string("Invalid simulation domain\n");
+            status = false;
+        }
+        if(start(d) > end(d)) {
+            print_string("start > end\n");
+            status = false;
+        }
+        if(end(d) > P.nc()(d)) {
+            print_string("end > nc\n");
+            status = false;
+        }
+        if(start(d) - zero_array(d) != nc(d) - end(d)) {
+            print_string("Domain offset uneven\n");
+            status = false;
+        }
+    }
+
+    // Check constants
+    let constants = P.constants();
+    if(constants.r_cut * constants.r_cut - constants.r_cut_sqr > epsilon()) {
+        print_string("r_cut * r_cut != r_cut_sqr");
+        status = false;
+    }
+
+    if(status == false) {
+        print_string("Invalid Simulation parameters!\n");
+    } else {
+        // Check particles
+        let addresses = P.addresses();
+        for i in map_range(null(), P.np()) {
+            let p = get_particle(addresses.get(i));
+            let X = p.getCoordinates().get();
+            let V = p.getVelocities().get();
+            let F = p.getForces().get();
+            let F_old = p.getForces_old().get();
+            let kc = compute_cell_position(p, P);
+            for d in map_range(null(), dimension()) {
+                // Check position
+
+                if(math.isinf(X(d)) != 0) {
+                    print_error(i, "Position", "Infinity");
+                    status = false;
+                }
+                else if(math.isnan(X(d)) != 0) {
+                    print_error(i, "Position", "NaN");
+                    status = false;
+                }
+
+                if(X(d) + P.offset() < 0.0 || X(d) + P.offset() > P.l().get()(d)) {
+                    print_error(i, "Position", "Negative number");
+                    status = false;
+                }
+                if(math.isinf(V(d)) != 0) {
+                    print_error(i, "Velocity", "Infinity");
+                    status = false;
+                }
+                else if(math.isnan(V(d)) != 0) {
+                    print_error(i, "Velocity", "NaN");
+                    status = false;
+                }
+                if(math.isinf(F(d)) != 0) {
+                    print_error(i, "Force", "Infinity");
+                    status = false;
+                }
+                else if(math.isnan(F(d)) != 0) {
+                    print_error(i, "Force", "NaN");
+                    status = false;
+                }
+                if(math.isinf(F_old(d)) != 0) {
+                    print_error(i, "Old force", "Infinity");
+                    status = false;
+                }
+                else if(math.isnan(F_old(d)) != 0) {
+                    print_error(i, "Old force", "NaN");
+                    status = false;
+                }            
+            }
+            // Check cell index
+            let mut out_of_range = false;
+            for d in map_range(null(), dimension()) {
+                if(kc(d) > nc(d)) {
+                    out_of_range = true;
+                }
+            }
+            if(out_of_range) {
+                print_error(i, "Cell index", "Out of range");
+                print_string("Position: ("); 
+                print_i64(kc(0) as i64);
+                print_string(", "); 
+                print_i64(kc(1) as i64);
+                print_string(", "); 
+                print_i64(kc(2) as i64);
+                print_string(") ");
+                print_string("Number of cells: (");
+                print_i64(nc(0) as i64);
+                print_string(", "); 
+                print_i64(nc(1) as i64);
+                print_string(", "); 
+                print_i64(nc(2) as i64);
+                print_string(")\n");
+                status = false;
+            }
+        }
+
+        // Check cells
+        let mut count = null();
+        for ic, pl in map_particle_system([null(),..3], P.nc(), P) {
+            ++count;
+        }
+        if(count > P.np()) {
+            print_string("Counted less particles in the cells than specified\n");
+            status = false;
+        }
+        else if(count < P.np()) {
+            print_string("Counted more particles in the cells than specified\n");
+            status = false; 
+        }
+    }
+    status
+}

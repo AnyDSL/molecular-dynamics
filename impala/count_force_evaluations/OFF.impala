@@ -1,0 +1,5 @@
+extern fn get_number_of_force_evaluations() -> u64 {
+    0 as size_t
+}
+
+fn count_force_evaluation() -> () {}

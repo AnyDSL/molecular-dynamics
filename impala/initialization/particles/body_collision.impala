@@ -16,8 +16,8 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         np2 *= limit2(d);
     }
     let ghost_layer = 1 as size_t;
-    let P = allocate_particle_system(np1 + np2, ghost_layer, l, constants);
 
+    let P = allocate_particle_system(np1 + np2, ghost_layer, l, constants);
     let factor = math.pow(2.0, 1.0/6.0)*P.constants().sigma;
     let mut p : Particle;
     let mut base : [real * 3];
@@ -53,8 +53,6 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         ip(1) = 0 as size_t;
     }
 
-
-
     base(0) = (l.get()(0) - limit2(0) as real * factor) / 2 as real;
     base(1) = 115.0;
     base(2) = 100.0;
@@ -85,6 +83,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         ++ip(0);
         ip(1) = 0 as size_t;
     }
+
     init_addresses(P);
     P
 }

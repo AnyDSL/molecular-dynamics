@@ -1,0 +1,10 @@
+static mut force_evaluations_ : size_t = 1 as size_t;
+extern fn get_number_of_force_evaluations() -> u64 {
+    force_evaluations_ - 1 as size_t
+}
+
+fn count_force_evaluation() -> () {
+   if(force_evaluations_ > 0 as size_t) {
+       atomic(1u32, &mut force_evaluations_, 1 as size_t); 
+   }
+}

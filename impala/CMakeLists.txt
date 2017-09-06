@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(ANYDSL-MD C)
 #enable_testing()
 
-SET(CMAKE_C_COMPILER "/simdata/schmitt/anydsl/llvm_build/bin/clang")
+SET(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
 #SET(CMAKE_C_COMPILER "/usr/bin/clang")
 #SET(CMAKE_C_COMPILER "/usr/bin/gcc")
 find_package(AnyDSL-runtime REQUIRED)
@@ -27,14 +27,15 @@ message(STATUS "Selected particle initialization method: ${INIT}")
 
 
 option(LIKWID_PERFMON "LIKWID_PERFMON" OFF)
-option(COUNT_COLLISIONS "COUNT_COLLISIONS" OFF)
+option(COUNT_FORCE_EVALUATIONS "COUNT_COLLISIONS" OFF)
+option(CHECK_INVARIANTS "CHECK_INVARIANTS" OFF)
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
 if(LIKWID_PERFMON)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLIKWID_PERFMON")
 endif()
-if(COUNT_COLLISIONS)
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOUNT_COLLISIONS")
+if(COUNT_FORCE_EVALUATIONS)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOUNT_FORCE_EVALUATIONS")
 endif()
 
 set(CLANG_FLAGS -O3 -march=native )
@@ -43,7 +44,7 @@ set(IMPALA_FLAGS --log-level error)
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES intrinsics/intrinsics_cpu.impala common.impala potential/lennard_jones.impala datastructures/${DATASTRUCTURE}.impala boundary/default.impala count_collisions/${COUNT_COLLISIONS}.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala run.impala)
+    FILES intrinsics/intrinsics_cpu.impala common.impala potential/lennard_jones.impala datastructures/${DATASTRUCTURE}.impala boundary/default.impala count_force_evaluations/${COUNT_FORCE_EVALUATIONS}.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala checking/${CHECK_INVARIANTS}/${DATASTRUCTURE}.impala run.impala)
 
 add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)

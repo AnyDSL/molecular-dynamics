@@ -7,6 +7,7 @@ fn initialize_system(np: size_t, l: &[real]) -> () {
     init_constants(&mut constants);
     let v = get_vector([l(0), l(1), l(2)]);    
     P = init_particle_system(np, v, constants);
+    let status = check_invariants(P);
     P_data_ = get_data_struct_from_particle_system(P);
 }
 
@@ -48,8 +49,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
             fprint_particle_system(str, i, P);
             ++i;
         }
-
-        //print_statistics(P, t); 
+        let status = check_invariants(P);
         ++count;
     }
     P_data_ = get_data_struct_from_particle_system(P); 

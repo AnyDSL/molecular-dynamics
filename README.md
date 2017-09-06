@@ -1,7 +1,7 @@
 # AnyDSL-MD: Molecular dynamics based on AnyDSL
 ## Impala
 ### Building
-cmake . -DAnyDSL-runtime_DIR=<PATH_TO_ANYDSL_RUNTIME> -DLIKWID_DIR=<PATH_TO_LIKWID> -DLIKWID_PERFMON=ON/OFF -DCOUNT_COLLISIONS=ON/OFF   
+cmake . -DAnyDSL-runtime_DIR=<PATH_TO_ANYDSL_RUNTIME> -DLIKWID_DIR=<PATH_TO_LIKWID> -DLIKWID_PERFMON=ON/OFF -DCOUNT_FORCE_EVALUATIONS=ON/OFF -DCHECK_INVARIANTS=ON/OFF   
 make  
 ### Configuration
 ccmake .
@@ -15,7 +15,7 @@ numthreads: number of threads used
 
 ## C Reference
 ### Building
-cmake . -DLIKWID_DIR=<PATH_TO_LIKWID> -DLIKWID_PERFMON=ON/OFF -DCOUNT_COLLISIONS=ON/OFF  
+cmake . -DLIKWID_DIR=<PATH_TO_LIKWID> -DLIKWID_PERFMON=ON/OFF -DCOUNT_FORCE_EVALUATIONS=ON/OFF  
 make  
 ### Running
 ./md dt steps particles numthreads [-vtk]  
