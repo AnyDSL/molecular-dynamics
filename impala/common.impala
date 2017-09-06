@@ -11,20 +11,23 @@ extern "C"
     fn fprint_i32(u64, i32) -> ();
     fn fprint_size_t(u64, size_t) -> ();
     fn fprint_u8(u64, u8) -> ();
-    fn allocate(size_t) -> &u8;
-    fn allocate_and_initialize(size_t, i32) -> &u8;
-    fn initialize(&u8, size_t, i32) -> ();
-    fn deallocate(&u8) -> ();
+    fn allocate(size_t) -> &[i8];
+    fn allocate_and_initialize(size_t, i32) -> &[i8];
+    fn initialize(&[i8], size_t, i32) -> ();
+    fn deallocate(&[i8]) -> ();
     fn c_random_seed(i64) -> ();
     fn c_random() -> f64;
 }
-
 type size_t = u64;
 type ptr_t = u64;
 type real = f64;
-fn dimension() -> size_t {3 as size_t}
+fn null() -> size_t {0 as size_t};
+fn one() -> size_t {1 as size_t};
+fn two() -> size_t {2 as size_t};
+fn three() -> size_t {3 as size_t};
+fn dimension() -> size_t {three()}
 fn epsilon() -> real {1e-5}
-fn size_of_particle() -> size_t {((1 as size_t) + (4 as size_t) * dimension()) * (sizeof[real]() as size_t)} 
+fn size_of_particle() -> size_t {((one()) + (4 as size_t) * dimension()) * (sizeof[real]() as size_t)} 
 
 struct Vector
 {
@@ -44,38 +47,38 @@ fn get_vector(data: [real * 3]) -> Vector
         combine: |f: fn(real, real) -> real, v: Vector| {
             let mut res : [real * 3];
             let v_data = v.get();
-            for d in @loop((0 as size_t), dimension()) {
+            for d in @map_range((null()), dimension()) {
                     res(d) = f(data(d), v_data(d)); 
             }
             get_vector(res)
         },
         map: |f: fn(real) -> real| {
             let mut res : [real * 3];
-            for d in @loop(0 as size_t, dimension()) {
+            for d in @map_range(null(), dimension()) {
                 res(d) = f(data(d)); 
             }
             get_vector(res)
         },
         reduce: |f: fn(real, real) -> real, empty: real| {
             let mut acc = empty;
-            for d in @loop(0 as size_t, dimension()) {
+            for d in @map_range(null(), dimension()) {
                 acc = f(acc, data(d)); 
             }
             acc
         },
         print: || { 
-            for d in @loop(0 as size_t, dimension()-(1 as size_t)) {
+            for d in @map_range(null(), dimension()-(one())) {
                  print_f64(data(d));
                  print_char(' ');
             }
-            print_f64(data(dimension()-(1 as size_t)));
+            print_f64(data(dimension()-(one())));
         },
         fprint: |fp| { 
-            for d in @loop(0 as size_t, dimension()-(1 as size_t)) {
+            for d in @map_range(null(), dimension()-(one())) {
                  fprint_f64(fp, data(d));
                  fprint_u8(fp, ' ');
             }
-            fprint_f64(fp, data(dimension()-(1 as size_t)));
+            fprint_f64(fp, data(dimension()-(one())));
         }
 
     }
@@ -117,6 +120,7 @@ struct Particle {
     getVelocities: fn() -> Vector,
     getForces: fn() -> Vector,
     getForces_old: fn() -> Vector,
+    getIndex: fn() -> size_t,
     setMass: fn(real) -> (),
     setCoordinates: fn(Vector) -> (),
     setVelocities: fn(Vector) -> (),
@@ -124,60 +128,63 @@ struct Particle {
     setForces_old: fn(Vector) -> ()
 }
 
-fn get_particle(data: &u8) -> Particle {
+fn get_particle(data: &[i8]) -> Particle {
     Particle {
         getMass: || {bitcast[&[real]](data)(0)},
         getCoordinates: || {
             let mut res : [real * 3];
-            for d in @loop(0 as size_t, dimension()) {
-                res(d) = bitcast[&[real]](data)(1 as size_t + d); 
+            for d in @map_range(null(), dimension()) {
+                res(d) = bitcast[&[real]](data)(one() + d); 
             }
             get_vector(res)
         },
         getVelocities: || {
             let mut res : [real * 3];
-            for d in @loop(0 as size_t, dimension()) {
-                res(d) = bitcast[&[real]](data)( 1 as size_t + dimension() + d); 
+            for d in @map_range(null(), dimension()) {
+                res(d) = bitcast[&[real]](data)( one() + dimension() + d); 
             }
             get_vector(res)
         },
         getForces: || {
             let mut res : [real * 3];
-            for d in @loop(0 as size_t, dimension()) {
-                res(d) = bitcast[&[real]](data)(1 as size_t + 2 as size_t * dimension() + d); 
+            for d in @map_range(null(), dimension()) {
+                res(d) = bitcast[&[real]](data)(one() + two() * dimension() + d); 
             }
             get_vector(res)
         },
         getForces_old: || {
             let mut res : [real * 3];
-            for d in @loop(0 as size_t, dimension()) {
-                res(d) = bitcast[&[real]](data)( 1 as size_t + 3 as size_t * dimension() + d); 
+            for d in @map_range(null(), dimension()) {
+                res(d) = bitcast[&[real]](data)( one() + three() * dimension() + d); 
             }
             get_vector(res)
+        },
+        getIndex: || {
+            null()
         },
         setMass: |m| {bitcast[&mut[real]](data)(0) = m;}, 
         setCoordinates: |v| {
             let x = v.get();
-            for d in @loop(0 as size_t, dimension()) {
-                bitcast[&mut[real]](data)(1 as size_t + d) = x(d); 
+            for d in @map_range(null(), dimension()) {
+                bitcast[&mut[real]](data)(one() + d) = x(d); 
             }
         },
         setVelocities: |v| {
             let x = v.get();
-            for d in @loop(0 as size_t, dimension()) {
-                bitcast[&mut[real]](data)(1 as size_t + dimension() + d) = x(d); 
+            for d in @map_range(null(), dimension()) {
+                bitcast[&mut[real]](data)(one() + dimension() + d) = x(d); 
             }
         },
         setForces: |v| {
             let x = v.get();
-            for d in @loop(0 as size_t, dimension()) {
-                bitcast[&mut[real]](data)(1 as size_t + 2 as size_t * dimension() + d) = x(d); 
+            for d in @map_range(null(), dimension()) {
+                bitcast[&mut[real]](data)(one() + two() * dimension() + d) = x(d); 
             }
         },
         setForces_old: |v| {
             let x = v.get();
-            for d in @loop(0 as size_t, dimension()) {
-                bitcast[&mut[real]](data)(1 as size_t + 3 as size_t * dimension() + d) = x(d); 
+            for d in @map_range(null(), dimension()) {
+                bitcast[&mut[real]](data)(one() + three() * dimension() + d) = x(d); 
             }
         }
     }
@@ -200,7 +207,7 @@ fn print_particle(p: Particle) -> () {
 
 
 struct ParticleList {
-    data: &u8,
+    data: &[i8],
     next: &ParticleList
 }
 
@@ -213,7 +220,7 @@ fn allocate_particle_node() -> &mut ParticleList {
 
 fn deallocate_particle_node(ptr: &ParticleList) -> () {
     deallocate((*ptr).data);
-    deallocate(ptr as &u8);
+    deallocate(ptr as &[i8]);
 }
 
 fn get_particle_from_node(pl: &ParticleList) -> Particle {
@@ -257,22 +264,22 @@ fn delete_list(root: &mut &ParticleList) -> () {
     }
 }
 
-fn iterate_over_list(ptr: &ParticleList, body: fn(&ParticleList) -> ()) -> () {
+fn map_list(ptr: &ParticleList, body: fn(&ParticleList) -> ()) -> () {
     if((ptr) != (0 as & ParticleList)) { 
         body(ptr);
-        iterate_over_list((*ptr).next, body, return)
+        map_list((*ptr).next, body, return)
     }
 }
 
 
-fn loop(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
+fn map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
     if lower < upper {
         body(lower);
-        loop(lower+(1 as size_t), upper, body, return)
+        map_range(lower+(one()), upper, body, return)
     }
 }
 
-fn par_loop(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> ()) -> () {
+fn parallel_map_range(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> ()) -> () {
     for i in parallel(numthreads, lower as i32, upper as i32) {
         body(i as size_t);
     }
@@ -280,9 +287,9 @@ fn par_loop(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> (
 
 fn index(ic: [size_t * 3], nc: [size_t * 3]) -> size_t {
     fn rec(i: size_t) -> size_t {
-        if(i == dimension() - 1 as size_t) {ic(i)}
-        else {ic(i) + nc(i) * rec(i + 1 as size_t)} 
+        if(i == dimension() - one()) {ic(i)}
+        else {ic(i) + nc(i) * rec(i + one())} 
     }
-    @rec(0 as size_t)
+    @rec(null())
     //ic(0) + nc(0)*(ic(1) + nc(1)*ic(2))
 }

@@ -6,7 +6,7 @@ fn boundary(p: Particle, P: ParticleSystem) -> () {
     let r_cut = P.constants().r_cut;
     let offset = ghost_layer as real * r_cut;
 
-    for d in @loop(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, dimension()) {
         if(x(d) + offset < 0.0) {
             x(d) = epsilon() - offset;
             change = true;

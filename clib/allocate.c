@@ -3,23 +3,23 @@
 #include "allocate.h"
 
 static size_t ALIGNMENT = 64ul;
-unsigned char * allocate(size_t size) {
+char * allocate(size_t size) {
     //return (unsigned char *)aligned_alloc(ALIGNMENT, size);
-    return (unsigned char *)malloc(size);
+    return (char *)malloc(size);
 }
 
 
-unsigned char * allocate_and_initialize(size_t size, int val) {
+char * allocate_and_initialize(size_t size, int val) {
     //void *ptr = aligned_alloc(ALIGNMENT, size);
     void *ptr = malloc(size);
     memset(ptr, val, size);
-    return (unsigned char *)ptr;
+    return (char *)ptr;
 }
 
-void initialize(unsigned char * ptr, size_t size, int val) {
+void initialize(char ptr [], size_t size, int val) {
     memset((void *)ptr, val, size);
 }
 
-void deallocate(unsigned char *ptr) {
+void deallocate(char ptr[]) {
     free(ptr);
 }

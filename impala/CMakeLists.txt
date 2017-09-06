@@ -20,7 +20,7 @@ message(STATUS "Selected data structure: ${DATASTRUCTURE}")
 
 set(INIT ${INIT} CACHE STRING "select the particle initialization method from the following: grid, random, body_collision")
 if(NOT INIT)
-    set(INIT grid CACHE STRING "select the particle initialization method from the following: grid, random, body_collision" FORCE)
+    set(INIT body_collision CACHE STRING "select the particle initialization method from the following: grid, random, body_collision" FORCE)
 endif()
 string(TOLOWER "${INIT}" INIT)
 message(STATUS "Selected particle initialization method: ${INIT}")

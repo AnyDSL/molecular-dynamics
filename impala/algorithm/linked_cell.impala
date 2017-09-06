@@ -1,20 +1,22 @@
 
 fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
-    for ic, pl1 in $parallel_iterate_over_particle_system(P.start(), P.end(), P, numthreads) @{
+    //for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
+    for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
         let p1 = get_particle_from_node(pl1);
         p1.setForces(get_null_vector());
     }
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
-    for d in @loop(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, dimension()) {
         ic_start(d) = z;
     }
     let ic_end = P.nc();
-    for ic, head in $parallel_iterate_over_particle_cells(ic_start, ic_end, P, numthreads) @{
+    //for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
+    for ic, head in $map_particle_cells(ic_start, ic_end, P) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
         let mut write_i = true;
-        for d in @loop(0 as size_t, dimension()) {
+        for d in @map_range(0 as size_t, dimension()) {
             if(ic(d) >= P.start()(d)) {
                 jc_start(d) = ic(d) - 1 as size_t;
             } 
@@ -30,8 +32,8 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 write_i = false;
             };
         }
-        for pl1 in $iterate_over_list(head) @{
-            for jc, pl2, write_j, in $iterate_over_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
+        for pl1 in $map_list(head) @{
+            for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
                     let p1 = get_particle_from_node(pl1);
                     let p2 = get_particle_from_node(pl2);
@@ -42,7 +44,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
     }
 }
 fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
-    for ic, pl in $parallel_iterate_over_particle_system(start, end, P, numthreads) @{
+    for ic, pl in $map_particle_system(start, end, P) @{
         let p = get_particle_from_node(pl);
         f(p, dt);
     }
@@ -50,9 +52,9 @@ fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, n
 fn move_particles(P: ParticleSystem) -> () {
     let start = P.start();
     let end = P.end();
-    for k in $loop(start(2), end(2)) {
-        for j in loop(start(1), end(1)) {
-            for i in loop(start(0), end(0)) @{
+    for k in $map_range(start(2), end(2)) {
+        for j in map_range(start(1), end(1)) {
+            for i in map_range(start(0), end(0)) @{
                 let ic = [i,j,k];
                 let mut q : &mut& ParticleList = P.head(index(ic, P.nc()));
                 let mut i : &ParticleList = *q;
@@ -93,7 +95,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     
     let addresses = P.addresses();
 
-    for i in loop(start, N) {
+    for i in map_range(start, N) {
         let p = get_particle(addresses.get(i));
         p.getCoordinates().fprint(fp);
         fprint_string(fp, "\n");
@@ -105,7 +107,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_size_t(fp, (2 as size_t)*N);
 
     fprint_string(fp, "\n");
-    for i in loop(start, N){
+    for i in map_range(start, N){
         fprint_string(fp, "1 ");
         fprint_size_t(fp, i);
         fprint_string(fp, "\n");
@@ -116,7 +118,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "CELL_TYPES ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    for i in loop(start, N) {
+    for i in map_range(start, N) {
         fprint_string(fp, "1");
         fprint_string(fp, "\n");
     }
@@ -127,12 +129,12 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "POINT_DATA ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    for d in loop(start, dimension()) {
+    for d in map_range(start, dimension()) {
         fprint_string(fp, "SCALARS velocity_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
         fprint_line(fp, "LOOKUP_TABLE default");
-        for i in loop(start, N) {
+        for i in map_range(start, N) {
             let p = get_particle(addresses.get(i));
             let v = p.getVelocities();
             let x = v.get();
@@ -141,12 +143,12 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
         }
         fprint_string(fp, "\n");
     }
-    for d in loop(start, dimension()) {
+    for d in map_range(start, dimension()) {
         fprint_string(fp, "SCALARS force_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
         fprint_line(fp, "LOOKUP_TABLE default");
-        for i in loop(start, N) {
+        for i in map_range(start, N) {
             let p = get_particle(addresses.get(i));
             let v = p.getForces();
             let x = v.get();
@@ -159,7 +161,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "SCALARS mass");
     fprint_line(fp, " double");
     fprint_line(fp, "LOOKUP_TABLE default");
-    for i in loop(start, N) {
+    for i in map_range(start, N) {
         let p = get_particle(addresses.get(i));
         let m = p.getMass();
         fprint_f64(fp, m);
