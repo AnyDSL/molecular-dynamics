@@ -1,0 +1,37 @@
+
+
+fn insert(root: &mut &ParticleList, pl: &mut ParticleList) -> () {
+
+    //print_string("*root: ");
+    //print_i64(*root as i64);
+    //print_char('\n');
+    (*pl).next = *root;
+    *root = pl;
+}
+
+fn remove(root: &mut &ParticleList) -> &mut ParticleList {
+    if(*root != 0 as &ParticleList) {
+        let retval : &mut ParticleList  = *root;
+        *root = (**root).next;
+        retval
+    }
+    else {
+        0 as &mut ParticleList
+    }
+}
+
+fn delete_list(root: &mut &ParticleList) -> () {
+    let mut ptr = remove(root);
+    while(ptr != 0 as &mut ParticleList)
+    {
+        deallocate_particle_node(ptr);        
+        ptr = remove(root);
+    }
+}
+
+fn map_list(ptr: &ParticleList, body: fn(&ParticleList) -> ()) -> () {
+    if((ptr) != (0 as & ParticleList)) { 
+        body(ptr);
+        map_list((*ptr).next, body, return)
+    }
+}

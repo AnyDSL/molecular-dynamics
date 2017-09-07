@@ -1,0 +1,150 @@
+extern "C"
+{
+    fn pe_LocalBody_get_velocity(index: size_t, V: &mut [f64 * 3]) -> (); 
+    fn pe_LocalBody_get_position(index: size_t, X: &mut [f64 * 3]) -> (); 
+    fn pe_LocalBody_get_force(index: size_t, F: &mut [f64 * 3]) -> (); 
+    fn pe_LocalBody_get_mass(index: size_t) -> f64;
+    fn pe_LocalBody_set_velocity(index: size_t, V: &[f64 * 3]) -> (); 
+    fn pe_LocalBody_set_position(index: size_t, X: &[f64 * 3]) -> (); 
+    fn pe_LocalBody_set_force(index: size_t, F: &[f64 * 3]) -> (); 
+    fn pe_LocalBody_set_mass(index: size_t, m: f64) -> ();
+
+    fn pe_ShadowBody_get_velocity(index: size_t, V: &mut [f64 * 3]) -> (); 
+    fn pe_ShadowBody_get_position(index: size_t, X: &mut [f64 * 3]) -> (); 
+    fn pe_ShadowBody_get_force(index: size_t, F: &mut [f64 * 3]) -> (); 
+    fn pe_ShadowBody_get_mass(index: size_t) -> f64;
+    fn pe_ShadowBody_set_velocity(index: size_t, V: &[f64 * 3]) -> (); 
+    fn pe_ShadowBody_set_position(index: size_t, X: &[f64 * 3]) -> (); 
+    fn pe_ShadowBody_set_force(index: size_t, F: &[f64 * 3]) -> (); 
+    fn pe_ShadowBody_set_mass(index: size_t, m: f64) -> ();
+}
+
+fn size_of_particle() -> size_t {dimension() * (sizeof[real]() as size_t) + sizeof[size_t]() as size_t} 
+
+fn get_local_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
+    Particle {
+        getMass: || {pe_LocalBody_get_mass(index)},
+        getCoordinates: || {
+            let mut X : [real * 3];
+            pe_LocalBody_get_position(index, &mut X);
+            get_vector(X)
+        },
+        getVelocities: || {
+            let mut V : [real * 3];
+            pe_LocalBody_get_velocity(index, &mut V);
+            get_vector(V)
+        },
+        getForces: || {
+            let mut F : [real * 3];
+            pe_LocalBody_get_force(index, &mut F);
+            get_vector(F)
+        },
+        getForces_old: || {
+            get_vector(*forces_old)
+        },
+        getIndex: || {
+            index
+        },
+        isShadow: || {
+            false
+        },
+        setMass: |m| {
+            pe_LocalBody_set_mass(index, m);    
+        }, 
+        setCoordinates: |coordinates| {
+            let X = coordinates.get();
+            pe_LocalBody_set_position(index, &X);    
+        },
+        setVelocities: |velocities| {
+            let V = velocities.get();
+            pe_LocalBody_set_velocity(index, &V);    
+        },
+        setForces: |forces| {
+            let F = forces.get();
+            pe_LocalBody_set_force(index, &F);    
+        },
+        setForces_old: |forces| {
+            let F = forces.get();
+            for d in @map_range(null(), dimension()) {
+                forces_old(d) = F(d); 
+            }
+        }
+    }
+}
+
+fn get_shadow_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
+    Particle {
+        getMass: || {pe_ShadowBody_get_mass(index)},
+        getCoordinates: || {
+            let mut X : [real * 3];
+            pe_ShadowBody_get_position(index, &mut X);
+            get_vector(X)
+        },
+        getVelocities: || {
+            let mut V : [real * 3];
+            pe_ShadowBody_get_velocity(index, &mut V);
+            get_vector(V)
+        },
+        getForces: || {
+            let mut F : [real * 3];
+            pe_ShadowBody_get_force(index, &mut F);
+            get_vector(F)
+        },
+        getForces_old: || {
+            get_vector(*forces_old)
+        },
+        getIndex: || {
+            index
+        },
+        isShadow: || {
+            true
+        },
+        setMass: |m| {
+            pe_ShadowBody_set_mass(index, m);    
+        }, 
+        setCoordinates: |coordinates| {
+            let X = coordinates.get();
+            pe_ShadowBody_set_position(index, &X);    
+        },
+        setVelocities: |velocities| {
+            let V = velocities.get();
+            pe_ShadowBody_set_velocity(index, &V);    
+        },
+        setForces: |forces| {
+            let F = forces.get();
+            pe_ShadowBody_set_force(index, &F);    
+        },
+        setForces_old: |forces| {
+            let F = forces.get();
+            for d in @map_range(null(), dimension()) {
+                forces_old(d) = F(d); 
+            }
+        }
+    }
+}
+
+struct ParticleList {
+    index: size_t,
+    force_old: [real * 3],
+    next: &ParticleList
+}
+
+fn allocate_particle_node() -> &mut ParticleList {
+    let ptr = allocate(sizeof[ParticleList]() as size_t * sizeof[u8]() as size_t) as &mut ParticleList;
+    (*ptr).next = 0 as &ParticleList; 
+    ptr
+}
+
+fn deallocate_particle_node(ptr: &ParticleList) -> () {
+    deallocate(ptr as &[i8]);
+}
+
+
+fn get_particle_from_node(pl: &ParticleList, isLocal: bool) -> Particle {
+    if(isLocal) {
+        get_local_particle((*pl).index, (*pl).force_old)
+    }
+    else {
+        get_shadow_particle((*pl).index, (*pl).force_old)
+    }
+}
