@@ -23,7 +23,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         while(ip(1) < limit(1)) {
             while(ip(2) < limit(2)) {
                 let node = allocate_particle_node();
-                let p = get_particle_from_node(node);
+                let p = get_particle_from_node(node, true);
                 p.setMass(1.0);
                 let mut X : [real * 3];
                 let mut V : [real * 3];
@@ -55,7 +55,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     } 
     while(++pos < np) {
         let node = allocate_particle_node();
-        let p = get_particle_from_node(node);
+        let p = get_particle_from_node(node, true);
         p.setMass(1.0);
         let mut X : [real * 3];
         let mut V : [real * 3];

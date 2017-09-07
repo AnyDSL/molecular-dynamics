@@ -55,7 +55,7 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
 
 fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () {
     let p = P.getParticle(i);
-    let p_new = get_particle_from_node(*node);
+    let p_new = get_particle_from_node(*node, true);
     p.setMass(p_new.getMass());
     p.setCoordinates(p_new.getCoordinates());
     p.setVelocities(p_new.getVelocities());
