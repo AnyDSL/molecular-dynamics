@@ -2,7 +2,7 @@ CMAKE_MINIMUM_REQUIRED( VERSION 2.6 )
 PROJECT(C-MD)
 
 
-SET(CMAKE_C_COMPILER "/simdata/schmitt/anydsl/llvm_build/bin/clang")
+SET(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
 #SET(CMAKE_C_COMPILER "/usr/bin/clang")
 #SET(CMAKE_C_COMPILER "/usr/bin/gcc")
 INCLUDE_DIRECTORIES(include)

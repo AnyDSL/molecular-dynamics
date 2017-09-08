@@ -6,8 +6,8 @@ real sqr(real const x) {
 
 void fprint_vector(uintptr_t fp, real v[DIM]) {
     for(size_t d = 0; d < DIM-1; ++d) {
-        fprint_double(fp, v[d]);
-        fprint_char(fp, ' ');
+        fprint_f64(fp, v[d]);
+        fprint_u8(fp, ' ');
     }
-    fprint_double(fp, v[DIM-1]);
+    fprint_u8(fp, v[DIM-1]);
 }

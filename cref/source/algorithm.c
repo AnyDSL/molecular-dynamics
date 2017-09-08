@@ -208,7 +208,7 @@ void fprint_particle_system(unsigned char fname[], size_t step, ParticleSystem P
         fprint_line(fp, "LOOKUP_TABLE default");
         for(size_t i = 0; i < N; ++i) {
             Particle *p = (Particle *)(P.addresses[i]);
-            fprint_double(fp, p->v[d]);
+            fprint_f64(fp, p->v[d]);
             fprint_string(fp, "\n");
         }
         fprint_string(fp, "\n");
@@ -221,7 +221,7 @@ void fprint_particle_system(unsigned char fname[], size_t step, ParticleSystem P
         fprint_line(fp, "LOOKUP_TABLE default");
         for(size_t i = 0; i < N; ++i) {
             Particle *p = (Particle *)(P.addresses[i]);
-            fprint_double(fp, p->F[d]);
+            fprint_f64(fp, p->F[d]);
             fprint_string(fp, "\n");
         }
         fprint_string(fp, "\n");
@@ -232,7 +232,7 @@ void fprint_particle_system(unsigned char fname[], size_t step, ParticleSystem P
     fprint_line(fp, "LOOKUP_TABLE default");
     for(size_t i = 0; i < N; ++i) {
         Particle *p = (Particle *)(P.addresses[i]);
-        fprint_double(fp, p->m);
+        fprint_f64(fp, p->m);
         fprint_string(fp, "\n");
     }
     fprint_string(fp, "\n");

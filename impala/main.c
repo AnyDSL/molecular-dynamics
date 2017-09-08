@@ -38,9 +38,9 @@ int main(int argc, char** argv) {
     }
 
     double l[3];
-    l[0] = 200;
-    l[1] = 200;
-    l[2] = 200;
+    l[0] = 250;
+    l[1] = 250;
+    l[2] = 250;
     //dt = 0.00005;
     //initialize_system(atol(argv[3]), l);
     real dt = atof(argv[1]);

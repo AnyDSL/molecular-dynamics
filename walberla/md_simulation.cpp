@@ -48,28 +48,14 @@ using namespace walberla::timing;
 typedef boost::tuple<Sphere, Plane> BodyTuple ;
 
 extern "C" {
-    void initialize_particle_system(size_t, size_t, double[]); 
-    void reinitialize_particle_system(size_t); 
-    void clean_up();
-    void set_coordinates(double[], size_t);
-    void set_velocities(double[], size_t);
-    void set_mass(double, size_t);
-    void set_forces(double[], size_t);
-    void get_coordinates(double[], size_t);
-    void get_velocities(double[], size_t);
-    void get_cell_position(size_t[], size_t);
-    double get_mass(size_t);
-    void get_forces(double[], size_t);
-    void sort_particle_system();
-    void print_particle_system_();
-    size_t get_number_of_particles();
-    size_t get_address_at(size_t);
-    void position_update(double);
-    void force_update();
-    void velocity_update(double);
-    void fprint_particles(size_t, int);
-    void print_particles();
-    size_t number_of_ghost_particles();
+    void pe_initialize_particle_system(uint64_t, uint64_t, double[]); 
+    void pe_reinitialize_particle_system(uint64_t); 
+    void pe_deallocate_particle_system();
+    void pe_distribute_particles();
+    size_t pe_get_number_of_particles();
+    void pe_position_integration(double, uint64_t, uint64_t);
+    void pe_force_calculation();
+    void pe_velocity_integration(double);
 }
 
 constexpr size_t DIM = 3;
@@ -279,7 +265,7 @@ int main( int argc, char ** argv )
    }
    WALBERLA_LOG_INFO("Domain: (" << min[0] << ", " << min[1] << ", " << min[2] << ") (" << max[0] << ", " << max[1] << ", " << max[2] << ")");  
 
-   initialize_particle_system(np_local, ghost_layer, l);
+   pe_initialize_particle_system(np_local, ghost_layer, l);
    //tt.stop("Cell creation");
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - START ***");
    WcTimingPool tp;
@@ -317,78 +303,23 @@ int main( int argc, char ** argv )
            }*/
            tt.start("Reinitialization");
            np_local = localStorage.size() + shadowStorage.size();
-           reinitialize_particle_system(np_local);
+           pe_reinitialize_particle_system(np_local);
            tt.stop("Reinitialization");
-
-           tt.start("pe -> Impala");
-           size_t j = 0;
-           for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
-               double mass = bodyIt->getMass();
-               auto position = bodyIt->getPosition();
-               auto velocity = bodyIt->getLinearVel();
-               auto force = bodyIt->getForce();
-               double X[DIM], V[DIM], F[DIM];
-               for(size_t d = 0; d < DIM; ++d) {
-                   X[d] = position[d] + shift[d];
-                   V[d] = velocity[d];
-                   F[d] = force[d];
-               }
-               set_mass(mass, j);
-               set_coordinates(X, j);
-               set_velocities(V, j);
-               set_forces(F, j);
-               ++j;
-           }
-
-           for(auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
-               double mass = bodyIt->getMass();
-               auto position = bodyIt->getPosition();
-               auto velocity = bodyIt->getLinearVel();
-               double X[DIM], V[DIM], F[DIM];
-               for(size_t d = 0; d < DIM; ++d) {
-                   X[d] = position[d] + shift[d];
-                   V[d] = velocity[d];
-               }
-               set_mass(mass, j);
-               set_coordinates(X, j);
-               set_velocities(V, j);
-               size_t cell[DIM];
-               get_cell_position(cell, j);
-               ++j;
-           }
-           /*
-           if(i % visSpacing == 0) {
-               j = 0;
-               for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
-                   auto X = bodyIt->getPosition();
-                   size_t cell[DIM];
-                   get_cell_position(cell, j);
-                   WALBERLA_LOG_INFO("Local Particle " << j << " position " << "(" <<  X[0] << ", " << X[1] << ", " << X[2] << ")" << " in cell " << "(" <<  cell[0] << ", " << cell[1] << ", " << cell[2] << ")");
-                   ++j;
-               }
-
-               for(auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
-                   auto X = bodyIt->getPosition();
-                   size_t cell[DIM];
-                   get_cell_position(cell, j);
-                   WALBERLA_LOG_INFO("Ghost Particle " << j << " position " << "(" <<  X[0] << ", " << X[1] << ", " << X[2] << ")" << " in cell " << "(" <<  cell[0] << ", " << cell[1] << ", " << cell[2] << ")");
-                   ++j;
-               }
-           }
-           */
-           tt.stop("pe -> Impala");
 
            tt.start("Impala kernel");
            if(i == 0) {
-               sort_particle_system();
-               force_update();
+               pe_distribute_particles();
+               pe_force_calculation();
            }
            
            tt.start("Position integration");
-           position_update((double)dt);
+           auto nLocal = static_cast<uint64_t>(localStorage.size());
+           auto nShadow = static_cast<uint64_t>(shadowStorage.size());
+           pe_position_integration(static_cast<double>(dt), nLocal, nShadow); 
            tt.stop("Position integration");
+
            tt.start("Particle Distribution");
-           sort_particle_system();
+           pe_distribute_particles();
            /*
            if(i % visSpacing == 0) {
                size_t nGhostParticles;
@@ -396,56 +327,17 @@ int main( int argc, char ** argv )
                mpi::reduceInplace(nGhostParticles, mpi::SUM);
                WALBERLA_LOG_INFO_ON_ROOT("Impala: Ghost particles: " << nGhostParticles);
            }*/
-
-           MPI_Barrier(MPI_COMM_WORLD);
            tt.stop("Particle Distribution");
+
            tt.start("Force calculation");
-           force_update();
+           pe_force_calculation();
            tt.stop("Force calculation");
+
            tt.start("Velocity integration");
-           velocity_update((double)dt);
+           pe_velocity_integration(static_cast<double>(dt)); 
            tt.stop("Velocity integration");
+
            tt.stop("Impala kernel");
-
-           tt.start("Impala -> pe");
-           j = 0;
-           for( auto bodyIt = localStorage.begin(); bodyIt != localStorage.end(); ++bodyIt ) {
-               double X[DIM], V[DIM], F[DIM];
-               get_coordinates(X, j);
-               get_velocities(V, j);
-               get_forces(F, j);
-               Vec3 force, velocity, position;
-               for(size_t d = 0; d < DIM; ++d) {
-                   position[d] = X[d] - shift[d];
-                   velocity[d] = V[d];
-                   force[d] = F[d];
-               }
-
-               /*
-               WALBERLA_LOG_INFO_ON_ROOT("Particle " << j); 
-               WALBERLA_LOG_INFO_ON_ROOT("Position:"); 
-               log_vector(position);
-               WALBERLA_LOG_INFO_ON_ROOT("Velocity:"); 
-               log_vector(velocity);
-               WALBERLA_LOG_INFO_ON_ROOT("Force:"); 
-               log_vector(force);
-               */
-               bodyIt->setPosition(position);
-               bodyIt->setLinearVel(velocity);
-               bodyIt->setForce(force);
-               ++j;
-           }
-           for( auto bodyIt = shadowStorage.begin(); bodyIt != shadowStorage.end(); ++bodyIt ) {
-               Vec3 force;
-               for(size_t d = 0; d < DIM; ++d) {
-                   force[d] = 0.0;
-               }
-               bodyIt->setForce(force);
-           }
-
-           tt.stop("Impala -> pe");
-
-
        }
        ///////////////* Solver End */////////////////
        
@@ -456,7 +348,7 @@ int main( int argc, char ** argv )
        pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
        tt.stop("Sync");
    }
-   clean_up();
+   pe_deallocate_particle_system();
    tt.stop("Simulation Loop");
    MPI_Barrier(MPI_COMM_WORLD);
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - END ***");

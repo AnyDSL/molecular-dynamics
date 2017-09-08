@@ -1,27 +1,20 @@
 static mut P_data_ : ParticleSystemData;
 
 extern
-fn initialize_particle_system(np: size_t, ghost_layer: size_t, l: &[real]) -> () { 
+fn pe_initialize_particle_system(np: size_t, ghost_layer: size_t, l: &[real]) -> () { 
     init_constants(&mut P_data_.constants);
     let l_v = get_vector([l(0), l(1), l(2)]);    
     let P = allocate_particle_system(np, ghost_layer, l_v, P_data_.constants); 
-    for i in loop(0 as size_t, np) {
+    for i in map_range(0 as size_t, np) {
         let node = allocate_particle_node();
-        let p = get_particle_from_node(*node);
-        p.setCoordinates(get_vector([epsilon(), epsilon(), epsilon()]));
         push_node(node, P);
     }
     init_addresses(P);
     P_data_ = get_data_struct_from_particle_system(P);
 }
 
-extern fn get_address_at(i: size_t) -> size_t {
-    let P = get_particle_system_from_data_struct(P_data_);
-    P.addresses().get(i) as size_t
-}
-
 extern
-fn reinitialize_particle_system(np: size_t) -> () {
+fn pe_reinitialize_particle_system(np: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     let np_old = P.np();
     if(np_old != np) {
@@ -35,7 +28,7 @@ fn reinitialize_particle_system(np: size_t) -> () {
         let P_new = get_particle_system(np, nc, ghost_layer, l, data_cells, constants, data_addresses);
         if(np_old > np) {
             let mut end = 1 as size_t;
-            for d in @loop(0 as size_t, dimension()) {
+            for d in @map_range(0 as size_t, dimension()) {
                 end *= nc(d);
             }
             let mut j = np_old as size_t;
@@ -53,10 +46,8 @@ fn reinitialize_particle_system(np: size_t) -> () {
             }
         }
         else {        
-            for j in loop(np_old, np) {
+            for j in map_range(np_old, np) {
                 let node = allocate_particle_node();
-                let p = get_particle_from_node(*node);
-                p.setCoordinates(get_vector([epsilon(), epsilon(), epsilon()]));
                 push_node(node, P_new);
             }
         }
@@ -64,142 +55,56 @@ fn reinitialize_particle_system(np: size_t) -> () {
         P_data_ = get_data_struct_from_particle_system(P_new);        
     }
 }
-
 extern 
-fn get_number_of_particles() -> size_t {
+fn pe_get_number_of_particles() -> size_t {
     let P = get_particle_system_from_data_struct(P_data_);
     P.np()
 }
-
-/*
-extern fn print_particle_system_() -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    print_particle_system(P);
-}*/
-
 extern
-fn set_coordinates(X: &[real], i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    p.setCoordinates(get_vector([X(0), X(1), X(2)]));
-}
-extern
-fn set_velocities(V: &[real], i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    p.setVelocities(get_vector([V(0), V(1), V(2)]));
-}
-
-extern
-fn set_forces(F: &[real], i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    p.setForces(get_vector([F(0), F(1), F(2)]));
-}
-
-extern
-fn set_mass(m: real, i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    p.setMass(m);
-}
-
-extern
-fn get_coordinates(X: &mut [real], i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    let tmp = p.getCoordinates();
-    for d in @loop(0 as size_t, dimension()) {
-        X(d) = tmp.get()(d); 
-    }
-}
-
-extern
-fn get_velocities(V: &mut [real], i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    let tmp = p.getVelocities();
-    for d in @loop(0 as size_t, dimension()) {
-        V(d) = tmp.get()(d); 
-    }
-}
-
-extern
-fn get_cell_position(pos: &mut [size_t], i: size_t) -> () { 
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    let kc = compute_cell_position(p, P);
-    for d in @loop(0 as size_t, dimension()) {
-        pos(d) = kc(d); 
-    }
-}
-
-extern
-fn get_forces(F: &mut [real], i: size_t) -> () {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    let tmp = p.getForces();
-    for d in @loop(0 as size_t, dimension()) {
-        F(d) = tmp.get()(d); 
-    }
-}
-
-extern
-fn get_mass(i: size_t) -> real {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let p = get_particle(P.addresses().get(i));
-    p.getMass()
-}
-
-extern
-fn sort_particle_system() -> () {
+fn pe_distribute_particles() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     move_particles(P);
 }
-
 extern
-fn force_update() -> () {
+fn pe_force_calculation() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     compute_force(P, force, 1);
 }
 
-extern
-fn number_of_ghost_particles() -> size_t {
+// TODO Segfault here
+/*extern
+fn pe_get_number_of_ghost_particles() -> size_t {
     let P = get_particle_system_from_data_struct(P_data_);
     count_ghost_particles(P)
-}
+}*/
 
 extern
-fn position_update(dt: real) -> () {
+fn pe_position_integration(dt: real, np_local: size_t, np_shadow: size_t) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    let z = 0 as size_t;
-    let mut ic_start : [size_t * 3];
-    for d in @loop(0 as size_t, dimension()) {
-        ic_start(d) = z;
+    let addresses = P.addresses();
+    for i in $map_range(@null(), np_local) @{
+        let pl = addresses.get(i);
+        pl.index = i;
+        let p = get_particle_from_node(pl, true);
+        integrate_x(p, dt);
     }
-    let ic_end = P.nc();
-    update(P, ic_start, ic_end, dt, 1, integrate_x);
+    for i in $map_range(np_local, np_local + np_shadow) @{
+        let pl = addresses.get(i);
+        pl.index = i - np_local;
+        let p = get_particle_from_node(pl, false);
+        integrate_x(p, dt);
+    }
 }
 
 extern
-fn velocity_update(dt: real) -> () {
+fn pe_velocity_integration(dt: real) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     update(P, P.start(), P.end(), dt, 1, integrate_v);
 }
 
 
 extern
-fn clean_up() -> () {
+fn pe_deallocate_particle_system() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     deallocate_particle_system(P);
-}
-
-extern 
-fn fprint_particles(step: size_t, rank: i32) -> ()  {
-    let P = get_particle_system_from_data_struct(P_data_);
-    let mut str : [u8 * 32];
-    if(rank == 0) {
-        generate_filename(step, "impala", &mut str, 32 as size_t);
-        fprint_particle_system(str, step, P);
-    }
 }
