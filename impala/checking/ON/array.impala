@@ -1,3 +1,0 @@
-fn check_invariants(P: ParticleSystem) -> bool {
-    true
-}

@@ -1,0 +1,28 @@
+fn move_particles(P: ParticleSystem) -> () {
+    let start = P.start();
+    let end = P.end();
+    for k in $map_range(start(2), end(2)) {
+        for j in map_range(start(1), end(1)) {
+            for i in map_range(start(0), end(0)) @{
+                let ic = [i,j,k];
+                let mut q : &mut& ParticleList = P.head(index(ic, P.nc()));
+                let mut i : &ParticleList = *q;
+                while(i != 0 as &ParticleList) {    
+                    let p = get_particle_from_node(i, true); 
+                    boundary(p, P);
+                    let kc = compute_cell_position(p, P);
+                    let mut moving_node : &mut ParticleList;
+                    if(ic(0) != kc(0) || ic(1) != kc(1) || ic(2) != kc(2)) {
+                        moving_node = remove(q);
+                        insert(P.head(index(kc, P.nc())), moving_node);
+                    }
+                    else {
+                        q = &((*i).next) as &mut& ParticleList;
+                    }
+                    i = (*q);
+                }
+
+            }
+        }
+    }
+}

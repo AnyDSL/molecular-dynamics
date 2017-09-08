@@ -1,0 +1,44 @@
+
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
+    for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
+        let p1 = get_particle_from_node(pl1, true);
+        p1.setForces(get_null_vector());
+    }
+    let z = 0 as size_t;
+    let mut ic_start : [size_t * 3];
+    for d in @map_range(0 as size_t, dimension()) {
+        ic_start(d) = z;
+    }
+    let ic_end = P.nc();
+    for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
+        let mut jc_start : [size_t * 3]; 
+        let mut jc_end : [size_t * 3];
+        let mut write_i = true;
+        for d in @map_range(0 as size_t, dimension()) {
+            if(ic(d) >= P.start()(d)) {
+                jc_start(d) = ic(d) - 1 as size_t;
+            } 
+            else {
+                jc_start(d) = ic(d) + 1 as size_t;
+                write_i = false;
+            };
+            if(ic(d) < P.end()(d)) { 
+                jc_end(d) = ic(d) + 2 as size_t; 
+            } 
+            else {
+                jc_end(d) = ic(d);
+                write_i = false;
+            };
+        }
+        for pl1 in $map_list(head) @{
+            for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
+                if((pl1 as ptr_t < pl2 as ptr_t)) {
+                    let p1 = get_particle_from_node(pl1, write_i);
+                    let p2 = get_particle_from_node(pl2, write_j);
+                    force(p1, p2, write_i, write_j, P.constants());
+                }
+            }
+        }
+    }
+}
+

@@ -11,13 +11,6 @@ include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 include_directories(${LIKWID_DIR}/include)
 
-set(DATASTRUCTURE ${DATASTRUCTURE} CACHE STRING "select the data structure from the following: linked_cell, array")
-if(NOT DATASTRUCTURE)
-    set(DATASTRUCTURE linked_cell CACHE STRING "select the data structure from the following: linked_cell, array" FORCE)
-endif()
-string(TOLOWER "${DATASTRUCTURE}" DATASTRUCTURE)
-message(STATUS "Selected data structure: ${DATASTRUCTURE}")
-
 set(INIT ${INIT} CACHE STRING "select the particle initialization method from the following: grid, random, body_collision")
 if(NOT INIT)
     set(INIT body_collision CACHE STRING "select the particle initialization method from the following: grid, random, body_collision" FORCE)
@@ -44,7 +37,10 @@ set(IMPALA_FLAGS --log-level error)
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES intrinsics/intrinsics_cpu.impala utilities/common.impala utilities/linked_list.impala linked_list/default.impala potential/lennard_jones.impala particle_system/${DATASTRUCTURE}.impala boundary/default.impala count_force_evaluations/${COUNT_FORCE_EVALUATIONS}.impala algorithm/${DATASTRUCTURE}.impala initialization/constants/test.impala initialization/particles/${INIT}.impala integration/verlet.impala checking/${CHECK_INVARIANTS}/${DATASTRUCTURE}.impala run.impala)
+    FILES intrinsics/intrinsics_cpu.impala utilities/common.impala datastructures/linked_list.impala utilities/linked_list.impala 
+    potential/lennard_jones.impala datastructures/particle_system.impala boundary/default.impala count_force_evaluations/${COUNT_FORCE_EVALUATIONS}.impala 
+    algorithm/force_calculation.impala algorithm/integration.impala algorithm/distribution.impala initialization/constants/test.impala 
+    initialization/particles/${INIT}.impala integration/verlet.impala utilities/vtk.impala checking/${CHECK_INVARIANTS}.impala run.impala)
 
 add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)

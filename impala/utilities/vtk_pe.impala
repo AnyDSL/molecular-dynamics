@@ -1,0 +1,1 @@
+fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> () {}

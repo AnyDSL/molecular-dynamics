@@ -1,31 +1,3 @@
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
-    let start = 0 as size_t;
-    for i in map_range(start, P.np()) @{
-        let p = P.getParticle(i);
-        p.setForces(get_null_vector());
-    }
-    for i in $map_range(start, P.np()) {
-        for j in map_range(i+(1 as size_t), P.np()) @{
-            let p1 = P.getParticle(i);
-            let p2 = P.getParticle(j);
-            force(p1, p2, true, true, P.constants());
-        }
-    }
-}
-
-fn update(P: ParticleSystem, start: size_t, end: size_t, dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
-    for i in map_range(start, end) {
-        f(P.getParticle(i), dt);
-    }
-}
-
-fn move_particles(P: ParticleSystem) -> () {
-    for i in map_range(0 as size_t, P.np()) {
-        boundary(P.getParticle(i), P);
-    }
-}
-
-
 fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
 {
     let start = 0 as size_t;
@@ -41,11 +13,14 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "POINTS ");
     fprint_size_t(fp, N);
     fprint_line(fp, " double");
-    map_range(start, N, |i| {
-        let p = P.getParticle(i);
+    
+    let addresses = P.addresses();
+
+    for i in map_range(start, N) {
+        let p = get_particle(addresses.get(i));
         p.getCoordinates().fprint(fp);
         fprint_string(fp, "\n");
-    });
+    }
     fprint_string(fp, "\n\n");
     fprint_string(fp, "CELLS ");
     fprint_size_t(fp, N);
@@ -53,21 +28,21 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_size_t(fp, (2 as size_t)*N);
 
     fprint_string(fp, "\n");
-    map_range(start, N, |i| {
+    for i in map_range(start, N){
         fprint_string(fp, "1 ");
         fprint_size_t(fp, i);
         fprint_string(fp, "\n");
-    });
+    }
     fprint_string(fp, "\n\n");
 
 
     fprint_string(fp, "CELL_TYPES ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    map_range(start, N, |i| {
+    for i in map_range(start, N) {
         fprint_string(fp, "1");
         fprint_string(fp, "\n");
-    });
+    }
 
     fprint_string(fp, "\n\n");
 
@@ -75,69 +50,44 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "POINT_DATA ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    @map_range(start, dimension(), |d| {
+    for d in map_range(start, dimension()) {
         fprint_string(fp, "SCALARS velocity_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
         fprint_line(fp, "LOOKUP_TABLE default");
-        $map_range(start, N, |i| {
-
-            let p = P.getParticle(i);
+        for i in map_range(start, N) {
+            let p = get_particle(addresses.get(i));
             let v = p.getVelocities();
             let x = v.get();
             fprint_f64(fp, x(d));
             fprint_string(fp, "\n");
-        });
+        }
         fprint_string(fp, "\n");
-    });
-
-    @map_range(start, dimension(), |d| {
+    }
+    for d in map_range(start, dimension()) {
         fprint_string(fp, "SCALARS force_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
         fprint_line(fp, "LOOKUP_TABLE default");
-        $map_range(start, N, |i| {
-
-            let p = P.getParticle(i);
+        for i in map_range(start, N) {
+            let p = get_particle(addresses.get(i));
             let v = p.getForces();
             let x = v.get();
             fprint_f64(fp, x(d));
             fprint_string(fp, "\n");
-        });
+        }
         fprint_string(fp, "\n");
-    });
-
+    }
 
     fprint_string(fp, "SCALARS mass");
     fprint_line(fp, " double");
     fprint_line(fp, "LOOKUP_TABLE default");
-    map_range(start, N, |i| {
-        let p = P.getParticle(i);
+    for i in map_range(start, N) {
+        let p = get_particle(addresses.get(i));
         let m = p.getMass();
         fprint_f64(fp, m);
         fprint_string(fp, "\n");
-    });
+    }
     fprint_string(fp, "\n");
-
-
     close_file(fp);
-}
-
-
-fn print_statistics(P: ParticleSystem, t: real) -> ()
-{
-
-    let sqr = |x : real| {x*x};
-    let mut e : real = 0.0;
-    map_range(0 as size_t, P.np(), |i| {
-        let p = P.getParticle(i);
-        let V_sqr = p.getVelocities().map(sqr);
-        let v = V_sqr.reduce(|x,y|{x+y}, 0.0);
-        e += 0.5 * p.getMass() * v;
-    });
-    print_string("t: ");
-    print_f64(t);
-    print_string("\tE: ");
-    print_f64(e);
-    print_char('\n');
 }
