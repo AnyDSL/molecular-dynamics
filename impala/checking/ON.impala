@@ -15,9 +15,9 @@ fn check_invariants(P: ParticleSystem) -> bool {
     let domain = P.l();
     let start = P.start();
     let end = P.end();
-    let zero_array = [null(),..3];
+    let zero_array = [@null(),..3];
     let nc = P.nc();
-    for d in map_range(null(), dimension()) {
+    for d in map_range(@null(), @dimension()) {
         if(domain.get()(d) < 0.0) {
             print_string("Invalid simulation domain\n");
             status = false;
@@ -38,7 +38,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
 
     // Check constants
     let constants = P.constants();
-    if(constants.r_cut * constants.r_cut - constants.r_cut_sqr > epsilon()) {
+    if(constants.r_cut * constants.r_cut - constants.r_cut_sqr > @epsilon()) {
         print_string("r_cut * r_cut != r_cut_sqr");
         status = false;
     }
@@ -48,14 +48,14 @@ fn check_invariants(P: ParticleSystem) -> bool {
     } else {
         // Check particles
         let addresses = P.addresses();
-        for i in map_range(null(), P.np()) {
+        for i in map_range(@null(), P.np()) {
             let p = get_particle(addresses.get(i));
             let X = p.getCoordinates().get();
             let V = p.getVelocities().get();
             let F = p.getForces().get();
             let F_old = p.getForces_old().get();
             let kc = compute_cell_position(p, P);
-            for d in map_range(null(), dimension()) {
+            for d in map_range(@null(), @dimension()) {
                 // Check position
 
                 if(math.isinf(X(d)) != 0) {
@@ -98,7 +98,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
             }
             // Check cell index
             let mut out_of_range = false;
-            for d in map_range(null(), dimension()) {
+            for d in map_range(@null(), @dimension()) {
                 if(kc(d) > nc(d)) {
                     out_of_range = true;
                 }
@@ -124,8 +124,8 @@ fn check_invariants(P: ParticleSystem) -> bool {
         }
 
         // Check cells
-        let mut count = null();
-        for ic, pl in map_particle_system([null(),..3], P.nc(), P) {
+        let mut count = @null();
+        for ic, pl in map_particle_system([@null(),..3], P.nc(), P) {
             ++count;
         }
         if(count > P.np()) {

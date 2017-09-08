@@ -2,28 +2,27 @@
 fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
     for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
         let p1 = get_particle_from_node(pl1, true);
-        p1.setForces(get_null_vector());
+        p1.setForces(@get_null_vector());
     }
-    let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
-    for d in @map_range(0 as size_t, dimension()) {
-        ic_start(d) = z;
+    for d in @map_range(@null(), @dimension()) {
+        ic_start(d) = @null();
     }
     let ic_end = P.nc();
     for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
         let mut write_i = true;
-        for d in @map_range(0 as size_t, dimension()) {
+        for d in @map_range(@null(), @dimension()) {
             if(ic(d) >= P.start()(d)) {
-                jc_start(d) = ic(d) - 1 as size_t;
+                jc_start(d) = ic(d) - @one();
             } 
             else {
-                jc_start(d) = ic(d) + 1 as size_t;
+                jc_start(d) = ic(d) + @one();
                 write_i = false;
             };
             if(ic(d) < P.end()(d)) { 
-                jc_end(d) = ic(d) + 2 as size_t; 
+                jc_end(d) = ic(d) + @two(); 
             } 
             else {
                 jc_end(d) = ic(d);

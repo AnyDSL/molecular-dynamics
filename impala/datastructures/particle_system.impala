@@ -23,14 +23,14 @@ fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, l: Vec
         ghost_layer: || {ghost_layer},
         start: || {
             let mut start : [size_t * 3];
-            for d in @map_range(0 as size_t, dimension()) {
+            for d in @map_range(0 as size_t, @dimension()) {
                 start(d) = ghost_layer;
             }
             start
         },
         end: || {
             let mut end : [size_t * 3];
-            for d in @map_range(0 as size_t, dimension()) {
+            for d in @map_range(0 as size_t, @dimension()) {
                 end(d) = nc(d) - ghost_layer;
             }
             end
@@ -85,7 +85,7 @@ fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () 
 
 fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
     let mut pos : [size_t * 3];
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         pos(d) = P.nc()(d) / 2 as size_t;
     }
     let root = P.head(index(pos, P.nc()));
@@ -96,7 +96,7 @@ fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constant
     let mut nc : [size_t * 3];
     let mut pnc = 1 as size_t;
     let l_extended = increase_vector(l, 2.0*(ghost_layer as real)*constants.r_cut); 
-    for d in @map_range(0 as size_t, dimension()){
+    for d in @map_range(0 as size_t, @dimension()){
         nc(d) = math.floor(l.get()(d)/constants.r_cut) as size_t + (2 as size_t * ghost_layer);
         pnc *= nc(d);
     }
@@ -129,7 +129,7 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
 /*fn print_particle_system(P: ParticleSystem) -> (){    
     let mut ic_start : [size_t * 3];
     let ic_end = P.nc();
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         ic_start(d) = 0 as size_t;
     }
 
@@ -164,7 +164,7 @@ fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let coordinates_x = p.getCoordinates().get();
     let tmp = P.tmp().get();
     let nc = P.nc();
-    for d in @map_range((0 as size_t), dimension()) {
+    for d in @map_range((0 as size_t), @dimension()) {
         kc(d) = math.floor((coordinates_x(d) + P.offset()) * tmp(d)) as size_t;
     }
     kc
@@ -191,7 +191,7 @@ fn get_array_of_addresses(size: size_t, data: &[i8]) -> ArrayOfAddresses {
 fn init_addresses(P: ParticleSystem) -> () {
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         ic_start(d) = z;
     }
     let ic_end = P.nc();
@@ -240,7 +240,7 @@ fn count_ghost_particles(P: ParticleSystem) -> size_t {
         let p = get_particle(P.addresses().get(i));
         let kc = compute_cell_position(p, P);
         let mut ghost = false;
-        for d in map_range(0 as size_t, dimension()) {
+        for d in map_range(0 as size_t, @dimension()) {
             if(kc(d) < P.start()(d) || kc(d) >= P.end()(d)) {
                 ghost = true;
             }
@@ -261,7 +261,7 @@ fn parallel_map_particle_system(start: [size_t * 3], end: [size_t * 3], P: Parti
 fn map_particle_system_with_ghost_layers(start: [size_t * 3], end: [size_t * 3], lower_boundary: [size_t * 3], upper_boundary :[size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &ParticleList, bool) -> ()) -> () {
     for ic, head in map_particle_cells(start, end, P) {
         let mut write = true;
-        for d in @map_range(0 as size_t, dimension()) {
+        for d in @map_range(0 as size_t, @dimension()) {
             if(ic(d) < lower_boundary(d) || ic(d) >= upper_boundary(d)) {
                 write = false;
             }

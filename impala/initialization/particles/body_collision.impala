@@ -4,14 +4,14 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     let mut limit1 : [size_t * 3];
     let mut limit2 : [size_t * 3];
     let N = math.floor(math.pow(np as real / 11.0, 1.0/3.0)) as size_t;
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         limit1(d) = N;
         limit2(d) = N;
     }
     limit1(0) = limit1(0) * 10 as size_t;
     let mut np1 = 1 as size_t;
     let mut np2 = 1 as size_t;
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         np1 *= limit1(d);
         np2 *= limit2(d);
     }
@@ -26,7 +26,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     base(1) = 100.0;
     base(2) = 100.0;
     let mut ip : [size_t * 3];
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         ip(d) = 0 as size_t;
     }
     let mut pos = 0 as size_t;
@@ -38,7 +38,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
                 p.setMass(1.0);
                 p.setVelocities(get_null_vector());
                 let mut X : [real * 3];
-                for d in @map_range(0 as size_t, dimension()) {
+                for d in @map_range(0 as size_t, @dimension()) {
                     X(d) = base(d) + ip(d) as real * factor;
                 }
                 p.setCoordinates(get_vector(X));
@@ -57,7 +57,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     base(1) = 115.0;
     base(2) = 100.0;
 
-    for d in @map_range(0 as size_t, dimension()) {
+    for d in @map_range(0 as size_t, @dimension()) {
         ip(d) = 0 as size_t;
     }
     while(ip(0) < limit2(0)) {
@@ -69,7 +69,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
                 p.setVelocities(get_vector([0.0, -V_MAX, 0.0]));
                 let mut X : [real * 3];
 
-                for d in @map_range(0 as size_t, dimension()) {
+                for d in @map_range(0 as size_t, @dimension()) {
                     X(d) = base(d) + ip(d) as real * factor;
                 }
                 p.setCoordinates(get_vector(X));

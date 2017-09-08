@@ -25,13 +25,13 @@ fn null() -> size_t {0 as size_t};
 fn one() -> size_t {1 as size_t};
 fn two() -> size_t {2 as size_t};
 fn three() -> size_t {3 as size_t};
-fn dimension() -> size_t {three()}
+fn dimension() -> size_t {@three()}
 fn epsilon() -> real {1e-9}
 
 fn map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
     if lower < upper {
         body(lower);
-        map_range(lower+(one()), upper, body, return)
+        map_range(lower+(@one()), upper, body, return)
     }
 }
 
@@ -43,10 +43,10 @@ fn parallel_map_range(lower: size_t, upper: size_t, numthreads: int, body: fn(si
 
 fn index(ic: [size_t * 3], nc: [size_t * 3]) -> size_t {
     fn rec(i: size_t) -> size_t {
-        if(i == dimension() - one()) {ic(i)}
-        else {ic(i) + nc(i) * rec(i + one())} 
+        if(i == @dimension() - @one()) {ic(i)}
+        else {ic(i) + nc(i) * rec(i + @one())} 
     }
-    @rec(null())
+    @rec(@null())
     //ic(0) + nc(0)*(ic(1) + nc(1)*ic(2))
 }
 
@@ -69,38 +69,38 @@ fn get_vector(data: [real * 3]) -> Vector
         combine: |f: fn(real, real) -> real, v: Vector| {
             let mut res : [real * 3];
             let v_data = v.get();
-            for d in @map_range((null()), dimension()) {
+            for d in @map_range((@null()), @dimension()) {
                     res(d) = f(data(d), v_data(d)); 
             }
             get_vector(res)
         },
         map: |f: fn(real) -> real| {
             let mut res : [real * 3];
-            for d in @map_range(null(), dimension()) {
+            for d in @map_range(@null(), @dimension()) {
                 res(d) = f(data(d)); 
             }
             get_vector(res)
         },
         reduce: |f: fn(real, real) -> real, empty: real| {
             let mut acc = empty;
-            for d in @map_range(null(), dimension()) {
+            for d in @map_range(@null(), @dimension()) {
                 acc = f(acc, data(d)); 
             }
             acc
         },
         print: || { 
-            for d in @map_range(null(), dimension()-(one())) {
+            for d in @map_range(@null(), @dimension()-(@one())) {
                  print_f64(data(d));
                  print_char(' ');
             }
-            print_f64(data(dimension()-(one())));
+            print_f64(data(@dimension()-(@one())));
         },
         fprint: |fp| { 
-            for d in @map_range(null(), dimension()-(one())) {
+            for d in @map_range(@null(), @dimension()-(@one())) {
                  fprint_f64(fp, data(d));
                  fprint_u8(fp, ' ');
             }
-            fprint_f64(fp, data(dimension()-(one())));
+            fprint_f64(fp, data(@dimension()-(@one())));
         }
 
     }
