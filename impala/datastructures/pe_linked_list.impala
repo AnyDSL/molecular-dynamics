@@ -45,9 +45,6 @@ fn get_local_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
         getIndex: || {
             index
         },
-        isShadow: || {
-            false
-        },
         setMass: |m| {
             pe_LocalBody_set_mass(index, m);    
         }, 
@@ -96,9 +93,6 @@ fn get_shadow_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
         getIndex: || {
             index
         },
-        isShadow: || {
-            true
-        },
         setMass: |m| {
             pe_ShadowBody_set_mass(index, m);    
         }, 
@@ -126,25 +120,25 @@ fn get_shadow_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
 struct ParticleList {
     index: size_t,
     force_old: [real * 3],
-    next: &ParticleList
+    next: &mut ParticleList
 }
 
 fn allocate_particle_node() -> &mut ParticleList {
-    let ptr = allocate(sizeof[ParticleList]() as size_t * sizeof[u8]() as size_t) as &mut ParticleList;
-    (*ptr).next = 0 as &ParticleList; 
+    let ptr = allocate(sizeof[ParticleList]() as size_t) as &mut ParticleList;
+    (*ptr).next = 0 as &mut ParticleList; 
     ptr
 }
 
-fn deallocate_particle_node(ptr: &ParticleList) -> () {
+fn deallocate_particle_node(ptr: &mut ParticleList) -> () {
     deallocate(ptr as &[i8]);
 }
 
 
-fn get_particle_from_node(pl: &ParticleList, isLocal: bool) -> Particle {
+fn get_particle_from_node(pl: &mut ParticleList, isLocal: bool) -> Particle {
     if(isLocal) {
-        get_local_particle((*pl).index, (*pl).force_old)
+        get_local_particle(pl.index, &mut pl.force_old)
     }
     else {
-        get_shadow_particle((*pl).index, (*pl).force_old)
+        get_shadow_particle(pl.index, &mut pl.force_old)
     }
 }

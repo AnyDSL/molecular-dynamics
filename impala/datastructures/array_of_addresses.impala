@@ -1,0 +1,33 @@
+struct ArrayOfAddresses {
+    size: fn() -> size_t,
+    get: fn(size_t) -> &[i8],
+    set: fn(size_t, &[i8]) -> () 
+}
+
+fn get_array_of_addresses(size: size_t, data: &[i8]) -> ArrayOfAddresses {
+    ArrayOfAddresses {
+        size: || {size},
+        get: |i| {bitcast[&[&[i8]]](data)(i)},
+        set: |i, ptr| {
+            bitcast[&mut[&[i8]]](data)(i) = ptr;
+        }
+    }
+}
+
+fn init_addresses(P: ParticleSystem) -> () {
+    let z = 0 as size_t;
+    let mut ic_start : [size_t * 3];
+    for d in @map_range(0 as size_t, @dimension()) {
+        ic_start(d) = z;
+    }
+    let ic_end = P.nc();
+    let mut pos = 0 as size_t;
+    let addresses = P.addresses();
+    for ic, pl in map_particle_system(ic_start, ic_end, P) {
+        if(pl != 0 as &mut ParticleList) {
+            let p : ParticleList = *pl;
+            addresses.set(pos++, p.data);
+        }
+    }
+}
+

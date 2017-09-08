@@ -70,7 +70,7 @@ struct ParticleList {
 }
 
 fn allocate_particle_node() -> &mut ParticleList {
-    let ptr = allocate(sizeof[ParticleList]() as size_t * sizeof[u8]() as size_t) as &mut ParticleList;
+    let ptr = allocate(sizeof[ParticleList]() as size_t) as &mut ParticleList;
     (*ptr).data = allocate(size_of_particle()*(sizeof[u8]() as size_t)); 
     (*ptr).next = 0 as &mut ParticleList; 
     ptr
