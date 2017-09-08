@@ -66,27 +66,27 @@ fn get_particle(data: &[i8]) -> Particle {
 
 struct ParticleList {
     data: &[i8],
-    next: &ParticleList
+    next: &mut ParticleList
 }
 
 fn allocate_particle_node() -> &mut ParticleList {
     let ptr = allocate(sizeof[ParticleList]() as size_t * sizeof[u8]() as size_t) as &mut ParticleList;
     (*ptr).data = allocate(size_of_particle()*(sizeof[u8]() as size_t)); 
-    (*ptr).next = 0 as &ParticleList; 
+    (*ptr).next = 0 as &mut ParticleList; 
     ptr
 }
 
-fn deallocate_particle_node(ptr: &ParticleList) -> () {
+fn deallocate_particle_node(ptr: &mut ParticleList) -> () {
     deallocate((*ptr).data);
     deallocate(ptr as &[i8]);
 }
 
-fn get_particle_from_node(pl: &ParticleList, isLocal: bool) -> Particle {
+fn get_particle_from_node(pl: &mut ParticleList, isLocal: bool) -> Particle {
     get_particle((*pl).data)
 }
 
-fn print_particle_node(pl: &ParticleList) -> () {
-    let p = get_particle_from_node(*pl, true);
+fn print_particle_node(pl: &mut ParticleList) -> () {
+    let p = get_particle_from_node(pl, true);
     print_string("ParticleList\n");
     print_i64(pl as i64);
     print_particle(p);

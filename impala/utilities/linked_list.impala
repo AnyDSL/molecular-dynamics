@@ -1,6 +1,6 @@
 
 
-fn insert(root: &mut &ParticleList, pl: &mut ParticleList) -> () {
+fn insert(root: &mut &mut ParticleList, pl: &mut ParticleList) -> () {
 
     //print_string("*root: ");
     //print_i64(*root as i64);
@@ -9,8 +9,8 @@ fn insert(root: &mut &ParticleList, pl: &mut ParticleList) -> () {
     *root = pl;
 }
 
-fn remove(root: &mut &ParticleList) -> &mut ParticleList {
-    if(*root != 0 as &ParticleList) {
+fn remove(root: &mut &mut ParticleList) -> &mut ParticleList {
+    if(*root != 0 as &mut ParticleList) {
         let retval : &mut ParticleList  = *root;
         *root = (**root).next;
         retval
@@ -20,7 +20,7 @@ fn remove(root: &mut &ParticleList) -> &mut ParticleList {
     }
 }
 
-fn delete_list(root: &mut &ParticleList) -> () {
+fn delete_list(root: &mut &mut ParticleList) -> () {
     let mut ptr = remove(root);
     while(ptr != 0 as &mut ParticleList)
     {
@@ -29,8 +29,8 @@ fn delete_list(root: &mut &ParticleList) -> () {
     }
 }
 
-fn map_list(ptr: &ParticleList, body: fn(&ParticleList) -> ()) -> () {
-    if((ptr) != (0 as & ParticleList)) { 
+fn map_list(ptr: &mut ParticleList, body: fn(&mut ParticleList) -> ()) -> () {
+    if((ptr) != (0 as &mut ParticleList)) { 
         body(ptr);
         map_list((*ptr).next, body, return)
     }
