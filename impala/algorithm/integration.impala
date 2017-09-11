@@ -1,6 +1,6 @@
 fn update(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
     for ic, pl in $parallel_map_particle_system(start, end, P, numthreads) @{
-        let p = get_particle_from_node(pl, true);
+        let p = get_particle_from_node(pl);
         f(p, dt);
     }
 }

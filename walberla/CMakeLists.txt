@@ -7,6 +7,9 @@ set(CLANG_FLAGS -O3 -march=native)
 set(IMPALA_FLAGS --log-level error)
 set(IMPALA_SRC_DIR ../impala)
 
+
+option(CHECK_INVARIANTS "CHECK_INVARIANTS" OFF)
+
 # examples based on the "mapping"
 anydsl_runtime_wrap(IMPALA_OBJECT_FILE
     CLANG_FLAGS ${CLANG_FLAGS}
@@ -18,10 +21,10 @@ anydsl_runtime_wrap(IMPALA_OBJECT_FILE
     ${IMPALA_SRC_DIR}/potential/lennard_jones.impala ${IMPALA_SRC_DIR}/integration/verlet.impala ${IMPALA_SRC_DIR}/boundary/default.impala  
     ${IMPALA_SRC_DIR}/algorithm/force_calculation.impala ${IMPALA_SRC_DIR}/algorithm/integration.impala ${IMPALA_SRC_DIR}/algorithm/distribution.impala 
     ${IMPALA_SRC_DIR}/initialization/constants/test.impala 
-    ${IMPALA_SRC_DIR}/count_force_evaluations/OFF.impala ${IMPALA_SRC_DIR}/checking/OFF.impala 
+    ${IMPALA_SRC_DIR}/count_force_evaluations/OFF.impala ${IMPALA_SRC_DIR}/checking/${CHECK_INVARIANTS}.impala 
     runtime.impala)
 waLBerla_add_executable ( NAME md_simulation
-    FILES md_simulation.cpp pe_interfaces.cpp ${IMPALA_OBJECT_FILE} ${IMPALA_SRC_DIR}/../clib/fileIO.c ${IMPALA_SRC_DIR}/../clib/allocate.c     
+    FILES md_simulation.cpp ${IMPALA_OBJECT_FILE} impala_interfaces.cpp impala_interfaces.h ${IMPALA_SRC_DIR}/../clib/fileIO.c ${IMPALA_SRC_DIR}/../clib/allocate.c     
     DEPENDS core blockforest pe domain_decomposition vtk
  )
 target_link_libraries(md_simulation m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})

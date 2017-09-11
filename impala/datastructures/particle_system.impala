@@ -77,7 +77,7 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
 
 
 fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () {
-    let p = get_particle_from_node(node, true);
+    let p = get_particle_from_node(node);
     let kc = compute_cell_position(p, P);
     let root = P.head(index(kc, P.nc()));
     insert(root, node);

@@ -1,9 +1,13 @@
-fn print_error(index: size_t, component: &[u8], error: &[u8]) -> () {
+fn print_error(ic: [size_t * 3], component: &[u8], error: &[u8]) -> () {
     print_string("Error in ");
     print_string(component);
-    print_string(" of particle ");
-    print_i64(index as i64);
-    print_string(": ");
+    print_string(" of particle in cell (");
+    print_i64(ic(0) as i64);
+    print_string(", ");
+    print_i64(ic(1) as i64);
+    print_string(", ");
+    print_i64(ic(2) as i64);
+    print_string("): ");
     print_string(error);
     print_string("\n");
 }
@@ -47,9 +51,8 @@ fn check_invariants(P: ParticleSystem) -> bool {
         print_string("Invalid Simulation parameters!\n");
     } else {
         // Check particles
-        let addresses = P.addresses();
-        for i in map_range(@null(), P.np()) {
-            let p = get_particle(addresses.get(i));
+        for ic, pl, isLocal in map_particle_system_with_ghost_layers([@null(),..3], P.nc(), P.start(), P.end(), P) {
+            let p = get_particle_from_node(pl);
             let X = p.getCoordinates().get();
             let V = p.getVelocities().get();
             let F = p.getForces().get();
@@ -59,40 +62,40 @@ fn check_invariants(P: ParticleSystem) -> bool {
                 // Check position
 
                 if(math.isinf(X(d)) != 0) {
-                    print_error(i, "Position", "Infinity");
+                    print_error(ic, "Position", "Infinity");
                     status = false;
                 }
                 else if(math.isnan(X(d)) != 0) {
-                    print_error(i, "Position", "NaN");
+                    print_error(ic, "Position", "NaN");
                     status = false;
                 }
 
                 if(X(d) + P.offset() < 0.0 || X(d) + P.offset() > P.l().get()(d)) {
-                    print_error(i, "Position", "Negative number");
+                    print_error(ic, "Position", "Negative number");
                     status = false;
                 }
                 if(math.isinf(V(d)) != 0) {
-                    print_error(i, "Velocity", "Infinity");
+                    print_error(ic, "Velocity", "Infinity");
                     status = false;
                 }
                 else if(math.isnan(V(d)) != 0) {
-                    print_error(i, "Velocity", "NaN");
+                    print_error(ic, "Velocity", "NaN");
                     status = false;
                 }
                 if(math.isinf(F(d)) != 0) {
-                    print_error(i, "Force", "Infinity");
+                    print_error(ic, "Force", "Infinity");
                     status = false;
                 }
                 else if(math.isnan(F(d)) != 0) {
-                    print_error(i, "Force", "NaN");
+                    print_error(ic, "Force", "NaN");
                     status = false;
                 }
                 if(math.isinf(F_old(d)) != 0) {
-                    print_error(i, "Old force", "Infinity");
+                    print_error(ic, "Old force", "Infinity");
                     status = false;
                 }
                 else if(math.isnan(F_old(d)) != 0) {
-                    print_error(i, "Old force", "NaN");
+                    print_error(ic, "Old force", "NaN");
                     status = false;
                 }            
             }
@@ -104,7 +107,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
                 }
             }
             if(out_of_range) {
-                print_error(i, "Cell index", "Out of range");
+                print_error(ic, "Cell index", "Out of range");
                 print_string("Position: ("); 
                 print_i64(kc(0) as i64);
                 print_string(", "); 

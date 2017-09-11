@@ -1,7 +1,7 @@
 
 fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
     for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
-        let p1 = get_particle_from_node(pl1, true);
+        let p1 = get_particle_from_node(pl1);
         p1.setForces(@get_null_vector());
     }
     let mut ic_start : [size_t * 3];
@@ -32,8 +32,8 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         for pl1 in $map_list(head) @{
             for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
                 if((pl1 as ptr_t < pl2 as ptr_t)) {
-                    let p1 = get_particle_from_node(pl1, write_i);
-                    let p2 = get_particle_from_node(pl2, write_j);
+                    let p1 = get_particle_from_node(pl1);
+                    let p2 = get_particle_from_node(pl2);
                     force(p1, p2, write_i, write_j, P.constants());
                 }
             }

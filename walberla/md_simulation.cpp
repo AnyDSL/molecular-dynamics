@@ -41,6 +41,8 @@
 #include <postprocessing/sqlite/SQLite.h>
 #include <vtk/VTKOutput.h>
 
+#include "impala_interfaces.h"
+
 using namespace walberla;
 using namespace walberla::pe;
 using namespace walberla::timing;
@@ -48,14 +50,16 @@ using namespace walberla::timing;
 typedef boost::tuple<Sphere, Plane> BodyTuple ;
 
 extern "C" {
-    void pe_initialize_particle_system(uint64_t, uint64_t, double[]); 
-    void pe_reinitialize_particle_system(uint64_t); 
-    void pe_deallocate_particle_system();
-    void pe_distribute_particles();
-    size_t pe_get_number_of_particles();
-    void pe_position_integration(double, uint64_t, uint64_t);
-    void pe_force_calculation();
-    void pe_velocity_integration(double);
+    void impala_initialize_particle_system(uint64_t, uint64_t, double[]); 
+    void impala_reinitialize_particle_system(uint64_t); 
+    void impala_deallocate_particle_system();
+    void impala_distribute_particles();
+    size_t impala_get_number_of_particles();
+    void impala_map_particles(uint64_t, uint64_t);
+    void impala_map_particles_and_integrate_position(double, uint64_t, uint64_t);
+    void impala_force_calculation();
+    void impala_position_integration(double);
+    void impala_velocity_integration(double);
 }
 
 constexpr size_t DIM = 3;
@@ -232,6 +236,10 @@ int main( int argc, char ** argv )
        Storage * storage = currentBlock.getData< Storage >( storageID );
        BodyStorage& localStorage = (*storage)[0];
        BodyStorage& shadowStorage = (*storage)[1];
+
+       impala_set_local_storage(localStorage);
+       impala_set_shadow_storage(shadowStorage);
+
        np_local = std::max(np_local, localStorage.size() + shadowStorage.size());
        auto aabb = currentBlock.getAABB();
 
@@ -265,7 +273,7 @@ int main( int argc, char ** argv )
    }
    WALBERLA_LOG_INFO("Domain: (" << min[0] << ", " << min[1] << ", " << min[2] << ") (" << max[0] << ", " << max[1] << ", " << max[2] << ")");  
 
-   pe_initialize_particle_system(np_local, ghost_layer, l);
+   impala_initialize_particle_system(np_local, ghost_layer, l);
    //tt.stop("Cell creation");
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - START ***");
    WcTimingPool tp;
@@ -291,7 +299,7 @@ int main( int argc, char ** argv )
            Storage * storage = currentBlock.getData< Storage >( storageID );
            BodyStorage& localStorage = (*storage)[0];
            BodyStorage& shadowStorage = (*storage)[1];
-           /*
+           
            if(i % visSpacing == 0) {
                uint_t nLocalParticles, nGhostParticles;
                nLocalParticles = localStorage.size();
@@ -300,26 +308,46 @@ int main( int argc, char ** argv )
                mpi::reduceInplace(nGhostParticles, mpi::SUM);
                WALBERLA_LOG_INFO_ON_ROOT("Local particles: " << nLocalParticles);
                WALBERLA_LOG_INFO_ON_ROOT("Ghost particles: " << nGhostParticles);
-           }*/
+           }
            tt.start("Reinitialization");
            np_local = localStorage.size() + shadowStorage.size();
-           pe_reinitialize_particle_system(np_local);
+           impala_reinitialize_particle_system(np_local);
            tt.stop("Reinitialization");
 
            tt.start("Impala kernel");
-           if(i == 0) {
-               pe_distribute_particles();
-               pe_force_calculation();
-           }
-           
-           tt.start("Position integration");
+
            auto nLocal = static_cast<uint64_t>(localStorage.size());
            auto nShadow = static_cast<uint64_t>(shadowStorage.size());
-           pe_position_integration(static_cast<double>(dt), nLocal, nShadow); 
-           tt.stop("Position integration");
+           if(i == 0) {
+               tt.start("Map pe bodies to impala particles");
+               impala_map_particles(nLocal, nShadow);
+               tt.stop("Map pe bodies to impala particles");
+
+               tt.start("Particle Distribution");
+               impala_distribute_particles();
+               tt.stop("Particle Distribution");
+               
+               tt.start("Force calculation");
+               impala_force_calculation();
+               tt.stop("Force calculation");
+
+               tt.start("Position integration");
+               impala_position_integration(static_cast<double>(dt));
+               tt.stop("Position integration");
+           } 
+           else {
+
+               tt.start("Map pe bodies to impala particles");
+               impala_map_particles(nLocal, nShadow);
+               tt.stop("Map pe bodies to impala particles");
+
+               tt.start("Position integration");
+               impala_position_integration(static_cast<double>(dt));
+               tt.stop("Position integration");
+           }
 
            tt.start("Particle Distribution");
-           pe_distribute_particles();
+           impala_distribute_particles();
            /*
            if(i % visSpacing == 0) {
                size_t nGhostParticles;
@@ -330,11 +358,11 @@ int main( int argc, char ** argv )
            tt.stop("Particle Distribution");
 
            tt.start("Force calculation");
-           pe_force_calculation();
+           impala_force_calculation();
            tt.stop("Force calculation");
 
            tt.start("Velocity integration");
-           pe_velocity_integration(static_cast<double>(dt)); 
+           impala_velocity_integration(static_cast<double>(dt)); 
            tt.stop("Velocity integration");
 
            tt.stop("Impala kernel");
@@ -348,7 +376,7 @@ int main( int argc, char ** argv )
        pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
        tt.stop("Sync");
    }
-   pe_deallocate_particle_system();
+   impala_deallocate_particle_system();
    tt.stop("Simulation Loop");
    MPI_Barrier(MPI_COMM_WORLD);
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - END ***");

@@ -74,22 +74,6 @@ fn map_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem
     }
 }
 
-fn count_ghost_particles(P: ParticleSystem) -> size_t {
-    let mut count : size_t = @null();
-    for ic, pl, isLocal in map_particle_system_with_ghost_layers([@null(),..3], P.np(), P.start(), P.end(), P) {
-        let p = get_particle_from_node(pl, isLocal);
-        let kc = compute_cell_position(p, P);
-        let mut ghost = false;
-        for d in map_range(@null(), @dimension()) {
-            if(kc(d) < P.start()(d) || kc(d) >= P.end()(d)) {
-                ghost = true;
-            }
-        }
-        if(ghost) {++count;}
-    }
-    count
-}
-
 fn parallel_map_particle_system(start: [size_t * 3], end: [size_t * 3], P: ParticleSystem, numthreads: int, f: fn([size_t * 3], &mut ParticleList) -> ()) -> () {
     for ic, head in parallel_map_particle_cells(start, end, P, numthreads) {
         for pl in map_list(head) {
