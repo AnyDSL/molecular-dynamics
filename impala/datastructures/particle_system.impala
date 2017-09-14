@@ -4,9 +4,9 @@ struct ParticleSystem {
     ghost_layer: fn() -> size_t,
     start: fn() -> [size_t * 3],
     end: fn() -> [size_t * 3],
-    l: fn() -> Vector,
-    tmp: fn() -> Vector,
-    offset: fn() -> real,
+    domain: fn() -> Vector,
+    shadow_offset: fn() -> real,
+    coordinate_shift: fn() -> Vector,
     head: fn(size_t) -> &mut &mut ParticleList,
     constants: fn() -> Constants,
     addresses: fn() -> ArrayOfAddresses,
@@ -16,7 +16,7 @@ struct ParticleSystem {
 
 
 
-fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, l: Vector, data_cells: &[i8], constants: Constants, data_addresses: &[i8]) -> ParticleSystem {
+fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, domain: Vector, coordinate_shift: Vector, data_cells: &[i8], constants: Constants, data_addresses: &[i8]) -> ParticleSystem {
     ParticleSystem {
         np: || {np},
         nc: || {nc},
@@ -35,12 +35,9 @@ fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, l: Vec
             }
             end
         },
-        l: || {l},
-        tmp: ||{
-            let a = get_vector([nc(0) as real, nc(1) as real, nc(2) as real]);
-            div_vectors(a, l)
-        },
-        offset: || {ghost_layer as real * constants.r_cut},
+        domain: || {domain},
+        shadow_offset: || {ghost_layer as real * @constants.r_cut()},
+        coordinate_shift: || {coordinate_shift},
         head: |i| {&mut bitcast[&mut[&mut ParticleList]](data_cells)(i)},
         constants: || {constants},
         addresses: || {get_array_of_addresses(np, data_addresses)},
@@ -53,14 +50,15 @@ struct ParticleSystemData {
     np: size_t,
     nc: [size_t * 3],
     ghost_layer: size_t,
-    l: [real * 3],
-    constants: Constants,
+    domain: [real * 3],
+    coordinate_shift: [real * 3],
+    constants: ConstantsData,
     data_cells: &[i8],
     data_addresses: &[i8]
 }
 
 fn get_particle_system_from_data_struct(P_data: ParticleSystemData) -> ParticleSystem {
-    get_particle_system(P_data.np, P_data.nc, P_data.ghost_layer, get_vector(P_data.l), P_data.data_cells, P_data.constants, P_data.data_addresses)
+    get_particle_system(P_data.np, P_data.nc, P_data.ghost_layer, get_vector(P_data.domain), get_vector(P_data.coordinate_shift), P_data.data_cells, get_constants_from_data(P_data.constants), P_data.data_addresses)
 }
 
 fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData {
@@ -68,8 +66,9 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
         np: P.np(),
         nc: P.nc(),
         ghost_layer: P.ghost_layer(),
-        l: P.l().get(),
-        constants: P.constants(),
+        domain: P.domain().get(),
+        coordinate_shift: P.coordinate_shift().get(),
+        constants: get_data_from_constants(P.constants()),
         data_cells: P.data_cells(),
         data_addresses: P.data_addresses()
     }
@@ -92,12 +91,12 @@ fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
     insert(root, node);
 }
 
-fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constants: Constants) -> ParticleSystem {
+fn allocate_particle_system(np: size_t, ghost_layer: size_t, domain: Vector, coordinate_shift: Vector, constants: Constants) -> ParticleSystem {
     let mut nc : [size_t * 3];
     let mut pnc = 1 as size_t;
-    let l_extended = increase_vector(l, 2.0*(ghost_layer as real)*constants.r_cut); 
+    let extended_domain = increase_vector(domain, 2.0*(ghost_layer as real) * @constants.r_cut()); 
     for d in @map_range(0 as size_t, @dimension()){
-        nc(d) = math.floor(l.get()(d)/constants.r_cut) as size_t + (2 as size_t * ghost_layer);
+        nc(d) = math.floor(domain.get()(d)/constants.r_cut()) as size_t + (2 as size_t * ghost_layer);
         pnc *= nc(d);
     }
     let data_cells = allocate_and_initialize(pnc * sizeof[&mut ParticleList]() as size_t, 0);
@@ -105,7 +104,7 @@ fn allocate_particle_system(np: size_t, ghost_layer: size_t, l: Vector, constant
     //print_double((pnc * sizeof[&mut ParticleList]() as size_t + np * (SIZEOFPARTICLE + sizeof[ParticleList]() as size_t) ) as real / 1e6);
     //print_string(" MB\n");
     let data_addresses = allocate(np * sizeof[&[i8]]() as size_t);
-    let P = get_particle_system(np, nc, ghost_layer, l_extended, data_cells, constants, data_addresses);
+    let P = get_particle_system(np, nc, ghost_layer, extended_domain, coordinate_shift, data_cells, constants, data_addresses);
     P
 }
 

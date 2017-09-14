@@ -1,10 +1,11 @@
 static mut P_data_ : ParticleSystemData;
 
 extern
-fn impala_initialize_particle_system(np: size_t, ghost_layer: size_t, l: &[real]) -> () { 
-    init_constants(&mut P_data_.constants);
-    let l_v = get_vector([l(0), l(1), l(2)]);    
-    let P = allocate_particle_system(np, ghost_layer, l_v, P_data_.constants); 
+fn impala_initialize_particle_system(np: size_t, ghost_layer: size_t, domain: &[real], coordinate_shift: &[real]) -> () { 
+    let constants = init_constants();
+    let domain_v = get_vector([domain(0), domain(1), domain(2)]);    
+    let coordinate_shift_v = get_vector([coordinate_shift(0), coordinate_shift(1), coordinate_shift(2)]);    
+    let P = allocate_particle_system(np, ghost_layer, domain_v, coordinate_shift_v, constants); 
     for i in map_range(0 as size_t, np) {
         let node = allocate_particle_node();
         push_node(node, P);
@@ -21,11 +22,12 @@ fn impala_reinitialize_particle_system(np: size_t) -> () {
         let constants = P.constants();
         let data_cells = P.data_cells();
         let ghost_layer = P.ghost_layer();
-        let l = P.l();
+        let domain = P.domain();
+        let coordinate_shift = P.coordinate_shift();
         let nc = P.nc();
         deallocate(P.data_addresses());
         let data_addresses = allocate(np * sizeof[&u8]() as size_t);
-        let P_new = get_particle_system(np, nc, ghost_layer, l, data_cells, constants, data_addresses);
+        let P_new = get_particle_system(np, nc, ghost_layer, domain, coordinate_shift, data_cells, constants, data_addresses);
         if(np_old > np) {
             let mut end = 1 as size_t;
             for d in @map_range(0 as size_t, dimension()) {
@@ -117,13 +119,13 @@ fn impala_map_particles_and_integrate_position(dt: real, np_local: size_t, np_sh
 extern
 fn impala_position_integration(dt: real) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    update(P, P.start(), P.end(), dt, 1, integrate_x);
+    integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
 }
 
 extern
 fn impala_velocity_integration(dt: real) -> () {
     let P = get_particle_system_from_data_struct(P_data_);
-    update(P, P.start(), P.end(), dt, 1, integrate_v);
+    integrate(P, P.start(), P.end(), dt, 1, integrate_v);
 }
 
 
@@ -131,4 +133,18 @@ extern
 fn impala_deallocate_particle_system() -> () {
     let P = get_particle_system_from_data_struct(P_data_);
     deallocate_particle_system(P);
+}
+
+extern
+fn impala_fprint_particle_system(i: size_t) -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    let mut str : [u8 * 32];
+    generate_filename(i, "impala", &mut str, 32 as size_t);
+    fprint_particle_system(str, i, P);
+}
+
+extern
+fn impala_check_invariants() -> () {
+    let P = get_particle_system_from_data_struct(P_data_);
+    check_invariants(P);
 }

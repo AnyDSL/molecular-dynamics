@@ -16,6 +16,6 @@ fn boundary(p: Particle, P: ParticleSystem) -> () {
         }
     }
     if(change == true) {
-        p.setCoordinates(get_vector(x));
+       /p.setCoordinates(get_vector(x));
     }
 }   

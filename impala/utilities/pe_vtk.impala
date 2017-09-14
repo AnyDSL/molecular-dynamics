@@ -1,1 +1,93 @@
-fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> () {}
+fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
+{
+    let start = 0 as size_t;
+    let fp = open_file(fname);
+    let N = P.np();
+
+    fprint_line(fp, "# vtk DataFile Version 2.0");
+    fprint_string(fp, "Step ");
+    fprint_size_t(fp, step);
+    fprint_line(fp, " data");
+    fprint_line(fp, "ASCII");
+    fprint_line(fp, "DATASET UNSTRUCTURED_GRID");
+    fprint_string(fp, "POINTS ");
+    fprint_size_t(fp, N);
+    fprint_line(fp, " double");
+    
+    let addresses = P.addresses();
+
+    for i in map_range(start, N) {
+        let p = get_particle_from_node(addresses.get(i));
+        p.getCoordinates().fprint(fp);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n\n");
+    fprint_string(fp, "CELLS ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, " ");
+    fprint_size_t(fp, (2 as size_t)*N);
+
+    fprint_string(fp, "\n");
+    for i in map_range(start, N){
+        fprint_string(fp, "1 ");
+        fprint_size_t(fp, i);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "CELL_TYPES ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    for i in map_range(start, N) {
+        fprint_string(fp, "1");
+        fprint_string(fp, "\n");
+    }
+
+    fprint_string(fp, "\n\n");
+
+
+    fprint_string(fp, "POINT_DATA ");
+    fprint_size_t(fp, N);
+    fprint_string(fp, "\n");
+    for d in map_range(start, @dimension()) {
+        fprint_string(fp, "SCALARS velocity_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        for i in map_range(start, N) {
+            let p = get_particle_from_node(addresses.get(i));
+            let v = p.getVelocities();
+            let x = v.get();
+            fprint_f64(fp, x(d));
+            fprint_string(fp, "\n");
+        }
+        fprint_string(fp, "\n");
+    }
+    for d in map_range(start, @dimension()) {
+        fprint_string(fp, "SCALARS force_dim_");
+        fprint_size_t(fp, d);
+        fprint_line(fp, " double");
+        fprint_line(fp, "LOOKUP_TABLE default");
+        for i in map_range(start, N) {
+            let p = get_particle_from_node(addresses.get(i));
+            let v = p.getForces();
+            let x = v.get();
+            fprint_f64(fp, x(d));
+            fprint_string(fp, "\n");
+        }
+        fprint_string(fp, "\n");
+    }
+
+    fprint_string(fp, "SCALARS mass");
+    fprint_line(fp, " double");
+    fprint_line(fp, "LOOKUP_TABLE default");
+    for i in map_range(start, N) {
+        let p = get_particle_from_node(addresses.get(i));
+        let m = p.getMass();
+        fprint_f64(fp, m);
+        fprint_string(fp, "\n");
+    }
+    fprint_string(fp, "\n");
+    close_file(fp);
+}

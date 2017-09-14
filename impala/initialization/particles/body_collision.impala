@@ -1,6 +1,6 @@
 static V_MAX : real = 10.0;
 
-fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
+fn init_particle_system(np: size_t, domain: Vector, constants: Constants) -> ParticleSystem {
     let mut limit1 : [size_t * 3];
     let mut limit2 : [size_t * 3];
     let N = math.floor(math.pow(np as real / 11.0, 1.0/3.0)) as size_t;
@@ -17,12 +17,12 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     }
     let ghost_layer = 1 as size_t;
 
-    let P = allocate_particle_system(np1 + np2, ghost_layer, l, constants);
-    let factor = math.pow(2.0, 1.0/6.0)*P.constants().sigma;
+    let P = allocate_particle_system(np1 + np2, ghost_layer, domain, get_null_vector(), constants);
+    let factor = math.pow(2.0, 1.0/6.0)*P.constants().sigma();
     let mut p : Particle;
     let mut base : [real * 3];
     //base(0) = 50.0;
-    base(0) = (l.get()(0)/2 as real) - (limit1(0) as real * factor / 2 as real);
+    base(0) = (domain.get()(0)/2 as real) - (limit1(0) as real * factor / 2 as real);
     base(1) = 100.0;
     base(2) = 100.0;
     let mut ip : [size_t * 3];
@@ -53,7 +53,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         ip(1) = 0 as size_t;
     }
 
-    base(0) = (l.get()(0) - limit2(0) as real * factor) / 2 as real;
+    base(0) = (domain.get()(0) - limit2(0) as real * factor) / 2 as real;
     base(1) = 115.0;
     base(2) = 100.0;
 

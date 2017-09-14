@@ -34,10 +34,11 @@
 fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
     let coordinates_x = p.getCoordinates().get();
-    let tmp = P.tmp().get();
+    let r_cut_inv = @P.constants().r_cut_inv();
     let nc = P.nc();
-    for d in @map_range((0 as size_t), @dimension()) {
-        kc(d) = math.floor((coordinates_x(d) + P.offset()) * tmp(d)) as size_t;
+    let coordinate_shift = P.coordinate_shift().get();
+    for d in @map_range(@null(), @dimension()) {
+        kc(d) = math.floor((coordinates_x(d) + P.shadow_offset() + coordinate_shift(d)) * r_cut_inv) as size_t;
     }
     kc
 }

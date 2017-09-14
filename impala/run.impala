@@ -3,8 +3,7 @@ static mut array : [i32];
 extern 
 fn initialize_system(np: size_t, l: &[real]) -> () {
     let mut P = get_particle_system_from_data_struct(P_data_);
-    let mut constants : Constants;
-    init_constants(&mut constants);
+    let constants = init_constants();
     let v = get_vector([l(0), l(1), l(2)]);    
     P = init_particle_system(np, v, constants);
     let status = check_invariants(P);
@@ -39,10 +38,10 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     //print_particle_system(P);
     while(t < t_end) {
         t += dt;        
-        update(P, P.start(), P.end(), dt, numthreads, integrate_x);
+        integrate(P, P.start(), P.end(), dt, numthreads, integrate_x);
         move_particles(P);
         compute_force(P, force, numthreads);
-        update(P, P.start(), P.end(), dt, numthreads, integrate_v);
+        integrate(P, P.start(), P.end(), dt, numthreads, integrate_v);
         if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
             let lang = "impala";
             generate_filename(i, "impala", &mut str, 32 as size_t);

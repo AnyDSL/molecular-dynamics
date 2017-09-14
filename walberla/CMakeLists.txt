@@ -19,8 +19,9 @@ anydsl_runtime_wrap(IMPALA_OBJECT_FILE
     ${IMPALA_SRC_DIR}/utilities/common.impala ${IMPALA_SRC_DIR}/utilities/linked_list.impala ${IMPALA_SRC_DIR}/utilities/particle_system.impala
     ${IMPALA_SRC_DIR}/datastructures/pe_linked_list.impala ${IMPALA_SRC_DIR}/datastructures/pe_array_of_addresses.impala ${IMPALA_SRC_DIR}/datastructures/particle_system.impala
     ${IMPALA_SRC_DIR}/potential/lennard_jones.impala ${IMPALA_SRC_DIR}/integration/verlet.impala ${IMPALA_SRC_DIR}/boundary/default.impala  
-    ${IMPALA_SRC_DIR}/algorithm/force_calculation.impala ${IMPALA_SRC_DIR}/algorithm/integration.impala ${IMPALA_SRC_DIR}/algorithm/distribution.impala 
-    ${IMPALA_SRC_DIR}/initialization/constants/test.impala 
+    ${IMPALA_SRC_DIR}/algorithm/force_calculation.impala ${IMPALA_SRC_DIR}/algorithm/pe_integration.impala ${IMPALA_SRC_DIR}/algorithm/distribution.impala 
+    ${IMPALA_SRC_DIR}/initialization/constants/test.impala  
+    ${IMPALA_SRC_DIR}/utilities/pe_vtk.impala  
     ${IMPALA_SRC_DIR}/count_force_evaluations/OFF.impala ${IMPALA_SRC_DIR}/checking/${CHECK_INVARIANTS}.impala 
     runtime.impala)
 waLBerla_add_executable ( NAME md_simulation

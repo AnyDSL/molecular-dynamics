@@ -1,18 +1,19 @@
 fn boundary(p: Particle, P: ParticleSystem) -> () {
     let mut x = p.getCoordinates().get();
     let mut change = false;
-    let l = P.l().get();
+    let domain = P.domain().get();
     let ghost_layer = P.ghost_layer();
     let r_cut = P.constants().r_cut;
-    let offset = ghost_layer as real * r_cut;
+    let shadow_offset = P.shadow_offset();
+    let coordinate_shift = P.coordinate_shift().get();
 
     for d in @map_range(0 as size_t, @dimension()) {
-        if(x(d) + offset < 0.0) {
-            x(d) = @epsilon() - offset;
+        if(x(d) + shadow_offset + coordinate_shift(d) < 0.0) {
+            x(d) = @epsilon() - shadow_offset - coordinate_shift(d);
             change = true;
         }
-        else if(x(d) + offset > l(d)) {
-            x(d) = l(d) - offset - @epsilon();
+        else if(x(d) + shadow_offset + coordinate_shift(d) > domain(d)) {
+            x(d) = domain(d) - shadow_offset - @epsilon() - coordinate_shift(d);
             change = true;
         }
     }

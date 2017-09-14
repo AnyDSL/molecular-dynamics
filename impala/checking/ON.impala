@@ -16,7 +16,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
     let mut status = true;
     
     // Check simulation parameters
-    let domain = P.l();
+    let domain = P.domain();
     let start = P.start();
     let end = P.end();
     let zero_array = [@null(),..3];
@@ -35,17 +35,11 @@ fn check_invariants(P: ParticleSystem) -> bool {
             status = false;
         }
         if(start(d) - zero_array(d) != nc(d) - end(d)) {
-            print_string("Domain offset uneven\n");
+            print_string("Shadow_offset uneven\n");
             status = false;
         }
     }
 
-    // Check constants
-    let constants = P.constants();
-    if(constants.r_cut * constants.r_cut - constants.r_cut_sqr > @epsilon()) {
-        print_string("r_cut * r_cut != r_cut_sqr");
-        status = false;
-    }
 
     if(status == false) {
         print_string("Invalid Simulation parameters!\n");
@@ -70,7 +64,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
                     status = false;
                 }
 
-                if(X(d) + P.offset() < 0.0 || X(d) + P.offset() > P.l().get()(d)) {
+                if(X(d) + P.shadow_offset() + P.coordinate_shift().get()(d) < 0.0 || X(d) + P.shadow_offset() + P.coordinate_shift().get()(d) > P.domain().get()(d)) {
                     print_error(ic, "Position", "Negative number");
                     status = false;
                 }
@@ -102,25 +96,25 @@ fn check_invariants(P: ParticleSystem) -> bool {
             // Check cell index
             let mut out_of_range = false;
             for d in map_range(@null(), @dimension()) {
-                if(kc(d) > nc(d)) {
+                if(kc(d) >= nc(d)) {
                     out_of_range = true;
                 }
             }
             if(out_of_range) {
                 print_error(ic, "Cell index", "Out of range");
-                print_string("Position: ("); 
-                print_i64(kc(0) as i64);
+                print_string("Cell index: ("); 
+                print_f64(X(0) + P.shadow_offset() + P.coordinate_shift().get()(0) );
                 print_string(", "); 
-                print_i64(kc(1) as i64);
+                print_f64(X(1) + P.shadow_offset() + P.coordinate_shift().get()(1));
                 print_string(", "); 
-                print_i64(kc(2) as i64);
+                print_f64(X(2) + P.shadow_offset() + P.coordinate_shift().get()(2));
                 print_string(") ");
-                print_string("Number of cells: (");
-                print_i64(nc(0) as i64);
+                print_string("Domain: (");
+                print_f64(domain.get()(0));
                 print_string(", "); 
-                print_i64(nc(1) as i64);
+                print_f64(domain.get()(1));
                 print_string(", "); 
-                print_i64(nc(2) as i64);
+                print_f64(domain.get()(2));
                 print_string(")\n");
                 status = false;
             }

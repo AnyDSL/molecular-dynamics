@@ -1,9 +1,9 @@
 static V_MAX : real = 10.0;
 
-fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> ParticleSystem {
+fn init_particle_system(np: size_t, domain: Vector, constants: Constants) -> ParticleSystem {
     c_random_seed(0 as i64);
     let ghost_layer = 1 as size_t;
-    let P = allocate_particle_system(np, ghost_layer, l, constants);
+    let P = allocate_particle_system(np, ghost_layer, domain, get_null_vector(), constants);
     
     let mut i = 0 as size_t;
     while(i < np) {
@@ -16,7 +16,7 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
 
         let mut norm = 0.0;
         for d in map_range(0 as size_t, @dimension()) @{
-            X(d) = l.get()(d) * c_random() as real;
+            X(d) = domain.get()(d) * c_random() as real;
             V(d) = 2.0 * c_random() - 1.0;
             norm += V(d)*V(d);
         }
