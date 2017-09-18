@@ -31,6 +31,22 @@
     }
 }*/
 
+fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () {
+    let p = get_particle_from_node(node);
+    let kc = compute_cell_position(p, P);
+    let root = P.head(index(kc, P.nc()));
+    insert(root, node);
+}
+
+fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
+    let mut pos : [size_t * 3];
+    for d in @map_range(0 as size_t, @dimension()) {
+        pos(d) = P.nc()(d) / 2 as size_t;
+    }
+    let root = P.head(index(pos, P.nc()));
+    insert(root, node);
+}
+
 fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
     let coordinates_x = p.getCoordinates().get();

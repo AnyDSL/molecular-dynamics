@@ -1,11 +1,10 @@
-#include "impala_interfaces.h"
+#include "pe_impala_interfaces.h"
 
 
-void impala_set_local_storage(BodyStorage& localStorage) {
-    localStorage_ = &localStorage;
-}
-void impala_set_shadow_storage(BodyStorage& shadowStorage) {
-    shadowStorage_ = &shadowStorage;
+void impala_set_storage(u64 storage) {
+    Storage * storagePtr = reinterpret_cast<Storage *>(storage);
+    localStorage_ = &((*storagePtr)[0]);
+    shadowStorage_ = &((*storagePtr)[1]);
 }
 
 // Local Storage interface functions

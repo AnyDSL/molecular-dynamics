@@ -1,4 +1,11 @@
 
+fn print_particle_node(pl: &mut ParticleList) -> () {
+    let p = get_particle_from_node(pl);
+    print_string("ParticleList\n");
+    print_i64(pl as i64);
+    print_particle(p);
+}
+
 
 fn insert(root: &mut &mut ParticleList, pl: &mut ParticleList) -> () {
 

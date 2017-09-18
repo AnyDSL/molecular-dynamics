@@ -62,8 +62,6 @@ fn get_particle(data: &[i8]) -> Particle {
     }
 }
 
-
-
 struct ParticleList {
     data: &[i8],
     next: &mut ParticleList
@@ -84,12 +82,4 @@ fn deallocate_particle_node(ptr: &mut ParticleList) -> () {
 fn get_particle_from_node(pl: &mut ParticleList) -> Particle {
     get_particle((*pl).data)
 }
-
-fn print_particle_node(pl: &mut ParticleList) -> () {
-    let p = get_particle_from_node(pl);
-    print_string("ParticleList\n");
-    print_i64(pl as i64);
-    print_particle(p);
-}
-
 

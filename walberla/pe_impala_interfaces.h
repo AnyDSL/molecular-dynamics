@@ -1,5 +1,6 @@
 #pragma once
 #include <pe/rigidbody/BodyStorage.h>
+#include <cstdint>
 
 using namespace walberla;
 using namespace walberla::pe;
@@ -9,10 +10,9 @@ typedef uint64_t u64;
 static BodyStorage *localStorage_ = nullptr;
 static BodyStorage *shadowStorage_ = nullptr;
 
-void impala_set_local_storage(BodyStorage & localStorage);
-void impala_set_shadow_storage(BodyStorage & shadowStorage);
-
 extern "C" {
+    void impala_set_storage(u64 storagePtr);
+
     double impala_LocalBody_get_mass(u64 index); 
     void impala_LocalBody_get_force(u64 index, double *F); 
     void impala_LocalBody_get_position(u64 index, double *X); 

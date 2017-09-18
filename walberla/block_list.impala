@@ -1,0 +1,85 @@
+struct BlockList {
+    id: size_t,
+    storage: uintptr_t,
+    valid: bool,
+    block: ParticleSystemData,
+    next: &mut BlockList
+}
+
+fn allocate_block_node(id: size_t) -> &mut BlockList{
+    let node = allocate(sizeof[BlockList]() as size_t) as &mut BlockList;
+    node.id = id;
+    node.valid = true;
+    node.next = 0 as &mut BlockList;
+    node
+}
+
+fn deallocate_block_node(node: &mut BlockList) -> () {
+    let P = get_particle_system_from_data_struct(node.block);
+    deallocate_particle_system(P);
+    deallocate(node as &[i8]);
+}
+
+fn insert_block_node(head: &mut &mut BlockList, pl: &mut BlockList) -> () {
+    (*pl).next = *head;
+    *head = pl;
+}
+
+fn remove_block_node(head: &mut &mut BlockList) -> &mut BlockList {
+    if(*head != 0 as &mut BlockList) {
+        let retval : &mut BlockList  = *head;
+        *head = (**head).next;
+        retval
+    }
+    else {
+        0 as &mut BlockList
+    }
+}
+
+fn delete_block_list(head: &mut &mut BlockList) -> () {
+    let mut ptr = remove_block_node(head);
+    while(ptr != 0 as &mut BlockList)
+    {
+        deallocate_block_node(ptr);        
+        ptr = remove_block_node(head);
+    }
+}
+fn delete_invalid_blocks(head: &mut &mut BlockList) -> () {
+    let mut root = head;
+    while(*root != 0 as &mut BlockList) {
+        let mut node = *root;
+        if(node.valid) {
+            root = &mut (*root).next;
+        }
+        else {
+            node = remove_block_node(root);
+            deallocate_block_node(node);
+        }
+    }
+}
+
+fn invalidate_block_list(head: &mut &mut BlockList) -> () {
+    for node in map_block_list(*head) {
+        node.valid = false;
+    }
+}
+
+fn map_block_list(ptr: &mut BlockList, body: fn(&mut BlockList) -> ()) -> () {
+    if(ptr != 0 as &mut BlockList) { 
+        body(ptr);
+        map_block_list((*ptr).next, body, return)
+    }
+}
+
+fn find_block_node_with_id(id: size_t, list: &mut BlockList) -> &mut BlockList {
+    if(list == 0 as &mut BlockList) {
+        0 as &mut BlockList
+    } 
+    else if(list.id == id) {
+        list
+    }
+    else {
+        find_block_node_with_id(id, list.next)
+    }
+}
+
