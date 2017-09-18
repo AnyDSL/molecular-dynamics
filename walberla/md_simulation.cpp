@@ -105,7 +105,7 @@ int main( int argc, char ** argv )
    WALBERLA_LOG_INFO_ON_ROOT("warmupSteps: " << warmupSteps);
    integerProperties["warmupSteps"] = warmupSteps;
 
-   int simulationSteps = mainConf.getParameter<int>("simulationSteps", 200 );
+   size_t simulationSteps = mainConf.getParameter<size_t>("simulationSteps", 200 );
    WALBERLA_LOG_INFO_ON_ROOT("simulationSteps: " << simulationSteps);
    integerProperties["simulationSteps"] = simulationSteps;
 
@@ -132,7 +132,7 @@ int main( int argc, char ** argv )
    }
 
    //write domain decomposition to file
-   vtk::writeDomainDecomposition(*forest);
+   //vtk::writeDomainDecomposition(*forest);
 
    WALBERLA_LOG_INFO_ON_ROOT("simulationDomain: " << forest->getDomain());
    integerProperties["sim_x"] = int64_c(forest->getDomain().maxCorner()[0]);
@@ -161,8 +161,8 @@ int main( int argc, char ** argv )
 
    WALBERLA_LOG_INFO_ON_ROOT("*** VTK ***");
 
-   auto vtkOutput   = make_shared<SphereVtkOutput>(storageID, *forest);
-   auto vtkWriter   = vtk::createVTKOutput_PointData(vtkOutput, "Bodies", 1, path, "simulation_step", false, false);
+   //auto vtkOutput   = make_shared<SphereVtkOutput>(storageID, *forest);
+   //auto vtkWriter   = vtk::createVTKOutput_PointData(vtkOutput, "Bodies", 1, path, "simulation_step", false, false);
 
    WALBERLA_LOG_INFO_ON_ROOT("*** SETUP - START ***");
    const real_t   static_cof  ( 0.1 / 2 );   // Coefficient of static friction. Roughly 0.85 with high variation depending on surface roughness for low stresses. Note: pe doubles the input coefficient of friction for material-material contacts.
@@ -208,7 +208,7 @@ int main( int argc, char ** argv )
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - START ***");
    WcTimingPool tp;
    tt.start("Simulation Loop");
-   for (int i=0; i < simulationSteps; ++i)
+   for (size_t i=0; i < simulationSteps; ++i)
    {
        if( i % 10 == 0 )
        {
@@ -217,54 +217,18 @@ int main( int argc, char ** argv )
        tt.start("Reinitialization");
        anydsl_md_reinitialize_blocks(forest, storageID);
        tt.stop("Reinitialization");
+       /*
        tt.start("Visualization");
        if( i % visSpacing == 0 )
        {
            vtkWriter->write( true );
        }
        tt.stop("Visualization");
-
+       */
        tt.start("Solver");
-       ///////////////* Solver Begin */////////////////
-       if(i == 0) {
-           tt.start("Particle Distribution");
-           anydsl_md_distribute_particles();
-           tt.stop("Particle Distribution");
-
-           tt.start("Force calculation");
-           anydsl_md_force_calculation();
-           tt.stop("Force calculation");               
-       }
-       tt.start("Position integration");
-       anydsl_md_position_integration(dt);
-       tt.stop("Position integration");
-
-       tt.start("Particle Distribution");
-       anydsl_md_distribute_particles();
-       /*
-          if(i % visSpacing == 0) {
-          size_t nGhostParticles;
-          nGhostParticles = number_of_ghost_particles();
-          mpi::reduceInplace(nGhostParticles, mpi::SUM);
-          WALBERLA_LOG_INFO_ON_ROOT("anydsl_md: Ghost particles: " << nGhostParticles);
-          }*/
-       tt.stop("Particle Distribution");
-
-       tt.start("Force calculation");
-       anydsl_md_force_calculation();
-       tt.stop("Force calculation");
-
-       tt.start("Velocity integration");
-       anydsl_md_velocity_integration(dt); 
-       tt.stop("Velocity integration");
-
-       tt.start("Invariant checking");
-       anydsl_md_check_invariants();
-       tt.stop("Invariant checking");
-
-       ///////////////* Solver End */////////////////
-
+       anydsl_md_time_integration(dt, i);
        tt.stop("Solver");
+
        tt.start("Sync");
        pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
        tt.stop("Sync");
