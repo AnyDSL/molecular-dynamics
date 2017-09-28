@@ -39,9 +39,10 @@ anydsl_runtime_wrap(MD_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES 
     intrinsics/intrinsics_cpu.impala 
+    mapping/mapping_cpu.impala
     utilities/common.impala utilities/linked_list.impala utilities/particle_system.impala utilities/vtk.impala 
-    datastructures/linked_list.impala datastructures/array_of_addresses.impala datastructures/particle_system.impala
-    potential/lennard_jones.impala integration/verlet.impala boundary/default.impala  
+    datastructures/linked_list.impala datastructures/array_of_addresses.impala datastructures/particle_vector.impala datastructures/particle_system.impala
+    potential/lennard_jones_avx.impala integration/verlet.impala boundary/default.impala  
     algorithm/force_calculation.impala algorithm/integration.impala algorithm/distribution.impala 
     initialization/constants/test.impala initialization/particles/${INIT}.impala 
     count_force_evaluations/${COUNT_FORCE_EVALUATIONS}.impala checking/${CHECK_INVARIANTS}.impala 

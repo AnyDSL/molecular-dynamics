@@ -25,6 +25,7 @@ fn null() -> size_t {0 as size_t};
 fn one() -> size_t {1 as size_t};
 fn two() -> size_t {2 as size_t};
 fn three() -> size_t {3 as size_t};
+fn four() -> size_t {4 as size_t};
 fn dimension() -> size_t {@three()}
 fn epsilon() -> real {1e-9}
 
