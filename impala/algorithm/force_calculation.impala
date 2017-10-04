@@ -1,7 +1,8 @@
 fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[real * 4], &mut[real * 4], Constants) -> (), numthreads: int) -> () {
-    let vcapacity = 64 as size_t;
+    let vcapacity = 1 as size_t;
     let mut vindex = @null();
-    let particle_vector = allocate_interaction_vector(vcapacity);
+    let interaction_vector = allocate_interaction_vector(vcapacity);
+    init_interaction_vector_with_zero(interaction_vector);
 
     //for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
     for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
@@ -14,7 +15,7 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
         ic_start(d) = @null();
     }
     let ic_end = P.nc();
-    //for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
+    //for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{ 
     for ic, head in $map_particle_cells(ic_start, ic_end, P) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
@@ -35,10 +36,10 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
                 write_i = false;
             };
         }
-        let nodes = get_array_of_nodes(particle_vector.nodes);
-        let positions = get_array_of_real_vector(particle_vector.positions);
-        let forces = get_array_of_real_vector(particle_vector.forces);
-        let writeBack = get_array_of_bools(particle_vector.writeBack); 
+        let nodes = get_array_of_nodes(interaction_vector.nodes);
+        let positions = get_array_of_real_vector(interaction_vector.positions);
+        let forces = get_array_of_real_vector(interaction_vector.forces);
+        let writeBack = get_array_of_bools(interaction_vector.writeBack); 
         for pl1 in $map_list(head) @{
             let p1 = get_particle_from_node(pl1);
             let mut X1 : [real * 4] = [0.0,..4];
@@ -64,16 +65,18 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
                         ++vindex;
                     }
                 }
+                
                 else {
                     // compute force
-                    for j in vectorize(4, 64, 0, vindex as i32) {
+                    //for j in vectorize(4, 64, 0, vindex as i32) {
+                    for j in $map_range(@null(), vindex) @{
                         force(&X1, &positions(j), &mut F1, &mut forces(j), P.constants());
                     }
-                    for j in $map_range(@null(), vcapacity) @{
+                    for j in $map_range(@null(), vindex) @{
                         let p2 = get_particle_from_node(nodes(j));
                         if(writeBack(j)) {
                             let mut F_new : [real * 3];
-                            for d in @map_range(@null(), @dimension()) @{
+                            for d in @map_range(@null(), @dimension()) {
                                 F_new(d) = forces(j)(d);
                             }
                             p2.setForces(get_vector(F_new));
@@ -82,7 +85,8 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
                     vindex = @null();
                 }
             } 
-            for j in vectorize(4, 64, 0, vindex as i32) {
+            //for j in vectorize(4, 64, 0, vindex as i32) {
+            for j in $map_range(@null(), vindex) @{
                 force(&X1, &positions(j), &mut F1, &mut forces(j), P.constants());
             }
             if(write_i) {
@@ -96,7 +100,7 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
                 let p2 = get_particle_from_node(nodes(j));
                 if(writeBack(j)) {
                     let mut F_new : [real * 3];
-                    for d in @map_range(@null(), @dimension()) @{
+                    for d in @map_range(@null(), @dimension()) {
                         F_new(d) = forces(j)(d);
                     }
                     p2.setForces(get_vector(F_new));
@@ -105,16 +109,16 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
             vindex = @null();
         }
     }
-    deallocate_interaction_vector(particle_vector);
+    deallocate_interaction_vector(interaction_vector);
 }
 /*
-fn copy_in_vector_for_force_calculation(pl: &mut ParticleList, write1: bool, write2: bool, index: size_t, particle_vector: ParticleVector) {
+fn copy_in_vector_for_force_calculation(pl: &mut ParticleList, write1: bool, write2: bool, index: size_t, interaction_vector: ParticleVector) {
 
-    let nodes = get_array_of_nodes(particle_vector.nodes);
-    let positions = get_array_of_real_vector(particle_vector.positions);
-    let forces = get_array_of_real_vector(particle_vector.forces);
-    let writeBack1 = get_array_of_bools(particle_vector.writeBack1); 
-    let writeBack2 = get_array_of_bools(particle_vector.writeBack2); 
+    let nodes = get_array_of_nodes(interaction_vector.nodes);
+    let positions = get_array_of_real_vector(interaction_vector.positions);
+    let forces = get_array_of_real_vector(interaction_vector.forces);
+    let writeBack1 = get_array_of_bools(interaction_vector.writeBack1); 
+    let writeBack2 = get_array_of_bools(interaction_vector.writeBack2); 
 
     let p = get_particle_from_node(pl);
     let pos = p.getCoordinates().get();

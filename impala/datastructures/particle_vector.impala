@@ -1,4 +1,5 @@
 struct InteractionVector {
+    capacity: size_t,
     positions: &[i8], 
     forces: &[i8],
     nodes: &[i8],
@@ -7,10 +8,11 @@ struct InteractionVector {
 
 fn allocate_interaction_vector(capacity: size_t) -> InteractionVector {
     InteractionVector {
+        capacity: capacity,
         positions: allocate(capacity * sizeof[[real * 4]]() as size_t), 
         forces: allocate(capacity * sizeof[[real * 4]]() as size_t),
         nodes: allocate(capacity * sizeof[&mut ParticleList]() as size_t),
-        writeBack: allocate(capacity * sizeof[bool]() as size_t),
+        writeBack: allocate(capacity * sizeof[bool]() as size_t)
     }
 }
 
@@ -33,8 +35,18 @@ fn get_array_of_nodes(data: &[i8]) -> &mut[&mut ParticleList] {
     bitcast[&mut[&mut ParticleList]](data) 
 }
 
-fn get_array_of_indices(data: &[i8]) -> &mut[size_t] {
-    bitcast[&mut[size_t]](data) 
+fn init_interaction_vector_with_zero(vector: InteractionVector) -> () {
+    let capacity = vector.capacity;
+    let nodes = get_array_of_nodes(vector.nodes);
+    let positions = get_array_of_real_vector(vector.positions);
+    let forces = get_array_of_real_vector(vector.forces);
+    let writeBack = get_array_of_bools(vector.writeBack); 
+    for i in $map_range(@null(), capacity) {
+        /*nodes(i) = 0 as &mut ParticleList;
+        writeBack(i) = false;
+        for d in @map_range(@null(), @dimension()) {
+            positions(i)(d) = 0.0; 
+            forces(i)(d) = 0.0;
+        }*/
+    }
 }
-
-

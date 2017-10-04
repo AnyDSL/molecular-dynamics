@@ -23,7 +23,8 @@ option(LIKWID_PERFMON "LIKWID_PERFMON" OFF)
 option(COUNT_FORCE_EVALUATIONS "COUNT_COLLISIONS" OFF)
 option(CHECK_INVARIANTS "CHECK_INVARIANTS" OFF)
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
+#SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -march=native")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g")
 if(LIKWID_PERFMON)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLIKWID_PERFMON")
 endif()
@@ -31,8 +32,10 @@ if(COUNT_FORCE_EVALUATIONS)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOUNT_FORCE_EVALUATIONS")
 endif()
 
-set(CLANG_FLAGS -O3 -march=native )
-set(IMPALA_FLAGS --log-level error)
+#set(CLANG_FLAGS -O3 -march=native )
+set(CLANG_FLAGS -O0 -g )
+#set(IMPALA_FLAGS --log-level error)
+set(IMPALA_FLAGS --log-level error -g)
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

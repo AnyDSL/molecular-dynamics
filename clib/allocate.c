@@ -4,14 +4,14 @@
 
 static const size_t ALIGNMENT = 64ul;
 char * allocate(size_t size) {
-    return (char *)aligned_alloc(ALIGNMENT, size);
-    //return (char *)malloc(size);
+    //return (char *)aligned_alloc(ALIGNMENT, size);
+    return (char *)malloc(size);
 }
 
 
 char * allocate_and_initialize(size_t size, int val) {
-    void *ptr = aligned_alloc(ALIGNMENT, size);
-    //void *ptr = malloc(size);
+    //void *ptr = aligned_alloc(ALIGNMENT, size);
+    void *ptr = malloc(size);
     memset(ptr, val, size);
     return (char *)ptr;
 }
