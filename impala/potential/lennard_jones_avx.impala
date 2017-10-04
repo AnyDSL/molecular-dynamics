@@ -68,8 +68,17 @@ fn force(X1: &[real * 4], X2: &[real * 4], F1: &mut [real * 4], F2: &mut [real *
         let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
         let mut F : [real * 4];
         for i in @map_range(@null(), @four()) {
-            F(i) = f * Dist(i);
+            F(i) = f * Dist(i);            
         }
+        /*print_string("F: (");
+        print_f64(F(0));
+        print_string(", ");
+        print_f64(F(1));
+        print_string(", ");
+        print_f64(F(2));
+        print_string(", ");
+        print_f64(F(3));
+        print_string(")\n");*/
         for i in @map_range(@null(), @four()) {
             F1(i) += F(i) ;
         }

@@ -57,6 +57,9 @@ fn force(p1: Particle, p2: Particle, write1: bool, write2: bool, constants: Cons
         let r_8_inv = 1.0/sqr(sqr(r));
         let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
         let F = scale_vector(f, Dist);
+        print_string("F: ");
+        F.print();
+        print_string("\n");
         if(write1) {
             p1.setForces(add_vectors(p1.getForces(), F));
         }

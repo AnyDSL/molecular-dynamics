@@ -1,5 +1,5 @@
 fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[real * 4], &mut[real * 4], Constants) -> (), numthreads: int) -> () {
-    let vcapacity = 1 as size_t;
+    let vcapacity = 16 as size_t;
     let mut vindex = @null();
     let interaction_vector = allocate_interaction_vector(vcapacity);
     init_interaction_vector_with_zero(interaction_vector);
@@ -48,27 +48,10 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
                 X1(d) = p1.getCoordinates().get()(d);
                 F1(d) = p1.getForces().get()(d);
             }
-            for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
-                if(vindex < vcapacity) {
-                    if((pl1 as uintptr_t < pl2 as uintptr_t)) {
-                        let p2 = get_particle_from_node(pl2);
-                        nodes(vindex) = pl2;
-                        writeBack(vindex) = write_j;
-                        let pos2 = p2.getCoordinates().get();
-                        let force2 = p2.getForces().get();
-                        for d in @map_range(@null(), @dimension()) {
-                            positions(vindex)(d) = pos2(d);
-                            forces(vindex)(d) = force2(d);
-                        }
-                        positions(vindex)(3) = 0.0;
-                        forces(vindex)(3) = 0.0;
-                        ++vindex;
-                    }
-                }
-                
-                else {
+            for jc, pl2, write_j in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
+                if(vindex == vcapacity) {
                     // compute force
-                    //for j in vectorize(4, 64, 0, vindex as i32) {
+                    //for j in $vectorize(4, 4, 0, vindex as i32) @{
                     for j in $map_range(@null(), vindex) @{
                         force(&X1, &positions(j), &mut F1, &mut forces(j), P.constants());
                     }
@@ -84,8 +67,22 @@ fn compute_force(P: ParticleSystem, force: fn(&[real * 4], &[real * 4], &mut[rea
                     }
                     vindex = @null();
                 }
-            } 
-            //for j in vectorize(4, 64, 0, vindex as i32) {
+                if((pl1 as uintptr_t < pl2 as uintptr_t)) {
+                    let p2 = get_particle_from_node(pl2);
+                    nodes(vindex) = pl2;
+                    writeBack(vindex) = write_j;
+                    let pos2 = p2.getCoordinates().get();
+                    let force2 = p2.getForces().get();
+                    for d in @map_range(@null(), @dimension()) {
+                        positions(vindex)(d) = pos2(d);
+                        forces(vindex)(d) = force2(d);
+                    }
+                    positions(vindex)(3) = 0.0;
+                    forces(vindex)(3) = 0.0;
+                    ++vindex;
+                }
+            }
+            //for j in $vectorize(4, 4, 0, vindex as i32) @{
             for j in $map_range(@null(), vindex) @{
                 force(&X1, &positions(j), &mut F1, &mut forces(j), P.constants());
             }

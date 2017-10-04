@@ -1,38 +1,38 @@
 struct InteractionVector {
     capacity: size_t,
-    positions: &[i8], 
-    forces: &[i8],
-    nodes: &[i8],
-    writeBack: &[i8]
+    positions: Buffer, 
+    forces: Buffer,
+    nodes: Buffer,
+    writeBack: Buffer
 }
 
 fn allocate_interaction_vector(capacity: size_t) -> InteractionVector {
     InteractionVector {
         capacity: capacity,
-        positions: allocate(capacity * sizeof[[real * 4]]() as size_t), 
-        forces: allocate(capacity * sizeof[[real * 4]]() as size_t),
-        nodes: allocate(capacity * sizeof[&mut ParticleList]() as size_t),
-        writeBack: allocate(capacity * sizeof[bool]() as size_t)
+        positions: alloc_cpu((capacity * sizeof[[real * 4]]() as size_t) as i32), 
+        forces: alloc_cpu((capacity * sizeof[[real * 4]]() as size_t) as i32),
+        nodes: alloc_cpu((capacity * sizeof[&mut ParticleList]() as size_t) as i32),
+        writeBack: alloc_cpu((capacity * sizeof[bool]() as size_t) as i32)
     }
 }
 
 fn deallocate_interaction_vector(vector: InteractionVector) -> () {
-    deallocate(vector.positions);
-    deallocate(vector.forces);
-    deallocate(vector.nodes);
-    deallocate(vector.writeBack);
+    release(vector.positions);
+    release(vector.forces);
+    release(vector.nodes);
+    release(vector.writeBack);
 }
 
-fn get_array_of_real_vector(data: &[i8]) -> &mut[[real * 4]] {
-    bitcast[&mut[[real * 4]]](data) 
+fn get_array_of_real_vector(buf: Buffer) -> &mut[[real * 4]] {
+    bitcast[&mut[[real * 4]]](buf.data) 
 }
 
-fn get_array_of_bools(data: &[i8]) -> &mut[bool] {
-    bitcast[&mut[bool]](data) 
+fn get_array_of_bools(buf: Buffer) -> &mut[bool] {
+    bitcast[&mut[bool]](buf.data) 
 }
 
-fn get_array_of_nodes(data: &[i8]) -> &mut[&mut ParticleList] {
-    bitcast[&mut[&mut ParticleList]](data) 
+fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
+    bitcast[&mut[&mut ParticleList]](buf.data) 
 }
 
 fn init_interaction_vector_with_zero(vector: InteractionVector) -> () {

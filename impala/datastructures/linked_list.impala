@@ -76,7 +76,7 @@ fn allocate_particle_node() -> &mut ParticleList {
 
 fn deallocate_particle_node(ptr: &mut ParticleList) -> () {
     deallocate((*ptr).data);
-    deallocate(ptr as &[i8]);
+    deallocate(bitcast[&[i8]](ptr));
 }
 
 fn get_particle_from_node(pl: &mut ParticleList) -> Particle {
