@@ -2,7 +2,6 @@ fn compute_force(P: ParticleSystem, force: fn(InteractionVector, Constants, size
     let vcapacity = 4 as size_t;
     let mut vindex = @null();
     let interaction_vector = allocate_interaction_vector(vcapacity);
-    init_interaction_vector_with_zero(interaction_vector);
 
     //for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
     for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
@@ -45,6 +44,7 @@ fn compute_force(P: ParticleSystem, force: fn(InteractionVector, Constants, size
         let writeBack2  = get_array_of_bools(interaction_vector.writeBack); 
 
         for pl1 in $map_list(head) @{
+
             let p1 = get_particle_from_node(pl1);
             for i in @map_range(@null(), vcapacity) {
                 for d in @map_range(@null(), @dimension()) {
@@ -105,7 +105,7 @@ fn compute_force(P: ParticleSystem, force: fn(InteractionVector, Constants, size
                 if(writeBack2(j)) {
                     let mut F_new : [real * 3];
                     for d in @map_range(@null(), @dimension()) {
-                        F_new(d) = forces2(j * @dimension() + d);
+                        F_new(d) = forces2(j * VECTOR_LENGTH + d);
                     }
                     p2.setForces(get_vector(F_new));
                 }
