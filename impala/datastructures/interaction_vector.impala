@@ -1,0 +1,69 @@
+static VECTOR_LENGTH = 4 as size_t;
+struct InteractionVector {
+    capacity: size_t,
+    positions1: Buffer, 
+    forces1: Buffer,
+    positions2: Buffer, 
+    forces2: Buffer,
+    distances: Buffer,
+    radii: Buffer,
+    nodes: Buffer,
+    writeBack: Buffer
+}
+
+fn allocate_interaction_vector(capacity: size_t) -> InteractionVector {
+    InteractionVector {
+        capacity: capacity,
+        positions1: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
+        forces1: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
+        positions2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
+        forces2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
+        distances: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
+        radii: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
+        nodes: alloc_cpu((capacity * sizeof[&mut ParticleList]() as size_t) as i32),
+        writeBack: alloc_cpu((capacity * sizeof[bool]() as size_t) as i32)
+    }
+}
+
+fn deallocate_interaction_vector(vector: InteractionVector) -> () {
+    release(vector.positions1);
+    release(vector.forces1);
+    release(vector.positions2);
+    release(vector.forces2);
+    release(vector.distances);
+    release(vector.radii);
+    release(vector.nodes);
+    release(vector.writeBack);
+}
+
+fn get_array_of_real_vector(buf: Buffer) -> &mut[real] {
+    bitcast[&mut[real]](buf.data) 
+}
+
+fn get_array_of_bools(buf: Buffer) -> &mut[bool] {
+    bitcast[&mut[bool]](buf.data) 
+}
+
+fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
+    bitcast[&mut[&mut ParticleList]](buf.data) 
+}
+
+fn init_interaction_vector_with_zero(vector: InteractionVector) -> () {
+    let capacity = vector.capacity;
+    let nodes = get_array_of_nodes(vector.nodes);
+    let positions1 = get_array_of_real_vector(vector.positions1);
+    let positions2 = get_array_of_real_vector(vector.positions2);
+    let forces1 = get_array_of_real_vector(vector.forces1);
+    let forces2 = get_array_of_real_vector(vector.forces2);
+    let writeBack = get_array_of_bools(vector.writeBack); 
+    for i in map_range(@null(), capacity) {
+        nodes(i) = 0 as &mut ParticleList;
+        writeBack(i) = false;
+        for d in @map_range(@null(), VECTOR_LENGTH) {
+            positions1(i * VECTOR_LENGTH + d) = 0.0; 
+            forces1(i * VECTOR_LENGTH + d) = 0.0;
+            positions2(i * VECTOR_LENGTH + d) = 0.0; 
+            forces2(i * VECTOR_LENGTH + d) = 0.0;
+        }
+    }
+}
