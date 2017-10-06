@@ -38,6 +38,9 @@ int main(int argc, char** argv) {
     }
 
     double l[3];
+    //l[0] = 50;
+    //l[1] = 50;
+    //l[2] = 50;
     l[0] = 250;
     l[1] = 250;
     l[2] = 250;

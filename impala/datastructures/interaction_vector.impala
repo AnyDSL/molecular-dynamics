@@ -3,6 +3,7 @@ struct InteractionVector {
     capacity: fn() -> size_t,
     positions1: Buffer, 
     forces: Buffer,
+    force_sum: Buffer,
     positions2: Buffer, 
     distances: Buffer,
     radii: Buffer,
@@ -15,6 +16,7 @@ fn allocate_interaction_vector(capacity: size_t) -> InteractionVector {
         capacity: || capacity,
         positions1: alloc_cpu((VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         forces: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
+        force_sum: alloc_cpu(VECTOR_LENGTH as i32 * sizeof[real]()),
         positions2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         distances: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         radii: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
@@ -26,6 +28,7 @@ fn allocate_interaction_vector(capacity: size_t) -> InteractionVector {
 fn deallocate_interaction_vector(vector: InteractionVector) -> () {
     release(vector.positions1);
     release(vector.forces);
+    release(vector.force_sum);
     release(vector.positions2);
     release(vector.distances);
     release(vector.radii);
