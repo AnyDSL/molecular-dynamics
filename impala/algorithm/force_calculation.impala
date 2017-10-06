@@ -1,7 +1,5 @@
-fn compute_force(P: ParticleSystem, force: fn(InteractionVector, Constants, size_t) -> (), numthreads: int) -> () {
-    let vcapacity = 4 as size_t;
+fn compute_force(P: ParticleSystem, interaction_vector: InteractionVector, force: fn(InteractionVector, Constants, size_t) -> ()) -> () {
     let mut vindex = @null();
-    let interaction_vector = allocate_interaction_vector(vcapacity);
 
     //for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
     for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
@@ -37,83 +35,81 @@ fn compute_force(P: ParticleSystem, force: fn(InteractionVector, Constants, size
         }
 
         let positions1  = get_array_of_real_vector(interaction_vector.positions1);
-        let forces1     = get_array_of_real_vector(interaction_vector.forces1);
         let positions2  = get_array_of_real_vector(interaction_vector.positions2);
-        let forces2     = get_array_of_real_vector(interaction_vector.forces2);
+        let forces     = get_array_of_real_vector(interaction_vector.forces);
         let nodes2      = get_array_of_nodes(interaction_vector.nodes);
-        let writeBack2  = get_array_of_bools(interaction_vector.writeBack); 
+        let writeBack2  = get_array_of_i8(interaction_vector.writeBack); 
 
         for pl1 in $map_list(head) @{
-
             let p1 = get_particle_from_node(pl1);
-            for i in @map_range(@null(), vcapacity) {
-                for d in @map_range(@null(), @dimension()) {
-                    positions1(i * VECTOR_LENGTH + d) = p1.getCoordinates().get()(d);
-                }
-                for d in @map_range(@dimension(), VECTOR_LENGTH) {
-                    positions1(i * VECTOR_LENGTH + d) = 0.0;
-                }
-                for d in @map_range(@null(), VECTOR_LENGTH) {
-                    forces1(i * VECTOR_LENGTH + d) = 0.0;
-                }
+            for d in @map_range(@null(), @dimension()) {
+                positions1(d) = p1.getCoordinates().get()(d);
             }
+            for d in @map_range(@dimension(), VECTOR_LENGTH) {
+                positions1(d) = 0.0;
+            }
+            
             for jc, pl2, write_j in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
-                if(vindex == vcapacity) {
+                if(vindex == interaction_vector.capacity()) {
                     // compute force
                     force(interaction_vector, P.constants(), vindex);
                     for j in $map_range(@null(), vindex) @{
                         let p2 = get_particle_from_node(nodes2(j));
-                        if(writeBack2(j)) {
+                        if(writeBack2(j) == 1i8) {
                             let mut F_new : [real * 3];
                             for d in @map_range(@null(), @dimension()) {
-                                F_new(d) = forces2(j * VECTOR_LENGTH + d);
+                                F_new(d) = forces(j * VECTOR_LENGTH + d);
                             }
-                            p2.setForces(get_vector(F_new));
+                            p2.setForces(sub_vectors(p2.getForces(), get_vector(F_new)));
                         }
                     }
                     vindex = @null();
                 }
-                if((pl1 as uintptr_t < pl2 as uintptr_t)) {
+                 
+                if(pl1 as uintptr_t < pl2 as uintptr_t) {
                     let p2 = get_particle_from_node(pl2);
                     nodes2(vindex) = pl2;
-                    writeBack2(vindex) = write_j;
+                    writeBack2(vindex) = if(write_j) {1i8} else {0i8};
                     let pos2 = p2.getCoordinates().get();
-                    let force2 = p2.getForces().get();
                     for d in @map_range(@null(), @dimension()) {
                         positions2(vindex * VECTOR_LENGTH + d) = pos2(d);
-                        forces2(vindex * VECTOR_LENGTH + d) = force2(d);
+                        forces(vindex * VECTOR_LENGTH + d) = 0.0;
                     }
                     for d in @map_range(@dimension(), VECTOR_LENGTH) {
                         positions2(vindex * VECTOR_LENGTH + d) = 0.0;
-                        forces2(vindex * VECTOR_LENGTH + d) = 0.0;
+                        forces(vindex * VECTOR_LENGTH + d) = 0.0;
                     }
                     ++vindex;
                 }
             }
             force(interaction_vector, P.constants(), vindex);
             if(write_i) {
-                let mut F_new = p1.getForces().get();
+                let mut sum = [0.0,..4];
+                //for i in vectorize(VECTOR_LENGTH as i32, 4, 0, vindex as i32) {
                 for i in @map_range(@null(), vindex) {
-                    for d in @map_range(@null(), @dimension()) {
-                        F_new(d) += forces1(i * VECTOR_LENGTH + d);
+                    for d in @map_range(@null(), VECTOR_LENGTH) {
+                        sum(d) += forces(i * VECTOR_LENGTH + d);
                     }
                 }
-                p1.setForces(get_vector(F_new));
+                let mut F_new : [real * 3];
+                for d in @map_range(@null(), @dimension()) {
+                    F_new(d) = sum(d);
+                }
+                p1.setForces(add_vectors(p1.getForces(),get_vector(F_new)));
             }
             for j in $map_range(@null(), vindex) @{
                 let p2 = get_particle_from_node(nodes2(j));
-                if(writeBack2(j)) {
+                if(writeBack2(j) == 1i8) {
                     let mut F_new : [real * 3];
                     for d in @map_range(@null(), @dimension()) {
-                        F_new(d) = forces2(j * VECTOR_LENGTH + d);
+                        F_new(d) = forces(j * VECTOR_LENGTH + d);
                     }
-                    p2.setForces(get_vector(F_new));
+                    p2.setForces(sub_vectors(p2.getForces(), get_vector(F_new)));
                 }
             }
             vindex = @null();
         }
     }
-    deallocate_interaction_vector(interaction_vector);
 }
 /*
 fn copy_in_vector_for_force_calculation(pl: &mut ParticleList, write1: bool, write2: bool, index: size_t, interaction_vector: ParticleVector) {

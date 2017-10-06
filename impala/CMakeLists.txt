@@ -32,10 +32,10 @@ if(COUNT_FORCE_EVALUATIONS)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCOUNT_FORCE_EVALUATIONS")
 endif()
 
-set(CLANG_FLAGS -O3 -march=native )
-#set(CLANG_FLAGS -O0 -g )
-set(IMPALA_FLAGS -O3 --log-level error)
-#set(IMPALA_FLAGS --log-level error -g)
+#set(CLANG_FLAGS -O3 -march=native )
+set(CLANG_FLAGS -O0 -g )
+#set(IMPALA_FLAGS -O3 --log-level error)
+set(IMPALA_FLAGS --log-level error -g)
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
