@@ -3,6 +3,7 @@ struct ParticleVector {
     capacity: size_t,
     positions1: Buffer, 
     positions2: Buffer, 
+    radii: Buffer, 
     velocities: Buffer,
     forces: Buffer,
     force_sum: Buffer,
@@ -16,6 +17,7 @@ fn allocate_particle_vector(capacity: size_t) -> ParticleVector {
         capacity: capacity,
         positions1: alloc_cpu((VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         positions2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
+        radii: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         forces: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
         force_sum: alloc_cpu(VECTOR_LENGTH as i32 * sizeof[real]()),
         velocities: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
@@ -28,6 +30,7 @@ fn allocate_particle_vector(capacity: size_t) -> ParticleVector {
 fn deallocate_particle_vector(vector: ParticleVector) -> () {
     release(vector.positions1);
     release(vector.positions2);
+    release(vector.radii);
     release(vector.velocities);
     release(vector.forces);
     release(vector.force_sum);

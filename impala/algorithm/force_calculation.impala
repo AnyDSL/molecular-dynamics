@@ -36,6 +36,8 @@ fn compute_force(P: ParticleSystem, particle_vector: ParticleVector, force: fn(P
 
         let positions1  = get_array_of_real_vector(particle_vector.positions1);
         let positions2  = get_array_of_real_vector(particle_vector.positions2);
+        let radii  = get_array_of_real_vector(particle_vector.radii);
+        let tmp  = get_array_of_real_vector(particle_vector.tmp);
         let forces     = get_array_of_real_vector(particle_vector.forces);
         let force_sum     = get_array_of_real_vector(particle_vector.force_sum);
         let nodes2      = get_array_of_nodes(particle_vector.nodes);
@@ -72,18 +74,27 @@ fn compute_force(P: ParticleSystem, particle_vector: ParticleVector, force: fn(P
                  
                 if(pl1 as uintptr_t < pl2 as uintptr_t) {
                     let p2 = get_particle_from_node(pl2);
-                    nodes2(vindex) = pl2;
-                    writeBack2(vindex) = if(write_j) {1i8} else {0i8};
-                    let pos2 = p2.getCoordinates().get();
-                    for d in @map_range(@null(), @dimension()) {
-                        positions2(vindex * VECTOR_LENGTH + d) = pos2(d);
-                        forces(vindex * VECTOR_LENGTH + d) = 0.0;
+                    let Dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
+                    let Dist_sqr = square_vector(Dist);
+                    let r = Dist_sqr.reduce(|x,y|{x+y}, 0.0);
+                    if(r < P.constants().r_cut_sqr()) {
+                        nodes2(vindex) = pl2;
+                        writeBack2(vindex) = if(write_j) {1i8} else {0i8};
+                        let pos2 = p2.getCoordinates().get();
+                        for d in @map_range(@null(), @dimension()) {
+                            let index = vindex * VECTOR_LENGTH + d;
+                            tmp(index) = Dist.get()(d);
+                            forces(index) = 0.0;
+                            radii(index) = r; 
+                        }
+                        for d in @map_range(@dimension(), VECTOR_LENGTH) {
+                            let index = vindex * VECTOR_LENGTH + d;
+                            tmp(index) = 0.0;
+                            forces(index) = 0.0;
+                            radii(index) = 0.0;
+                        }
+                        ++vindex;
                     }
-                    for d in @map_range(@dimension(), VECTOR_LENGTH) {
-                        positions2(vindex * VECTOR_LENGTH + d) = 0.0;
-                        forces(vindex * VECTOR_LENGTH + d) = 0.0;
-                    }
-                    ++vindex;
                 }
             }
             force(particle_vector, P.constants(), vindex);
