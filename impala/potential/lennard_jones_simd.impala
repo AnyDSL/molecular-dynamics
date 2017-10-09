@@ -47,38 +47,29 @@ fn get_data_from_constants(constants: Constants) -> ConstantsData  {
     }
 }
 
-fn force(interaction_vector: InteractionVector, constants: Constants, N: size_t) -> () {
-    let positions1  = get_array_of_real_vector(interaction_vector.positions1);
-    let forces      = get_array_of_real_vector(interaction_vector.forces);
-    let force_sum   = get_array_of_real_vector(interaction_vector.force_sum);
-    let positions2  = get_array_of_real_vector(interaction_vector.positions2);
-    let distances   = get_array_of_real_vector(interaction_vector.distances);
-    let radii       = get_array_of_real_vector(interaction_vector.radii);
+fn force(particle_vector: ParticleVector, constants: Constants, N: size_t) -> () {
+    let positions1  = get_array_of_real_vector(particle_vector.positions1);
+    let forces      = get_array_of_real_vector(particle_vector.forces);
+    let force_sum   = get_array_of_real_vector(particle_vector.force_sum);
+    let positions2  = get_array_of_real_vector(particle_vector.positions2);
+    let tmp   = get_array_of_real_vector(particle_vector.tmp);
     let sqr = |x : real| {x*x};
-    let vector_length = VECTOR_LENGTH as i32;
-    for i in vectorize(vector_length, 4, 0, N as i32 * vector_length) @{
-    //for i in @map_range(@null(), N * VECTOR_LENGTH) @{
-        distances(i) = positions2(i) - positions1(i % vector_length);
-    }
 
-    for i in vectorize(vector_length, 4, 0, N as i32) @{
-    //for i in @map_range(@null(), N) @{
+    for i in vectorize(VECTOR_LENGTH as i32, 4, 0, N as i32) @{
         let mut r = 0.0;
-        for d in @map_range(@null(), VECTOR_LENGTH) {
-            r += sqr(distances(i as size_t * VECTOR_LENGTH + d));
+        let index = i as size_t * VECTOR_LENGTH;
+        for j in @map_range(@null(), VECTOR_LENGTH) {
+            tmp(index + j) = positions2(index + j)  - positions1((index + j) % VECTOR_LENGTH);
+            r += sqr(tmp(index + j));
         }
-        for d in @map_range(@null(), VECTOR_LENGTH) {
-            radii(i as size_t * VECTOR_LENGTH + d) = r;
-        }
-    }
-
-    //for i in @map_range(@null(), N * VECTOR_LENGTH) @{
-    for i in vectorize(vector_length, 4, 0, N as i32 * vector_length) @{
-        if(radii(i) < @constants.r_cut_sqr()) {
-            let r_8_inv = 1.0/sqr(sqr(radii(i)));
-            let f = @constants.tmp1() * r_8_inv * (1.0 - radii(i) * r_8_inv * @constants.tmp2());
-            forces(i) = f * distances(i);
-            force_sum(i % vector_length) += forces(i);
+        for j in @map_range(@null(), VECTOR_LENGTH) {
+            let k = index + j; 
+            if(r < @constants.r_cut_sqr()) {
+                let r_8_inv = 1.0/sqr(sqr(r));
+                let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
+                forces(k) = f * tmp(k);
+                force_sum(k % VECTOR_LENGTH) += forces(k);
+            }
         }
     }
 }

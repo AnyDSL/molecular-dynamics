@@ -1,37 +1,37 @@
 static VECTOR_LENGTH = 4 as size_t;
-struct InteractionVector {
-    capacity: fn() -> size_t,
+struct ParticleVector {
+    capacity: size_t,
     positions1: Buffer, 
+    positions2: Buffer, 
+    velocities: Buffer,
     forces: Buffer,
     force_sum: Buffer,
-    positions2: Buffer, 
-    distances: Buffer,
-    radii: Buffer,
+    tmp: Buffer,
     nodes: Buffer,
     writeBack: Buffer
 }
 
-fn allocate_interaction_vector(capacity: size_t) -> InteractionVector {
-    InteractionVector {
-        capacity: || capacity,
+fn allocate_particle_vector(capacity: size_t) -> ParticleVector {
+    ParticleVector {
+        capacity: capacity,
         positions1: alloc_cpu((VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
+        positions2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         forces: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
         force_sum: alloc_cpu(VECTOR_LENGTH as i32 * sizeof[real]()),
-        positions2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
-        distances: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
-        radii: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
+        velocities: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
+        tmp: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
         nodes: alloc_cpu((capacity * sizeof[&mut ParticleList]() as size_t) as i32),
         writeBack: alloc_cpu((capacity * sizeof[i8]() as size_t) as i32)
     }
 }
 
-fn deallocate_interaction_vector(vector: InteractionVector) -> () {
+fn deallocate_particle_vector(vector: ParticleVector) -> () {
     release(vector.positions1);
+    release(vector.positions2);
+    release(vector.velocities);
     release(vector.forces);
     release(vector.force_sum);
-    release(vector.positions2);
-    release(vector.distances);
-    release(vector.radii);
+    release(vector.tmp);
     release(vector.nodes);
     release(vector.writeBack);
 }
@@ -48,7 +48,7 @@ fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
     bitcast[&mut[&mut ParticleList]](buf.data) 
 }
 /*
-fn init_interaction_vector_with_zero(vector: InteractionVector) -> () {
+fn init_particle_vector_with_zero(vector: ParticleVector) -> () {
     let capacity = vector.capacity;
     let nodes = get_array_of_nodes(vector.nodes);
     let positions1 = get_array_of_real_vector(vector.positions1);

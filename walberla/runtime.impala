@@ -4,7 +4,6 @@ extern "C" {
 
 static mut head_ : &mut BlockList; 
 static mut nBlocks_: size_t;
-
 extern
 fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintptr_t], domains: &[&[real]], coordinate_shifts: &[&[real]], ghost_layers: &[size_t] , nParticles_local: &[size_t], nParticles_shadow: &[size_t]) -> (){
     nBlocks_ = nBlocks;
@@ -106,11 +105,11 @@ fn c_time_integration(dt: real, iteration: size_t) -> () {
         let P = get_particle_system_from_data_struct(node.block);
         if(iteration == @null()) {
             move_particles(P);
-            compute_force(P, force, 1);
+            compute_force(P, node.vector, force);
         }
         integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
         move_particles(P);
-        compute_force(P, force, 1);
+        compute_force(P, node.vector, force);
         integrate(P, P.start(), P.end(), dt, 1, integrate_v);
         check_invariants(P);
     }
@@ -129,7 +128,7 @@ fn c_force_calculation() -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        compute_force(P, force, 1);
+        compute_force(P, node.vector, force);
     }
 }
 
