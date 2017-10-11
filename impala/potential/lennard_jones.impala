@@ -72,9 +72,12 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
                 let mut force : [real * 3];
                 for d in @map_range(@null(), @dimension()) {
                     force(d) = f * dist(d);
+                    print_f64(force(d));
+                    print_string(" \t");
                     forces1(index1 + d) += force(d);
                     forces2(index2 + d) -= force(d);
                 }
+                print_string("\n");
             }
         }
     }

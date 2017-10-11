@@ -1,6 +1,11 @@
 
 fn compute_force(P: ParticleSystem, vector: ParticleVector, force: fn(Cell, Cell, size_t, Constants) -> ()) -> () {
-    for ic, cell in $map_particle_vector(P.start(), P.end(), vector) @{
+    let mut ic_start : [size_t * 3];
+    for d in @map_range(@null(), @dimension()) {
+        ic_start(d) = @null();
+    }
+    let ic_end = P.nc();
+    for ic, cell in $map_particle_vector(ic_start, ic_end, vector) @{
         let forces = get_array_of_real(cell.forces);
         for i in $map_range(@null(), cell.size * @dimension()) {
         //for i in vectorize(4, 4, 0, (cell.size * @dimension()) as i32) {
@@ -8,11 +13,6 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force: fn(Cell, Cell
         }
     }
     
-    let mut ic_start : [size_t * 3];
-    for d in @map_range(@null(), @dimension()) {
-        ic_start(d) = @null();
-    }
-    let ic_end = P.nc();
     for ic, cell1 in $map_particle_vector(ic_start, ic_end, vector) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
