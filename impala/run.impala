@@ -39,31 +39,16 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     }
     let vector : ParticleVector = get_particle_vector(buf, P.nc());
     init_particle_vector(vector, P, false);
-    /*print_string("Particle System:\n");
-    print_particle_system(P);
-    print_string("\nParticle Vector:\n");
-    print_particle_vector(vector);
-    print_string("\n");
-*/
-    //print_string("Particle Vector:\n");
     compute_force_vector(P, vector, force_vector);
-    //print_string("\nParticle System:\n");
-    //compute_force(P, force, 1);
-    /*print_string("Particle System:\n");
-    print_particle_system(P);
-    print_string("\nParticle Vector:\n");
-    print_particle_vector(vector);
-    print_string("\n");
-*/
     while(t < t_end) {
     
         t += dt;        
-        integrate(vector, P.start(), P.end(), dt, integrate_x);
+        integrate_vector(vector, P.start(), P.end(), dt, integrate_x_vector);
         write_back_particle_vector(vector, P);
         move_particles(P);
         init_particle_vector(vector, P, true);
         compute_force_vector(P, vector, force_vector);
-        integrate(vector, P.start(), P.end(), dt, integrate_v);
+        integrate_vector(vector, P.start(), P.end(), dt, integrate_v_vector);
         if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
             write_back_particle_vector(vector, P);
             let lang = "impala";
