@@ -130,8 +130,6 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                         force(p1, p2, write_i, write_j, P.constants());
                     }
                 }
-
-                print_string("\n");
             }
         }
     }

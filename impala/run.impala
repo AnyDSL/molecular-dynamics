@@ -39,9 +39,8 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     }
     let vector : ParticleVector = get_particle_vector(buf, P.nc());
     init_particle_vector(vector, P, false);
-    compute_force_vector(P, vector, force_vector);
+
     while(t < t_end) {
-    
         t += dt;        
         integrate_vector(vector, P.start(), P.end(), dt, integrate_x_vector);
         write_back_particle_vector(vector, P);
@@ -73,20 +72,28 @@ fn print_particle_vector(vector: ParticleVector) -> () {
         }
         print_string("\n");
         let positions = get_array_of_real(cell.positions);
+        let velocities = get_array_of_real(cell.velocities);
         let forces = get_array_of_real(cell.forces);
         for i in map_range(@null(), cell.size) {
-            print_string("Position: \t");
+            /*print_string("Position: \t");
             for d in map_range(@null(), @dimension()) {
                 print_f64(positions(i * @dimension() + d));
                 print_string(" \t");
             }
+            print_string("\n");*/
+            print_string("Velocities: \t");
+            for d in map_range(@null(), @dimension()) {
+                print_f64(velocities(i * @dimension() + d));
+                print_string(" \t");
+            }
             print_string("\n");
+/*
             print_string("Force: \t");
             for d in map_range(@null(), @dimension()) {
                 print_f64(forces(i * @dimension() + d));
                 print_string(" \t");
             }
-            print_string("\n");
+            print_string("\n");*/
 
         }
         print_string("\n");
@@ -105,6 +112,7 @@ fn print_particle_system(P: ParticleSystem) -> () {
             for pl in map_list(head) {
                 let p = get_particle_from_node(pl);
                 let pos = p.getCoordinates().get();
+                let vel = p.getVelocities().get();
                 let force = p.getForces().get();
                 print_string("Position: \t");
                 for d in map_range(@null(), @dimension()) {
@@ -112,6 +120,13 @@ fn print_particle_system(P: ParticleSystem) -> () {
                     print_string(" \t");
                 }
                 print_string("\n");
+                print_string("Velocity: \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_f64(vel(d));
+                    print_string(" \t");
+                }
+                print_string("\n");
+
                 print_string("Force: \t");
                 for d in map_range(@null(), @dimension()) {
                     print_f64(force(d));
