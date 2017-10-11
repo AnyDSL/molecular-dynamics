@@ -1,4 +1,4 @@
-fn integrate_x(cell: Cell, dt: real) -> () {
+fn integrate_x_vector(cell: Cell, dt: real) -> () {
     let masses  = get_array_of_real(cell.masses);
     let forces  = get_array_of_real(cell.forces);
     let forces_old  = get_array_of_real(cell.forces_old);
@@ -15,7 +15,7 @@ fn integrate_x(cell: Cell, dt: real) -> () {
     }
 }
 
-fn integrate_v(cell: Cell, dt: real) -> () { 
+fn integrate_v_vector(cell: Cell, dt: real) -> () { 
     let masses  = get_array_of_real(cell.masses);
     let forces  = get_array_of_real(cell.forces);
     let forces_old  = get_array_of_real(cell.forces_old);
@@ -27,4 +27,35 @@ fn integrate_v(cell: Cell, dt: real) -> () {
         let tmp2 = a * tmp1;
         velocities(i) += tmp2;
     }
+}
+
+fn integrate_x(p: Particle, dt: real) -> () {
+
+    //print_string("integrate_x\n");
+    let a = dt * 0.5 / p.getMass();
+    let f = p.getForces();
+    let tmp1 = scale_vector(a, f);
+    let v = p.getVelocities();
+    let tmp2 = add_vectors(v, tmp1);
+    let tmp3 = scale_vector(dt, tmp2);
+    //print_string("tmp3: ");
+    //tmp3.print();
+    //print_string("\n");
+    let x = p.getCoordinates();
+    p.setCoordinates(add_vectors(x, tmp3));
+    p.setForces_old(f);
+    //print_string("integrate_x finished\n");
+}
+
+fn integrate_v(p: Particle, dt: real) -> ()
+{ 
+    //print_string("integrate_v\n");
+    let a = dt * 0.5 / p.getMass();
+    let f = p.getForces();
+    let f_old = p.getForces_old();
+    let tmp1 = add_vectors(f, f_old);
+    let tmp2 = scale_vector(a, tmp1);
+    let v = p.getVelocities();
+    p.setVelocities(add_vectors(v, tmp2)); 
+    //print_string("integrate_v finished\n");
 }
