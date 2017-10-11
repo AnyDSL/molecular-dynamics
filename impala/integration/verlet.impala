@@ -1,31 +1,30 @@
-fn integrate_x(p: Particle, dt: real) -> ()
-{
-
-    //print_string("integrate_x\n");
-    let a = dt * 0.5 / p.getMass();
-    let f = p.getForces();
-    let tmp1 = scale_vector(a, f);
-    let v = p.getVelocities();
-    let tmp2 = add_vectors(v, tmp1);
-    let tmp3 = scale_vector(dt, tmp2);
-    //print_string("tmp3: ");
-    //tmp3.print();
-    //print_string("\n");
-    let x = p.getCoordinates();
-    p.setCoordinates(add_vectors(x, tmp3));
-    p.setForces_old(f);
-    //print_string("integrate_x finished\n");
+fn integrate_x(cell: Cell, dt: real) -> () {
+    let masses  = get_array_of_real(cell.masses);
+    let forces  = get_array_of_real(cell.forces);
+    let forces_old  = get_array_of_real(cell.forces_old);
+    let positions  = get_array_of_real(cell.positions);
+    let velocities  = get_array_of_real(cell.velocities);
+    for i in $map_range(@null(), cell.size * @dimension()) @{
+    //for i in vectorize(4, 4, 0, (cell.size * @dimension()) as i32) {
+        let a = dt * 0.5 / masses(i);
+        let tmp1 = a * forces(i);
+        let tmp2 = velocities(i) + tmp1;
+        let tmp3 = dt * tmp2;
+        positions(i) += tmp3;
+        forces_old(i) = forces(i);
+    }
 }
 
-fn integrate_v(p: Particle, dt: real) -> ()
-{ 
-    //print_string("integrate_v\n");
-    let a = dt * 0.5 / p.getMass();
-    let f = p.getForces();
-    let f_old = p.getForces_old();
-    let tmp1 = add_vectors(f, f_old);
-    let tmp2 = scale_vector(a, tmp1);
-    let v = p.getVelocities();
-    p.setVelocities(add_vectors(v, tmp2)); 
-    //print_string("integrate_v finished\n");
+fn integrate_v(cell: Cell, dt: real) -> () { 
+    let masses  = get_array_of_real(cell.masses);
+    let forces  = get_array_of_real(cell.forces);
+    let forces_old  = get_array_of_real(cell.forces_old);
+    let velocities  = get_array_of_real(cell.velocities);
+    for i in $map_range(@null(), cell.size * @dimension()) @{
+    //for i in vectorize(4, 4, 0, (cell.size * @dimension()) as i32) {
+        let a = dt * 0.5 / masses(i);
+        let tmp1 = forces(i) + forces_old(i);
+        let tmp2 = a * tmp1;
+        velocities(i) += tmp2;
+    }
 }

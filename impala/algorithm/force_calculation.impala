@@ -1,150 +1,40 @@
-fn compute_force(P: ParticleSystem, particle_vector: ParticleVector, force: fn(ParticleVector, Constants, size_t) -> ()) -> () {
-    let mut vindex = @null();
 
-    //for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
-    for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
-        let p1 = get_particle_from_node(pl1);
-        p1.setForces(@get_null_vector());
+fn compute_force(P: ParticleSystem, vector: ParticleVector, force: fn(Cell, Cell, size_t, Constants) -> ()) -> () {
+    for ic, cell in $map_particle_vector(P.start(), P.end(), vector) @{
+        let forces = get_array_of_real(cell.forces);
+        for i in $map_range(@null(), cell.size * @dimension()) {
+        //for i in vectorize(4, 4, 0, (cell.size * @dimension()) as i32) {
+            forces(i) = 0.0;
+        }
     }
-
+    
     let mut ic_start : [size_t * 3];
     for d in @map_range(@null(), @dimension()) {
         ic_start(d) = @null();
     }
     let ic_end = P.nc();
-    //for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{ 
-    for ic, head in $map_particle_cells(ic_start, ic_end, P) @{
+    for ic, cell1 in $map_particle_vector(ic_start, ic_end, vector) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
-        let mut write_i = true;
         for d in @map_range(@null(), @dimension()) {
             if(ic(d) >= P.start()(d)) {
                 jc_start(d) = ic(d) - @one();
             } 
             else {
                 jc_start(d) = ic(d) + @one();
-                write_i = false;
             };
             if(ic(d) < P.end()(d)) { 
                 jc_end(d) = ic(d) + @two(); 
             } 
             else {
                 jc_end(d) = ic(d);
-                write_i = false;
             };
         }
-
-        let positions1  = get_array_of_real_vector(particle_vector.positions1);
-        let positions2  = get_array_of_real_vector(particle_vector.positions2);
-        let radii  = get_array_of_real_vector(particle_vector.radii);
-        let tmp  = get_array_of_real_vector(particle_vector.tmp);
-        let forces     = get_array_of_real_vector(particle_vector.forces);
-        let force_sum     = get_array_of_real_vector(particle_vector.force_sum);
-        let nodes2      = get_array_of_nodes(particle_vector.nodes);
-        let writeBack2  = get_array_of_i8(particle_vector.writeBack); 
-
-        for pl1 in $map_list(head) @{
-            let p1 = get_particle_from_node(pl1);
-            for d in @map_range(@null(), @dimension()) {
-                positions1(d) = p1.getCoordinates().get()(d);
+        for i in $map_range(@null(), cell1.size) @{
+            for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
+                force(cell1, cell2, i, P.constants());
             }
-            for d in @map_range(@dimension(), VECTOR_LENGTH) {
-                positions1(d) = 0.0;
-            }
-            for d in @map_range(@null(), VECTOR_LENGTH) {
-                force_sum(d) = 0.0;
-            }
-            
-            for jc, pl2, write_j in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
-                if(vindex == particle_vector.capacity) {
-                    // compute force
-                    force(particle_vector, P.constants(), vindex);
-                    for j in $map_range(@null(), vindex) @{
-                        let p2 = get_particle_from_node(nodes2(j));
-                        if(writeBack2(j) == 1i8) {
-                            let mut F_new : [real * 3];
-                            for d in @map_range(@null(), @dimension()) {
-                                F_new(d) = forces(j * VECTOR_LENGTH + d);
-                            }
-                            p2.setForces(sub_vectors(p2.getForces(), get_vector(F_new)));
-                        }
-                    }
-                    vindex = @null();
-                }
-                 
-                if(pl1 as uintptr_t < pl2 as uintptr_t) {
-                    let p2 = get_particle_from_node(pl2);
-                    let Dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
-                    let Dist_sqr = square_vector(Dist);
-                    let r = Dist_sqr.reduce(|x,y|{x+y}, 0.0);
-                    if(r < P.constants().r_cut_sqr()) {
-                        nodes2(vindex) = pl2;
-                        writeBack2(vindex) = if(write_j) {1i8} else {0i8};
-                        let pos2 = p2.getCoordinates().get();
-                        for d in @map_range(@null(), @dimension()) {
-                            let index = vindex * VECTOR_LENGTH + d;
-                            tmp(index) = Dist.get()(d);
-                            forces(index) = 0.0;
-                            radii(index) = r; 
-                        }
-                        for d in @map_range(@dimension(), VECTOR_LENGTH) {
-                            let index = vindex * VECTOR_LENGTH + d;
-                            tmp(index) = 0.0;
-                            forces(index) = 0.0;
-                            radii(index) = 0.0;
-                        }
-                        ++vindex;
-                    }
-                }
-            }
-            force(particle_vector, P.constants(), vindex);
-            if(write_i) {
-                //let mut sum = [0.0,..4];
-                //for i in vectorize(VECTOR_LENGTH as i32, 4, 0, vindex as i32) {
-                /*for i in @map_range(@null(), vindex) {
-                    for d in @map_range(@null(), VECTOR_LENGTH) {
-                        sum(d) += forces(i * VECTOR_LENGTH + d);
-                    }
-                }*/
-                let mut F_new : [real * 3];
-                for d in @map_range(@null(), @dimension()) {
-                    F_new(d) = force_sum(d);
-                }
-                p1.setForces(add_vectors(p1.getForces(),get_vector(F_new)));
-            }
-            for j in $map_range(@null(), vindex) @{
-                let p2 = get_particle_from_node(nodes2(j));
-                if(writeBack2(j) == 1i8) {
-                    let mut F_new : [real * 3];
-                    for d in @map_range(@null(), @dimension()) {
-                        F_new(d) = forces(j * VECTOR_LENGTH + d);
-                    }
-                    p2.setForces(sub_vectors(p2.getForces(), get_vector(F_new)));
-                }
-            }
-            vindex = @null();
         }
     }
 }
-/*
-fn copy_in_vector_for_force_calculation(pl: &mut ParticleList, write1: bool, write2: bool, index: size_t, particle_vector: ParticleVector) {
-
-    let nodes = get_array_of_nodes(particle_vector.nodes);
-    let positions = get_array_of_real_vector(particle_vector.positions);
-    let forces = get_array_of_real_vector(particle_vector.forces);
-    let writeBack1 = get_array_of_bools(particle_vector.writeBack1); 
-    let writeBack2 = get_array_of_bools(particle_vector.writeBack2); 
-
-    let p = get_particle_from_node(pl);
-    let pos = p.getCoordinates().get();
-    let force = p.getForces().get();
-    node_array(index) = pl;
-    writeBack1(index) = write1;
-    writeBack2(index) = write2;
-    for d in @map_range(@null(), @dimension()) {
-        positions(@dimension() * index + d) = pos1(d);
-        forces(@dimension() * index + d) = force1(d);
-    }
-
-}*/
 

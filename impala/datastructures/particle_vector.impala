@@ -1,45 +1,131 @@
 static VECTOR_LENGTH = 4 as size_t;
+type index_t = [size_t * 3];
 struct ParticleVector {
-    capacity: size_t,
-    positions1: Buffer, 
-    positions2: Buffer, 
-    radii: Buffer, 
-    velocities: Buffer,
-    forces: Buffer,
-    force_sum: Buffer,
-    tmp: Buffer,
-    nodes: Buffer,
-    writeBack: Buffer
+    nc: fn() -> index_t,
+    getCell: fn(size_t) -> Cell,
+    setCell: fn(size_t, Cell) -> ()
 }
 
-fn allocate_particle_vector(capacity: size_t) -> ParticleVector {
-    ParticleVector {
-        capacity: capacity,
-        positions1: alloc_cpu((VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
-        positions2: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
-        radii: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
-        forces: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
-        force_sum: alloc_cpu(VECTOR_LENGTH as i32 * sizeof[real]()),
-        velocities: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32),
-        tmp: alloc_cpu((capacity * VECTOR_LENGTH * sizeof[real]() as size_t) as i32), 
-        nodes: alloc_cpu((capacity * sizeof[&mut ParticleList]() as size_t) as i32),
-        writeBack: alloc_cpu((capacity * sizeof[i8]() as size_t) as i32)
+
+struct Cell {
+    size: size_t,
+    masses: Buffer,
+    positions: Buffer,
+    velocities: Buffer,
+    forces: Buffer,
+    forces_old: Buffer,
+    nodes: Buffer
+}
+
+fn allocate_cell(size: size_t) -> Cell {
+    Cell {
+        size: size,
+        masses: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
+        positions: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
+        velocities: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
+        forces: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
+        forces_old: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
+        nodes: alloc_cpu((size * sizeof[&mut ParticleList]() as size_t) as i32)
     }
 }
 
-fn deallocate_particle_vector(vector: ParticleVector) -> () {
-    release(vector.positions1);
-    release(vector.positions2);
-    release(vector.radii);
-    release(vector.velocities);
-    release(vector.forces);
-    release(vector.force_sum);
-    release(vector.tmp);
-    release(vector.nodes);
-    release(vector.writeBack);
+//TODO The casts here are broken
+fn get_particle_vector(buf: Buffer, nc: index_t) -> ParticleVector {
+    ParticleVector {
+        nc: || {nc},
+        getCell: |i| {
+            bitcast[&[Cell]](buf.data)(i)
+        },
+        setCell: |i, cell| {
+            bitcast[&mut[Cell]](buf.data)(i) = cell;
+        }
+    }
 }
 
-fn get_array_of_real_vector(buf: Buffer) -> &mut[real] {
+fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool) -> () {
+    for ic, head in $map_particle_cells([@null(),..3], P.nc(), P) @{
+        let mut count = @null();
+        for pl in $map_list(head) {
+            ++count;
+        }
+        let i = index(ic, vector.nc());
+        if(reinit) {
+            let cell = vector.getCell(i);
+            if(count != cell.size) {
+                deallocate_cell(cell);
+                vector.setCell(i, allocate_cell(count));
+            }
+        }
+        else { 
+            vector.setCell(i, allocate_cell(count));
+        }
+        let cell        = vector.getCell(i);
+        let masses      = get_array_of_real(cell.masses);
+        let positions   = get_array_of_real(cell.positions);
+        let velocities  = get_array_of_real(cell.velocities);
+        let forces      = get_array_of_real(cell.forces);
+        let forces_old  = get_array_of_real(cell.forces_old);
+        let nodes       = get_array_of_nodes(cell.nodes);
+        let mut j = @null();
+        for pl in $map_list(head) @{
+            let p = get_particle_from_node(pl);
+            let base = j * @dimension();
+            for d in @map_range(@null(), @dimension()) {
+                masses(base + d) = p.getMass();
+                positions(base + d) = p.getCoordinates().get()(d);
+                velocities(base + d) = p.getVelocities().get()(d);
+                forces(base + d) = p.getForces().get()(d);
+                forces_old(base + d) = p.getForces_old().get()(d);
+            }
+            nodes(j) = pl;
+            ++j;
+        }
+    }
+}
+
+
+fn write_back_particle_vector(vector: ParticleVector, P: ParticleSystem) -> () {
+    for ic, cell in $map_particle_vector(P.start(), P.end(), vector) @{
+        let i = index(ic, vector.nc());
+        let cell = vector.getCell(i);
+        let positions   = get_array_of_real(cell.positions);
+        let velocities  = get_array_of_real(cell.velocities);
+        let forces      = get_array_of_real(cell.forces);
+        let nodes       = get_array_of_nodes(cell.nodes);
+        for j in map_range(@null(), cell.size) @{
+            let p = get_particle_from_node(nodes(j));
+            let base = j * @dimension();
+            let mut pos : [real * 3];
+            let mut vel : [real * 3];
+            let mut force : [real * 3];
+            for d in @map_range(@null(), @dimension()) {
+                pos(d) = positions(base + d);
+                vel(d) = velocities(base + d);
+                force(d) = forces(base + d);
+            }
+            p.setCoordinates(get_vector(pos));
+            p.setVelocities(get_vector(vel));
+            p.setForces(get_vector(force));
+        }
+    }
+}
+
+fn clean_up_particle_vector(vector: ParticleVector) -> () {
+    for ic, cell in $map_particle_vector([@null(),..3], vector.nc(), vector) @{
+        deallocate_cell(cell);
+    }
+}
+
+fn deallocate_cell(cell: Cell) -> () {
+    release(cell.masses);
+    release(cell.positions);
+    release(cell.velocities);
+    release(cell.forces);
+    release(cell.forces_old);
+    release(cell.nodes);
+}
+
+fn get_array_of_real(buf: Buffer) -> &mut[real] {
     bitcast[&mut[real]](buf.data) 
 }
 
@@ -50,22 +136,17 @@ fn get_array_of_i8(buf: Buffer) -> &mut[i8] {
 fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
     bitcast[&mut[&mut ParticleList]](buf.data) 
 }
-/*
-fn init_particle_vector_with_zero(vector: ParticleVector) -> () {
-    let capacity = vector.capacity;
-    let nodes = get_array_of_nodes(vector.nodes);
-    let positions1 = get_array_of_real_vector(vector.positions1);
-    let positions2 = get_array_of_real_vector(vector.positions2);
-    let forces = get_array_of_real_vector(vector.forces);
-    let writeBack = get_array_of_bools(vector.writeBack); 
-    for i in map_range(@null(), capacity) {
-        nodes(i) = 0 as &mut ParticleList;
-        writeBack(i) = false;
-        for d in @map_range(@null(), VECTOR_LENGTH) {
-            positions1(i * VECTOR_LENGTH + d) = 0.0; 
-            forces1(i * VECTOR_LENGTH + d) = 0.0;
-            positions2(i * VECTOR_LENGTH + d) = 0.0; 
-            forces2(i * VECTOR_LENGTH + d) = 0.0;
+
+fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: fn(index_t, Cell) -> ()) -> () { 
+    for k in $map_range(start(2), end(2)) {
+        for j in $map_range(start(1), end(1)) {
+            for i in $map_range(start(0), end(0)) @{
+                let ic = [i,j,k];
+                let cell = vector.getCell(index(ic, vector.nc()));
+                if(cell.size != @null()) {
+                    f(ic, cell);
+                }
+            }
         }
     }
-}*/
+}
