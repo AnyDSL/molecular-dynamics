@@ -1,5 +1,5 @@
 
-fn compute_force(P: ParticleSystem, vector: ParticleVector, force: fn(Cell, Cell, size_t, Constants) -> ()) -> () {
+fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cell, Cell, size_t, Constants) -> ()) -> () {
     let mut ic_start : [size_t * 3];
     for d in @map_range(@null(), @dimension()) {
         ic_start(d) = @null();
@@ -30,9 +30,108 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force: fn(Cell, Cell
                 jc_end(d) = ic(d);
             };
         }
+        /*print_string("Cell 1 \t");
+        for d in map_range(@null(), @dimension()) {
+            print_i64(ic(d) as i64);
+            print_string(" \t");
+        }
+        print_string("\n");
+        */
+        /*for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
+            print_string("Cell 2 \t");
+            for d in map_range(@null(), @dimension()) {
+                print_i64(jc(d) as i64);
+                print_string(" \t");
+            }
+            print_string("\n");
+        }
+        print_string("\n");*/
+
         for i in $map_range(@null(), cell1.size) @{
             for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
-                force(cell1, cell2, i, P.constants());
+                /*print_string("Cell 2 \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_i64(jc(d) as i64);
+                    print_string(" \t");
+                }
+                print_string("\n");*/
+                force_vector(cell1, cell2, i, P.constants());
+            }
+        }
+    }
+}
+
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
+    for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
+        let p1 = get_particle_from_node(pl1);
+        p1.setForces(@get_null_vector());
+    }
+    let mut ic_start : [size_t * 3];
+    for d in @map_range(@null(), @dimension()) {
+        ic_start(d) = @null();
+    }
+    let ic_end = P.nc();
+    for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
+        if(head != 0 as &mut ParticleList) {
+            let mut jc_start : [size_t * 3]; 
+            let mut jc_end : [size_t * 3];
+            let mut write_i = true;
+            for d in @map_range(@null(), @dimension()) {
+                if(ic(d) >= P.start()(d)) {
+                    jc_start(d) = ic(d) - @one();
+                } 
+                else {
+                    jc_start(d) = ic(d) + @one();
+                    write_i = false;
+                };
+                if(ic(d) < P.end()(d)) { 
+                    jc_end(d) = ic(d) + @two(); 
+                } 
+                else {
+                    jc_end(d) = ic(d);
+                    write_i = false;
+                };
+            }
+            /*print_string("Cell 1 \t");
+            for d in map_range(@null(), @dimension()) {
+                print_i64(ic(d) as i64);
+                print_string(" \t");
+            }
+            print_string("\n");*/
+            /*for jc, head2 in map_particle_cells(jc_start, jc_end, P) {
+
+                if(head2 != 0 as &mut ParticleList) {
+                    print_string("Cell 2 \t");
+                    for d in map_range(@null(), @dimension()) {
+                        print_i64(jc(d) as i64);
+                        print_string(" \t");
+                    }
+                    print_string("\n");
+                }
+            }
+            print_string("\n");*/
+            for pl1 in $map_list(head) @{
+                for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
+                    /*print_string("Cell 2 \t");
+                    for d in map_range(@null(), @dimension()) {
+                        print_i64(jc(d) as i64);
+                        print_string(" \t");
+                    }
+                    print_string("\n");*/
+                    
+                    if((pl1 as uintptr_t < pl2 as uintptr_t)) {
+                        /*print_string("Nodes: \t");
+                        print_i64(pl1 as i64);
+                        print_string(" \t");
+                        print_i64(pl2 as i64);
+                        print_string("\n");*/
+                        let p1 = get_particle_from_node(pl1);
+                        let p2 = get_particle_from_node(pl2);
+                        force(p1, p2, write_i, write_j, P.constants());
+                    }
+                }
+
+                print_string("\n");
             }
         }
     }

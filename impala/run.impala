@@ -39,8 +39,22 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     }
     let vector : ParticleVector = get_particle_vector(buf, P.nc());
     init_particle_vector(vector, P, false);
-
-    compute_force(P, vector, force);
+    /*print_string("Particle System:\n");
+    print_particle_system(P);
+    print_string("\nParticle Vector:\n");
+    print_particle_vector(vector);
+    print_string("\n");
+*/
+    //print_string("Particle Vector:\n");
+    compute_force_vector(P, vector, force_vector);
+    //print_string("\nParticle System:\n");
+    //compute_force(P, force, 1);
+    /*print_string("Particle System:\n");
+    print_particle_system(P);
+    print_string("\nParticle Vector:\n");
+    print_particle_vector(vector);
+    print_string("\n");
+*/
     while(t < t_end) {
     
         t += dt;        
@@ -48,7 +62,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
         write_back_particle_vector(vector, P);
         move_particles(P);
         init_particle_vector(vector, P, true);
-        compute_force(P, vector, force);
+        compute_force_vector(P, vector, force_vector);
         integrate(vector, P.start(), P.end(), dt, integrate_v);
         if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
             write_back_particle_vector(vector, P);
@@ -63,4 +77,66 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     clean_up_particle_vector(vector);
     release(buf);
     P_data_ = get_data_struct_from_particle_system(P); 
+}
+
+fn print_particle_vector(vector: ParticleVector) -> () {
+    for ic, cell in map_particle_vector([@null(),..3], vector.nc(), vector) {
+        print_string("Cell \t");
+        for d in map_range(@null(), @dimension()) {
+            print_i64(ic(d) as i64);
+            print_string(" \t");
+        }
+        print_string("\n");
+        let positions = get_array_of_real(cell.positions);
+        let forces = get_array_of_real(cell.forces);
+        for i in map_range(@null(), cell.size) {
+            print_string("Position: \t");
+            for d in map_range(@null(), @dimension()) {
+                print_f64(positions(i * @dimension() + d));
+                print_string(" \t");
+            }
+            print_string("\n");
+            print_string("Force: \t");
+            for d in map_range(@null(), @dimension()) {
+                print_f64(forces(i * @dimension() + d));
+                print_string(" \t");
+            }
+            print_string("\n");
+
+        }
+        print_string("\n");
+    }
+}
+
+fn print_particle_system(P: ParticleSystem) -> () {
+    for ic, head in map_particle_cells([@null(),..3], P.nc(), P) {
+        if(head != 0 as &mut ParticleList) { 
+            print_string("Cell \t");
+            for d in map_range(@null(), @dimension()) {
+                print_i64(ic(d) as i64);
+                print_string(" \t");
+            }
+            print_string("\n");
+            for pl in map_list(head) {
+                let p = get_particle_from_node(pl);
+                let pos = p.getCoordinates().get();
+                let force = p.getForces().get();
+                print_string("Position: \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_f64(pos(d));
+                    print_string(" \t");
+                }
+                print_string("\n");
+                print_string("Force: \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_f64(force(d));
+                    print_string(" \t");
+                }
+
+                print_string("\n");
+            }
+
+            print_string("\n");
+        }
+    }
 }

@@ -47,7 +47,7 @@ fn get_data_from_constants(constants: Constants) -> ConstantsData  {
     }
 }
 
-fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
+fn force_vector(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
     let sqr = |x : real| {x*x};
     let nodes1      = get_array_of_nodes(cell1.nodes);
     let positions1  = get_array_of_real(cell1.positions);
@@ -59,16 +59,22 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
     for j in $map_range(@null(), cell2.size) @{
     //for j in vectorize(4, 4, 0, cell2.size as i32) @{
         let index2 = j as size_t * @dimension();
-        if(nodes1(index1) as uintptr_t < nodes2(index2) as uintptr_t) {
+        if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
+            /*print_string("Nodes: \t");
+            print_i64(nodes1(i) as i64);
+            print_string(" \t");
+            print_i64(nodes2(j) as i64);
+            print_string("\n");
+*/
             let mut dist : [real * 3];
             let mut r  = 0.0; 
             for d in @map_range(@null(), @dimension()) {
                 dist(d) = positions2(index2 + d) - positions1(index1 + d);
                 r += sqr(dist(d));
             }
-            print_string("r: ");
-            print_f64(r);
-            print_string("\n");
+            //print_string("r: ");
+            //print_f64(r);
+            //print_string("\n");
             if(r < @constants.r_cut_sqr()) {
                 let r_8_inv = 1.0/sqr(sqr(r));
                 let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
@@ -82,6 +88,25 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
                 }
                 //print_string("\n");
             }
+        }
+    }
+}
+
+fn force(p1: Particle, p2: Particle, write1: bool, write2: bool, constants: Constants) -> () {
+    let sqr = |x : real| {x*x};
+    let Dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
+    let Dist_sqr = square_vector(Dist);
+    let r = Dist_sqr.reduce(|x,y|{x+y}, 0.0);
+    if(r < @constants.r_cut_sqr()) {
+        @count_force_evaluation();
+        let r_8_inv = 1.0/sqr(sqr(r));
+        let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
+        let F = scale_vector(f, Dist);
+        if(write1) {
+            p1.setForces(add_vectors(p1.getForces(), F));
+        }
+        if(write2) {
+            p2.setForces(sub_vectors(p2.getForces(), F));
         }
     }
 }
