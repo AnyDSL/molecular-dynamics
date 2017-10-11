@@ -66,18 +66,21 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
                 dist(d) = positions2(index2 + d) - positions1(index1 + d);
                 r += sqr(dist(d));
             }
+            print_string("r: ");
+            print_f64(r);
+            print_string("\n");
             if(r < @constants.r_cut_sqr()) {
                 let r_8_inv = 1.0/sqr(sqr(r));
                 let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
                 let mut force : [real * 3];
                 for d in @map_range(@null(), @dimension()) {
                     force(d) = f * dist(d);
-                    print_f64(force(d));
-                    print_string(" \t");
+                    //print_f64(force(d));
+                    //print_string(" \t");
                     forces1(index1 + d) += force(d);
                     forces2(index2 + d) -= force(d);
                 }
-                print_string("\n");
+                //print_string("\n");
             }
         }
     }
