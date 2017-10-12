@@ -70,6 +70,12 @@ void anydsl_md_reinitialize_blocks(shared_ptr<BlockForest> forest, BlockDataID s
 void anydsl_md_time_integration(real_t dt, size_t iteration)  {
     c_time_integration(static_cast<double>(dt), static_cast<uint64_t>(iteration));
 }
+
+
+void anydsl_md_time_integration_vector(real_t dt, size_t iteration)  {
+    c_time_integration_vector(static_cast<double>(dt), static_cast<uint64_t>(iteration));
+}
+
 void anydsl_md_distribute_particles() {
     c_distribute_particles();
 }

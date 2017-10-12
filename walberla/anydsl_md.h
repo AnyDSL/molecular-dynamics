@@ -18,6 +18,7 @@ using namespace walberla::pe;
 extern "C" {
     void c_reinitialize_block_list(uint64_t, uint64_t *, uint64_t *, double **, double **, uint64_t *, uint64_t *, uint64_t *);
     void c_time_integration(double, uint64_t);
+    void c_time_integration_vector(double, uint64_t);
     void c_distribute_particles();
     void c_force_calculation();
     void c_position_integration(double);
@@ -28,6 +29,7 @@ extern "C" {
 
 void anydsl_md_reinitialize_blocks(shared_ptr<BlockForest>, BlockDataID); 
 void anydsl_md_time_integration(real_t, size_t); 
+void anydsl_md_time_integration_vector(real_t, size_t); 
 void anydsl_md_distribute_particles();
 void anydsl_md_force_calculation();
 void anydsl_md_position_integration(real_t);

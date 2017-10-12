@@ -71,7 +71,7 @@ fn get_vector(data: [real * 3]) -> Vector
             let mut res : [real * 3];
             let v_data = v.get();
             for d in @map_range((@null()), @dimension()) {
-                    res(d) = f(data(d), v_data(d)); 
+                res(d) = f(data(d), v_data(d)); 
             }
             get_vector(res)
         },

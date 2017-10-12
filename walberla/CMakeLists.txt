@@ -4,7 +4,7 @@ include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
 set(CLANG_FLAGS -O3 -march=native)
-set(IMPALA_FLAGS --log-level warn)
+set(IMPALA_FLAGS --log-level error)
 set(IMPALA_SRC_DIR ../impala)
 
 
@@ -19,7 +19,7 @@ anydsl_runtime_wrap(IMPALA_OBJECT_FILE
     ${IMPALA_SRC_DIR}/utilities/common.impala ${IMPALA_SRC_DIR}/utilities/linked_list.impala ${IMPALA_SRC_DIR}/utilities/particle_system.impala     
     ${IMPALA_SRC_DIR}/datastructures/pe_linked_list.impala ${IMPALA_SRC_DIR}/datastructures/pe_array_of_addresses.impala ${IMPALA_SRC_DIR}/datastructures/particle_system.impala block_list.impala
     ${IMPALA_SRC_DIR}/datastructures/particle_vector.impala
-    ${IMPALA_SRC_DIR}/potential/lennard_jones_simd.impala ${IMPALA_SRC_DIR}/integration/verlet.impala ${IMPALA_SRC_DIR}/boundary/default.impala  
+    ${IMPALA_SRC_DIR}/potential/lennard_jones.impala ${IMPALA_SRC_DIR}/integration/verlet.impala ${IMPALA_SRC_DIR}/boundary/default.impala  
     ${IMPALA_SRC_DIR}/algorithm/force_calculation.impala ${IMPALA_SRC_DIR}/algorithm/pe_integration.impala ${IMPALA_SRC_DIR}/algorithm/distribution.impala 
     ${IMPALA_SRC_DIR}/initialization/constants/test.impala 
     ${IMPALA_SRC_DIR}/utilities/pe_vtk.impala  

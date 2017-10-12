@@ -2,7 +2,7 @@ struct BlockList {
     id: size_t,
     storage: uintptr_t,
     valid: bool,
-    vector: ParticleVector,
+    vec_buf: Buffer,
     block: ParticleSystemData,
     next: &mut BlockList
 }
@@ -11,7 +11,6 @@ fn allocate_block_node(id: size_t) -> &mut BlockList{
     let node = allocate(sizeof[BlockList]() as size_t) as &mut BlockList;
     node.id = id;
     node.valid = true;
-    node.vector = allocate_particle_vector(64 as size_t);
     node.next = 0 as &mut BlockList;
     node
 }
@@ -19,7 +18,7 @@ fn allocate_block_node(id: size_t) -> &mut BlockList{
 fn deallocate_block_node(node: &mut BlockList) -> () {
     let P = get_particle_system_from_data_struct(node.block);
     deallocate_particle_system(P);
-    deallocate_particle_vector(node.vector);
+    release(node.vec_buf);
     deallocate(node as &[i8]);
 }
 

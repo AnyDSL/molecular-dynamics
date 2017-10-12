@@ -227,6 +227,7 @@ int main( int argc, char ** argv )
        */
        tt.start("Solver");
        anydsl_md_time_integration(dt, i);
+       //anydsl_md_time_integration_vector(dt, i);
        tt.stop("Solver");
 
        tt.start("Sync");
