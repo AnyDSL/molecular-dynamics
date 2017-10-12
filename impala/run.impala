@@ -17,6 +17,44 @@ fn deallocate_system() -> () {
     P_data_ = get_data_struct_from_particle_system(P);
 }
 
+/*
+extern 
+fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: bool) -> ()
+{
+    for i in map_range(0 as size_t, numthreads as size_t) {
+        array(0) = i as i32;
+    }
+    let P = get_particle_system_from_data_struct(P_data_);
+    let mut t : real = t_start; 
+    let mut count = 0 as size_t;
+    let mut i = 0 as size_t;
+    let mut str : [u8 * 32];
+    if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
+        let lang = "impala";
+        generate_filename(i, "impala", &mut str, 32 as size_t);
+        fprint_particle_system(str, i, P);
+        ++i;
+    }
+    compute_force(P, force, numthreads);
+    //print_particle_system(P);
+    while(t < t_end) {
+        t += dt;        
+        integrate(P, P.start(), P.end(), dt, numthreads, integrate_x);
+        move_particles(P);
+        compute_force(P, force, numthreads);
+        integrate(P, P.start(), P.end(), dt, numthreads, integrate_v);
+        if(vtk == true && count % (1 as size_t) == (0 as size_t)) {
+            let lang = "impala";
+            generate_filename(i, "impala", &mut str, 32 as size_t);
+            fprint_particle_system(str, i, P);
+            ++i;
+        }
+        let status = check_invariants(P);
+        ++count;
+    }
+    P_data_ = get_data_struct_from_particle_system(P); 
+}
+*/
 extern 
 fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: bool) -> ()
 {
@@ -39,6 +77,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     }
     let vector : ParticleVector = get_particle_vector(buf, P.nc());
     init_particle_vector(vector, P, false);
+    compute_force_vector(P, vector, force_vector);
 
     while(t < t_end) {
         t += dt;        

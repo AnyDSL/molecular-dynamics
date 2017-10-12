@@ -57,7 +57,7 @@ fn force_vector(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> ()
     let forces2     = get_array_of_real(cell2.forces);
     let index1 = i * @dimension();
     for j in $map_range(@null(), cell2.size) @{
-    //for j in vectorize(4, 4, 0, cell2.size as i32) @{
+    //for j in vectorize(3, 4, 0, cell2.size as i32) @{
         let index2 = j as size_t * @dimension();
         if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
             /*print_string("Nodes: \t");
