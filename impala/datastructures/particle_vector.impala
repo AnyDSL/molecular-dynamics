@@ -9,6 +9,7 @@ struct ParticleVector {
 
 struct Cell {
     size: size_t,
+    padded_size: size_t,
     masses: Buffer,
     positions: Buffer,
     velocities: Buffer,
@@ -16,22 +17,32 @@ struct Cell {
     forces_old: Buffer,
     nodes: Buffer
 }
+fn get_padded_size(n: size_t) -> size_t {
+    let mut k = 1 as size_t;
+    while (k < n) {
+        k *= 2 as size_t;
+    }
+    k
+}
 
 fn allocate_cell(size: size_t) -> Cell {
     if(size > @null()) {
+        let padded_size = get_padded_size(@dimension() * size);
         Cell {
             size: size,
-            masses: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
-            positions: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
-            velocities: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
-            forces: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
-            forces_old: alloc_cpu((@dimension() * size * sizeof[real]() as size_t) as i32), 
+            padded_size: padded_size,
+            masses: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
+            positions: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
+            velocities: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
+            forces: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
+            forces_old: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
             nodes: alloc_cpu((size * sizeof[&mut ParticleList]() as size_t) as i32)
         }
     }
     else {
         Cell {
             size: @null(),
+            padded_size: @null(),
             masses: Buffer {device: 0, data: 0 as &[i8]},
             positions: Buffer {device: 0, data: 0 as &[i8]},
             velocities: Buffer {device: 0, data: 0 as &[i8]},

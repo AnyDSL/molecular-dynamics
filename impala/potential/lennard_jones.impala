@@ -60,33 +60,21 @@ fn force_vector(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> ()
     //for j in vectorize(3, 4, 0, cell2.size as i32) @{
         let index2 = j as size_t * @dimension();
         if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
-            /*print_string("Nodes: \t");
-            print_i64(nodes1(i) as i64);
-            print_string(" \t");
-            print_i64(nodes2(j) as i64);
-            print_string("\n");
-*/
             let mut dist : [real * 3];
             let mut r  = 0.0; 
             for d in @map_range(@null(), @dimension()) {
                 dist(d) = positions2(index2 + d) - positions1(index1 + d);
                 r += sqr(dist(d));
             }
-            //print_string("r: ");
-            //print_f64(r);
-            //print_string("\n");
             if(r < @constants.r_cut_sqr()) {
                 let r_8_inv = 1.0/sqr(sqr(r));
                 let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
                 let mut force : [real * 3];
                 for d in @map_range(@null(), @dimension()) {
                     force(d) = f * dist(d);
-                    //print_f64(force(d));
-                    //print_string(" \t");
                     forces1(index1 + d) += force(d);
                     forces2(index2 + d) -= force(d);
                 }
-                //print_string("\n");
             }
         }
     }
