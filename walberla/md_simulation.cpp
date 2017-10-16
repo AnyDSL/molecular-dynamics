@@ -132,7 +132,7 @@ int main( int argc, char ** argv )
    }
 
    //write domain decomposition to file
-   //vtk::writeDomainDecomposition(*forest);
+   vtk::writeDomainDecomposition(*forest);
 
    WALBERLA_LOG_INFO_ON_ROOT("simulationDomain: " << forest->getDomain());
    integerProperties["sim_x"] = int64_c(forest->getDomain().maxCorner()[0]);
@@ -161,8 +161,8 @@ int main( int argc, char ** argv )
 
    WALBERLA_LOG_INFO_ON_ROOT("*** VTK ***");
 
-   //auto vtkOutput   = make_shared<SphereVtkOutput>(storageID, *forest);
-   //auto vtkWriter   = vtk::createVTKOutput_PointData(vtkOutput, "Bodies", 1, path, "simulation_step", false, false);
+   auto vtkOutput   = make_shared<SphereVtkOutput>(storageID, *forest);
+   auto vtkWriter   = vtk::createVTKOutput_PointData(vtkOutput, "Bodies", 1, path, "simulation_step", false, false);
 
    WALBERLA_LOG_INFO_ON_ROOT("*** SETUP - START ***");
    const real_t   static_cof  ( 0.1 / 2 );   // Coefficient of static friction. Roughly 0.85 with high variation depending on surface roughness for low stresses. Note: pe doubles the input coefficient of friction for material-material contacts.
@@ -186,8 +186,10 @@ int main( int argc, char ** argv )
       for (auto it = grid_generator::SCIterator(currentBlock.getAABB().getIntersection(generationDomain), Vector3<real_t>(0.5*spacing,0.5*spacing,0.5*spacing), spacing); it != grid_generator::SCIterator(); ++it)
       {
          SphereID sp = pe::createSphere( *globalBodyStorage, *forest, storageID, 0, *it, radius, material);
-         Vec3 rndVel(math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax));
-         if (sp != NULL) sp->setLinearVel(rndVel);
+         Vec3 vel(0.0,-vMax,0.0);
+         //Vec3 rndVel(math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax));
+         //if (sp != NULL) sp->setLinearVel(rndVel);
+         if (sp != NULL) sp->setLinearVel(vel);
          if (sp != NULL) ++numParticles;
       }
    }
@@ -217,17 +219,17 @@ int main( int argc, char ** argv )
        tt.start("Reinitialization");
        anydsl_md_reinitialize_blocks(forest, storageID);
        tt.stop("Reinitialization");
-       /*
+       
        tt.start("Visualization");
        if( i % visSpacing == 0 )
        {
            vtkWriter->write( true );
        }
        tt.stop("Visualization");
-       */
+       
        tt.start("Solver");
-       anydsl_md_time_integration(dt, i);
-       //anydsl_md_time_integration_vector(dt, i);
+       //anydsl_md_time_integration(dt, i);
+       anydsl_md_time_integration_vector(dt, i);
        tt.stop("Solver");
 
        tt.start("Sync");

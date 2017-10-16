@@ -111,4 +111,45 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
     deallocate(P.data_addresses());
 }
 
+fn print_particle_system(P: ParticleSystem) -> () {
+    for ic, head in map_particle_cells([@null(),..3], P.nc(), P) {
+        if(head != 0 as &mut ParticleList) { 
+            print_string("Cell \t");
+            for d in map_range(@null(), @dimension()) {
+                print_i64(ic(d) as i64);
+                print_string(" \t");
+            }
+            print_string("\n");
+            for pl in map_list(head) {
+                let p = get_particle_from_node(pl);
+                let pos = p.getCoordinates().get();
+                let vel = p.getVelocities().get();
+                let force = p.getForces().get();
+                print_string("Position: \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_f64(pos(d));
+                    print_string(" \t");
+                }
+                print_string("\n");
+                print_string("Velocity: \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_f64(vel(d));
+                    print_string(" \t");
+                }
+                print_string("\n");
+
+                print_string("Force: \t");
+                for d in map_range(@null(), @dimension()) {
+                    print_f64(force(d));
+                    print_string(" \t");
+                }
+
+                print_string("\n");
+            }
+
+            print_string("\n");
+        }
+    }
+}
+
 

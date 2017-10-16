@@ -14,6 +14,11 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
         if(node != 0 as &mut BlockList) {
             node.valid = true;             
             c_reinitialize_particle_system(&mut node.block, np);
+            node.storage = storages(i);
+            c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
+            let P = get_particle_system_from_data_struct(node.block);
+            let vector = get_particle_vector(node.vec_buf, P.nc());
+            impala_set_storage(node.storage);
         }
         else {
             node = allocate_block_node(ids(i));    
@@ -25,13 +30,13 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
                 pnc *= P.nc()(d);
             }
             node.vec_buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
+            node.storage = storages(i);
+            c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
+            let P2 = get_particle_system_from_data_struct(node.block);
+            let vector = get_particle_vector(node.vec_buf, P2.nc());
+            impala_set_storage(node.storage);
+            init_particle_vector(vector, P2, false);
         }
-        node.storage = storages(i);
-        c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
-        let P = get_particle_system_from_data_struct(node.block);
-        let vector = get_particle_vector(node.vec_buf, P.nc());
-        impala_set_storage(node.storage);
-        init_particle_vector(vector, P, false);
     }
     delete_invalid_blocks(&mut head_);
 }
@@ -120,6 +125,7 @@ fn c_time_integration(dt: real, iteration: size_t) -> () {
         move_particles(P);
         compute_force(P, force, 1);
         integrate(P, P.start(), P.end(), dt, 1, integrate_v);
+        print_particle_system(P);
         check_invariants(P);
     }
     
@@ -135,18 +141,17 @@ fn c_time_integration_vector(dt: real, iteration: size_t) -> () {
             move_particles(P);
             init_particle_vector(vector, P, true);
             compute_force_vector(P, vector, force_vector);
+            integrate_vector(vector, [@null(),..3], P.nc(), dt, integrate_x_vector);
+            write_back_particle_vector(vector, [@null(),..3], P.nc(), P);
         }
         else {
-            init_particle_vector(vector, P, true);
+            integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
         }
-        //integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
-        integrate_vector(vector, P.start(), P.end(), dt, integrate_x_vector);
-        write_back_particle_vector(vector, P);
         move_particles(P);
         init_particle_vector(vector, P, true);
         compute_force_vector(P, vector, force_vector);
         integrate_vector(vector, P.start(), P.end(), dt, integrate_v_vector);
-        write_back_particle_vector(vector, P);
+        write_back_particle_vector(vector, P.start(), P.end(), P);
         check_invariants(P);
     }
     

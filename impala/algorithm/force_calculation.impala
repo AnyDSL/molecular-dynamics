@@ -7,8 +7,8 @@ fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector:
     let ic_end = P.nc();
     for ic, cell in $map_particle_vector(ic_start, ic_end, vector) @{
         let forces = get_array_of_real(cell.forces);
-        //for i in $map_range(@null(), cell.size * @dimension()) {
-        for i in vectorize(3, 4, 0, (cell.size * @dimension()) as i32) {
+        for i in $map_range(@null(), cell.size * @dimension()) {
+        //for i in vectorize(3, 4, 0, (cell.size * @dimension()) as i32) {
             forces(i) = 0.0;
         }
     }

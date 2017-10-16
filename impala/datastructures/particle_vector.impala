@@ -109,8 +109,8 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
 }
 
 
-fn write_back_particle_vector(vector: ParticleVector, P: ParticleSystem) -> () {
-    for ic, cell in $map_particle_vector(P.start(), P.end(), vector) @{
+fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index_t, P: ParticleSystem) -> () {
+    for ic, cell in $map_particle_vector(start, end, vector) @{
         let i = index(ic, vector.nc());
         let cell = vector.getCell(i);
         let positions   = get_array_of_real(cell.positions);
@@ -182,3 +182,41 @@ fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: 
         }
     }
 }
+
+fn print_particle_vector(vector: ParticleVector) -> () {
+    for ic, cell in map_particle_vector([@null(),..3], vector.nc(), vector) {
+        print_string("Cell \t");
+        for d in map_range(@null(), @dimension()) {
+            print_i64(ic(d) as i64);
+            print_string(" \t");
+        }
+        print_string("\n");
+        let positions = get_array_of_real(cell.positions);
+        let velocities = get_array_of_real(cell.velocities);
+        let forces = get_array_of_real(cell.forces);
+        for i in map_range(@null(), cell.size) {
+            print_string("Position: \t");
+            for d in map_range(@null(), @dimension()) {
+                print_f64(positions(i * @dimension() + d));
+                print_string(" \t");
+            }
+            print_string("\n");
+            print_string("Velocity: \t");
+            for d in map_range(@null(), @dimension()) {
+                print_f64(velocities(i * @dimension() + d));
+                print_string(" \t");
+            }
+            print_string("\n");
+
+            print_string("Force: \t");
+            for d in map_range(@null(), @dimension()) {
+                print_f64(forces(i * @dimension() + d));
+                print_string(" \t");
+            }
+            print_string("\n");
+
+        }
+        print_string("\n");
+    }
+}
+
