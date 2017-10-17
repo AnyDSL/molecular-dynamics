@@ -141,8 +141,10 @@ fn c_time_integration_vector(dt: real, iteration: size_t) -> () {
             move_particles(P);
             init_particle_vector(vector, P, true);
             compute_force_vector(P, vector, force_vector);
-            integrate_vector(vector, [SIZE_T_0,..3], P.nc(), dt, integrate_x_vector);
-            write_back_particle_vector(vector, [SIZE_T_0,..3], P.nc(), P);
+            integrate_vector(vector, P.start(), P.end(), dt, integrate_x_vector);
+            //integrate_vector(vector, [SIZE_T_0,..3], P.nc(), dt, integrate_x_vector);
+            write_back_particle_vector(vector, P.start(), P.end(), P);
+            //write_back_particle_vector(vector, [SIZE_T_0,..3], P.nc(), P);
         }
         else {
             integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, 1, integrate_x);
@@ -152,6 +154,7 @@ fn c_time_integration_vector(dt: real, iteration: size_t) -> () {
         compute_force_vector(P, vector, force_vector);
         integrate_vector(vector, P.start(), P.end(), dt, integrate_v_vector);
         write_back_particle_vector(vector, P.start(), P.end(), P);
+        print_particle_vector(vector);
         check_invariants(P);
     }
     

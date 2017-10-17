@@ -186,10 +186,9 @@ int main( int argc, char ** argv )
       for (auto it = grid_generator::SCIterator(currentBlock.getAABB().getIntersection(generationDomain), Vector3<real_t>(0.5*spacing,0.5*spacing,0.5*spacing), spacing); it != grid_generator::SCIterator(); ++it)
       {
          SphereID sp = pe::createSphere( *globalBodyStorage, *forest, storageID, 0, *it, radius, material);
-         Vec3 vel(0.0,-vMax,0.0);
-         //Vec3 rndVel(math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax));
-         //if (sp != NULL) sp->setLinearVel(rndVel);
-         if (sp != NULL) sp->setLinearVel(vel);
+         //Vec3 rndVel(0.0,vMax,0.0);
+         Vec3 rndVel(math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax), math::realRandom<real_t>(-vMax, vMax));
+         if (sp != NULL) sp->setLinearVel(rndVel);
          if (sp != NULL) ++numParticles;
       }
    }
