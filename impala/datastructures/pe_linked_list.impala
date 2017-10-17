@@ -19,7 +19,7 @@ extern "C"
     fn impala_ShadowBody_set_mass(index: size_t, m: f64) -> ();
 }
 
-fn size_of_particle() -> size_t {@dimension() * (sizeof[real]() as size_t) + sizeof[size_t]() as size_t + sizeof[bool]() as size_t} 
+fn size_of_particle() -> size_t {DIMENSION * (sizeof[real]() as size_t) + sizeof[size_t]() as size_t + sizeof[bool]() as size_t} 
 
 fn get_local_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
     Particle {
@@ -62,7 +62,7 @@ fn get_local_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
         },
         setForces_old: |forces| {
             let F = forces.get();
-            for d in @map_range(@null(), @dimension()) {
+            for d in @map_range(SIZE_T_0, DIMENSION) {
                 forces_old(d) = F(d); 
             }
         }
@@ -110,7 +110,7 @@ fn get_shadow_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
         },
         setForces_old: |forces| {
             let F = forces.get();
-            for d in @map_range(@null(), @dimension()) {
+            for d in @map_range(SIZE_T_0, DIMENSION) {
                 forces_old(d) = F(d); 
             }
         }

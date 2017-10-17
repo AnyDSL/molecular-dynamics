@@ -8,14 +8,14 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
     let N = math.floor(math.pow(np as real, 1.0/3.0+@epsilon()));
     let mut tmp : [real * 3];
     let spacing =  2.0 * @constants.r_cut();
-    for d in @map_range(0 as size_t, @dimension()) {
+    for d in @map_range(0 as size_t, DIMENSION) {
         tmp(d) = (N + 1.0) * spacing;
         limit(d) = N as size_t;
     }
     let domain = get_vector(tmp);
     let P = allocate_particle_system(np, ghost_layer, domain, get_null_vector(), constants);
     let mut ip : [size_t * 3];
-    for d in @map_range(0 as size_t, @dimension()) {
+    for d in @map_range(0 as size_t, DIMENSION) {
         ip(d) = 0 as size_t;
     }
     let mut pos : size_t;
@@ -27,18 +27,18 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
                 p.setMass(1.0);
                 let mut X : [real * 3];
                 let mut V : [real * 3];
-                for d in @map_range(0 as size_t, @dimension()) {
+                for d in @map_range(0 as size_t, DIMENSION) {
                     X(d) = spacing + ip(d) as real * spacing;
                 }
                 let tmp = 2.0*V_MAX*c_random() as real - V_MAX;
 
                 let mut norm = 0.0;
-                for d in map_range(0 as size_t, @dimension()) @{
+                for d in map_range(0 as size_t, DIMENSION) @{
                     V(d) = 2.0 * c_random() - 1.0;
                     norm += V(d)*V(d);
                 }
                 norm = math.sqrt(norm);
-                for d in map_range(0 as size_t, @dimension()) {
+                for d in map_range(0 as size_t, DIMENSION) {
                     V(d) = V(d) / norm * tmp; 
                 }
                 p.setCoordinates(get_vector(X));
@@ -59,18 +59,18 @@ fn init_particle_system(np: size_t, l: Vector, constants: Constants) -> Particle
         p.setMass(1.0);
         let mut X : [real * 3];
         let mut V : [real * 3];
-        for d in @map_range(0 as size_t, @dimension()) {
+        for d in @map_range(0 as size_t, DIMENSION) {
             X(d) = domain.get()(d) * c_random() as real;
         }
         let tmp = 2.0*V_MAX*c_random() as real - V_MAX;
 
         let mut norm = 0.0;
-        for d in map_range(0 as size_t, @dimension()) @{
+        for d in map_range(0 as size_t, DIMENSION) @{
             V(d) = 2.0 * c_random() - 1.0;
             norm += V(d)*V(d);
         }
         norm = math.sqrt(norm);
-        for d in map_range(0 as size_t, @dimension()) {
+        for d in map_range(0 as size_t, DIMENSION) {
             V(d) = V(d) / norm * tmp; 
         }
 

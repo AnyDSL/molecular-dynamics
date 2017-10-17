@@ -1,14 +1,14 @@
 
 fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cell, Cell, size_t, Constants) -> ()) -> () {
     let mut ic_start : [size_t * 3];
-    for d in @map_range(@null(), @dimension()) {
-        ic_start(d) = @null();
+    for d in @map_range(SIZE_T_0, DIMENSION) {
+        ic_start(d) = SIZE_T_0;
     }
     let ic_end = P.nc();
     for ic, cell in $map_particle_vector(ic_start, ic_end, vector) @{
         let forces = get_array_of_real(cell.forces);
-        for i in $map_range(@null(), cell.size * @dimension()) {
-        //for i in vectorize(3, 4, 0, (cell.size * @dimension()) as i32) {
+        for i in $map_range(SIZE_T_0, cell.size * DIMENSION) {
+        //for i in vectorize(3, 4, 0, (cell.size * DIMENSION) as i32) {
             forces(i) = 0.0;
         }
     }
@@ -16,22 +16,22 @@ fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector:
     for ic, cell1 in $map_particle_vector(ic_start, ic_end, vector) @{
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
-        for d in @map_range(@null(), @dimension()) {
+        for d in @map_range(SIZE_T_0, DIMENSION) {
             if(ic(d) >= P.start()(d)) {
-                jc_start(d) = ic(d) - @one();
+                jc_start(d) = ic(d) - SIZE_T_1;
             } 
             else {
-                jc_start(d) = ic(d) + @one();
+                jc_start(d) = ic(d) + SIZE_T_1;
             };
             if(ic(d) < P.end()(d)) { 
-                jc_end(d) = ic(d) + @two(); 
+                jc_end(d) = ic(d) + SIZE_T_2; 
             } 
             else {
                 jc_end(d) = ic(d);
             };
         }
         /*print_string("Cell 1 \t");
-        for d in map_range(@null(), @dimension()) {
+        for d in map_range(SIZE_T_0, DIMENSION) {
             print_i64(ic(d) as i64);
             print_string(" \t");
         }
@@ -39,7 +39,7 @@ fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector:
         */
         /*for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
             print_string("Cell 2 \t");
-            for d in map_range(@null(), @dimension()) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 print_i64(jc(d) as i64);
                 print_string(" \t");
             }
@@ -47,10 +47,10 @@ fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector:
         }
         print_string("\n");*/
 
-        for i in $map_range(@null(), cell1.size) @{
+        for i in $map_range(SIZE_T_0, cell1.size) @{
             for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
                 /*print_string("Cell 2 \t");
-                for d in map_range(@null(), @dimension()) {
+                for d in map_range(SIZE_T_0, DIMENSION) {
                     print_i64(jc(d) as i64);
                     print_string(" \t");
                 }
@@ -67,8 +67,8 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         p1.setForces(@get_null_vector());
     }
     let mut ic_start : [size_t * 3];
-    for d in @map_range(@null(), @dimension()) {
-        ic_start(d) = @null();
+    for d in @map_range(SIZE_T_0, DIMENSION) {
+        ic_start(d) = SIZE_T_0;
     }
     let ic_end = P.nc();
     for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
@@ -76,16 +76,16 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
             let mut jc_start : [size_t * 3]; 
             let mut jc_end : [size_t * 3];
             let mut write_i = true;
-            for d in @map_range(@null(), @dimension()) {
+            for d in @map_range(SIZE_T_0, DIMENSION) {
                 if(ic(d) >= P.start()(d)) {
-                    jc_start(d) = ic(d) - @one();
+                    jc_start(d) = ic(d) - SIZE_T_1;
                 } 
                 else {
-                    jc_start(d) = ic(d) + @one();
+                    jc_start(d) = ic(d) + SIZE_T_1;
                     write_i = false;
                 };
                 if(ic(d) < P.end()(d)) { 
-                    jc_end(d) = ic(d) + @two(); 
+                    jc_end(d) = ic(d) + SIZE_T_2; 
                 } 
                 else {
                     jc_end(d) = ic(d);
@@ -93,7 +93,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 };
             }
             /*print_string("Cell 1 \t");
-            for d in map_range(@null(), @dimension()) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 print_i64(ic(d) as i64);
                 print_string(" \t");
             }
@@ -102,7 +102,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
 
                 if(head2 != 0 as &mut ParticleList) {
                     print_string("Cell 2 \t");
-                    for d in map_range(@null(), @dimension()) {
+                    for d in map_range(SIZE_T_0, DIMENSION) {
                         print_i64(jc(d) as i64);
                         print_string(" \t");
                     }
@@ -113,7 +113,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
             for pl1 in $map_list(head) @{
                 for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
                     /*print_string("Cell 2 \t");
-                    for d in map_range(@null(), @dimension()) {
+                    for d in map_range(SIZE_T_0, DIMENSION) {
                         print_i64(jc(d) as i64);
                         print_string(" \t");
                     }

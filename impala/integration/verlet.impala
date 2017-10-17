@@ -4,7 +4,7 @@ fn integrate_x_vector(cell: Cell, dt: real) -> () {
     let forces_old  = get_array_of_real(cell.forces_old);
     let positions  = get_array_of_real(cell.positions);
     let velocities  = get_array_of_real(cell.velocities);
-    for i in $map_range(@null(), cell.size * @dimension()) @{
+    for i in $map_range(SIZE_T_0, cell.size * DIMENSION) @{
     //for i in vectorize(4, 4, 0, cell.padded_size as i32) {
         let a = dt * 0.5 / masses(i);
         let tmp1 = a * forces(i);
@@ -20,7 +20,7 @@ fn integrate_v_vector(cell: Cell, dt: real) -> () {
     let forces  = get_array_of_real(cell.forces);
     let forces_old  = get_array_of_real(cell.forces_old);
     let velocities  = get_array_of_real(cell.velocities);
-    for i in $map_range(@null(), cell.size * @dimension()) @{
+    for i in $map_range(SIZE_T_0, cell.size * DIMENSION) @{
     //for i in vectorize(4, 4, 0, cell.padded_size as i32) {
         let a = dt * 0.5 / masses(i);
         let tmp1 = forces(i) + forces_old(i);

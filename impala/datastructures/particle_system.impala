@@ -23,14 +23,14 @@ fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, domain
         ghost_layer: || {ghost_layer},
         start: || {
             let mut start : [size_t * 3];
-            for d in @map_range(0 as size_t, @dimension()) {
+            for d in @map_range(0 as size_t, DIMENSION) {
                 start(d) = ghost_layer;
             }
             start
         },
         end: || {
             let mut end : [size_t * 3];
-            for d in @map_range(0 as size_t, @dimension()) {
+            for d in @map_range(0 as size_t, DIMENSION) {
                 end(d) = nc(d) - ghost_layer;
             }
             end
@@ -81,7 +81,7 @@ fn allocate_particle_system(np: size_t, ghost_layer: size_t, domain: Vector, coo
     let mut nc : [size_t * 3];
     let mut pnc = 1 as size_t;
     let extended_domain = increase_vector(domain, 2.0*(ghost_layer as real) * @constants.r_cut()); 
-    for d in @map_range(0 as size_t, @dimension()){
+    for d in @map_range(0 as size_t, DIMENSION){
         nc(d) = math.floor(domain.get()(d)/constants.r_cut()) as size_t + (2 as size_t * ghost_layer);
         pnc *= nc(d);
     }
@@ -112,10 +112,10 @@ fn deallocate_particle_system(P: ParticleSystem) -> () {
 }
 
 fn print_particle_system(P: ParticleSystem) -> () {
-    for ic, head in map_particle_cells([@null(),..3], P.nc(), P) {
+    for ic, head in map_particle_cells([SIZE_T_0,..3], P.nc(), P) {
         if(head != 0 as &mut ParticleList) { 
             print_string("Cell \t");
-            for d in map_range(@null(), @dimension()) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 print_i64(ic(d) as i64);
                 print_string(" \t");
             }
@@ -126,20 +126,20 @@ fn print_particle_system(P: ParticleSystem) -> () {
                 let vel = p.getVelocities().get();
                 let force = p.getForces().get();
                 print_string("Position: \t");
-                for d in map_range(@null(), @dimension()) {
+                for d in map_range(SIZE_T_0, DIMENSION) {
                     print_f64(pos(d));
                     print_string(" \t");
                 }
                 print_string("\n");
                 print_string("Velocity: \t");
-                for d in map_range(@null(), @dimension()) {
+                for d in map_range(SIZE_T_0, DIMENSION) {
                     print_f64(vel(d));
                     print_string(" \t");
                 }
                 print_string("\n");
 
                 print_string("Force: \t");
-                for d in map_range(@null(), @dimension()) {
+                for d in map_range(SIZE_T_0, DIMENSION) {
                     print_f64(force(d));
                     print_string(" \t");
                 }

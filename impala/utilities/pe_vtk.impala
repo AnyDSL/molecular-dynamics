@@ -50,7 +50,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
     fprint_string(fp, "POINT_DATA ");
     fprint_size_t(fp, N);
     fprint_string(fp, "\n");
-    for d in map_range(start, @dimension()) {
+    for d in map_range(start, DIMENSION) {
         fprint_string(fp, "SCALARS velocity_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");
@@ -64,7 +64,7 @@ fn fprint_particle_system(fname: &[u8], step: size_t, P: ParticleSystem) -> ()
         }
         fprint_string(fp, "\n");
     }
-    for d in map_range(start, @dimension()) {
+    for d in map_range(start, DIMENSION) {
         fprint_string(fp, "SCALARS force_dim_");
         fprint_size_t(fp, d);
         fprint_line(fp, " double");

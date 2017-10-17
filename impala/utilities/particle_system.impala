@@ -1,7 +1,7 @@
 /*fn print_particle_system(P: ParticleSystem) -> (){    
     let mut ic_start : [size_t * 3];
     let ic_end = P.nc();
-    for d in @map_range(0 as size_t, @dimension()) {
+    for d in @map_range(0 as size_t, DIMENSION) {
         ic_start(d) = 0 as size_t;
     }
 
@@ -40,7 +40,7 @@ fn insert_particle(node: &mut ParticleList, i: size_t, P: ParticleSystem) -> () 
 
 fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
     let mut pos : [size_t * 3];
-    for d in @map_range(0 as size_t, @dimension()) {
+    for d in @map_range(0 as size_t, DIMENSION) {
         pos(d) = P.nc()(d) / 2 as size_t;
     }
     let root = P.head(index(pos, P.nc()));
@@ -50,10 +50,10 @@ fn push_node(node: &mut ParticleList, P: ParticleSystem) -> () {
 fn compute_cell_position(p: Particle, P: ParticleSystem) -> [size_t * 3] {
     let mut kc : [size_t * 3];
     let coordinates_x = p.getCoordinates().get();
-    let r_cut_inv = @P.constants().r_cut_inv();
+    let r_cut_inv = P.constants().r_cut_inv();
     let nc = P.nc();
     let coordinate_shift = P.coordinate_shift().get();
-    for d in @map_range(@null(), @dimension()) {
+    for d in @map_range(SIZE_T_0, DIMENSION) {
         kc(d) = math.floor((coordinates_x(d) + P.shadow_offset() + coordinate_shift(d)) * r_cut_inv) as size_t;
     }
     kc
@@ -102,7 +102,7 @@ fn parallel_map_particle_system(start: [size_t * 3], end: [size_t * 3], P: Parti
 fn map_particle_system_with_ghost_layers(start: [size_t * 3], end: [size_t * 3], lower_boundary: [size_t * 3], upper_boundary :[size_t * 3], P: ParticleSystem, f: fn([size_t * 3], &mut ParticleList, bool) -> ()) -> () {
     for ic, head in map_particle_cells(start, end, P) {
         let mut write = true;
-        for d in @map_range(0 as size_t, @dimension()) {
+        for d in @map_range(0 as size_t, DIMENSION) {
             if(ic(d) < lower_boundary(d) || ic(d) >= upper_boundary(d)) {
                 write = false;
             }

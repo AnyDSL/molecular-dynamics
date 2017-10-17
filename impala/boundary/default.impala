@@ -7,13 +7,13 @@ fn boundary(p: Particle, P: ParticleSystem) -> () {
     let shadow_offset = P.shadow_offset();
     let coordinate_shift = P.coordinate_shift().get();
 
-    for d in @map_range(0 as size_t, @dimension()) {
+    for d in @map_range(0 as size_t, DIMENSION) {
         if(x(d) + shadow_offset + coordinate_shift(d) < 0.0) {
-            x(d) = @epsilon() - shadow_offset - coordinate_shift(d);
+            x(d) = EPSILON - shadow_offset - coordinate_shift(d);
             change = true;
         }
         else if(x(d) + shadow_offset + coordinate_shift(d) > domain(d)) {
-            x(d) = domain(d) - shadow_offset - @epsilon() - coordinate_shift(d);
+            x(d) = domain(d) - shadow_offset - EPSILON - coordinate_shift(d);
             change = true;
         }
     }

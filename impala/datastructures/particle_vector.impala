@@ -26,8 +26,8 @@ fn get_padded_size(n: size_t) -> size_t {
 }
 
 fn allocate_cell(size: size_t) -> Cell {
-    if(size > @null()) {
-        let padded_size = get_padded_size(@dimension() * size);
+    if(size > SIZE_T_0) {
+        let padded_size = get_padded_size(DIMENSION * size);
         Cell {
             size: size,
             padded_size: padded_size,
@@ -41,8 +41,8 @@ fn allocate_cell(size: size_t) -> Cell {
     }
     else {
         Cell {
-            size: @null(),
-            padded_size: @null(),
+            size: SIZE_T_0,
+            padded_size: SIZE_T_0,
             masses: Buffer {device: 0, data: 0 as &[i8]},
             positions: Buffer {device: 0, data: 0 as &[i8]},
             velocities: Buffer {device: 0, data: 0 as &[i8]},
@@ -66,8 +66,8 @@ fn get_particle_vector(buf: Buffer, nc: index_t) -> ParticleVector {
 }
 
 fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool) -> () {
-    for ic, head in $map_particle_cells([@null(),..3], P.nc(), P) @{
-        let mut count = @null();
+    for ic, head in $map_particle_cells([SIZE_T_0,..3], P.nc(), P) @{
+        let mut count = SIZE_T_0;
         for pl in $map_list(head) {
             ++count;
         }
@@ -83,18 +83,18 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
             vector.setCell(i, allocate_cell(count));
         }
         let cell        = vector.getCell(i);
-        if(cell.size != @null()) {
+        if(cell.size != SIZE_T_0) {
             let masses      = get_array_of_real(cell.masses);
             let positions   = get_array_of_real(cell.positions);
             let velocities  = get_array_of_real(cell.velocities);
             let forces      = get_array_of_real(cell.forces);
             let forces_old  = get_array_of_real(cell.forces_old);
             let nodes       = get_array_of_nodes(cell.nodes);
-            let mut j = @null();
+            let mut j = SIZE_T_0;
             for pl in $map_list(head) @{
                 let p = get_particle_from_node(pl);
-                let base = j * @dimension();
-                for d in @map_range(@null(), @dimension()) {
+                let base = j * DIMENSION;
+                for d in @map_range(SIZE_T_0, DIMENSION) {
                     masses(base + d) = p.getMass();
                     positions(base + d) = p.getCoordinates().get()(d);
                     velocities(base + d) = p.getVelocities().get()(d);
@@ -118,14 +118,14 @@ fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index
         let forces      = get_array_of_real(cell.forces);
         let forces_old  = get_array_of_real(cell.forces_old);
         let nodes       = get_array_of_nodes(cell.nodes);
-        for j in map_range(@null(), cell.size) @{
+        for j in map_range(SIZE_T_0, cell.size) @{
             let p = get_particle_from_node(nodes(j));
-            let base = j * @dimension();
+            let base = j * DIMENSION;
             let mut pos : [real * 3];
             let mut vel : [real * 3];
             let mut force : [real * 3];
             let mut force_old : [real * 3];
-            for d in @map_range(@null(), @dimension()) {
+            for d in @map_range(SIZE_T_0, DIMENSION) {
                 pos(d) = positions(base + d);
                 vel(d) = velocities(base + d);
                 force(d) = forces(base + d);
@@ -140,13 +140,13 @@ fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index
 }
 
 fn clean_up_particle_vector(vector: ParticleVector) -> () {
-    for ic, cell in $map_particle_vector([@null(),..3], vector.nc(), vector) @{
+    for ic, cell in $map_particle_vector([SIZE_T_0,..3], vector.nc(), vector) @{
         deallocate_cell(cell);
     }
 }
 
 fn deallocate_cell(cell: Cell) -> () {
-    if(cell.size == @null()) {}
+    if(cell.size == SIZE_T_0) {}
     else {
         release(cell.masses);
         release(cell.positions);
@@ -175,7 +175,7 @@ fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: 
             for i in $map_range(start(0), end(0)) @{
                 let ic = [i,j,k];
                 let cell = vector.getCell(index(ic, vector.nc()));
-                if(cell.size != @null()) {
+                if(cell.size != SIZE_T_0) {
                     f(ic, cell);
                 }
             }
@@ -184,9 +184,9 @@ fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: 
 }
 
 fn print_particle_vector(vector: ParticleVector) -> () {
-    for ic, cell in map_particle_vector([@null(),..3], vector.nc(), vector) {
+    for ic, cell in map_particle_vector([SIZE_T_0,..3], vector.nc(), vector) {
         print_string("Cell \t");
-        for d in map_range(@null(), @dimension()) {
+        for d in map_range(SIZE_T_0, DIMENSION) {
             print_i64(ic(d) as i64);
             print_string(" \t");
         }
@@ -194,23 +194,23 @@ fn print_particle_vector(vector: ParticleVector) -> () {
         let positions = get_array_of_real(cell.positions);
         let velocities = get_array_of_real(cell.velocities);
         let forces = get_array_of_real(cell.forces);
-        for i in map_range(@null(), cell.size) {
+        for i in map_range(SIZE_T_0, cell.size) {
             print_string("Position: \t");
-            for d in map_range(@null(), @dimension()) {
-                print_f64(positions(i * @dimension() + d));
+            for d in map_range(SIZE_T_0, DIMENSION) {
+                print_f64(positions(i * DIMENSION + d));
                 print_string(" \t");
             }
             print_string("\n");
             print_string("Velocity: \t");
-            for d in map_range(@null(), @dimension()) {
-                print_f64(velocities(i * @dimension() + d));
+            for d in map_range(SIZE_T_0, DIMENSION) {
+                print_f64(velocities(i * DIMENSION + d));
                 print_string(" \t");
             }
             print_string("\n");
 
             print_string("Force: \t");
-            for d in map_range(@null(), @dimension()) {
-                print_f64(forces(i * @dimension() + d));
+            for d in map_range(SIZE_T_0, DIMENSION) {
+                print_f64(forces(i * DIMENSION + d));
                 print_string(" \t");
             }
             print_string("\n");

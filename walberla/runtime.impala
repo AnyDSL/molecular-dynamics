@@ -8,7 +8,7 @@ extern
 fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintptr_t], domains: &[&[real]], coordinate_shifts: &[&[real]], ghost_layers: &[size_t] , nParticles_local: &[size_t], nParticles_shadow: &[size_t]) -> (){
     nBlocks_ = nBlocks;
     invalidate_block_list(&mut head_);
-    for i in map_range(@null(), nBlocks) {
+    for i in map_range(SIZE_T_0, nBlocks) {
         let mut node = find_block_node_with_id(ids(i), head_);
         let np = nParticles_local(i) + nParticles_shadow(i);
         if(node != 0 as &mut BlockList) {
@@ -26,7 +26,7 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
             c_initialize_particle_system(&mut node.block, np, ghost_layers(i), domains(i), coordinate_shifts(i));
             let P = get_particle_system_from_data_struct(node.block);
             let mut pnc = 1 as size_t;
-            for d in @map_range(@null(), @dimension()) {
+            for d in @map_range(SIZE_T_0, DIMENSION) {
                 pnc *= P.nc()(d);
             }
             node.vec_buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
@@ -69,7 +69,7 @@ fn c_reinitialize_particle_system(P_data: &mut ParticleSystemData, np: size_t) -
         let P_new = get_particle_system(np, nc, ghost_layer, domain, coordinate_shift, data_cells, constants, data_addresses);
         if(np_old > np) {
             let mut end = 1 as size_t;
-            for d in @map_range(0 as size_t, dimension()) {
+            for d in @map_range(0 as size_t, DIMENSION) {
                 end *= nc(d);
             }
             let mut j = np_old as size_t;
@@ -100,7 +100,7 @@ fn c_reinitialize_particle_system(P_data: &mut ParticleSystemData, np: size_t) -
 fn c_map_particles(P_data: &mut ParticleSystemData, np_local: size_t, np_shadow: size_t) -> () {
     let P = get_particle_system_from_data_struct(*P_data);
     let addresses = P.addresses();
-    for i in $map_range(@null(), np_local) @{
+    for i in $map_range(SIZE_T_0, np_local) @{
         let pl = addresses.get(i);
         pl.index = i;
         pl.isLocal = true;
@@ -117,11 +117,11 @@ fn c_time_integration(dt: real, iteration: size_t) -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        if(iteration == @null()) {
+        if(iteration == SIZE_T_0) {
             move_particles(P);
             compute_force(P, force, 1);
         }
-        integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
+        integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, 1, integrate_x);
         move_particles(P);
         compute_force(P, force, 1);
         integrate(P, P.start(), P.end(), dt, 1, integrate_v);
@@ -137,15 +137,15 @@ fn c_time_integration_vector(dt: real, iteration: size_t) -> () {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
         let vector = get_particle_vector(node.vec_buf, P.nc());
-        if(iteration == @null()) {
+        if(iteration == SIZE_T_0) {
             move_particles(P);
             init_particle_vector(vector, P, true);
             compute_force_vector(P, vector, force_vector);
-            integrate_vector(vector, [@null(),..3], P.nc(), dt, integrate_x_vector);
-            write_back_particle_vector(vector, [@null(),..3], P.nc(), P);
+            integrate_vector(vector, [SIZE_T_0,..3], P.nc(), dt, integrate_x_vector);
+            write_back_particle_vector(vector, [SIZE_T_0,..3], P.nc(), P);
         }
         else {
-            integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
+            integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, 1, integrate_x);
         }
         move_particles(P);
         init_particle_vector(vector, P, true);
@@ -179,7 +179,7 @@ fn c_position_integration(dt: real) -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        integrate_local_particles(P, [@null(),..3], P.nc(), dt, 1, integrate_x);
+        integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, 1, integrate_x);
     }
 }
 

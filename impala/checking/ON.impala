@@ -21,7 +21,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
     let end = P.end();
     let zero_array = [@null(),..3];
     let nc = P.nc();
-    for d in map_range(@null(), @dimension()) {
+    for d in map_range(@null(), DIMENSION) {
         if(domain.get()(d) < 0.0) {
             print_string("Invalid simulation domain\n");
             status = false;
@@ -52,7 +52,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
             let F = p.getForces().get();
             let F_old = p.getForces_old().get();
             let kc = compute_cell_position(p, P);
-            for d in map_range(@null(), @dimension()) {
+            for d in map_range(@null(), DIMENSION) {
                 // Check position
 
                 if(math.isinf(X(d)) != 0) {
@@ -95,7 +95,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
             }
             // Check cell index
             let mut out_of_range = false;
-            for d in map_range(@null(), @dimension()) {
+            for d in map_range(@null(), DIMENSION) {
                 if(kc(d) >= nc(d)) {
                     out_of_range = true;
                 }
