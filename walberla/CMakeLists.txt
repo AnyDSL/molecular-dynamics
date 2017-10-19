@@ -3,8 +3,9 @@ find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 
+set(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
 set(CLANG_FLAGS -O3 -march=native)
-set(IMPALA_FLAGS --log-level error)
+set(IMPALA_FLAGS --emit-llvm --log-level error)
 set(IMPALA_SRC_DIR ../impala)
 
 
@@ -30,3 +31,4 @@ waLBerla_add_executable ( NAME md_simulation
     DEPENDS core blockforest pe domain_decomposition vtk
  )
 target_link_libraries(md_simulation m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
+set_target_properties(md_simulation PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
