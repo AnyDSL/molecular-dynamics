@@ -63,7 +63,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
     for d in @map_range(SIZE_T_0, DIMENSION) {
         pnc *= P.nc()(d);
     }
-    let buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
+    let vec_data = allocate((pnc * sizeof[Cell]() as size_t) as size_t);
    
     let mut t : real = t_start; 
     let mut count = 0 as size_t;
@@ -75,7 +75,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
         fprint_particle_system(str, i, P);
         ++i;
     }
-    let vector : ParticleVector = get_particle_vector(buf, P.nc());
+    let vector : ParticleVector = get_particle_vector(vec_data, P.nc());
     init_particle_vector(vector, P, false);
     compute_force_vector(P, vector, force_vector);
 
@@ -98,7 +98,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, numthreads: int, vtk: 
         ++count;
     }
     clean_up_particle_vector(vector);
-    release(buf);
+    deallocate(vec_data);
     P_data_ = get_data_struct_from_particle_system(P); 
 }
 

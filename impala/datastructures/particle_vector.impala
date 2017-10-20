@@ -10,12 +10,12 @@ struct ParticleVector {
 struct Cell {
     size: size_t,
     padded_size: size_t,
-    masses: Buffer,
-    positions: Buffer,
-    velocities: Buffer,
-    forces: Buffer,
-    forces_old: Buffer,
-    nodes: Buffer
+    masses: &[i8],
+    positions: &[i8],
+    velocities: &[i8],
+    forces: &[i8],
+    forces_old: &[i8],
+    nodes: &[i8]
 }
 fn get_padded_size(n: size_t) -> size_t {
     let mut k = 1 as size_t;
@@ -31,36 +31,36 @@ fn allocate_cell(size: size_t) -> Cell {
         Cell {
             size: size,
             padded_size: padded_size,
-            masses: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            positions: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            velocities: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            forces: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            forces_old: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            nodes: alloc_cpu((size * sizeof[&mut ParticleList]() as size_t) as i32)
+            masses: allocate((padded_size * sizeof[real]() as size_t) as size_t), 
+            positions: allocate((padded_size * sizeof[real]() as size_t) as size_t), 
+            velocities: allocate((padded_size * sizeof[real]() as size_t) as size_t), 
+            forces: allocate((padded_size * sizeof[real]() as size_t) as size_t), 
+            forces_old: allocate((padded_size * sizeof[real]() as size_t) as size_t), 
+            nodes: allocate((size * sizeof[&mut ParticleList]() as size_t) as size_t)
         }
     }
     else {
         Cell {
             size: SIZE_T_0,
             padded_size: SIZE_T_0,
-            masses: Buffer {device: 0, data: 0 as &[i8]},
-            positions: Buffer {device: 0, data: 0 as &[i8]},
-            velocities: Buffer {device: 0, data: 0 as &[i8]},
-            forces: Buffer {device: 0, data: 0 as &[i8]},
-            forces_old: Buffer {device: 0, data: 0 as &[i8]},
-            nodes: Buffer {device: 0, data: 0 as &[i8]}
+            masses: 0 as &[i8],
+            positions: 0 as &[i8],
+            velocities: 0 as &[i8],
+            forces: 0 as &[i8],
+            forces_old: 0 as &[i8],
+            nodes: 0 as &[i8]
         }
     }
 }
 
-fn get_particle_vector(buf: Buffer, nc: index_t) -> ParticleVector {
+fn get_particle_vector(data: &[i8], nc: index_t) -> ParticleVector {
     ParticleVector {
         nc: || {nc},
         getCell: |i| {
-            bitcast[&[Cell]](buf.data)(i)
+            bitcast[&[Cell]](data)(i)
         },
         setCell: |i, cell| {
-            bitcast[&mut[Cell]](buf.data)(i) = cell;
+            bitcast[&mut[Cell]](data)(i) = cell;
         }
     }
 }
@@ -148,25 +148,25 @@ fn clean_up_particle_vector(vector: ParticleVector) -> () {
 fn deallocate_cell(cell: Cell) -> () {
     if(cell.size == SIZE_T_0) {}
     else {
-        release(cell.masses);
-        release(cell.positions);
-        release(cell.velocities);
-        release(cell.forces);
-        release(cell.forces_old);
-        release(cell.nodes);
+        deallocate(cell.masses);
+        deallocate(cell.positions);
+        deallocate(cell.velocities);
+        deallocate(cell.forces);
+        deallocate(cell.forces_old);
+        deallocate(cell.nodes);
     }
 }
 
-fn get_array_of_real(buf: Buffer) -> &mut[real] {
-    bitcast[&mut[real]](buf.data) 
+fn get_array_of_real(data: &[i8]) -> &mut[real] {
+    bitcast[&mut[real]](data) 
 }
 
-fn get_array_of_i8(buf: Buffer) -> &mut[i8] {
-    bitcast[&mut[i8]](buf.data) 
+fn get_array_of_i8(data: &[i8]) -> &mut[i8] {
+    bitcast[&mut[i8]](data) 
 }
 
-fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
-    bitcast[&mut[&mut ParticleList]](buf.data) 
+fn get_array_of_nodes(data: &[i8]) -> &mut[&mut ParticleList] {
+    bitcast[&mut[&mut ParticleList]](data) 
 }
 
 fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: fn(index_t, Cell) -> ()) -> () { 

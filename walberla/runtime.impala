@@ -17,7 +17,7 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
             node.storage = storages(i);
             c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
             let P = get_particle_system_from_data_struct(node.block);
-            let vector = get_particle_vector(node.vec_buf, P.nc());
+            let vector = get_particle_vector(node.vec_data, P.nc());
             impala_set_storage(node.storage);
         }
         else {
@@ -29,11 +29,11 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
             for d in @map_range(SIZE_T_0, DIMENSION) {
                 pnc *= P.nc()(d);
             }
-            node.vec_buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
+            node.vec_data = allocate((pnc * sizeof[Cell]() as size_t) as size_t);
             node.storage = storages(i);
             c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
             let P2 = get_particle_system_from_data_struct(node.block);
-            let vector = get_particle_vector(node.vec_buf, P2.nc());
+            let vector = get_particle_vector(node.vec_data, P2.nc());
             impala_set_storage(node.storage);
             init_particle_vector(vector, P2, false);
         }
@@ -135,7 +135,7 @@ fn c_time_integration_vector(dt: real, iteration: size_t) -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        let vector = get_particle_vector(node.vec_buf, P.nc());
+        let vector = get_particle_vector(node.vec_data, P.nc());
         if(iteration == SIZE_T_0) {
             move_particles(P);
             init_particle_vector(vector, P, true);
