@@ -16,9 +16,6 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
             c_reinitialize_particle_system(&mut node.block, np);
             node.storage = storages(i);
             c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
-            let P = get_particle_system_from_data_struct(node.block);
-            let vector = get_particle_vector(node.vec_data, P.nc());
-            impala_set_storage(node.storage);
         }
         else {
             node = allocate_block_node(ids(i));    
@@ -156,38 +153,39 @@ fn c_time_integration_vector(dt: real, iteration: size_t) -> () {
     
 }
 
-extern
-fn c_distribute_particles() -> () {
+extern 
+fn c_compute_initial_forces() -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
         move_particles(P);
-    }
-}
-extern
-fn c_force_calculation() -> () {
-    for node in map_block_list(head_) {
-        impala_set_storage(node.storage);
-        let P = get_particle_system_from_data_struct(node.block);
-        compute_force(P, force, 1);
+        let vector = get_particle_vector(node.vec_data, P.nc());
+        init_particle_vector(vector, P, true);
+        compute_force_vector(P, vector, force_vector);
     }
 }
 
 extern
-fn c_position_integration(dt: real) -> () {
+fn c_time_step_first_part(dt: real) -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, 1, integrate_x);
+        let vector = get_particle_vector(node.vec_data, P.nc());
+        integrate_vector(vector, P.start(), P.end(), dt, integrate_x_vector);
+        write_back_particle_vector(vector, P.start(), P.end(), P);
     }
 }
 
 extern
-fn c_velocity_integration(dt: real) -> () {
+fn c_time_step_second_part(dt: real) -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        integrate(P, P.start(), P.end(), dt, 1, integrate_v);
+        move_particles(P);
+        let vector = get_particle_vector(node.vec_data, P.nc());
+        init_particle_vector(vector, P, true);
+        compute_force_vector(P, vector, force_vector);
+        integrate_vector(vector, P.start(), P.end(), dt, integrate_v_vector);
     }
 }
 

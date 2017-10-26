@@ -76,18 +76,19 @@ void anydsl_md_time_integration_vector(real_t dt, size_t iteration)  {
     c_time_integration_vector(static_cast<double>(dt), static_cast<uint64_t>(iteration));
 }
 
-void anydsl_md_distribute_particles() {
-    c_distribute_particles();
+void anydsl_md_compute_initial_forces() {
+    c_compute_initial_forces();
 }
-void anydsl_md_force_calculation() {
-    c_force_calculation();
+
+void anydsl_md_time_step_first_part(real_t dt) {
+    c_time_step_first_part(static_cast<double>(dt));
 }
-void anydsl_md_position_integration(real_t dt) {
-    c_position_integration(static_cast<double>(dt));
+
+
+void anydsl_md_time_step_second_part(real_t dt) {
+    c_time_step_second_part(static_cast<double>(dt));
 }
-void anydsl_md_velocity_integration(real_t dt) {
-    c_velocity_integration(static_cast<double>(dt));
-}
+
 void anydsl_md_delete_blocks() {
     c_delete_blocks();
 }

@@ -1,5 +1,5 @@
 fn init_constants() -> Constants {
-    get_constants(2.5, 1.0, 5.0)
+    get_constants(5.0, 1.0, 5.0)
 }
 
 
