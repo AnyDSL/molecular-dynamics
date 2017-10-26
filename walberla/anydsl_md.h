@@ -19,10 +19,9 @@ extern "C" {
     void c_reinitialize_block_list(uint64_t, uint64_t *, uint64_t *, double **, double **, uint64_t *, uint64_t *, uint64_t *);
     void c_time_integration(double, uint64_t);
     void c_time_integration_vector(double, uint64_t);
-    void c_distribute_particles();
-    void c_force_calculation();
-    void c_position_integration(double);
-    void c_velocity_integration(double);
+    void c_compute_initial_forces();
+    void c_time_step_first_part(double);
+    void c_time_step_second_part(double);
     void c_delete_blocks();
     void c_check_invariants();
 }
@@ -30,9 +29,8 @@ extern "C" {
 void anydsl_md_reinitialize_blocks(shared_ptr<BlockForest>, BlockDataID); 
 void anydsl_md_time_integration(real_t, size_t); 
 void anydsl_md_time_integration_vector(real_t, size_t); 
-void anydsl_md_distribute_particles();
-void anydsl_md_force_calculation();
-void anydsl_md_position_integration(real_t);
-void anydsl_md_velocity_integration(real_t);
+void anydsl_md_compute_initial_forces();
+void anydsl_md_time_step_first_part(real_t); 
+void anydsl_md_time_step_second_part(real_t); 
 void anydsl_md_delete_blocks();
 void anydsl_md_check_invariants();

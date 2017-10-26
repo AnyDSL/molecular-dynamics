@@ -209,31 +209,44 @@ int main( int argc, char ** argv )
    WALBERLA_LOG_INFO_ON_ROOT("*** SIMULATION - START ***");
    WcTimingPool tp;
    tt.start("Simulation Loop");
+
+   tt.start("Reinitialization");
+   anydsl_md_reinitialize_blocks(forest, storageID);
+   tt.stop("Reinitialization");
+
+   tt.start("Solver");
+   anydsl_md_compute_initial_forces();
+   tt.stop("Solver");
+   
    for (size_t i=0; i < simulationSteps; ++i)
    {
        if( i % 10 == 0 )
        {
            WALBERLA_LOG_DEVEL_ON_ROOT( "Timestep " << i << " / " << simulationSteps );
        }
-       tt.start("Reinitialization");
-       anydsl_md_reinitialize_blocks(forest, storageID);
-       tt.stop("Reinitialization");
-       
+       /*
        tt.start("Visualization");
        if( i % visSpacing == 0 )
        {
            vtkWriter->write( true );
        }
        tt.stop("Visualization");
-       
+       */
        tt.start("Solver");
-       //anydsl_md_time_integration(dt, i);
-       anydsl_md_time_integration_vector(dt, i);
+       anydsl_md_time_step_first_part(dt);
        tt.stop("Solver");
 
        tt.start("Sync");
        pe::syncNextNeighbors<BodyTuple>(*forest, storageID, &tt, real_c(0.0), false );
        tt.stop("Sync");
+       
+       tt.start("Reinitialization");
+       anydsl_md_reinitialize_blocks(forest, storageID);
+       tt.stop("Reinitialization");
+
+       tt.start("Solver");
+       anydsl_md_time_step_second_part(dt);
+       tt.stop("Solver");
    }
    anydsl_md_delete_blocks();
    tt.stop("Simulation Loop");
