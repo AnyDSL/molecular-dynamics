@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(ANYDSL-MD C)
 #enable_testing()
 
-SET(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
+#SET(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
+SET(CMAKE_C_COMPILER "/home/jonas/Software/anydsl/llvm_build/bin/clang")
 find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
@@ -36,16 +37,16 @@ set(IMPALA_FLAGS -O3 --log-level error)
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
-    FILES 
-    intrinsics/intrinsics_cpu.impala 
+    FILES
+    intrinsics/intrinsics_cpu.impala
     mapping/mapping_cpu.impala
-    utilities/common.impala utilities/linked_list.impala utilities/particle_system.impala utilities/vtk.impala 
+    utilities/common.impala utilities/linked_list.impala utilities/particle_system.impala utilities/vtk.impala
     datastructures/linked_list.impala datastructures/array_of_addresses.impala datastructures/particle_vector.impala datastructures/particle_system.impala
-    potential/lennard_jones.impala algorithm/force_calculation.impala  
-    integration/verlet.impala boundary/default.impala  
-    algorithm/integration.impala algorithm/distribution.impala 
-    initialization/constants/test.impala initialization/particles/${INIT}.impala 
-    count_force_evaluations/${COUNT_FORCE_EVALUATIONS}.impala checking/${CHECK_INVARIANTS}.impala 
+    potential/lennard_jones.impala algorithm/force_calculation.impala
+    integration/verlet.impala boundary/default.impala
+    algorithm/integration.impala algorithm/distribution.impala
+    initialization/constants/test.impala initialization/particles/${INIT}.impala
+    count_force_evaluations/${COUNT_FORCE_EVALUATIONS}.impala checking/${CHECK_INVARIANTS}.impala
     run.impala)
 
 add_executable(md main.c ${MD_PROGRAM} ../clib/fileIO.c ../clib/allocate.c ../clib/random.c)

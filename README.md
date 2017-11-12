@@ -11,12 +11,11 @@ ccmake .
 ```
 ### Running
 ```sh
-./md dt steps particles numthreads [-vtk]
+./md dt steps particles [-vtk]
 ```
 * ```dt```: time step length  
 * ```steps```: number of time steps  
 * ```particles```: number of particles  
-* ```numthreads```: number of threads used  
 * ```-vtk```: if this argument is provided, vtk output is created in ../impala_vtk 
 
 ## C Reference

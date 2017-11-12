@@ -14,21 +14,22 @@
 
 typedef double real;
 void initialize_system(size_t, real *);
-void time_integration(real, real, real, int, bool);
+void time_integration(real, real, real, bool);
+void time_integration_vector(real, real, real, bool);
 void deallocate_system();
 size_t get_number_of_force_evaluations();
 void print_usage(char *name) {
-    printf("Usage: %s dt steps particles numthreads -vtk\n", name);
+    printf("Usage: %s dt steps nparticles -vtk\n", name);
 }
 int main(int argc, char** argv) {
-    if(argc != 5 && argc != 6) {
+    if(argc != 4 && argc != 5) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
 
     bool vtk = false;
-    if(argc == 6) {
-        if(strlen(argv[5]) != 4 || strncmp(argv[5], "-vtk", 4) != 0) {
+    if(argc == 5) {
+        if(strlen(argv[4]) != 4 || strncmp(argv[4], "-vtk", 4) != 0) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
@@ -49,23 +50,23 @@ int main(int argc, char** argv) {
     size_t const nsamples = 1;
     double average = 0.0;
     double samples[nsamples];
-    int nthreads = atoi(argv[4]);
     size_t np = atol(argv[3]);
     /*for(size_t i = 0; i < 50; ++i) { 
         initialize_system(np, l);
-        time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
+        time_integration(0.0, atol(argv[2])*dt, dt, vtk);
         deallocate_system();
     }*/
 
 
     for(size_t i = 0; i < nsamples; ++i) { 
-
         initialize_system(np, l);
         LIKWID_MARKER_INIT;
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
         gettimeofday(&t1, NULL);
-        time_integration(0.0, atol(argv[2])*dt, dt, nthreads, vtk);
+        // To run the vectorized code:
+        // time_integration_vector(0.0, atol(argv[2])*dt, dt, vtk);
+        time_integration(0.0, atol(argv[2])*dt, dt, vtk);
         gettimeofday(&t2, NULL);
         LIKWID_MARKER_STOP("Compute");
         LIKWID_MARKER_CLOSE;
@@ -84,15 +85,9 @@ int main(int argc, char** argv) {
         stdev += tmp*tmp;
     }
     stdev = sqrt(stdev/(nsamples-1));
-    /*if(average > 60.0) {
-        unsigned long minutes = (unsigned long)(floor(average / 60.0));
-        average -= minutes * 60.0;
-        printf("Elapsed Time: %lu min %f s\n", minutes, average);
-    }*/
-    //else {
-    //printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
-    printf("%i\t%f\t%f\n", nthreads, average, stdev);
-    //}
+    printf("Average Runtime: %f s\tStandard Deviation: %f s\n", average, stdev);
+    //printf("%f\t%f\n", average, stdev);
+
     if(count_force_evaluations) {
         if(get_number_of_force_evaluations() + 1 == 0) {
             printf("Maximum number of countable force_evaluations reached\n");

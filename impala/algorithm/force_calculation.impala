@@ -61,8 +61,8 @@ fn compute_force_vector(P: ParticleSystem, vector: ParticleVector, force_vector:
     }
 }
 
-fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> (), numthreads: int) -> () {
-    for ic, pl1 in $parallel_map_particle_system(P.start(), P.end(), P, numthreads) @{
+fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> ()) -> () {
+    for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
         let p1 = get_particle_from_node(pl1);
         p1.setForces(@get_null_vector());
     }
@@ -71,7 +71,7 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
         ic_start(d) = SIZE_T_0;
     }
     let ic_end = P.nc();
-    for ic, head in $parallel_map_particle_cells(ic_start, ic_end, P, numthreads) @{
+    for ic, head in $map_particle_cells(ic_start, ic_end, P) @{
         if(head != 0 as &mut ParticleList) {
             let mut jc_start : [size_t * 3]; 
             let mut jc_end : [size_t * 3];
