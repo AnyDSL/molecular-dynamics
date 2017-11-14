@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(ANYDSL-MD C)
 #enable_testing()
 
-#SET(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
-SET(CMAKE_C_COMPILER "/home/jonas/Software/anydsl/llvm_build/bin/clang")
+SET(CMAKE_C_COMPILER "/software/anydsl/llvm_build/bin/clang")
+#SET(CMAKE_C_COMPILER "/home/jonas/Software/anydsl/llvm_build/bin/clang")
 find_package(AnyDSL-runtime REQUIRED)
 include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
@@ -31,7 +31,7 @@ endif()
 
 set(CLANG_FLAGS -O3 -march=native )
 #set(CLANG_FLAGS -O0 -g )
-set(IMPALA_FLAGS -O3 --log-level error)
+set(IMPALA_FLAGS -O3 --log-level warn)
 #set(IMPALA_FLAGS --log-level error -g)
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM

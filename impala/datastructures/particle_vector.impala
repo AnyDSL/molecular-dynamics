@@ -15,10 +15,11 @@ struct Cell {
     velocities: Buffer,
     forces: Buffer,
     forces_old: Buffer,
-    nodes: Buffer
+    nodes: Buffer,
+    dirty: bool
 }
 fn get_padded_size(n: size_t) -> size_t {
-    let mut k = 1 as size_t;
+    let mut k = 4 as size_t;
     while (k < n) {
         k *= 2 as size_t;
     }
@@ -27,16 +28,17 @@ fn get_padded_size(n: size_t) -> size_t {
 
 fn allocate_cell(size: size_t) -> Cell {
     if(size > SIZE_T_0) {
-        let padded_size = get_padded_size(DIMENSION * size);
+        let padded_size = get_padded_size(size);
         Cell {
             size: size,
             padded_size: padded_size,
-            masses: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            positions: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            velocities: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            forces: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            forces_old: alloc_cpu((padded_size * sizeof[real]() as size_t) as i32), 
-            nodes: alloc_cpu((size * sizeof[&mut ParticleList]() as size_t) as i32)
+            masses: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
+            positions: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
+            velocities: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
+            forces: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
+            forces_old: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
+            nodes: alloc_cpu((padded_size * DIMENSION * sizeof[&mut ParticleList]() as size_t) as i32),
+            dirty: false
         }
     }
     else {
@@ -48,7 +50,8 @@ fn allocate_cell(size: size_t) -> Cell {
             velocities: Buffer {device: 0, data: 0 as &[i8]},
             forces: Buffer {device: 0, data: 0 as &[i8]},
             forces_old: Buffer {device: 0, data: 0 as &[i8]},
-            nodes: Buffer {device: 0, data: 0 as &[i8]}
+            nodes: Buffer {device: 0, data: 0 as &[i8]},
+            dirty: false
         }
     }
 }
@@ -102,6 +105,10 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
                     forces_old(base + d) = p.getForces_old().get()(d);
                 }
                 nodes(j) = pl;
+                ++j;
+            }
+            while(j < cell.padded_size) {
+                nodes(j) = 0 as &mut ParticleList;
                 ++j;
             }
         }
