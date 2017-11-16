@@ -20,8 +20,10 @@ fn c_time_step_first_part(dt: real) -> () {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
         let vector = get_particle_vector(node.vec_buf, P.nc());
-        integrate(vector, P.start(), P.end(), dt, integrate_x);
-        write_back_particle_vector(vector, P.start(), P.end(), P);
+        //integrate(vector, P.start(), P.end(), dt, integrate_x);
+        integrate(vector, [SIZE_T_0,..3], P.nc(), dt, integrate_x);
+        //write_back_particle_vector(vector, P.start(), P.end(), P);
+        write_back_particle_vector(vector, [SIZE_T_0,..3], P.nc(), P);
     }
 }
 
@@ -34,6 +36,7 @@ fn c_time_step_second_part(dt: real) -> () {
         move_particles(P, vector);
         init_particle_vector(vector, P, true);
         compute_force(P, vector, force);
-        integrate(vector, P.start(), P.end(), dt, integrate_v);
+        //integrate(vector, P.start(), P.end(), dt, integrate_v);
+        integrate(vector, [SIZE_T_0,..3], P.nc(), dt, integrate_v);
     }
 }
