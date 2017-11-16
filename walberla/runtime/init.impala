@@ -1,0 +1,124 @@
+extern "C" {
+    fn impala_set_storage(size_t) -> ();
+}
+
+static mut head_ : &mut BlockList; 
+static mut nBlocks_: size_t;
+
+extern
+fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintptr_t], domains: &[&[real]], coordinate_shifts: &[&[real]], ghost_layers: &[size_t] , nParticles_local: &[size_t], nParticles_shadow: &[size_t]) -> (){
+    nBlocks_ = nBlocks;
+    invalidate_block_list(&mut head_);
+    for i in map_range(SIZE_T_0, nBlocks) {
+        let mut node = find_block_node_with_id(ids(i), head_);
+        let np = nParticles_local(i) + nParticles_shadow(i);
+        if(node != 0 as &mut BlockList) {
+            node.valid = true;             
+            c_reinitialize_particle_system(&mut node.block, np);
+            node.storage = storages(i);
+            c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
+        }
+        else {
+            node = allocate_block_node(ids(i));    
+            insert_block_node(&mut head_, node);
+            c_initialize_particle_system(&mut node.block, np, ghost_layers(i), domains(i), coordinate_shifts(i));
+            let P = get_particle_system_from_data_struct(node.block);
+            let mut pnc = 1 as size_t;
+            for d in @map_range(SIZE_T_0, DIMENSION) {
+                pnc *= P.nc()(d);
+            }
+            node.vec_buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
+            node.storage = storages(i);
+            c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
+            let P2 = get_particle_system_from_data_struct(node.block);
+            let vector = get_particle_vector(node.vec_buf, P2.nc());
+            impala_set_storage(node.storage);
+            init_particle_vector(vector, P2, false);
+        }
+    }
+    delete_invalid_blocks(&mut head_);
+}
+
+fn c_initialize_particle_system(P_data: &mut ParticleSystemData, np: size_t, ghost_layer: size_t, domain: &[real], coordinate_shift: &[real]) -> () { 
+    let constants = init_constants();
+    let domain_v = get_vector([domain(0), domain(1), domain(2)]);    
+    let coordinate_shift_v = get_vector([coordinate_shift(0), coordinate_shift(1), coordinate_shift(2)]);    
+    let P = allocate_particle_system(np, ghost_layer, domain_v, coordinate_shift_v, constants); 
+    for i in map_range(0 as size_t, np) {
+        let node = allocate_particle_node();
+        push_node(node, P);
+    }
+    init_addresses(P);
+    *P_data = get_data_struct_from_particle_system(P);
+}
+
+fn c_reinitialize_particle_system(P_data: &mut ParticleSystemData, np: size_t) -> () {
+    let P = get_particle_system_from_data_struct(*P_data);
+    let np_old = P.np();
+    if(np_old != np) {
+        let constants = P.constants();
+        let data_cells = P.data_cells();
+        let ghost_layer = P.ghost_layer();
+        let domain = P.domain();
+        let coordinate_shift = P.coordinate_shift();
+        let nc = P.nc();
+        deallocate(P.data_addresses());
+        let data_addresses = allocate(np * sizeof[&u8]() as size_t);
+        let P_new = get_particle_system(np, nc, ghost_layer, domain, coordinate_shift, data_cells, constants, data_addresses);
+        if(np_old > np) {
+            let mut end = 1 as size_t;
+            for d in @map_range(0 as size_t, DIMENSION) {
+                end *= nc(d);
+            }
+            let mut j = np_old as size_t;
+            let mut c = 0 as size_t;
+            while (j > np as size_t && c < end) {
+                let head = P_new.head(c);
+                let node = remove(head);
+                if(node != 0 as &mut ParticleList) {
+                    deallocate_particle_node(node);
+                    --j;
+                }
+                else {
+                    ++c;
+                }
+            }
+        }
+        else {        
+            for j in map_range(np_old, np) {
+                let node = allocate_particle_node();
+                push_node(node, P_new);
+            }
+        }
+        init_addresses(P_new);
+        *P_data = get_data_struct_from_particle_system(P_new);        
+    }
+}
+
+fn c_map_particles(P_data: &mut ParticleSystemData, np_local: size_t, np_shadow: size_t) -> () {
+    let P = get_particle_system_from_data_struct(*P_data);
+    let addresses = P.addresses();
+    for i in $map_range(SIZE_T_0, np_local) @{
+        let pl = addresses.get(i);
+        pl.index = i;
+        pl.isLocal = true;
+    }
+    for i in $map_range(np_local, np_local + np_shadow) @{
+        let pl = addresses.get(i);
+        pl.index = i - np_local;
+        pl.isLocal = false;
+    }
+}
+extern
+fn c_delete_blocks() -> () {
+    delete_block_list(&mut head_);
+}
+
+extern
+fn c_check_invariants() -> () {
+    for node in map_block_list(head_) {
+        impala_set_storage(node.storage);
+        let P = get_particle_system_from_data_struct(node.block);
+        check_invariants(P);
+    }
+}

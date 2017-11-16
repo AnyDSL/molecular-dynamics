@@ -72,10 +72,6 @@ void anydsl_md_time_integration(real_t dt, size_t iteration)  {
 }
 
 
-void anydsl_md_time_integration_vector(real_t dt, size_t iteration)  {
-    c_time_integration_vector(static_cast<double>(dt), static_cast<uint64_t>(iteration));
-}
-
 void anydsl_md_compute_initial_forces() {
     c_compute_initial_forces();
 }

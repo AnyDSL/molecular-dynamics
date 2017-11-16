@@ -28,7 +28,6 @@ extern "C" {
 
 void anydsl_md_reinitialize_blocks(shared_ptr<BlockForest>, BlockDataID); 
 void anydsl_md_time_integration(real_t, size_t); 
-void anydsl_md_time_integration_vector(real_t, size_t); 
 void anydsl_md_compute_initial_forces();
 void anydsl_md_time_step_first_part(real_t); 
 void anydsl_md_time_step_second_part(real_t); 

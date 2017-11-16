@@ -3,7 +3,8 @@ type index_t = [size_t * 3];
 struct ParticleVector {
     nc: fn() -> index_t,
     getCell: fn(size_t) -> Cell,
-    setCell: fn(size_t, Cell) -> ()
+    setCell: fn(size_t, Cell) -> (),
+    setDirtyBit: fn(size_t, bool) -> ()
 }
 
 
@@ -38,7 +39,7 @@ fn allocate_cell(size: size_t) -> Cell {
             forces: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
             forces_old: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
             nodes: alloc_cpu((padded_size * DIMENSION * sizeof[&mut ParticleList]() as size_t) as i32),
-            dirty: false
+            dirty: true
         }
     }
     else {
@@ -51,7 +52,7 @@ fn allocate_cell(size: size_t) -> Cell {
             forces: Buffer {device: 0, data: 0 as &[i8]},
             forces_old: Buffer {device: 0, data: 0 as &[i8]},
             nodes: Buffer {device: 0, data: 0 as &[i8]},
-            dirty: false
+            dirty: true 
         }
     }
 }
@@ -64,6 +65,9 @@ fn get_particle_vector(buf: Buffer, nc: index_t) -> ParticleVector {
         },
         setCell: |i, cell| {
             bitcast[&mut[Cell]](buf.data)(i) = cell;
+        },
+        setDirtyBit: |i, bit| {
+            bitcast[&mut[Cell]](buf.data)(i).dirty = bit;
         }
     }
 }
@@ -85,8 +89,8 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
         else { 
             vector.setCell(i, allocate_cell(count));
         }
-        let cell        = vector.getCell(i);
-        if(cell.size != SIZE_T_0) {
+        let cell = vector.getCell(i);
+        if(cell.size != SIZE_T_0 && cell.dirty) {
             let masses      = get_array_of_real(cell.masses);
             let positions   = get_array_of_real(cell.positions);
             let velocities  = get_array_of_real(cell.velocities);
@@ -111,6 +115,7 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
                 nodes(j) = 0 as &mut ParticleList;
                 ++j;
             }
+            //vector.setDirtyBit(i, false);
         }
     }
 }

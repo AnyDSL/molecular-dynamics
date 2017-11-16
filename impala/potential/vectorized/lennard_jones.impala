@@ -1,0 +1,81 @@
+struct Constants {
+    r_cut: fn() -> real,
+    sigma: fn() -> real,
+    epsilon: fn() -> real,
+    r_cut_inv: fn() -> real,
+    r_cut_sqr: fn() -> real,
+    tmp1: fn() -> real,
+    tmp2: fn() -> real
+}
+
+struct ConstantsData {
+    r_cut: real,
+    sigma: real,
+    epsilon: real
+}
+
+fn get_constants(r_cut: real, sigma: real, epsilon: real) -> Constants  {
+    Constants {
+        r_cut: || {r_cut},
+        sigma: || {sigma},
+        epsilon: || {epsilon},
+        r_cut_sqr: || {r_cut*r_cut},
+        r_cut_inv: || {1.0/r_cut},
+        tmp1: || {
+            let sigma3 = sigma * sigma * sigma;
+            let sigma6 = sigma3 * sigma3;
+            24.0 * epsilon * sigma6
+        },
+        tmp2: || {
+            let sigma3 = sigma * sigma * sigma;
+            let sigma6 = sigma3 * sigma3;
+            2.0 * sigma6
+        }
+
+    }
+}
+
+
+fn get_constants_from_data(constants_data: ConstantsData) -> Constants  {
+    get_constants(constants_data.r_cut, constants_data.sigma, constants_data.epsilon)
+}
+fn get_data_from_constants(constants: Constants) -> ConstantsData  {
+    ConstantsData {
+        r_cut: constants.r_cut(),
+        sigma: constants.sigma(),
+        epsilon: constants.epsilon()
+    }
+}
+
+fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
+    let sqr = |x : real| {x*x};
+    let nodes1      = get_array_of_nodes(cell1.nodes);
+    let positions1  = get_array_of_real(cell1.positions);
+    let forces1     = get_array_of_real(cell1.forces);
+    let nodes2      = get_array_of_nodes(cell2.nodes);
+    let positions2  = get_array_of_real(cell2.positions);
+    let forces2     = get_array_of_real(cell2.forces);
+    let index1 = i * DIMENSION;
+    for j in map_range(SIZE_T_0, cell2.padded_size) @{
+    //for j in vectorize(4, 32, 0, cell2.padded_size as i32) @{
+        let index2 = j as size_t * DIMENSION;
+        if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
+            let mut dist : [real * 3];
+            let mut r  = 0.0; 
+            for d in @map_range(SIZE_T_0, DIMENSION) {
+                dist(d) = positions2(index2 + d) - positions1(index1 + d);
+                r += sqr(dist(d));
+            }
+            if(r < @constants.r_cut_sqr()) {
+                let r_8_inv = 1.0/sqr(sqr(r));
+                let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
+                let mut force : [real * 3];
+                for d in @map_range(SIZE_T_0, DIMENSION) {
+                    force(d) = f * dist(d);
+                    forces1(index1 + d) += force(d);
+                    forces2(index2 + d) -= force(d);
+                }
+            }
+        }
+    }
+}

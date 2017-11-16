@@ -224,14 +224,14 @@ int main( int argc, char ** argv )
        {
            WALBERLA_LOG_DEVEL_ON_ROOT( "Timestep " << i << " / " << simulationSteps );
        }
-       /*
+       
        tt.start("Visualization");
        if( i % visSpacing == 0 )
        {
            vtkWriter->write( true );
        }
        tt.stop("Visualization");
-       */
+       
        tt.start("Solver");
        anydsl_md_time_step_first_part(dt);
        tt.stop("Solver");

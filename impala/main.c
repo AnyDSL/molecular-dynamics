@@ -64,9 +64,7 @@ int main(int argc, char** argv) {
         LIKWID_MARKER_THREADINIT;
         LIKWID_MARKER_START("Compute");
         gettimeofday(&t1, NULL);
-        // To run the vectorized code:
-        time_integration_vector(0.0, atol(argv[2])*dt, dt, vtk);
-        //time_integration(0.0, atol(argv[2])*dt, dt, vtk);
+        time_integration(0.0, atol(argv[2])*dt, dt, vtk);
         gettimeofday(&t2, NULL);
         LIKWID_MARKER_STOP("Compute");
         LIKWID_MARKER_CLOSE;
