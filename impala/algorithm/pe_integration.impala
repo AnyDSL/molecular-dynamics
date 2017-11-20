@@ -14,3 +14,33 @@ fn integrate_local_particles(P: ParticleSystem, start: [size_t * 3], end: [size_
         }
     }
 }
+
+fn count_local_particles(P: ParticleSystem) -> () {
+    let mut ct1 = SIZE_T_0;
+    for ic, pl in $map_particle_system([SIZE_T_0,..3], P.nc(), P) @{
+        if(pl.isLocal) {
+            let p = get_particle_from_node(pl);
+            let start = P.start();
+            let end = P.end();
+            ++ct1;
+            if(ic(0) < start(0) || ic(1) < start(1) || ic(2) < start(2) || 
+                ic(0) >= end(0) || ic(1) >= end(1) || ic(2) >= end(2)) {
+                p.getCoordinates().print();
+                print_string("\n");
+            }
+        }
+    }
+
+    let mut ct2 = SIZE_T_0;
+    for ic, pl in $map_particle_system(P.start(), P.end(), P) @{
+        ++ct2;
+    }
+    if(ct1 != ct2) {
+        print_string("Counts do not match\n");
+        print_string("Count 1: ");
+        print_i64(ct1 as i64);
+        print_string(" Count 2: ");
+        print_i64(ct2 as i64);
+        print_string("\n");
+    }
+}

@@ -7,7 +7,7 @@ fn boundary(p: Particle, P: ParticleSystem) -> () {
     let shadow_offset = P.shadow_offset();
     let coordinate_shift = P.coordinate_shift().get();
 
-    for d in @map_range(0 as size_t, DIMENSION) {
+    for d in @map_range(SIZE_T_0, DIMENSION) {
         if(x(d) + shadow_offset + coordinate_shift(d) < 0.0) {
             x(d) = EPSILON - shadow_offset - coordinate_shift(d);
             change = true;

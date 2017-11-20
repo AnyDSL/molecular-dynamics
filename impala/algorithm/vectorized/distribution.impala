@@ -1,6 +1,6 @@
 fn move_particles(P: ParticleSystem, vector: ParticleVector) -> () {
-    let start = P.start();
-    let end = P.end();
+    let start = [SIZE_T_0,..3];
+    let end = P.nc();
     for k in $map_range(start(2), end(2)) {
         for j in map_range(start(1), end(1)) {
             for i in map_range(start(0), end(0)) @{

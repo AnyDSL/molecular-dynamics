@@ -13,8 +13,7 @@ fn c_time_step_first_part(dt: real) -> () {
     for node in map_block_list(head_) {
         impala_set_storage(node.storage);
         let P = get_particle_system_from_data_struct(node.block);
-        //integrate(P, P.start(), P.end(), dt, integrate_x);
-        integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, integrate_x);
+        integrate(P, P.start(), P.end(), dt, integrate_x);
     }
 }
 
