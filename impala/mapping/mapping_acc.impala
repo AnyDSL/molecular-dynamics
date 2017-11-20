@@ -1,1 +1,0 @@
-fn alloc_array(size: i32) -> Buffer { acc.alloc(acc.dev(), size) }

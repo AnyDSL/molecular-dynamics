@@ -4,7 +4,7 @@ struct ParticleVector {
     nc: fn() -> index_t,
     getCell: fn(size_t) -> Cell,
     setCell: fn(size_t, Cell) -> (),
-    setDirtyBit: fn(size_t, bool) -> ()
+    setDirtyBit: fn(size_t, i8) -> ()
 }
 
 
@@ -17,7 +17,7 @@ struct Cell {
     forces: Buffer,
     forces_old: Buffer,
     nodes: Buffer,
-    dirty: bool
+    dirty: i8
 }
 fn get_padded_size(n: size_t) -> size_t {
     let mut k = 4 as size_t;
@@ -39,7 +39,7 @@ fn allocate_cell(size: size_t) -> Cell {
             forces: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
             forces_old: alloc_cpu((padded_size * DIMENSION * sizeof[real]() as size_t) as i32), 
             nodes: alloc_cpu((padded_size * DIMENSION * sizeof[&mut ParticleList]() as size_t) as i32),
-            dirty: true
+            dirty: 1i8 
         }
     }
     else {
@@ -52,7 +52,7 @@ fn allocate_cell(size: size_t) -> Cell {
             forces: Buffer {device: 0, data: 0 as &[i8]},
             forces_old: Buffer {device: 0, data: 0 as &[i8]},
             nodes: Buffer {device: 0, data: 0 as &[i8]},
-            dirty: true 
+            dirty: 0i8 
         }
     }
 }
@@ -90,7 +90,7 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
             vector.setCell(i, allocate_cell(count));
         }
         let cell = vector.getCell(i);
-        if(cell.size != SIZE_T_0 && cell.dirty) {
+        if(cell.size != SIZE_T_0 && cell.dirty == 1i8) {
             let masses      = get_array_of_real(cell.masses);
             let positions   = get_array_of_real(cell.positions);
             let velocities  = get_array_of_real(cell.velocities);
@@ -115,7 +115,9 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
                 nodes(j) = 0 as &mut ParticleList;
                 ++j;
             }
-            //vector.setDirtyBit(i, false);
+            if(WALBERLA == false) {
+                vector.setDirtyBit(i, 0i8);
+            }
         }
     }
 }

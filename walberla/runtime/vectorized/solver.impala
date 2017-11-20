@@ -1,7 +1,3 @@
-extern
-fn c_time_integration(dt: real, iteration: size_t) -> () {
-}
-
 extern 
 fn c_compute_initial_forces() -> () {
     for node in map_block_list(head_) {

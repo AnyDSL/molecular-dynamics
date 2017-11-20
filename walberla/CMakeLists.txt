@@ -10,7 +10,7 @@ set(IMPALA_SRC_DIR ../impala)
 
 
 option(CHECK_INVARIANTS "CHECK_INVARIANTS" OFF)
-option(VECTORIZE_MD "VECTORIZE_MD" OFF)
+option(VECTORIZE_MD "VECTORIZE_MD" ON)
 
 SET(VEC) 
 if(VECTORIZE_MD)
@@ -23,7 +23,8 @@ anydsl_runtime_wrap(IMPALA_OBJECT_FILE
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES
-    ${IMPALA_SRC_DIR}/intrinsics/intrinsics_cpu.impala 
+    ${IMPALA_SRC_DIR}/mapping/walberla.impala  
+    ${IMPALA_SRC_DIR}/intrinsics/cpu.impala  
     ${IMPALA_SRC_DIR}/utilities/common.impala ${IMPALA_SRC_DIR}/utilities/linked_list.impala ${IMPALA_SRC_DIR}/utilities/particle_system.impala     
     ${IMPALA_SRC_DIR}/datastructures/pe_linked_list.impala ${IMPALA_SRC_DIR}/datastructures/pe_array_of_addresses.impala ${IMPALA_SRC_DIR}/datastructures/particle_system.impala block_list.impala
     ${IMPALA_SRC_DIR}/datastructures/particle_vector.impala

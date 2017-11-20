@@ -45,8 +45,8 @@ anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES
-    intrinsics/intrinsics_cpu.impala
-    mapping/mapping_cpu.impala
+    intrinsics/cpu.impala
+    mapping/cpu.impala mapping/single_node.impala
     utilities/common.impala utilities/linked_list.impala utilities/particle_system.impala utilities/vtk.impala
     datastructures/linked_list.impala datastructures/array_of_addresses.impala datastructures/particle_vector.impala datastructures/particle_system.impala
     potential/${VEC}/lennard_jones.impala algorithm/${VEC}/force_calculation.impala

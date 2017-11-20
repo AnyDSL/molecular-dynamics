@@ -66,12 +66,6 @@ void anydsl_md_reinitialize_blocks(shared_ptr<BlockForest> forest, BlockDataID s
     delete[] nParticles_shadow;
 }
 
-
-void anydsl_md_time_integration(real_t dt, size_t iteration)  {
-    c_time_integration(static_cast<double>(dt), static_cast<uint64_t>(iteration));
-}
-
-
 void anydsl_md_compute_initial_forces() {
     c_compute_initial_forces();
 }

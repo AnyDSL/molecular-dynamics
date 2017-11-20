@@ -1,22 +1,3 @@
-
-extern
-fn c_time_integration(dt: real, iteration: size_t) -> () {
-    for node in map_block_list(head_) {
-        impala_set_storage(node.storage);
-        let P = get_particle_system_from_data_struct(node.block);
-        if(iteration == SIZE_T_0) {
-            move_particles(P);
-            compute_force(P, force);
-        }
-        integrate_local_particles(P, [SIZE_T_0,..3], P.nc(), dt, integrate_x);
-        move_particles(P);
-        compute_force(P, force);
-        integrate(P, P.start(), P.end(), dt, integrate_v);
-        check_invariants(P);
-    }
-    
-}
-
 extern 
 fn c_compute_initial_forces() -> () {
     for node in map_block_list(head_) {
