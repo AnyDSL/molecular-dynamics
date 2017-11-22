@@ -12,7 +12,6 @@ fn integrate_x(p: Particle, dt: real) -> () {
     //print_string("\n");
     let x = p.getCoordinates();
     p.setCoordinates(add_vectors(x, tmp3));
-    p.setForces_old(f);
     //print_string("integrate_x finished\n");
 }
 

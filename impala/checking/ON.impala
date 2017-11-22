@@ -19,9 +19,9 @@ fn check_invariants(P: ParticleSystem) -> bool {
     let domain = P.domain();
     let start = P.start();
     let end = P.end();
-    let zero_array = [@null(),..3];
+    let zero_array = [SIZE_T_0,..3];
     let nc = P.nc();
-    for d in map_range(@null(), DIMENSION) {
+    for d in map_range(SIZE_T_0, DIMENSION) {
         if(domain.get()(d) < 0.0) {
             print_string("Invalid simulation domain\n");
             status = false;
@@ -45,14 +45,14 @@ fn check_invariants(P: ParticleSystem) -> bool {
         print_string("Invalid Simulation parameters!\n");
     } else {
         // Check particles
-        for ic, pl, isLocal in map_particle_system_with_ghost_layers([@null(),..3], P.nc(), P.start(), P.end(), P) {
+        for ic, pl, isLocal in map_particle_system_with_ghost_layers([SIZE_T_0,..3], P.nc(), P.start(), P.end(), P) {
             let p = get_particle_from_node(pl);
             let X = p.getCoordinates().get();
             let V = p.getVelocities().get();
             let F = p.getForces().get();
             let F_old = p.getForces_old().get();
             let kc = compute_cell_position(p, P);
-            for d in map_range(@null(), DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 // Check position
 
                 if(math.isinf(X(d)) != 0) {
@@ -95,7 +95,7 @@ fn check_invariants(P: ParticleSystem) -> bool {
             }
             // Check cell index
             let mut out_of_range = false;
-            for d in map_range(@null(), DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 if(kc(d) >= nc(d)) {
                     out_of_range = true;
                 }
@@ -121,8 +121,8 @@ fn check_invariants(P: ParticleSystem) -> bool {
         }
 
         // Check cells
-        let mut count = @null();
-        for ic, pl in map_particle_system([@null(),..3], P.nc(), P) {
+        let mut count = SIZE_T_0;
+        for ic, pl in map_particle_system([SIZE_T_0,..3], P.nc(), P) {
             ++count;
         }
         if(count > P.np()) {
@@ -136,3 +136,42 @@ fn check_invariants(P: ParticleSystem) -> bool {
     }
     status
 }
+
+fn check_vector_invariants(vector: ParticleVector, P: ParticleSystem) -> () {
+    let start = P.start();
+    let end = P.end();
+    for k in $map_range(start(2), end(2)) {
+        for j in $map_range(start(1), end(1)) {
+            for i in $map_range(start(0), end(0)) @{
+                let mut count = SIZE_T_0;
+                let ic = [i,j,k];
+                let index = index(ic, vector.nc());
+                let cell = vector.getCell(index);
+                let head = *P.head(index);
+                for pl in map_list(head) {
+                    ++count;
+                }
+                if(count != cell.size) {
+                    print_string("Error: The size of cell (");
+                    print_i64(ic(0) as i64);
+                    print_string(", ");
+                    print_i64(ic(1) as i64);
+                    print_string(", ");
+                    print_i64(ic(2) as i64);
+                    print_string(") does not match the number of particles in the system.");
+                }
+                if(cell.size > cell.padded_size) {
+                    print_string("Error: The padded size of cell (");
+                    print_i64(ic(0) as i64);
+                    print_string(", ");
+                    print_i64(ic(1) as i64);
+                    print_string(", ");
+                    print_i64(ic(2) as i64);
+                    print_string(") is smaller than its size.");
+                }
+            }
+        }
+    }
+
+}
+

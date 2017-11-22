@@ -11,7 +11,6 @@ fn integrate_x(cell: Cell, dt: real) -> () {
         let tmp2 = velocities(i) + tmp1;
         let tmp3 = dt * tmp2;
         positions(i) += tmp3;
-        forces_old(i) = forces(i);
     }
 }
 

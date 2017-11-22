@@ -1,3 +1,6 @@
 fn check_invariants(P: ParticleSystem) -> bool {
     true
 }
+
+
+fn check_vector_invariants(vector: ParticleVector, P: ParticleSystem) -> () {}

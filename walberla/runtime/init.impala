@@ -22,18 +22,17 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
             node = allocate_block_node(ids(i));    
             insert_block_node(&mut head_, node);
             c_initialize_particle_system(&mut node.block, np, ghost_layers(i), domains(i), coordinate_shifts(i));
-            let P = get_particle_system_from_data_struct(node.block);
             let mut pnc = 1 as size_t;
             for d in @map_range(SIZE_T_0, DIMENSION) {
-                pnc *= P.nc()(d);
+                pnc *= node.block.nc(d);
             }
             node.vec_buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
             node.storage = storages(i);
             c_map_particles(&mut node.block, nParticles_local(i), nParticles_shadow(i));
-            let P2 = get_particle_system_from_data_struct(node.block);
-            let vector = get_particle_vector(node.vec_buf, P2.nc());
+            let P = get_particle_system_from_data_struct(node.block);
+            let vector = get_particle_vector(node.vec_buf, P.nc());
             impala_set_storage(node.storage);
-            init_particle_vector(vector, P2, false);
+            init_particle_vector(vector, P, false);
         }
     }
     delete_invalid_blocks(&mut head_);

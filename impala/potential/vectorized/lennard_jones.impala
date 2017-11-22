@@ -56,24 +56,26 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
     let positions2  = get_array_of_real(cell2.positions);
     let forces2     = get_array_of_real(cell2.forces);
     let index1 = i * DIMENSION;
-    for j in map_range(SIZE_T_0, cell2.padded_size) @{
+    for j in map_range(SIZE_T_0, cell2.size) @{
     //for j in vectorize(4, 32, 0, cell2.padded_size as i32) @{
         let index2 = j as size_t * DIMENSION;
-        if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
-            let mut dist : [real * 3];
-            let mut r  = 0.0; 
-            for d in @map_range(SIZE_T_0, DIMENSION) {
-                dist(d) = positions2(index2 + d) - positions1(index1 + d);
-                r += sqr(dist(d));
-            }
-            if(r < @constants.r_cut_sqr()) {
-                let r_8_inv = 1.0/sqr(sqr(r));
-                let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
-                let mut force : [real * 3];
+        if(nodes1(i) != 0 as &mut ParticleList &&  nodes2(j) != 0 as &mut ParticleList) {
+            if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
+                let mut dist : [real * 3];
+                let mut r  = 0.0; 
                 for d in @map_range(SIZE_T_0, DIMENSION) {
-                    force(d) = f * dist(d);
-                    forces1(index1 + d) += force(d);
-                    forces2(index2 + d) -= force(d);
+                    dist(d) = positions2(index2 + d) - positions1(index1 + d);
+                    r += sqr(dist(d));
+                }
+                if(r < @constants.r_cut_sqr()) {
+                    let r_8_inv = 1.0/sqr(sqr(r));
+                    let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
+                    let mut force : [real * 3];
+                    for d in @map_range(SIZE_T_0, DIMENSION) {
+                        force(d) = f * dist(d);
+                        forces1(index1 + d) += force(d);
+                        forces2(index2 + d) -= force(d);
+                    }
                 }
             }
         }

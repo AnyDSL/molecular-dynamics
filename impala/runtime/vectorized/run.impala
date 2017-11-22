@@ -46,6 +46,8 @@ fn time_integration(t_start: real, t_end: real, dt: real, vtk: bool) -> ()
         t += dt;        
         integrate(vector, P.start(), P.end(), dt, integrate_x);
         write_back_particle_vector(vector, P.start(), P.end(), P);
+        check_invariants(P);
+        check_vector_invariants(vector, P);
         move_particles(P, vector);
         init_particle_vector(vector, P, true);
         compute_force(P, vector, force);
