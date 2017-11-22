@@ -95,7 +95,6 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
             let positions   = get_array_of_real(cell.positions);
             let velocities  = get_array_of_real(cell.velocities);
             let forces      = get_array_of_real(cell.forces);
-            let forces_old  = get_array_of_real(cell.forces_old);
             let nodes       = get_array_of_nodes(cell.nodes);
             let mut j = SIZE_T_0;
             for pl in $map_list(head) @{
@@ -106,7 +105,6 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
                     positions(base + d) = p.getCoordinates().get()(d);
                     velocities(base + d) = p.getVelocities().get()(d);
                     forces(base + d) = p.getForces().get()(d);
-                    forces_old(base + d) = p.getForces_old().get()(d);
                 }
                 nodes(j) = pl;
                 ++j;
@@ -130,7 +128,6 @@ fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index
         let positions   = get_array_of_real(cell.positions);
         let velocities  = get_array_of_real(cell.velocities);
         let forces      = get_array_of_real(cell.forces);
-        let forces_old      = get_array_of_real(cell.forces_old);
         let nodes       = get_array_of_nodes(cell.nodes);
         for j in map_range(SIZE_T_0, cell.size) @{
             let p = get_particle_from_node(nodes(j));
@@ -138,17 +135,14 @@ fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index
             let mut pos : [real * 3];
             let mut vel : [real * 3];
             let mut force : [real * 3];
-            let mut force_old : [real * 3]; 
             for d in @map_range(SIZE_T_0, DIMENSION) {
                 pos(d) = positions(base + d);
                 vel(d) = velocities(base + d);
                 force(d) = forces(base + d);
-                force_old(d) = forces_old(base + d);
             }
             p.setCoordinates(get_vector(pos));
             p.setVelocities(get_vector(vel));
             p.setForces(get_vector(force));
-            p.setForces_old(get_vector(force_old));
         }
     }
 }
