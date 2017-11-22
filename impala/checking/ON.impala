@@ -84,11 +84,11 @@ fn check_invariants(P: ParticleSystem) -> bool {
                     print_error(ic, "Force", "NaN");
                     status = false;
                 }
-                if(math.isinf(F_old(d)) != 0) {
+                if(isLocal && math.isinf(F_old(d)) != 0) {
                     print_error(ic, "Old force", "Infinity");
                     status = false;
                 }
-                else if(math.isnan(F_old(d)) != 0) {
+                else if(isLocal && math.isnan(F_old(d)) != 0) {
                     print_error(ic, "Old force", "NaN");
                     status = false;
                 }            
