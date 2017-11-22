@@ -20,7 +20,7 @@ struct Cell {
     dirty: i8
 }
 fn get_padded_size(n: size_t) -> size_t {
-    let mut k = 4 as size_t;
+    let mut k = 32 as size_t;
     while (k < n) {
         k *= 2 as size_t;
     }
@@ -80,10 +80,16 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
         }
         let i = index(ic, vector.nc());
         if(reinit) {
-            let cell = vector.getCell(i);
+            let mut cell = vector.getCell(i);
             if(count != cell.size) {
-                deallocate_cell(cell);
-                vector.setCell(i, allocate_cell(count));
+                if(count < cell.padded_size) {
+                    cell.size = count;
+                    vector.setCell(i, cell);
+                }
+                else {
+                    deallocate_cell(cell);
+                    vector.setCell(i, allocate_cell(count));
+                }
             }
         }
         else { 
