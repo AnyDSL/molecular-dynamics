@@ -23,20 +23,20 @@ fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, domain
         ghost_layer: || {ghost_layer},
         start: || {
             let mut start : [size_t * 3];
-            for d in @map_range(0 as size_t, DIMENSION) {
+            for d in map_range(0 as size_t, DIMENSION) {
                 start(d) = ghost_layer;
             }
             start
         },
         end: || {
             let mut end : [size_t * 3];
-            for d in @map_range(0 as size_t, DIMENSION) {
+            for d in map_range(0 as size_t, DIMENSION) {
                 end(d) = nc(d) - ghost_layer;
             }
             end
         },
         domain: || {domain},
-        shadow_offset: || {ghost_layer as real * @constants.r_cut()},
+        shadow_offset: || {ghost_layer as real * constants.r_cut()},
         coordinate_shift: || {coordinate_shift},
         head: |i| {&mut bitcast[&mut[&mut ParticleList]](data_cells)(i)},
         constants: || {constants},
@@ -80,8 +80,8 @@ fn get_data_struct_from_particle_system(P: ParticleSystem) -> ParticleSystemData
 fn allocate_particle_system(np: size_t, ghost_layer: size_t, domain: Vector, coordinate_shift: Vector, constants: Constants) -> ParticleSystem {
     let mut nc : [size_t * 3];
     let mut pnc = 1 as size_t;
-    let extended_domain = increase_vector(domain, 2.0*(ghost_layer as real) * @constants.r_cut()); 
-    for d in @map_range(0 as size_t, DIMENSION){
+    let extended_domain = increase_vector(domain, 2.0*(ghost_layer as real) * constants.r_cut()); 
+    for d in map_range(0 as size_t, DIMENSION){
         nc(d) = math.floor(domain.get()(d)/constants.r_cut()) as size_t + (2 as size_t * ghost_layer);
         pnc *= nc(d);
     }

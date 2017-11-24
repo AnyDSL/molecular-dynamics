@@ -1,12 +1,12 @@
 fn integrate(vector: ParticleVector, start: [size_t * 3], end: [size_t * 3], dt: real, f: fn(Cell, real) -> ()) -> () {
-    //for ic, pl in $parallel_map_particle_system(start, end, P, numthreads) @{
-    for ic, cell in $map_particle_vector(start, end, vector) @{
+    //for ic, pl in parallel_map_particle_system(start, end, P, numthreads) {
+    for ic, cell in map_particle_vector(start, end, vector) {
         f(cell, dt);
     }
 }
 
 fn integrate_local_particles(P: ParticleSystem, start: [size_t * 3], end: [size_t * 3], dt: real, numthreads: int, f: fn(Particle, real) -> ()) -> () {
-    for ic, pl in $parallel_map_particle_system(start, end, P, numthreads) @{
+    for ic, pl in parallel_map_particle_system(start, end, P, numthreads) {
         let isLocal = pl.isLocal;
         if(isLocal) {
             let p = get_particle_from_node(pl);

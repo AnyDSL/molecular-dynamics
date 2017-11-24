@@ -23,7 +23,7 @@ fn time_integration(t_start: real, t_end: real, dt: real, vtk: bool) -> ()
 {
     let P : ParticleSystem = get_particle_system_from_data_struct(P_data_);
     let mut pnc = 1 as size_t;
-    for d in @map_range(SIZE_T_0, DIMENSION) {
+    for d in map_range(SIZE_T_0, DIMENSION) {
         pnc *= P.nc()(d);
     }
     let buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);

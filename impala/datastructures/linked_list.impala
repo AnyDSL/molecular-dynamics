@@ -5,28 +5,28 @@ fn get_particle(data: &[i8]) -> Particle {
         getMass: || {bitcast[&[real]](data)(0)},
         getCoordinates: || {
             let mut res : [real * 3];
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)(SIZE_T_1 + d); 
             }
             get_vector(res)
         },
         getVelocities: || {
             let mut res : [real * 3];
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)( SIZE_T_1 + DIMENSION + d); 
             }
             get_vector(res)
         },
         getForces: || {
             let mut res : [real * 3];
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)(SIZE_T_1 + SIZE_T_2 * DIMENSION + d); 
             }
             get_vector(res)
         },
         getForces_old: || {
             let mut res : [real * 3];
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)( SIZE_T_1 + SIZE_T_3 * DIMENSION + d); 
             }
             get_vector(res)
@@ -37,25 +37,25 @@ fn get_particle(data: &[i8]) -> Particle {
         setMass: |m| {bitcast[&mut[real]](data)(0) = m;}, 
         setCoordinates: |v| {
             let x = v.get();
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + d) = x(d); 
             }
         },
         setVelocities: |v| {
             let x = v.get();
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + DIMENSION + d) = x(d); 
             }
         },
         setForces: |v| {
             let x = v.get();
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + SIZE_T_2 * DIMENSION + d) = x(d); 
             }
         },
         setForces_old: |v| {
             let x = v.get();
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + SIZE_T_3 * DIMENSION + d) = x(d); 
             }
         }

@@ -51,10 +51,10 @@ fn force(p1: Particle, p2: Particle, write1: bool, write2: bool, constants: Cons
     let Dist = sub_vectors(p2.getCoordinates(), p1.getCoordinates()); 
     let Dist_sqr = square_vector(Dist);
     let r = Dist_sqr.reduce(|x,y|{x+y}, 0.0);
-    if(r < @constants.r_cut_sqr()) {
-        @count_force_evaluation();
+    if(r < constants.r_cut_sqr()) {
+        count_force_evaluation();
         let r_8_inv = 1.0/sqr(sqr(r));
-        let f = @constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * @constants.tmp2());
+        let f = constants.tmp1() * r_8_inv * (1.0 - r * r_8_inv * constants.tmp2());
         let F = scale_vector(f, Dist);
         if(write1) {
             p1.setForces(add_vectors(p1.getForces(), F));

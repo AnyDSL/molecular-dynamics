@@ -73,9 +73,9 @@ fn get_particle_vector(buf: Buffer, nc: index_t) -> ParticleVector {
 }
 
 fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool) -> () {
-    for ic, head in $map_particle_cells([SIZE_T_0,..3], P.nc(), P) @{
+    for ic, head in map_particle_cells([SIZE_T_0,..3], P.nc(), P) {
         let mut count = SIZE_T_0;
-        for pl in $map_list(head) {
+        for pl in map_list(head) {
             ++count;
         }
         let i = index(ic, vector.nc());
@@ -103,10 +103,10 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
             let forces      = get_array_of_real(cell.forces);
             let nodes       = get_array_of_nodes(cell.nodes);
             let mut j = SIZE_T_0;
-            for pl in $map_list(head) @{
+            for pl in map_list(head) {
                 let p = get_particle_from_node(pl);
                 let base = j * DIMENSION;
-                for d in @map_range(SIZE_T_0, DIMENSION) {
+                for d in map_range(SIZE_T_0, DIMENSION) {
                     masses(base + d) = p.getMass();
                     positions(base + d) = p.getCoordinates().get()(d);
                     velocities(base + d) = p.getVelocities().get()(d);
@@ -128,20 +128,20 @@ fn init_particle_vector(vector: ParticleVector, P: ParticleSystem, reinit: bool)
 
 
 fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index_t, P: ParticleSystem) -> () {
-    for ic, cell in $map_particle_vector(start, end, vector) @{
+    for ic, cell in map_particle_vector(start, end, vector) {
         let i = index(ic, vector.nc());
         let cell = vector.getCell(i);
         let positions   = get_array_of_real(cell.positions);
         let velocities  = get_array_of_real(cell.velocities);
         let forces      = get_array_of_real(cell.forces);
         let nodes       = get_array_of_nodes(cell.nodes);
-        for j in map_range(SIZE_T_0, cell.size) @{
+        for j in map_range(SIZE_T_0, cell.size) {
             let p = get_particle_from_node(nodes(j));
             let base = j * DIMENSION;
             let mut pos : [real * 3];
             let mut vel : [real * 3];
             let mut force : [real * 3];
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 pos(d) = positions(base + d);
                 vel(d) = velocities(base + d);
                 force(d) = forces(base + d);
@@ -154,7 +154,7 @@ fn write_back_particle_vector(vector: ParticleVector, start: index_t, end: index
 }
 
 fn clean_up_particle_vector(vector: ParticleVector) -> () {
-    for ic, cell in $map_particle_vector([SIZE_T_0,..3], vector.nc(), vector) @{
+    for ic, cell in map_particle_vector([SIZE_T_0,..3], vector.nc(), vector) {
         deallocate_cell(cell);
     }
 }
@@ -184,9 +184,9 @@ fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
 }
 
 fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: fn(index_t, Cell) -> ()) -> () { 
-    for k in $map_range(start(2), end(2)) {
-        for j in $map_range(start(1), end(1)) {
-            for i in $map_range(start(0), end(0)) @{
+    for k in map_range(start(2), end(2)) {
+        for j in map_range(start(1), end(1)) {
+            for i in map_range(start(0), end(0)) {
                 let ic = [i,j,k];
                 let cell = vector.getCell(index(ic, vector.nc()));
                 if(cell.size != SIZE_T_0) {

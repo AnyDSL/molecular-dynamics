@@ -23,7 +23,7 @@ fn c_reinitialize_block_list(nBlocks: size_t, ids: &[size_t], storages: &[uintpt
             insert_block_node(&mut head_, node);
             c_initialize_particle_system(&mut node.block, np, ghost_layers(i), domains(i), coordinate_shifts(i));
             let mut pnc = 1 as size_t;
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 pnc *= node.block.nc(d);
             }
             node.vec_buf = alloc_cpu((pnc * sizeof[Cell]() as size_t) as i32);
@@ -66,7 +66,7 @@ fn c_reinitialize_particle_system(P_data: &mut ParticleSystemData, np: size_t) -
         let P_new = get_particle_system(np, nc, ghost_layer, domain, coordinate_shift, data_cells, constants, data_addresses);
         if(np_old > np) {
             let mut end = 1 as size_t;
-            for d in @map_range(0 as size_t, DIMENSION) {
+            for d in map_range(0 as size_t, DIMENSION) {
                 end *= nc(d);
             }
             let mut j = np_old as size_t;
@@ -97,12 +97,12 @@ fn c_reinitialize_particle_system(P_data: &mut ParticleSystemData, np: size_t) -
 fn c_map_particles(P_data: &mut ParticleSystemData, np_local: size_t, np_shadow: size_t) -> () {
     let P = get_particle_system_from_data_struct(*P_data);
     let addresses = P.addresses();
-    for i in $map_range(SIZE_T_0, np_local) @{
+    for i in map_range(SIZE_T_0, np_local) {
         let pl = addresses.get(i);
         pl.index = i;
         pl.isLocal = true;
     }
-    for i in $map_range(np_local, np_local + np_shadow) @{
+    for i in map_range(np_local, np_local + np_shadow) {
         let pl = addresses.get(i);
         pl.index = i - np_local;
         pl.isLocal = false;

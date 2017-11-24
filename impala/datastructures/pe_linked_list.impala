@@ -62,7 +62,7 @@ fn get_local_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
         },
         setForces_old: |forces| {
             let F = forces.get();
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 forces_old(d) = F(d); 
             }
         }
@@ -110,7 +110,7 @@ fn get_shadow_particle(index: size_t, forces_old: &mut [real * 3]) -> Particle {
         },
         setForces_old: |forces| {
             let F = forces.get();
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 forces_old(d) = F(d); 
             }
         }

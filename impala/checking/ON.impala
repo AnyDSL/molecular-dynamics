@@ -140,9 +140,9 @@ fn check_invariants(P: ParticleSystem) -> bool {
 fn check_vector_invariants(vector: ParticleVector, P: ParticleSystem) -> () {
     let start = P.start();
     let end = P.end();
-    for k in $map_range(start(2), end(2)) {
-        for j in $map_range(start(1), end(1)) {
-            for i in $map_range(start(0), end(0)) @{
+    for k in map_range(start(2), end(2)) {
+        for j in map_range(start(1), end(1)) {
+            for i in map_range(start(0), end(0)) {
                 let mut count = SIZE_T_0;
                 let ic = [i,j,k];
                 let index = index(ic, vector.nc());

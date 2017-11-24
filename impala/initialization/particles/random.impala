@@ -15,7 +15,7 @@ fn init_particle_system(np: size_t, domain: Vector, constants: Constants) -> Par
         let tmp = 2.0*V_MAX*c_random() as real - V_MAX;
 
         let mut norm = 0.0;
-        for d in map_range(0 as size_t, DIMENSION) @{
+        for d in map_range(0 as size_t, DIMENSION) {
             X(d) = domain.get()(d) * c_random() as real;
             V(d) = 2.0 * c_random() - 1.0;
             norm += V(d)*V(d);

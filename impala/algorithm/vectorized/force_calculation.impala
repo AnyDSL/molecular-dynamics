@@ -1,13 +1,13 @@
 fn compute_force(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cell, Cell, size_t, Constants) -> ()) -> () {
     let mut ic_start : [size_t * 3];
-    for d in @map_range(SIZE_T_0, DIMENSION) {
+    for d in map_range(SIZE_T_0, DIMENSION) {
         ic_start(d) = SIZE_T_0;
     }
     let ic_end = P.nc();
-    for ic, cell in $map_particle_vector(ic_start, ic_end, vector) @{
+    for ic, cell in map_particle_vector(ic_start, ic_end, vector) {
         let forces = get_array_of_real(cell.forces);
         let forces_old = get_array_of_real(cell.forces_old);
-        for i in $map_range(SIZE_T_0, cell.size * DIMENSION) {
+        for i in map_range(SIZE_T_0, cell.size * DIMENSION) {
         //for i in vectorize(3, 4, 0, (cell.size * DIMENSION) as i32) {
 
             forces_old(i) = forces(i);
@@ -15,10 +15,10 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cel
         }
     }
     
-    for ic, cell1 in $map_particle_vector(ic_start, ic_end, vector) @{
+    for ic, cell1 in map_particle_vector(ic_start, ic_end, vector) {
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
-        for d in @map_range(SIZE_T_0, DIMENSION) {
+        for d in map_range(SIZE_T_0, DIMENSION) {
             if(ic(d) >= P.start()(d)) {
                 jc_start(d) = ic(d) - SIZE_T_1;
             } 
@@ -39,7 +39,7 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cel
         }
         print_string("\n");
         */
-        /*for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
+        /*for jc, cell2 in map_particle_vector(jc_start, jc_end, vector) {
             print_string("Cell 2 \t");
             for d in map_range(SIZE_T_0, DIMENSION) {
                 print_i64(jc(d) as i64);
@@ -49,8 +49,8 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cel
         }
         print_string("\n");*/
 
-        for i in $map_range(SIZE_T_0, cell1.size) @{
-            for jc, cell2 in $map_particle_vector(jc_start, jc_end, vector) @{
+        for i in map_range(SIZE_T_0, cell1.size) {
+            for jc, cell2 in map_particle_vector(jc_start, jc_end, vector) {
                 /*print_string("Cell 2 \t");
                 for d in map_range(SIZE_T_0, DIMENSION) {
                     print_i64(jc(d) as i64);

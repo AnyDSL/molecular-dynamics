@@ -1,20 +1,20 @@
 fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Constants) -> ()) -> () {
-    for ic, pl1 in $map_particle_system(P.start(), P.end(), P) @{
+    for ic, pl1 in map_particle_system(P.start(), P.end(), P) {
         let p1 = get_particle_from_node(pl1);
         p1.setForces_old(p1.getForces());
-        p1.setForces(@get_null_vector());
+        p1.setForces(get_null_vector());
     }
     let mut ic_start : [size_t * 3];
-    for d in @map_range(SIZE_T_0, DIMENSION) {
+    for d in map_range(SIZE_T_0, DIMENSION) {
         ic_start(d) = SIZE_T_0;
     }
     let ic_end = P.nc();
-    for ic, head in $map_particle_cells(ic_start, ic_end, P) @{
+    for ic, head in map_particle_cells(ic_start, ic_end, P) {
         if(head != 0 as &mut ParticleList) {
             let mut jc_start : [size_t * 3]; 
             let mut jc_end : [size_t * 3];
             let mut write_i = true;
-            for d in @map_range(SIZE_T_0, DIMENSION) {
+            for d in map_range(SIZE_T_0, DIMENSION) {
                 if(ic(d) >= P.start()(d)) {
                     jc_start(d) = ic(d) - SIZE_T_1;
                 } 
@@ -48,8 +48,8 @@ fn compute_force(P: ParticleSystem, force: fn(Particle, Particle, bool, bool, Co
                 }
             }
             print_string("\n");*/
-            for pl1 in $map_list(head) @{
-                for jc, pl2, write_j, in $map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) @{
+            for pl1 in map_list(head) {
+                for jc, pl2, write_j, in map_particle_system_with_ghost_layers(jc_start, jc_end, P.start(), P.end(), P) {
                     /*print_string("Cell 2 \t");
                     for d in map_range(SIZE_T_0, DIMENSION) {
                         print_i64(jc(d) as i64);

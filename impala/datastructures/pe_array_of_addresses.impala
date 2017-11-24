@@ -17,7 +17,7 @@ fn get_array_of_addresses(size: size_t, data: &[i8]) -> ArrayOfAddresses {
 fn init_addresses(P: ParticleSystem) -> () {
     let z = 0 as size_t;
     let mut ic_start : [size_t * 3];
-    for d in @map_range(0 as size_t, DIMENSION) {
+    for d in map_range(0 as size_t, DIMENSION) {
         ic_start(d) = z;
     }
     let ic_end = P.nc();
