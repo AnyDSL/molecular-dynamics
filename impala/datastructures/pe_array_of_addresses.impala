@@ -6,9 +6,9 @@ struct ArrayOfAddresses {
 
 fn get_array_of_addresses(size: size_t, data: &[i8]) -> ArrayOfAddresses {
     ArrayOfAddresses {
-        size: || {size},
-        get: |i| {bitcast[&[&mut ParticleList]](data)(i)},
-        set: |i, ptr| {
+        size: @|| {size},
+        get: @|i| {bitcast[&[&mut ParticleList]](data)(i)},
+        set: @|i, ptr| {
             bitcast[&mut[&mut ParticleList]](data)(i) = ptr;
         }
     }

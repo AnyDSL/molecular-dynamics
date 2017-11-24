@@ -26,14 +26,21 @@ static SIZE_T_1 = 1 as size_t;
 static SIZE_T_2 = 2 as size_t;
 static SIZE_T_3 = 3 as size_t;
 static SIZE_T_4 = 4 as size_t;
+static SIZE_T_32 = 32 as size_t;
 static DIMENSION = 3 as size_t;
 static EPSILON = 1e-9;
 
-fn map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
+fn @(upper < 32 as size_t) map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
+    let mut i = lower;
+    while(i < upper) {
+        body(i);
+        ++i;
+    }
+    /*
     if lower < upper {
         body(lower);
         map_range(lower+(SIZE_T_1), upper, body, return)
-    }
+    }*/
 }
 
 fn parallel_map_range(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> ()) -> () {
@@ -43,7 +50,7 @@ fn parallel_map_range(lower: size_t, upper: size_t, numthreads: int, body: fn(si
 }
 
 fn index(ic: [size_t * 3], nc: [size_t * 3]) -> size_t {
-    fn rec(i: size_t) -> size_t {
+    fn @rec(i: size_t) -> size_t {
         if(i == DIMENSION - SIZE_T_1) {ic(i)}
         else {ic(i) + nc(i) * rec(i + SIZE_T_1)} 
     }
@@ -66,8 +73,8 @@ struct Vector
 fn get_vector(data: [real * 3]) -> Vector
 {
     Vector { 
-        get: || {data},
-        combine: |f: fn(real, real) -> real, v: Vector| {
+        get: @|| {data},
+        combine: @|f: fn(real, real) -> real, v: Vector| {
             let mut res : [real * 3];
             let v_data = v.get();
             for d in map_range((SIZE_T_0), DIMENSION) {
@@ -75,28 +82,28 @@ fn get_vector(data: [real * 3]) -> Vector
             }
             get_vector(res)
         },
-        map: |f: fn(real) -> real| {
+        map: @|f: fn(real) -> real| {
             let mut res : [real * 3];
             for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = f(data(d)); 
             }
             get_vector(res)
         },
-        reduce: |f: fn(real, real) -> real, empty: real| {
+        reduce: @|f: fn(real, real) -> real, empty: real| {
             let mut acc = empty;
             for d in map_range(SIZE_T_0, DIMENSION) {
                 acc = f(acc, data(d)); 
             }
             acc
         },
-        print: || { 
+        print: @|| { 
             for d in map_range(SIZE_T_0, DIMENSION-(SIZE_T_1)) {
                  print_f64(data(d));
                  print_char(' ');
             }
             print_f64(data(DIMENSION-(SIZE_T_1)));
         },
-        fprint: |fp| { 
+        fprint: @|fp| { 
             for d in map_range(SIZE_T_0, DIMENSION-(SIZE_T_1)) {
                  fprint_f64(fp, data(d));
                  fprint_u8(fp, ' ');
@@ -107,33 +114,33 @@ fn get_vector(data: [real * 3]) -> Vector
     }
 }
 
-fn get_null_vector() -> Vector {get_vector([0 as real,..3])};
+fn @get_null_vector() -> Vector {get_vector([0 as real,..3])};
 
-fn add_vectors(a: Vector, b: Vector) -> Vector {
+fn @add_vectors(a: Vector, b: Vector) -> Vector {
     a.combine(|x,y|{x+y}, b)
 }
 
-fn sub_vectors(a: Vector, b: Vector) -> Vector {
+fn @sub_vectors(a: Vector, b: Vector) -> Vector {
     a.combine(|x,y|{x-y}, b)
 }
 
-fn div_vectors(a: Vector, b: Vector) -> Vector {
+fn @div_vectors(a: Vector, b: Vector) -> Vector {
     a.combine(|x,y|{x/y}, b)
 }
 
-fn scale_vector(alpha: real, v: Vector) -> Vector {
+fn @scale_vector(alpha: real, v: Vector) -> Vector {
     v.map(|x|{alpha*x})
 }
 
-fn increase_vector(v: Vector, alpha: real) -> Vector {
+fn @increase_vector(v: Vector, alpha: real) -> Vector {
     v.map(|x|{x + alpha})
 }
 
-fn square_vector(v: Vector) -> Vector {
+fn @square_vector(v: Vector) -> Vector {
     v.map(|x|{x*x})
 }
 
-fn vector_sum(v : Vector) -> real {
+fn @vector_sum(v : Vector) -> real {
     v.reduce(|x,y|{x+y}, 0 as real)
 }
 

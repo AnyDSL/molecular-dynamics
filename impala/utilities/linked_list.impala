@@ -1,5 +1,4 @@
-
-fn print_particle_node(pl: &mut ParticleList) -> () {
+fn @print_particle_node(pl: &mut ParticleList) -> () {
     let p = get_particle_from_node(pl);
     print_string("ParticleList\n");
     print_i64(pl as i64);
@@ -7,16 +6,12 @@ fn print_particle_node(pl: &mut ParticleList) -> () {
 }
 
 
-fn insert(root: &mut &mut ParticleList, pl: &mut ParticleList) -> () {
-
-    //print_string("*root: ");
-    //print_i64(*root as i64);
-    //print_char('\n');
+fn @insert(root: &mut &mut ParticleList, pl: &mut ParticleList) -> () {
     (*pl).next = *root;
     *root = pl;
 }
 
-fn remove(root: &mut &mut ParticleList) -> &mut ParticleList {
+fn @remove(root: &mut &mut ParticleList) -> &mut ParticleList {
     if(*root != 0 as &mut ParticleList) {
         let retval : &mut ParticleList  = *root;
         *root = (**root).next;

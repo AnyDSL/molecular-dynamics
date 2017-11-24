@@ -16,17 +16,17 @@ struct ConstantsData {
 
 fn get_constants(r_cut: real, sigma: real, epsilon: real) -> Constants  {
     Constants {
-        r_cut: || {r_cut},
-        sigma: || {sigma},
-        epsilon: || {epsilon},
-        r_cut_sqr: || {r_cut*r_cut},
-        r_cut_inv: || {1.0/r_cut},
-        tmp1: || {
+        r_cut: @|| {r_cut},
+        sigma: @|| {sigma},
+        epsilon: @|| {epsilon},
+        r_cut_sqr: @|| {r_cut*r_cut},
+        r_cut_inv: @|| {1.0/r_cut},
+        tmp1: @|| {
             let sigma3 = sigma * sigma * sigma;
             let sigma6 = sigma3 * sigma3;
             24.0 * epsilon * sigma6
         },
-        tmp2: || {
+        tmp2: @|| {
             let sigma3 = sigma * sigma * sigma;
             let sigma6 = sigma3 * sigma3;
             2.0 * sigma6
@@ -36,10 +36,10 @@ fn get_constants(r_cut: real, sigma: real, epsilon: real) -> Constants  {
 }
 
 
-fn get_constants_from_data(constants_data: ConstantsData) -> Constants  {
+fn @get_constants_from_data(constants_data: ConstantsData) -> Constants  {
     get_constants(constants_data.r_cut, constants_data.sigma, constants_data.epsilon)
 }
-fn get_data_from_constants(constants: Constants) -> ConstantsData  {
+fn @get_data_from_constants(constants: Constants) -> ConstantsData  {
     ConstantsData {
         r_cut: constants.r_cut(),
         sigma: constants.sigma(),

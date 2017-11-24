@@ -18,31 +18,31 @@ struct ParticleSystem {
 
 fn get_particle_system(np: size_t, nc: [size_t * 3], ghost_layer: size_t, domain: Vector, coordinate_shift: Vector, data_cells: &[i8], constants: Constants, data_addresses: &[i8]) -> ParticleSystem {
     ParticleSystem {
-        np: || {np},
-        nc: || {nc},
-        ghost_layer: || {ghost_layer},
-        start: || {
+        np: @|| {np},
+        nc: @|| {nc},
+        ghost_layer: @|| {ghost_layer},
+        start: @|| {
             let mut start : [size_t * 3];
             for d in map_range(0 as size_t, DIMENSION) {
                 start(d) = ghost_layer;
             }
             start
         },
-        end: || {
+        end: @|| {
             let mut end : [size_t * 3];
             for d in map_range(0 as size_t, DIMENSION) {
                 end(d) = nc(d) - ghost_layer;
             }
             end
         },
-        domain: || {domain},
-        shadow_offset: || {ghost_layer as real * constants.r_cut()},
-        coordinate_shift: || {coordinate_shift},
-        head: |i| {&mut bitcast[&mut[&mut ParticleList]](data_cells)(i)},
-        constants: || {constants},
-        addresses: || {get_array_of_addresses(np, data_addresses)},
-        data_cells: || {data_cells},
-        data_addresses: || {data_addresses}
+        domain: @|| {domain},
+        shadow_offset: @|| {ghost_layer as real * constants.r_cut()},
+        coordinate_shift: @|| {coordinate_shift},
+        head: @|i| {&mut bitcast[&mut[&mut ParticleList]](data_cells)(i)},
+        constants: @|| {constants},
+        addresses: @|| {get_array_of_addresses(np, data_addresses)},
+        data_cells: @|| {data_cells},
+        data_addresses: @|| {data_addresses}
     }
 }
 

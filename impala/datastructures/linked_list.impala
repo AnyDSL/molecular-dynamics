@@ -2,58 +2,58 @@ fn size_of_particle() -> size_t {((SIZE_T_1) + (4 as size_t) * DIMENSION) * (siz
 
 fn get_particle(data: &[i8]) -> Particle {
     Particle {
-        getMass: || {bitcast[&[real]](data)(0)},
-        getCoordinates: || {
+        getMass: @|| {bitcast[&[real]](data)(0)},
+        getCoordinates: @|| {
             let mut res : [real * 3];
             for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)(SIZE_T_1 + d); 
             }
             get_vector(res)
         },
-        getVelocities: || {
+        getVelocities: @|| {
             let mut res : [real * 3];
             for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)( SIZE_T_1 + DIMENSION + d); 
             }
             get_vector(res)
         },
-        getForces: || {
+        getForces: @|| {
             let mut res : [real * 3];
             for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)(SIZE_T_1 + SIZE_T_2 * DIMENSION + d); 
             }
             get_vector(res)
         },
-        getForces_old: || {
+        getForces_old: @|| {
             let mut res : [real * 3];
             for d in map_range(SIZE_T_0, DIMENSION) {
                 res(d) = bitcast[&[real]](data)( SIZE_T_1 + SIZE_T_3 * DIMENSION + d); 
             }
             get_vector(res)
         },
-        getIndex: || {
+        getIndex: @|| {
             SIZE_T_0
         },
-        setMass: |m| {bitcast[&mut[real]](data)(0) = m;}, 
+        setMass: @|m| {bitcast[&mut[real]](data)(0) = m;}, 
         setCoordinates: |v| {
             let x = v.get();
             for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + d) = x(d); 
             }
         },
-        setVelocities: |v| {
+        setVelocities: @|v| {
             let x = v.get();
             for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + DIMENSION + d) = x(d); 
             }
         },
-        setForces: |v| {
+        setForces: @|v| {
             let x = v.get();
             for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + SIZE_T_2 * DIMENSION + d) = x(d); 
             }
         },
-        setForces_old: |v| {
+        setForces_old: @|v| {
             let x = v.get();
             for d in map_range(SIZE_T_0, DIMENSION) {
                 bitcast[&mut[real]](data)(SIZE_T_1 + SIZE_T_3 * DIMENSION + d) = x(d); 
@@ -67,19 +67,19 @@ struct ParticleList {
     next: &mut ParticleList
 }
 
-fn allocate_particle_node() -> &mut ParticleList {
+fn @allocate_particle_node() -> &mut ParticleList {
     let ptr = allocate(sizeof[ParticleList]() as size_t) as &mut ParticleList;
     (*ptr).data = allocate(size_of_particle()*(sizeof[u8]() as size_t)); 
     (*ptr).next = 0 as &mut ParticleList; 
     ptr
 }
 
-fn deallocate_particle_node(ptr: &mut ParticleList) -> () {
+fn @deallocate_particle_node(ptr: &mut ParticleList) -> () {
     deallocate((*ptr).data);
     deallocate(bitcast[&[i8]](ptr));
 }
 
-fn get_particle_from_node(pl: &mut ParticleList) -> Particle {
+fn @get_particle_from_node(pl: &mut ParticleList) -> Particle {
     get_particle((*pl).data)
 }
 

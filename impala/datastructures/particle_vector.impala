@@ -19,7 +19,7 @@ struct Cell {
     nodes: Buffer,
     dirty: i8
 }
-fn get_padded_size(n: size_t) -> size_t {
+fn @get_padded_size(n: size_t) -> size_t {
     let mut k = 32 as size_t;
     while (k < n) {
         k *= 2 as size_t;
@@ -60,13 +60,13 @@ fn allocate_cell(size: size_t) -> Cell {
 fn get_particle_vector(buf: Buffer, nc: index_t) -> ParticleVector {
     ParticleVector {
         nc: || {nc},
-        getCell: |i| {
+        getCell: @|i| {
             bitcast[&[Cell]](buf.data)(i)
         },
-        setCell: |i, cell| {
+        setCell: @|i, cell| {
             bitcast[&mut[Cell]](buf.data)(i) = cell;
         },
-        setDirtyBit: |i, bit| {
+        setDirtyBit: @|i, bit| {
             bitcast[&mut[Cell]](buf.data)(i).dirty = bit;
         }
     }
@@ -171,15 +171,15 @@ fn deallocate_cell(cell: Cell) -> () {
     }
 }
 
-fn get_array_of_real(buf: Buffer) -> &mut[real] {
+fn @get_array_of_real(buf: Buffer) -> &mut[real] {
     bitcast[&mut[real]](buf.data) 
 }
 
-fn get_array_of_i8(buf: Buffer) -> &mut[i8] {
+fn @get_array_of_i8(buf: Buffer) -> &mut[i8] {
     bitcast[&mut[i8]](buf.data) 
 }
 
-fn get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
+fn @get_array_of_nodes(buf: Buffer) -> &mut[&mut ParticleList] {
     bitcast[&mut[&mut ParticleList]](buf.data) 
 }
 

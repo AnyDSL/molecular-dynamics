@@ -6,9 +6,9 @@ struct ArrayOfAddresses {
 
 fn get_array_of_addresses(size: size_t, data: &[i8]) -> ArrayOfAddresses {
     ArrayOfAddresses {
-        size: || {size},
-        get: |i| {bitcast[&[&[i8]]](data)(i)},
-        set: |i, ptr| {
+        size: @|| {size},
+        get: @|i| {bitcast[&[&[i8]]](data)(i)},
+        set: @|i, ptr| {
             bitcast[&mut[&[i8]]](data)(i) = ptr;
         }
     }
