@@ -4,13 +4,21 @@ fn integrate_x(cell: Cell, dt: real) -> () {
     let forces_old  = get_array_of_real(cell.forces_old);
     let positions  = get_array_of_real(cell.positions);
     let velocities  = get_array_of_real(cell.velocities);
-    for i in map_range(SIZE_T_0, cell.size * DIMENSION) @{
+    let end = cell.size * DIMENSION;
+    for i in map_range(SIZE_T_0, end) {
     //for i in vectorize(4, 32, 0, (cell.padded_size * DIMENSION) as i32) @{
+
         let a = dt * 0.5 / masses(i);
         let tmp1 = a * forces(i);
         let tmp2 = velocities(i) + tmp1;
         let tmp3 = dt * tmp2;
         positions(i) += tmp3; 
+
+        print_string("Inner iteration: ");
+        print_i64(i as i64);
+        print_string("\t End: "); 
+        print_i64(end as i64);
+        print_string("\n"); 
     }
 }
 
@@ -19,7 +27,7 @@ fn integrate_v(cell: Cell, dt: real) -> () {
     let forces  = get_array_of_real(cell.forces);
     let forces_old  = get_array_of_real(cell.forces_old);
     let velocities  = get_array_of_real(cell.velocities);
-    for i in map_range(SIZE_T_0, cell.size * DIMENSION) @{
+    for i in map_range(SIZE_T_0, cell.size * DIMENSION) {
     //for i in vectorize(4, 32, 0, (cell.padded_size * DIMENSION) as i32) @{
         let a = dt * 0.5 / masses(i);
         let tmp1 = forces(i) + forces_old(i);

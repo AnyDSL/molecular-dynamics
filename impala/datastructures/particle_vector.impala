@@ -189,27 +189,29 @@ fn map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: 
             for i in map_range(start(0), end(0)) {
                 let ic = [i,j,k];
                 let cell = vector.getCell(index(ic, vector.nc()));
+                /*print_string("Iteration: ");
+                print_i64(i as i64);
+                print_string("\t End: "); 
+                print_i64(end(0) as i64);
+                print_string("\n");*/ 
                 if(cell.size != SIZE_T_0) {
                     f(ic, cell);
-                }
+                }   
             }
         }
     }
 }
 
 fn parallel_map_particle_vector(start: index_t, end: index_t, vector: ParticleVector, f: fn(index_t, Cell) -> ()) -> () { 
-    for k in map_range(start(2), end(2)) {
+    for k in parallel_map_range(start(2), end(2), 4) {
     //for k in map_range(start(2), end(2)) {
         for j in map_range(start(1), end(1)) {
             for i in map_range(start(0), end(0)) {
                 let ic = [i,j,k as size_t];
                 let cell = vector.getCell(index(ic, vector.nc()));
-                //if(cell.size != SIZE_T_0) {
-                    print_string("Iteration: ");
-                    print_i64(i as i64);
-                    print_string("\n");
+                if(cell.size != SIZE_T_0) {
                     f(ic, cell);
-                //}
+                }
             }
         }
     }

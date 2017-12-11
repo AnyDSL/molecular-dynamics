@@ -33,7 +33,7 @@ static EPSILON = 1e-9;
 fn map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
    for i in range(lower as i32, upper as i32) {
         body(i as size_t);
-   }
+  }
 }
 
 fn parallel_map_range(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> ()) -> () {
