@@ -61,6 +61,9 @@ fn time_integration(t_start: real, t_end: real, dt: real, vtk: bool) -> ()
         }
         let status = check_invariants(P);
         ++count;
+        //print_string("Iteration: ");
+        //print_i64(count as i64);
+        //print_string("\n");
     }
     clean_up_particle_vector(vector);
     release(buf);

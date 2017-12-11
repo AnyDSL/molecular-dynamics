@@ -30,17 +30,10 @@ static SIZE_T_32 = 32 as size_t;
 static DIMENSION = 3 as size_t;
 static EPSILON = 1e-9;
 
-fn @(upper < 32 as size_t) map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
-    let mut i = lower;
-    while(i < upper) {
-        body(i);
-        ++i;
-    }
-    /*
-    if lower < upper {
-        body(lower);
-        map_range(lower+(SIZE_T_1), upper, body, return)
-    }*/
+fn map_range(lower: size_t, upper: size_t, body: fn(size_t) -> ()) -> () {
+   for i in range(lower as i32, upper as i32) {
+        body(i as size_t);
+   }
 }
 
 fn parallel_map_range(lower: size_t, upper: size_t, numthreads: int, body: fn(size_t) -> ()) -> () {

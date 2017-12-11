@@ -10,7 +10,7 @@ fn integrate_x(cell: Cell, dt: real) -> () {
         let tmp1 = a * forces(i);
         let tmp2 = velocities(i) + tmp1;
         let tmp3 = dt * tmp2;
-        positions(i) += tmp3;
+        positions(i) += tmp3; 
     }
 }
 

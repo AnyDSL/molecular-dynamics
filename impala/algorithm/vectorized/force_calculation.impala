@@ -4,7 +4,7 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cel
         ic_start(d) = SIZE_T_0;
     }
     let ic_end = P.nc();
-    for ic, cell in map_particle_vector(ic_start, ic_end, vector) {
+    for ic, cell in parallel_map_particle_vector(ic_start, ic_end, vector) {
         let forces = get_array_of_real(cell.forces);
         let forces_old = get_array_of_real(cell.forces_old);
         for i in map_range(SIZE_T_0, cell.size * DIMENSION) {
@@ -15,7 +15,7 @@ fn compute_force(P: ParticleSystem, vector: ParticleVector, force_vector: fn(Cel
         }
     }
     
-    for ic, cell1 in map_particle_vector(ic_start, ic_end, vector) {
+    for ic, cell1 in parallel_map_particle_vector(ic_start, ic_end, vector) {
         let mut jc_start : [size_t * 3]; 
         let mut jc_end : [size_t * 3];
         for d in map_range(SIZE_T_0, DIMENSION) {

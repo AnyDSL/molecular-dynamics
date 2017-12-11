@@ -1,6 +1,12 @@
 fn integrate(vector: ParticleVector, start: [size_t * 3], end: [size_t * 3], dt: real, f: fn(Cell, real) -> ()) -> () {
     //for ic, pl in parallel_map_particle_system(start, end, P, numthreads) {
+    //for ic, cell in parallel_map_particle_vector(start, end, vector) {
+    let mut count = SIZE_T_0;
     for ic, cell in map_particle_vector(start, end, vector) {
         f(cell, dt);
+        ++count;
+        print_string("Iteration: ");
+        print_i64(count as i64);
+        print_string("\n");
     }
 }
