@@ -47,6 +47,18 @@ fn @get_data_from_constants(constants: Constants) -> ConstantsData  {
     }
 }
 
+fn @atomic_add(force: [real * 3], forces: &mut[real], i: size_t) -> () {
+    for d in map_range(SIZE_T_0, DIMENSION) {
+        forces(i + d) += force(d);
+    }
+}
+
+fn @atomic_sub(force: [real * 3], forces: &mut[real], i: size_t) -> () {
+    for d in map_range(SIZE_T_0, DIMENSION) {
+        forces(i + d) -= force(d);
+    }
+}
+
 fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
     let sqr = |x : real| {x*x};
     let nodes1      = get_array_of_nodes(cell1.nodes);
@@ -56,8 +68,8 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
     let positions2  = get_array_of_real(cell2.positions);
     let forces2     = get_array_of_real(cell2.forces);
     let index1 = i * DIMENSION;
-    for j in map_range(SIZE_T_0, cell2.size) {
-    //for j in vectorize(4, 32, 0, cell2.padded_size as i32) {
+    //for j in map_range(SIZE_T_0, cell2.size) {
+    for j in vectorize(4, 32, 0, cell2.size as i32) {
         let index2 = j as size_t * DIMENSION;
         if(nodes1(i) != 0 as &mut ParticleList &&  nodes2(j) != 0 as &mut ParticleList) {
             if(nodes1(i) as uintptr_t < nodes2(j) as uintptr_t) {
@@ -73,9 +85,9 @@ fn force(cell1: Cell, cell2: Cell, i: size_t, constants: Constants) -> () {
                     let mut force : [real * 3];
                     for d in map_range(SIZE_T_0, DIMENSION) {
                         force(d) = f * dist(d);
-                        forces1(index1 + d) += force(d);
-                        forces2(index2 + d) -= force(d);
                     }
+                    atomic_add(force, forces1, index1);
+                    atomic_sub(force, forces2, index2);
                 }
             }
         }
