@@ -1,0 +1,65 @@
+fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Grid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    let neighbor_list = cluster.neighbor_list;
+    let begin = cluster_index * cell.cluster_size;
+    let end = min_i32(begin + cell.cluster_size, cell.size);
+    for i in iterate_outer(begin, end) {
+        for j in iterate_inner(i + 1, end) {
+            // Calculate interactions within cluster
+            compute_pairwise_forces(i, j, cell, cell, squared_cutoff_distance, potential);
+        }
+    }
+    for i in range(0, neighbor_list.size) {
+        let neighboring_cell = get_cell_pointer(i, neighbor_list.cells);
+        let neighboring_cluster_index = get_i32(i, neighbor_list.indices);
+        let begin_neighbor = neighboring_cluster_index * neighboring_cell.cluster_size;
+        let end_neighbor = min_i32(begin_neighbor + neighboring_cell.cluster_size, neighboring_cell.size);
+        for i in iterate_outer(begin, end) {
+            for j in iterate_inner(begin_neighbor, end_neighbor) {
+                // TODO find a better solution than checking the index against the size of the cell
+                compute_pairwise_forces(i, j, cell, neighboring_cell, squared_cutoff_distance, potential);
+            }
+        }
+    }
+}
+
+fn @compute_pairwise_forces(i: i32, j: i32, cell: &Cell, neighboring_cell: &Cell, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
+    let position = get_vector(i, cell.positions);
+    let neighbor_position = get_vector(j, neighboring_cell.positions);
+    let dx = neighbor_position.x - position.x;
+    let dy = neighbor_position.y - position.y;
+    let dz = neighbor_position.z - position.z;
+    let squared_distance = dx * dx + dy * dy + dz * dz;
+    if(squared_distance < squared_cutoff_distance) {
+        let f = potential(squared_distance);
+        let dF_x = f * dx;
+        let dF_y = f * dy;
+        let dF_z = f * dz;
+        atomic_add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
+        atomic_sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
+    }
+}
+
+fn cell_compute_forces(cell: &Cell, grid: &Grid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    let clusters = get_array_of_clusters(cell.clusters);
+    for i in range(0, cell.nclusters) {
+        compute_forces(clusters(i), i, cell, grid, squared_cutoff_distance, potential, iterate_outer, iterate_inner);
+    }
+}
+ 
+fn grid_compute_forces(grid: &Grid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    for cell, cell_index in map_over_grid(grid) {
+        cell_compute_forces(cell, grid, squared_cutoff_distance, potential, iterate_outer, iterate_inner);
+    }
+}
+
+fn cell_set_forces_to_zero(cell: &Cell) -> () {
+    for i in range(0, cell.size) {
+        set_vector(i, cell.forces, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+    }
+}
+
+fn grid_set_forces_to_zero(grid: &Grid) -> () {
+    for cell, cell_index in map_over_grid(grid) {
+        cell_set_forces_to_zero(cell);
+    }
+}

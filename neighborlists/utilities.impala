@@ -1,0 +1,111 @@
+struct Vector {
+    x: real_t,
+    y: real_t,
+    z: real_t
+}
+
+fn @print_vector(vector: Vector) -> () {
+    print_f64(vector.x as f64);
+    print_string(" ");
+    print_f64(vector.y as f64);
+    print_string(" ");
+    print_f64(vector.z as f64);
+}
+
+fn @print_index(index: [i32 * 2]) -> () {
+    print_i32(index(0));
+    print_string(" ");
+    print_i32(index(1));
+}
+
+fn @swap_vector(i: i32, j: i32, buf: Buffer) -> () {
+    let tmp = get_vector(i, buf);
+    set_vector(i, buf, get_vector(j, buf));
+    set_vector(j, buf, tmp);
+}
+
+fn @swap_real(i: i32, j: i32, buf: Buffer) -> () {
+    let tmp = get_real(i, buf);
+    set_real(i, buf, get_real(j, buf));
+    set_real(j, buf, tmp);
+}
+
+
+fn @get_real(i: i32, buf: Buffer) -> real_t {
+    bitcast[&[real_t]](buf.data)(i)
+}
+
+fn @set_real(i: i32, buf: Buffer, value: real_t) -> () { 
+    bitcast[&mut[real_t]](buf.data)(i) = value;
+}
+
+fn @get_array_of_reals(buf: Buffer) -> &mut[real_t] {
+    bitcast[&mut[real_t]](buf.data)
+}
+
+fn @get_vector(i: i32, buf: Buffer) -> Vector {
+    bitcast[&[Vector]](buf.data)(i)
+}
+
+fn @set_vector(i: i32, buf: Buffer, value: Vector) -> () { 
+    bitcast[&mut[Vector]](buf.data)(i) = value;
+}
+
+fn @add_to_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () { 
+    bitcast[&mut[Vector]](buf.data)(i).x += x;
+    bitcast[&mut[Vector]](buf.data)(i).y += y;
+    bitcast[&mut[Vector]](buf.data)(i).z += z;
+}
+
+fn @sub_from_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () { 
+    bitcast[&mut[Vector]](buf.data)(i).x -= x;
+    bitcast[&mut[Vector]](buf.data)(i).y -= y;
+    bitcast[&mut[Vector]](buf.data)(i).z -= z;
+}
+
+fn @get_array_of_vectors(buf: Buffer) -> &mut[Vector] {
+    bitcast[&mut[Vector]](buf.data)
+}
+
+fn @get_i32(i: i32, buf: Buffer) -> i32 {
+    bitcast[&[i32]](buf.data)(i)
+}
+
+fn @set_i32(i: i32, buf: Buffer, value: i32) -> () { 
+    bitcast[&mut[i32]](buf.data)(i) = value;
+}
+
+fn @get_array_of_i32(buf: Buffer) -> &mut[i32] {
+    bitcast[&mut[i32]](buf.data)
+}
+
+fn @get_cell_pointer(i: i32, buf: Buffer) -> &Cell {
+    bitcast[&[&Cell]](buf.data)(i)
+}
+
+fn @set_cell_pointer(i: i32, buf: Buffer, value: &Cell) -> () { 
+    bitcast[&mut[&Cell]](buf.data)(i) = value;
+}
+
+fn @get_array_of_cell_pointers(buf: Buffer) -> &mut[&Cell] {
+    bitcast[&mut[&Cell]](buf.data)
+}
+
+
+fn @get_array_of_cells(buf: Buffer) -> &mut[Cell] {
+    bitcast[&mut[Cell]](buf.data)
+}
+
+fn @get_array_of_clusters(buf: Buffer) -> &mut[Cluster] {
+    bitcast[&mut[Cluster]](buf.data)
+}
+
+fn @min_i32(a: i32, b: i32) -> i32 {
+    if(a < b) {a} else {b}
+}
+
+fn @iterate_vectorized(begin: i32, end: i32, body: fn(i32) -> ()) -> () {
+    vectorize(VECTOR_LENGTH, ALIGNMENT, begin, end, body);
+}
+
+
