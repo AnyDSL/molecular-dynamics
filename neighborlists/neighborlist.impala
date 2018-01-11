@@ -91,6 +91,9 @@ fn grid_initialize_clusters(grid: &Grid, neighbor_list_capacity: i32, allocate: 
             cell_allocate_clusters(cell, neighbor_list_capacity, allocate);
             cell_compute_bounding_boxes(cell);
         }
+        else {
+            cell.nclusters = 0;
+        }
     }
 }
 

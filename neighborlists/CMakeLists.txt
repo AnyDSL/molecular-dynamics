@@ -16,6 +16,6 @@ anydsl_runtime_wrap(MD_PROGRAM
     FILES
     intrinsics_cpu.impala definitions.impala utilities.impala atomic.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala test_cpu.impala)
 
-add_executable(md main.cpp ${MD_PROGRAM})
+add_executable(md main.cpp anydsl_includes.h initialize.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES})
 set_target_properties(md PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)

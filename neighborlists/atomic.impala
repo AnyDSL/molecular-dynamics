@@ -1,13 +1,13 @@
 fn atomic_op_f64(a: &mut f64, b: f64, op: fn(f64, f64) -> f64) -> f64 {
     let addr_as_ui  = bitcast[&mut u64](a);
     let mut assumed = *addr_as_ui;
-    let mut result = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))));
+    let mut old = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))))(0);
  
-    while (result(0) != assumed) {
-        assumed = result(0);
-        result = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))));
+    while (old != assumed) {
+        assumed = old;
+        old = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))))(0);
     } 
-    bitcast[f64](result(0))
+    bitcast[f64](old)
 }
 
 fn atomic_add_to_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {

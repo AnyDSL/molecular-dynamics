@@ -90,6 +90,12 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
         print_vector(get_vector(i, cell.forces));
         print_string("\n");
     }
+    print_string("Velocities:\n");
+    for i in range(0, cell.size) {
+        print_vector(get_vector(i, cell.velocities));
+        print_string("\n");
+    }
+
 
     print_string("Clusters:\n");
     let clusters = get_array_of_clusters(cell.clusters);
