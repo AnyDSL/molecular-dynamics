@@ -34,6 +34,8 @@ fn @compute_pairwise_forces(i: i32, j: i32, cell: &Cell, neighboring_cell: &Cell
         let dF_x = f * dx;
         let dF_y = f * dy;
         let dF_z = f * dz;
+        //add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
+        //sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
         atomic_add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
         atomic_sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
     }

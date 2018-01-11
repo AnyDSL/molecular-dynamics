@@ -1,25 +1,22 @@
-fn atomic_op_f64(a: &mut f64, b: f64, op: fn(f64, f64) -> f64) -> f64 {
-    let addr_as_ui  = bitcast[&mut u64](a);
-    let mut assumed = *addr_as_ui;
-    let mut old = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))))(0);
- 
-    while (old != assumed) {
-        assumed = old;
-        old = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))))(0);
-    } 
-    bitcast[f64](old)
+fn atomic_op_f64(a: &mut f64, b: f64, op: fn(f64, f64) -> f64) -> f64 { 
+    let addr_as_ui  = a as &mut u64;
+    let mut done = false;
+    let mut value : u64;
+    while(!done) {
+        value = *addr_as_ui;
+        done = cmpxchg(addr_as_ui, value, bitcast[u64](op(bitcast[f64](value), b)))(1);
+    }
+    bitcast[f64](op(bitcast[f64](value),b))
 }
 
 fn atomic_add_to_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
-    let mut vector = bitcast[&mut[Vector]](buf.data)(i);
-    atomic_op_f64(&mut vector.x, x, |a,b|{a+b}); 
-    atomic_op_f64(&mut vector.y, y, |a,b|{a+b}); 
-    atomic_op_f64(&mut vector.z, z, |a,b|{a+b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).x, x, |a,b|{a+b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).y, y, |a,b|{a+b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).z, z, |a,b|{a+b}); 
 }
 
 fn atomic_sub_from_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
-    let mut vector = bitcast[&mut[Vector]](buf.data)(i);
-    atomic_op_f64(&mut vector.x, x, |a,b|{a-b}); 
-    atomic_op_f64(&mut vector.y, y, |a,b|{a-b}); 
-    atomic_op_f64(&mut vector.z, z, |a,b|{a-b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).x, x, |a,b|{a-b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).y, y, |a,b|{a-b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).z, z, |a,b|{a-b}); 
 }

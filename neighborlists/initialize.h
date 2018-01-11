@@ -50,7 +50,7 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
 int init_rectangular_grid(AABB aabb, double spacing[3], double cell_spacing, int cell_capacity) {
 		double velocity[3];
 		velocity[0] = 0;
-		velocity[1] = -100;
+        velocity[1] = -100;
 		velocity[2] = 0;
 		auto tuple = generate_rectangular_grid(aabb, spacing, 1.0, velocity);
 		for(int i = 0; i < 3; ++i) {
@@ -75,8 +75,8 @@ int init_body_collision(AABB aabb1, AABB aabb2, double spacing1[3], double spaci
     }
     AABB aabb;
     for(int d = 0; d < 3; ++d) {
-        aabb.min[d] = std::min(aabb1.min[d], aabb2.min[d]) - 50;
-        aabb.max[d] = std::max(aabb1.max[d], aabb2.max[d]) + 50;
+        aabb.min[d] = std::min(aabb1.min[d], aabb2.min[d]) - 10;
+        aabb.max[d] = std::max(aabb1.max[d], aabb2.max[d]) + 10;
     }
 
     double velocity1[3];
