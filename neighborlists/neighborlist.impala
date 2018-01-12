@@ -30,13 +30,13 @@ fn cell_allocate_clusters(cell: &mut Cell, neighbor_list_capacity: i32, allocate
 
 fn cell_deallocate_clusters(cell: &mut Cell) -> () {
     let clusters = get_array_of_clusters(cell.clusters);
-    for i in range(0, cell.nclusters) {
-        deallocate_neighbor_list(&mut clusters(i).neighbor_list);
-    }
     if(cell.nclusters > 0) {
+        for i in range(0, cell.nclusters) {
+            deallocate_neighbor_list(&mut clusters(i).neighbor_list);
+        }
         release(cell.clusters);
+        cell.nclusters = 0;
     }
-    cell.nclusters = 0;
 }
 
 fn @compute_bounding_box(positions: &[Vector], base_index: i32, cluster_size: i32) -> AABB {
@@ -85,14 +85,14 @@ fn cell_compute_bounding_boxes(cell: &Cell) -> () {
 }
 
 fn grid_initialize_clusters(grid: &Grid, neighbor_list_capacity: i32, allocate: fn(i32) -> Buffer) -> () {
-    for cell, cell_index in map_over_grid(grid) {
+    for cell, cell_index in map_over_grid(grid, range, range) {
         if(cell.size > 0) {
             cell_sort(cell);
             cell_allocate_clusters(cell, neighbor_list_capacity, allocate);
             cell_compute_bounding_boxes(cell);
         }
         else {
-            cell.nclusters = 0;
+            cell_deallocate_clusters(cell);
         }
     }
 }
@@ -226,7 +226,7 @@ fn cell_assemble_neighbor_lists(cell: &Cell, cell_index: [i32 * 2], grid: &Grid,
 }
 
 fn grid_assemble_neighbor_lists(grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer) -> () {
-    for cell, cell_index in map_over_grid(grid) {
+    for cell, cell_index in map_over_grid(grid, range, range) {
         if(cell.size > 0) {
             cell_assemble_neighbor_lists(cell, cell_index, grid, cutoff_distance, allocate);
         }

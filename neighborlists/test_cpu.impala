@@ -55,7 +55,7 @@ fn cpu_set_forces_to_zero() -> () {
 extern
 fn cpu_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
-    grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, range, range);
+    grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, outer_loop, inner_loop);
 }
 
 extern

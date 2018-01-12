@@ -18,14 +18,14 @@ fn allocate_grid(aabb: AABB, spacing: real_t, initial_cell_capacity: i32, cluste
         cells: allocate(nx * ny * sizeof[Cell]()),
         nparticles: 0
     }; 
-    for cell, cell_index in map_over_grid(grid) {
+    for cell, cell_index in map_over_grid(grid, range, range) {
         *cell = allocate_cell(0, initial_cell_capacity, cluster_size, allocate);
     }
     grid 
 }
 
 fn deallocate_grid(grid: &Grid) -> () {
-    for cell, index in map_over_grid(grid) {
+    for cell, index in map_over_grid(grid, range, range) {
         deallocate_cell(cell);
     }
     release((*grid).cells);
@@ -73,20 +73,20 @@ fn initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector
     grid.nparticles = nparticles;
 }
 
-fn map_over_grid(grid: &Grid, f: fn(&mut Cell, [i32 * 2]) -> ()) -> () {
+fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), f: fn(&mut Cell, [i32 * 2]) -> ()) -> () {
     let cells = get_array_of_cells((*grid).cells);
-    for i in range(0, grid.nx) {
-        for j in range(0, grid.ny) {
+    for i in iterate_outer(0, grid.nx) {
+        for j in iterate_inner(0, grid.ny) {
             let cell_index = [i,j];
             f(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
         }
     }
 }
 
-fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 2], end: [i32 * 2], body: fn(&mut Cell, [i32 * 2]) -> ()) -> () {
+fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 2], end: [i32 * 2], iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(&mut Cell, [i32 * 2]) -> ()) -> () {
     let cells = get_array_of_cells((*grid).cells);
-    for i in range(begin(0), end(0)) {
-        for j in range(begin(1), end(1)) {
+    for i in iterate_outer(begin(0), end(0)) {
+        for j in iterate_inner(begin(1), end(1)) {
             let cell_index = [i,j];
             body(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
         }
@@ -106,7 +106,7 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], vel
     }
     else {
         let mut array_index = 0;
-        for cell, cell_index in map_over_grid(grid) {
+        for cell, cell_index in map_over_grid(grid, range, range) {
             for k in range(0, cell.size) {
                 /*print_string("Mass: ");
                 print_f64(get_real(k, (*cell).masses));
@@ -126,7 +126,7 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], vel
 }
 
 fn print_grid(grid: &Grid) -> () {
-    for cell, cell_index in map_over_grid(grid) {
+    for cell, cell_index in map_over_grid(grid, range, range) {
         if(cell.size > 0) {
             print_cell(cell, cell_index);
         }
