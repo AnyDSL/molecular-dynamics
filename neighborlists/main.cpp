@@ -17,14 +17,14 @@ int main()
     double spacing1[3];
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
-        aabb1.max[i] = 50 + 10*potential_minimum;
+        aabb1.max[i] = 50 + 50*potential_minimum;
         spacing1[i] = potential_minimum;
     }
     AABB aabb2;
     double spacing2[3];
     for(int i = 0; i < 3; ++i) {
         aabb2.min[i] = 50;
-        aabb2.max[i] = 50 + 10*potential_minimum;
+        aabb2.max[i] = 50 + 50*potential_minimum;
         spacing2[i] = potential_minimum;
     }
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);

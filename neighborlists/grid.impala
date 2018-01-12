@@ -7,7 +7,7 @@ struct Grid {
     nparticles: i32
 }
 
-fn allocate_grid(aabb: AABB, spacing: real_t, initial_cell_capacity: i32, cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
+fn allocate_grid(aabb: AABB, spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / spacing) as f64) as i32 + 1;
     let grid = Grid {

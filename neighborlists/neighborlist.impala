@@ -39,7 +39,7 @@ fn cell_deallocate_clusters(cell: &mut Cell) -> () {
     }
 }
 
-fn @compute_bounding_box(positions: &[Vector], base_index: i32, cluster_size: i32) -> AABB {
+fn @compute_bounding_box(positions: &[Vector], base_index: i32, @cluster_size: i32) -> AABB {
     let mut aabb : AABB;
     aabb.min(0) = positions(base_index).x;
     aabb.min(1) = positions(base_index).y;

@@ -46,7 +46,7 @@ struct Cell {
     cluster_size: i32
 }
 
-fn allocate_cell(size: i32, capacity: i32, cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
+fn allocate_cell(size: i32, capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
     let N = if(size + 4 > capacity) {size + 4} else {capacity};
     Cell {
         masses: allocate(N * sizeof[real_t]()),
