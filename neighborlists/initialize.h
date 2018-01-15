@@ -5,6 +5,8 @@
 #include <string>
 #include <cmath>
 #include <tuple>
+#include <chrono>
+#include <random>
 #include "anydsl_includes.h"
 
 struct AABB {
@@ -13,56 +15,65 @@ struct AABB {
 };
 
 std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> generate_rectangular_grid(AABB aabb, double spacing[3], double const mass, double velocity[3]) {
-		int nvertices[3];
-		int size = 1;
-		for(int i = 0; i < 3; ++i) {
-				nvertices[i] = (aabb.max[i] - aabb.min[i]) / spacing[i];
-				size *= nvertices[i];
-		}
-		std::vector<double> masses(size, mass);
-		Vector3D velocity_vector;
-		velocity_vector.x = velocity[0];
-		velocity_vector.y = velocity[1];
-		velocity_vector.z = velocity[2];
-		std::vector<Vector3D> velocities(size, velocity_vector);
-		std::vector<Vector3D> positions(size);
-		int index = 0;
-		for(int i = 0; i < nvertices[0]; ++i) {
-				for(int j = 0; j < nvertices[1]; ++j) {
-						for(int k = 0; k < nvertices[2]; ++k) {
-								positions[index].x = aabb.min[0] + i * spacing[0];
-								positions[index].y = aabb.min[1] + j * spacing[1];
-								positions[index].z = aabb.min[2] + k * spacing[2];
-								//std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
-								++index;
-						}
-				}
-		}
-		if(index != size) {
-				std::cout << "Count: " << index << "Size: " << size << std::endl;
-		}
-		/*for(int i = 0; i < size; i++) {
-				std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
-		}*/
-		return std::make_tuple(masses, positions, velocities);
+    int nvertices[3];
+    int size = 1;
+    for(int i = 0; i < 3; ++i) {
+        nvertices[i] = (aabb.max[i] - aabb.min[i]) / spacing[i];
+        size *= nvertices[i];
+    }
+    std::vector<double> masses(size, mass);
+    Vector3D velocity_vector;
+    velocity_vector.x = velocity[0];
+    velocity_vector.y = velocity[1];
+    velocity_vector.z = velocity[2];
+    std::vector<Vector3D> velocities(size, velocity_vector);
+    std::vector<Vector3D> positions(size);
+    int index = 0;
+    for(int i = 0; i < nvertices[0]; ++i) {
+        for(int j = 0; j < nvertices[1]; ++j) {
+            for(int k = 0; k < nvertices[2]; ++k) {
+                positions[index].x = aabb.min[0] + i * spacing[0];
+                positions[index].y = aabb.min[1] + j * spacing[1];
+                positions[index].z = aabb.min[2] + k * spacing[2];
+                //std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
+                ++index;
+            }
+        }
+    }
+    if(index != size) {
+        std::cout << "Count: " << index << "Size: " << size << std::endl;
+    }
+    /*for(int i = 0; i < size; i++) {
+                std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
+        }*/
+    return std::make_tuple(masses, positions, velocities);
 }
 
-int init_rectangular_grid(AABB aabb, double spacing[3], double cell_spacing, int cell_capacity) {
-		double velocity[3];
-		velocity[0] = 0;
-        velocity[1] = -100;
-		velocity[2] = 0;
-		auto tuple = generate_rectangular_grid(aabb, spacing, 1.0, velocity);
-		for(int i = 0; i < 3; ++i) {
-				aabb.min[i] -= 10;
-				aabb.max[i] += 10;
-		}
-		/*for(int i = 0; i < size; i++) {
-				std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
-		}*/
-		auto size = std::get<0>(tuple).size();
-		cpu_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
-		return size;
+int init_rectangular_grid(AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
+    unsigned seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    std::mt19937_64 random_engine(seed);
+    std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
+    double velocity[3];
+    for(int i = 0; i < 3; ++i) {
+        velocity[i] = 0.0;
+    }
+    auto tuple = generate_rectangular_grid(aabb, spacing, 1.0, velocity);
+    auto& velocities = std::get<2>(tuple);
+    for(size_t i = 0; i < velocities.size(); ++i) {
+        velocities[i].x = distribution(random_engine);
+        velocities[i].y = distribution(random_engine);
+        velocities[i].z = distribution(random_engine);
+    }
+    for(int i = 0; i < 3; ++i) {
+        aabb.min[i] -= 10;
+        aabb.max[i] += 10;
+    }
+    /*for(int i = 0; i < size; i++) {
+                std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
+        }*/
+    auto size = std::get<0>(tuple).size();
+    cpu_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
+    return size;
 }
 
 
