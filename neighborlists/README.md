@@ -1,4 +1,4 @@
-# An AnyDSL implementation of a neighborlist scheme optimized for SIMD and GPU architectures
+# An AnyDSL implementation of a neighborlist cutoff scheme optimized for SIMD and GPU architectures
 
 ## Building
 cmake . -DAnyDSL-runtime_DIR="/path_to/anydsl/runtime"  
