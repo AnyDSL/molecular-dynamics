@@ -5,7 +5,7 @@ cmake . -DAnyDSL-runtime_DIR="/path_to/anydsl/runtime"
 make
 
 ## Usage
-Currently, only one testcase has been implemened. Particles are placed on a three dimensional cubic grid and initialized with a random velocity.  
+Currently, only one testcase has been implemened. Particles are placed on a three dimensional cubic grid and are initialized with a random velocity.  
 
 ./md gridsize timesteps [-vtk /path_to/output_directory]  
 
