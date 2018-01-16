@@ -1,21 +1,23 @@
 fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Grid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
+    let cluster_size = cell.cluster_size;
     let neighbor_list = cluster.neighbor_list;
-    let begin = cluster_index * cell.cluster_size;
-    let end = min_i32(begin + cell.cluster_size, cell.size);
-    //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-    for i in unroll(begin, end) {
+    let begin = cluster_index * cluster_size;
+    let end = min_i32(begin + cluster_size, cell.size);
+    for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+    //for i in unroll(begin, end) {
         for j in unroll(i + 1, end) {
             // Calculate interactions within cluster
             compute_pairwise_forces(i, j, cell, cell, squared_cutoff_distance, potential);
         }
     }
-    for i in range(0, neighbor_list.size) {
-        let neighboring_cell = get_cell_pointer(i, neighbor_list.cells);
-        let neighboring_cluster_index = get_i32(i, neighbor_list.indices);
-        let begin_neighbor = neighboring_cluster_index * neighboring_cell.cluster_size;
-        let end_neighbor = min_i32(begin_neighbor + neighboring_cell.cluster_size, neighboring_cell.size);
-        //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-        for i in unroll(begin, end) {
+    for k in range(0, neighbor_list.size) {
+        let neighboring_cell = get_cell_pointer(k, neighbor_list.cells);
+        let neighboring_cluster_index = get_i32(k, neighbor_list.indices);
+        let cluster_size_neighbor = neighboring_cell.cluster_size;
+        let begin_neighbor = neighboring_cluster_index * cluster_size_neighbor;
+        let end_neighbor = min_i32(begin_neighbor + cluster_size_neighbor, neighboring_cell.size);
+        for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+        //for i in unroll(begin, end) {
             for j in unroll(begin_neighbor, end_neighbor) {
                 // TODO find a better solution than checking the index against the size of the cell
                 compute_pairwise_forces(i, j, cell, neighboring_cell, squared_cutoff_distance, potential);

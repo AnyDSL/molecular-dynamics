@@ -48,12 +48,8 @@ fn cpu_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
 }
 
 extern
-fn cpu_set_forces_to_zero() -> () {
-    grid_set_forces_to_zero(grid_);
-}
-
-extern
 fn cpu_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
+    grid_set_forces_to_zero(grid_);
     let potential = create_potential(sigma, epsilon);
     grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, outer_loop, inner_loop);
 }

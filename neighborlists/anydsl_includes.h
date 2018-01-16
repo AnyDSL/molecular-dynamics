@@ -15,7 +15,6 @@ extern "C" {
 		void cpu_assemble_neighbor_lists(double);
 		void cpu_deallocate_grid();
 		void cpu_print_grid();
-		void cpu_set_forces_to_zero();
 		void cpu_compute_forces(double, double, double);
 }
 #endif // ANYDSL_INCLUDES

@@ -1,8 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstdint>
 #include "anydsl_includes.h"
 #include "initialize.h"
+#include "time.h"
 #include "vtk.h"
 
 void print_usage(char *name) {
@@ -55,26 +57,29 @@ int main(int argc, char **argv) {
         cpu_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
         write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities);
     }
+
+    uint64_t time = 0;
+
     for(int i = 0; i < steps; ++i) {
         std::cout << "Time step: " << i+1 << "\r" << std::flush;
-//        std::cout << "Integrate position" << std::endl;
+        std::cout << "Integrate position" << std::endl;
         cpu_integrate_position(dt);
         //cpu_print_grid();
-//        std::cout << "Redistribute particles" << std::endl;
+        std::cout << "Redistribute particles" << std::endl;
         cpu_redistribute_particles();
-//        std::cout << "Initialize clusters" << std::endl;
+        std::cout << "Initialize clusters" << std::endl;
         cpu_initialize_clusters(512);
-//        std::cout << "Assemble neighbor list" << std::endl;
+        std::cout << "Assemble neighbor list" << std::endl;
         cpu_assemble_neighbor_lists(5.0);
-//        std::cout << "Set forces to zero" << std::endl;
-        cpu_set_forces_to_zero();
-        //std::cout << "------------------------------------------" << std::endl;
-//        std::cout << "Compute forces" << std::endl;
+        std::cout << "Compute forces" << std::endl;
+        auto begin = measure_time();
         cpu_compute_forces(cutoff_radius, epsilon, sigma);
-//        std::cout << "Integrate velocity" << std::endl;
+        auto end = measure_time();
+        time += calculate_time_difference<std::chrono::microseconds>(begin, end);
+        std::cout << "Integrate velocity" << std::endl;
         cpu_integrate_velocity(dt);
         //cpu_print_grid();
-//        std::cout << "vtk output" << std::endl;
+        std::cout << "vtk output" << std::endl;
         if(vtk) {
             int nparticles = cpu_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
             if(nparticles > 0) {
@@ -90,5 +95,6 @@ int main(int argc, char **argv) {
     }
     cpu_deallocate_grid();
     std::cout << std::endl;
+    std::cout << "Force computation required " << time << " microseconds" << std::endl;
     return EXIT_SUCCESS;
 }
