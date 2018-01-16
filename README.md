@@ -1,4 +1,4 @@
-# molecular-dynamics
+# Molecular Dynamics in AnyDSL
 Code generation for molecular dynamics based on the AnyDSL framework
 
 The subdirectory "prototype" contains a prototypical implementation of the cell list algorithm
