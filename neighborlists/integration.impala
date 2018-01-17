@@ -1,13 +1,14 @@
-fn integrate_position(grid: &Grid, dt: real_t, iterate: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
-   for cell, cell_index in map_over_grid(grid, range, range) {
+fn integrate_position(grid: &Grid, dt: real_t, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+   for cell, cell_index in map_over_grid(grid, outer_loop, inner_loop) {
         let positions = get_array_of_vectors((*cell).positions);
         let velocities = get_array_of_vectors((*cell).velocities);
-        for i in iterate(0, cell.size) {
+        //for i in range(0, cell.size) {
+        for i in vectorize(get_vector_length(), get_alignment(), 0, cell.size) {
             positions(i).x += dt * velocities(i).x;
             positions(i).y += dt * velocities(i).y;
             positions(i).z += dt * velocities(i).z;
         }
-        restrict_to_boundary(cell, grid.aabb);
+        //restrict_to_boundary(cell, grid.aabb);
    }
 }
 
@@ -35,12 +36,13 @@ fn restrict_to_boundary(cell: &Cell, aabb: AABB) -> () {
     }
 }
 
-fn integrate_velocity(grid: &Grid, dt: real_t, iterate: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+fn integrate_velocity(grid: &Grid, dt: real_t, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
    for cell, cell_index in map_over_grid(grid, range, range) {
         let masses = get_array_of_reals((*cell).masses);
         let velocities = get_array_of_vectors((*cell).velocities);
         let forces = get_array_of_vectors((*cell).forces);
-        for i in iterate(0, cell.size) {
+        //for i in range(0, cell.size) {
+        for i in vectorize(get_vector_length(), get_alignment(), 0, cell.size) {
             let inverse_mass = 1.0 as real_t / masses(i);
             velocities(i).x += dt * forces(i).x * inverse_mass;
             velocities(i).y += dt * forces(i).y * inverse_mass;

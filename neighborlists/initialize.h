@@ -66,8 +66,8 @@ int init_rectangular_grid(AABB aabb, double spacing[3], double maximum_velocity,
         velocities[i].z = distribution(random_engine);
     }
     for(int i = 0; i < 3; ++i) {
-        aabb.min[i] -= 10;
-        aabb.max[i] += 10;
+        aabb.min[i] -= cell_spacing;
+        aabb.max[i] += cell_spacing;
     }
     /*for(int i = 0; i < size; i++) {
                 std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";

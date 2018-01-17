@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     double spacing[3];
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
-        aabb.max[i] = gridsize *1;
+        aabb.max[i] = gridsize;
         spacing[i] = 1;
     }
 
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        int size = init_rectangular_grid(aabb, spacing, maximum_velocity, 5.0, 2048);
+        int size = init_rectangular_grid(aabb, spacing, maximum_velocity, cutoff_radius, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
             cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             begin = measure_time();
-            cpu_assemble_neighbor_lists(5.0);
+            cpu_assemble_neighbor_lists(cutoff_radius);
             end = measure_time();
             neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 

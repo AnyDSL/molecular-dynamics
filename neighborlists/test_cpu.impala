@@ -18,13 +18,13 @@ fn cpu_deallocate_grid() -> () {
 
 extern 
 fn cpu_integrate_position(dt: real_t) -> () {
-    integrate_position(&grid_, dt, range);
+    integrate_position(&grid_, dt, outer_loop, inner_loop);
 }
 
 
 extern 
 fn cpu_integrate_velocity(dt: real_t) -> () {
-    integrate_velocity(&grid_, dt, range);
+    integrate_velocity(&grid_, dt, outer_loop, inner_loop);
 }
 
 extern
@@ -39,12 +39,12 @@ fn cpu_redistribute_particles() -> () {
 
 extern 
 fn cpu_initialize_clusters(neighbor_list_capacity: i32) -> () {
-   grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu);  
+   grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu, outer_loop, inner_loop);  
 }
 
 extern
 fn cpu_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu)
+    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop, inner_loop);
 }
 
 extern
