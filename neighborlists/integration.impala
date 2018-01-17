@@ -8,7 +8,7 @@ fn integrate_position(grid: &Grid, dt: real_t, outer_loop: fn(i32, i32, fn(i32) 
             positions(i).y += dt * velocities(i).y;
             positions(i).z += dt * velocities(i).z;
         }
-        //restrict_to_boundary(cell, grid.aabb);
+        restrict_to_boundary(cell, grid.aabb);
    }
 }
 

@@ -73,8 +73,8 @@ fn cell_set_forces_to_zero(cell: &Cell) -> () {
     }
 }
 
-fn grid_set_forces_to_zero(grid: &Grid) -> () {
-    for cell, cell_index in map_over_grid(grid, range, range) {
+fn grid_set_forces_to_zero(grid: &Grid, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    for cell, cell_index in map_over_grid(grid, outer_loop, inner_loop) {
         cell_set_forces_to_zero(cell);
     }
 }

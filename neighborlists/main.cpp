@@ -135,6 +135,7 @@ int main(int argc, char **argv) {
                     write_vtk_to_file(filename, masses, positions, velocities);
                 }
             }
+            //std::cout << "Kinetic energy: " << cpu_compute_total_kinetic_energy() << std::endl;
         }
         begin = measure_time();
         cpu_deallocate_grid();

@@ -18,6 +18,7 @@ extern "C" {
 		void cpu_print_grid();
         void cpu_reset_forces();
 		void cpu_compute_forces(double, double, double);
+        double cpu_compute_total_kinetic_energy();
         uint64_t get_number_of_flops();
 }
 #endif // ANYDSL_INCLUDES

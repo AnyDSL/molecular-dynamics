@@ -18,13 +18,13 @@ fn cpu_deallocate_grid() -> () {
 
 extern 
 fn cpu_integrate_position(dt: real_t) -> () {
-    integrate_position(&grid_, dt, outer_loop, inner_loop);
+    integrate_position(grid_, dt, outer_loop, inner_loop);
 }
 
 
 extern 
 fn cpu_integrate_velocity(dt: real_t) -> () {
-    integrate_velocity(&grid_, dt, outer_loop, inner_loop);
+    integrate_velocity(grid_, dt, outer_loop, inner_loop);
 }
 
 extern
@@ -49,13 +49,18 @@ fn cpu_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
 
 extern
 fn cpu_reset_forces() -> () {
-    grid_set_forces_to_zero(grid_);
+    grid_set_forces_to_zero(grid_, outer_loop, inner_loop);
 }
 
 extern
 fn cpu_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
     grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, outer_loop, inner_loop);
+}
+
+extern
+fn cpu_compute_total_kinetic_energy() -> real_t {
+   compute_total_kinetic_energy(grid_, outer_loop, inner_loop)
 }
 
 extern
