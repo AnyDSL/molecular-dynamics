@@ -1,5 +1,6 @@
 #ifndef ANYDSL_INCLUDES_H
 #define ANYDSL_INCLUDES_H
+#include <cstdint>
 extern "C" {
 		struct Vector3D {
 				double x;
@@ -15,7 +16,9 @@ extern "C" {
 		void cpu_assemble_neighbor_lists(double);
 		void cpu_deallocate_grid();
 		void cpu_print_grid();
+        void cpu_reset_forces();
 		void cpu_compute_forces(double, double, double);
+        uint64_t get_number_of_flops();
 }
 #endif // ANYDSL_INCLUDES
 
