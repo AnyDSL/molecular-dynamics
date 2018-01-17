@@ -1,0 +1,10 @@
+static mut flops_ : u64 = 1u64;
+extern fn get_number_of_flops() -> u64 {
+    flops_ - 1u64
+}
+
+fn increase_flops(n: i32) -> () {
+   if(flops_ > 0u64) {
+       atomic(1u32, &mut flops_, n as u64); 
+   }
+}

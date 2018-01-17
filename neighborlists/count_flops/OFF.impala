@@ -1,0 +1,3 @@
+extern fn get_number_of_flops() -> u64 {0u64}
+
+fn increase_flops(n: i32) -> () {}
