@@ -171,7 +171,6 @@ fn @compute_distance(a: AABB, b: AABB, dimension: i32) -> real_t {
     }
 }
 
-
 fn assemble_neighbor_list(cluster: &mut Cluster, cluster_index: i32, grid: &Grid, cell_index: [i32 * 2], cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
     
     cluster.neighbor_list.size = 0;
@@ -217,6 +216,50 @@ fn assemble_neighbor_list(cluster: &mut Cluster, cluster_index: i32, grid: &Grid
         } 
     }
 }
+
+// redundant computation
+fn assemble_redundant_neighbor_list(cluster: &mut Cluster, cluster_index: i32, grid: &Grid, cell_index: [i32 * 2], cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () { 
+    cluster.neighbor_list.size = 0;
+    let mut begin : [i32 * 2];
+    let mut end : [i32 * 2];
+    let nxy = [grid.nx, grid.ny];
+    for i in unroll(0, 2) {
+        begin(i) = if(cell_index(i) > 0) {cell_index(i) - 1} else { 0 };
+        end(i) = if(cell_index(i) < nxy(i) - 1) { cell_index(i) + 2} else { nxy(i) };
+    }
+    let squared_cutoff_distance = cutoff_distance * cutoff_distance;
+    let cells = get_array_of_cells(grid.cells);
+    for i in range(begin(0), end(0)) {
+        for j in range(begin(1), end(1)) {
+            let neighboring_cell_index = [i,j];
+            let cell = &cells(flatten_index(neighboring_cell_index, grid));
+            if(cell.nclusters > 0) {
+                let mut k = 0;
+                let clusters = get_array_of_clusters(cell.clusters);
+                let mut z_distance = compute_distance(cluster.aabb, clusters(0).aabb, 2);
+                while(k < cell.nclusters - 1 && z_distance > cutoff_distance) {
+                    ++k;
+                    z_distance = compute_distance(cluster.aabb, clusters(k).aabb, 2);
+                }
+                while(k < cell.nclusters && z_distance < cutoff_distance) {
+                    let x_distance = compute_distance(cluster.aabb, clusters(k).aabb, 0); 
+                    let y_distance = compute_distance(cluster.aabb, clusters(k).aabb, 1); 
+                    let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
+                    let difference = squared_cutoff_distance - squared_distance;
+                    if(difference > 0.0 as real_t && k != cluster_index) {
+                        // TODO check distance to individual particles if the distance is below a certain threshold
+                        append_neighbor(&mut cluster.neighbor_list, cell, k, allocate);
+                    }
+                    ++k;
+                    if(k < cell.nclusters) {
+                        z_distance = compute_distance(cluster.aabb, clusters(k).aabb, 2); 
+                    }
+                }
+            }
+        } 
+    }
+}
+
 
 fn cell_assemble_neighbor_lists(cell: &Cell, cell_index: [i32 * 2], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer) -> () {
     let clusters = get_array_of_clusters(cell.clusters);
