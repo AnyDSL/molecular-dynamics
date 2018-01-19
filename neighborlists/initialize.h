@@ -49,9 +49,8 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
     return std::make_tuple(masses, positions, velocities);
 }
 
-int init_rectangular_grid(AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
+int init_rectangular_grid(unsigned const seed, AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
     //unsigned seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    unsigned seed = 0;
     std::mt19937_64 random_engine(seed);
     std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
     double velocity[3];
@@ -78,8 +77,7 @@ int init_rectangular_grid(AABB aabb, double spacing[3], double maximum_velocity,
 }
 
 
-int init_body_collision(AABB aabb1, AABB aabb2, double spacing1[3], double spacing2[3], double mass1, double mass2, double velocity, double cell_spacing, int cell_capacity) {
-
+int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spacing1[3], double spacing2[3], double mass1, double mass2, double velocity, double cell_spacing, int cell_capacity) {
     if(aabb1.min[1] < aabb2.max[1]) {
         std::cerr << "The first bounding box must be located on top of the second!" << std::endl;
         std::cerr << "aabb1: " << aabb1.min[1] << " aabb2: " << aabb2.max[1] << std::endl;

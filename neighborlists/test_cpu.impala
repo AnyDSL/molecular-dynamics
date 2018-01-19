@@ -1,6 +1,11 @@
 static mut grid_ : Grid;
 
 extern 
+fn cpu_set_thread_count(thread_count: i32) -> () {
+    set_thread_count(thread_count);
+}
+
+extern 
 fn cpu_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector], 
                        nparticles: i32, min: &[real_t], max: &[real_t], spacing: real_t, cell_capacity: i32) -> () {
     let aabb = AABB {

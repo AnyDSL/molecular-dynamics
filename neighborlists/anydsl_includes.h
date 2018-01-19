@@ -20,6 +20,7 @@ extern "C" {
 		void cpu_compute_forces(double, double, double);
         double cpu_compute_total_kinetic_energy();
         uint64_t get_number_of_flops();
+        void cpu_set_thread_count(int);
 }
 #endif // ANYDSL_INCLUDES
 

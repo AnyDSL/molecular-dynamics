@@ -2,29 +2,31 @@
 #include <fstream>
 #include <string>
 #include <cstdint>
+#include <utility>
 #include "anydsl_includes.h"
 #include "initialize.h"
 #include "time.h"
 #include "vtk.h"
 
 void print_usage(char *name) {
-    std::cout << "Usage: " << name << " gridsize steps runs [-vtk directory]" << std::endl;
+    std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
 }
 
-void print_time_statistics(std::vector<double> time, std::string name) {
+std::pair<double,double> print_time_statistics(std::vector<double> time, std::string name) {
     double const mean = compute_mean(time);
     double const stdev = compute_standard_deviation(time, mean);
     std::cout << name << "\t" << mean << "\tms " << stdev << " ms" << std::endl;
+    return std::make_pair(mean, stdev);
 }
 
 int main(int argc, char **argv) {
-    if(argc != 4 && argc != 6) {
+    if(argc != 7 && argc != 9) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
     bool vtk = false;
-    if(argc == 6) {
-        std::string argument(argv[4]);
+    if(argc == 9) {
+        std::string argument(argv[7]);
         if(argument != "-vtk") {
             print_usage(argv[0]);
             return EXIT_FAILURE;
@@ -33,9 +35,13 @@ int main(int argc, char **argv) {
             vtk = true;
         }
     }
-    int const gridsize = atoi(argv[1]);
-    int const steps = atoi(argv[2]);
-    int const runs = atoi(argv[3]);
+    int gridsize[3];
+    gridsize[0] = atoi(argv[1]);
+    gridsize[1] = atoi(argv[2]);
+    gridsize[2] = atoi(argv[3]);
+    int const steps = atoi(argv[4]);
+    int const runs = atoi(argv[5]);
+    int const nthreads = atoi(argv[6]);
     std::string output_directory;
     double dt = 1e-3;
     double const cutoff_radius = 2.0;
@@ -47,7 +53,7 @@ int main(int argc, char **argv) {
     double spacing[3];
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
-        aabb.max[i] = gridsize;
+        aabb.max[i] = gridsize[i];
         spacing[i] = 1;
     }
 
@@ -61,11 +67,12 @@ int main(int argc, char **argv) {
     std::vector<double> velocity_integration_time(runs, 0);
     std::vector<double> deallocation_time(runs, 0);
     double const factor = 1e-6;
+    cpu_set_thread_count(nthreads);
 
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        int size = init_rectangular_grid(aabb, spacing, maximum_velocity, cutoff_radius, 2048);
+        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -81,7 +88,7 @@ int main(int argc, char **argv) {
         std::vector<Vector3D> positions(size);
         std::vector<Vector3D> velocities(size);
         if(vtk) {
-            output_directory = std::string(argv[5]) + "/";
+            output_directory = std::string(argv[8]) + "/";
             cpu_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
             write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities);
         }
@@ -144,15 +151,23 @@ int main(int argc, char **argv) {
     }
     std::cout << std::endl;
 
-    print_time_statistics(grid_initialization_time, "grid_initialization ");
-    print_time_statistics(position_integration_time, "position_integration");
-    print_time_statistics(redistribution_time, "redistribution");
-    print_time_statistics(cluster_initialization_time, "cluster_initialization");
-    print_time_statistics(neighborlist_creation_time, "neighborlist_creation");
-    print_time_statistics(force_resetting_time, "force_resetting");
-    print_time_statistics(force_computation_time, "force_computation");
-    print_time_statistics(velocity_integration_time, "velocity_integration");
-    print_time_statistics(deallocation_time, "deallocation");
+    std::vector<std::pair<double,double>> time_results(10);
+    time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
+    time_results[1] = print_time_statistics(position_integration_time, "position_integration");
+    time_results[2] = print_time_statistics(redistribution_time, "redistribution");
+    time_results[3] = print_time_statistics(cluster_initialization_time, "cluster_initialization");
+    time_results[4] = print_time_statistics(neighborlist_creation_time, "neighborlist_creation");
+    time_results[5] = print_time_statistics(force_resetting_time, "force_resetting");
+    time_results[6] = print_time_statistics(force_computation_time, "force_computation");
+    time_results[7] = print_time_statistics(velocity_integration_time, "velocity_integration");
+    time_results[8] = print_time_statistics(deallocation_time, "deallocation");
+    double mean_sum = 0, stdev_sum = 0;
+    for(size_t i = 0; i < time_results.size(); ++i) {
+        mean_sum += time_results[i].first;
+        stdev_sum += time_results[i].second;
+    }
+    std::cout << "Total" << "\t" << mean_sum << "\tms " << stdev_sum << " ms" << std::endl;
+
 
     return EXIT_SUCCESS;
 }

@@ -10,7 +10,12 @@ fn @is_avx2() -> bool { false }
 
 fn @get_vector_length() -> i32 { 4 }
 fn @get_alignment() -> i32 { 32 }
-fn @get_thread_count() -> i32 { 4 }
+
+static mut THREAD_COUNT = 1;
+fn @set_thread_count(thread_count: i32) -> () {
+    THREAD_COUNT = thread_count;
+}
+fn @get_thread_count() -> i32 { THREAD_COUNT }
 
 // amount of full vector iterations that trigger loop vectorization
 static simd_iter_threshold = 2;
