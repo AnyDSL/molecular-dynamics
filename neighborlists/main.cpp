@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <utility>
+#include <likwid.h>
 #include "anydsl_includes.h"
 #include "initialize.h"
 #include "time.h"
@@ -70,6 +71,8 @@ int main(int argc, char **argv) {
     cpu_set_thread_count(nthreads);
 
 
+    LIKWID_MARKER_INIT;
+    LIKWID_MARKER_THREADINIT;
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
         int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius, 2048);
@@ -120,9 +123,11 @@ int main(int argc, char **argv) {
             end = measure_time();
             force_resetting_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
+            LIKWID_MARKER_START("Force computation");
             begin = measure_time();
             cpu_compute_forces(cutoff_radius, epsilon, sigma);
             end = measure_time();
+            LIKWID_MARKER_STOP("Force computation");
             force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             begin = measure_time();
@@ -150,6 +155,7 @@ int main(int argc, char **argv) {
         deallocation_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
     }
     std::cout << std::endl;
+    LIKWID_MARKER_CLOSE;
 
     std::vector<std::pair<double,double>> time_results(10);
     time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
