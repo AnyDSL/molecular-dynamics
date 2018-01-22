@@ -3,11 +3,17 @@ fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Gri
     let neighbor_list = cluster.neighbor_list;
     let begin = cluster_index * cluster_size;
     let end = min_i32(begin + cluster_size, cell.size);
+    let mut force_sums : [Vector * 8];
+    for i in unroll(0, cluster_size) {
+        force_sums(i).x = 0.0;
+        force_sums(i).y = 0.0;
+        force_sums(i).z = 0.0;
+    }
     //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
     for i in unroll(begin, end) {
         for j in unroll(i + 1, end) {
             // Calculate interactions within cluster
-            compute_pairwise_forces(i, j, cell, cell, squared_cutoff_distance, potential);
+            compute_pairwise_forces(&mut force_sums(i - begin), i, j, cell, cell, squared_cutoff_distance, potential);
         }
     }
     for k in range(0, neighbor_list.size) {
@@ -19,14 +25,17 @@ fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Gri
         //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
         for i in unroll(begin, end) {
             for j in unroll(begin_neighbor, end_neighbor) {
-                // TODO find a better solution than checking the index against the size of the cell
-                compute_pairwise_forces(i, j, cell, neighboring_cell, squared_cutoff_distance, potential);
+                compute_pairwise_forces(&mut force_sums(i - begin), i, j, cell, neighboring_cell, squared_cutoff_distance, potential);
             }
         }
     }
+    for i in unroll(begin, end) {
+        set_vector(i, cell.forces, force_sums(i - begin));
+    }
+
 }
 
-fn @compute_pairwise_forces(i: i32, j: i32, cell: &Cell, neighboring_cell: &Cell, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
+fn @compute_pairwise_forces(force_sum: &mut Vector, i: i32, j: i32, cell: &Cell, neighboring_cell: &Cell, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     let position = get_vector(i, cell.positions);
     let neighbor_position = get_vector(j, neighboring_cell.positions);
     // 3 FLOPS
@@ -35,20 +44,26 @@ fn @compute_pairwise_forces(i: i32, j: i32, cell: &Cell, neighboring_cell: &Cell
     let dz = neighbor_position.z - position.z;
     // 5 FLOPS
     let squared_distance = dx * dx + dy * dy + dz * dz;
-    //increase_flops(8); 
+    increase_flops(8); 
     if(squared_distance < squared_cutoff_distance) {
         // 8 FLOPS for Lennard-Jones
         let f = potential(squared_distance);
+        // 6 FLOPS
+        force_sum.x += f * dx;
+        force_sum.y += f * dy;
+        force_sum.z += f * dz;
+        increase_flops(14);
+
         // 3 FLOPS
-        let dF_x = f * dx;
-        let dF_y = f * dy;
-        let dF_z = f * dz;
+        //let dF_x = f * dx;
+        //let dF_y = f * dy;
+        //let dF_z = f * dz;
         //add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
         //sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
         // 3 FLOPS
-        atomic_add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
+        //atomic_add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
         // 3 FLOPS
-        atomic_sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
+        //atomic_sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
         //increase_flops(17);
 
     }

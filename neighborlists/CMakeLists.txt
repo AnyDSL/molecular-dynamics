@@ -23,7 +23,7 @@ if(LIKWID_PERFMON)
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLIKWID_PERFMON")
 endif()
 
-set(CLANG_FLAGS -O3 -march=native -mavx2)
+set(CLANG_FLAGS -O3 -march=native -mavx2 -DLIKWID_PERFMON)
 set(IMPALA_FLAGS -O3 --log-level error)
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM

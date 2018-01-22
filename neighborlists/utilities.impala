@@ -57,6 +57,7 @@ fn @add_to_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
     bitcast[&mut[Vector]](buf.data)(i).z += z;
 }
 
+
 fn @sub_from_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () { 
     bitcast[&mut[Vector]](buf.data)(i).x -= x;
     bitcast[&mut[Vector]](buf.data)(i).y -= y;

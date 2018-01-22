@@ -63,7 +63,6 @@ int main(int argc, char **argv) {
     std::vector<double> redistribution_time(runs, 0);
     std::vector<double> cluster_initialization_time(runs, 0);
     std::vector<double> neighborlist_creation_time(runs, 0);
-    std::vector<double> force_resetting_time(runs, 0);
     std::vector<double> force_computation_time(runs, 0);
     std::vector<double> velocity_integration_time(runs, 0);
     std::vector<double> deallocation_time(runs, 0);
@@ -118,10 +117,6 @@ int main(int argc, char **argv) {
             end = measure_time();
             neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            begin = measure_time();
-            cpu_reset_forces();
-            end = measure_time();
-            force_resetting_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             LIKWID_MARKER_START("Force computation");
             begin = measure_time();
@@ -163,10 +158,9 @@ int main(int argc, char **argv) {
     time_results[2] = print_time_statistics(redistribution_time, "redistribution");
     time_results[3] = print_time_statistics(cluster_initialization_time, "cluster_initialization");
     time_results[4] = print_time_statistics(neighborlist_creation_time, "neighborlist_creation");
-    time_results[5] = print_time_statistics(force_resetting_time, "force_resetting");
-    time_results[6] = print_time_statistics(force_computation_time, "force_computation");
-    time_results[7] = print_time_statistics(velocity_integration_time, "velocity_integration");
-    time_results[8] = print_time_statistics(deallocation_time, "deallocation");
+    time_results[5] = print_time_statistics(force_computation_time, "force_computation");
+    time_results[6] = print_time_statistics(velocity_integration_time, "velocity_integration");
+    time_results[7] = print_time_statistics(deallocation_time, "deallocation");
     double mean_sum = 0, stdev_sum = 0;
     for(size_t i = 0; i < time_results.size(); ++i) {
         mean_sum += time_results[i].first;

@@ -264,7 +264,7 @@ fn assemble_redundant_neighbor_list(cluster: &mut Cluster, cluster_index: i32, g
 fn cell_assemble_neighbor_lists(cell: &Cell, cell_index: [i32 * 2], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer) -> () {
     let clusters = get_array_of_clusters(cell.clusters);
     for i in range(0, cell.nclusters) {
-        assemble_neighbor_list(&mut clusters(i), i, grid, cell_index, cutoff_distance, allocate);
+        assemble_redundant_neighbor_list(&mut clusters(i), i, grid, cell_index, cutoff_distance, allocate);
     }
 }
 
