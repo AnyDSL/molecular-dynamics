@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     LIKWID_MARKER_THREADINIT;
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius, 2048);
+        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+0.3, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -101,21 +101,23 @@ int main(int argc, char **argv) {
             cpu_integrate_position(dt);
             end = measure_time();
             position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+            
+            if(j % 20 == 0) {
+                begin = measure_time();
+                cpu_redistribute_particles();
+                end = measure_time();
+                redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            begin = measure_time();
-            cpu_redistribute_particles();
-            end = measure_time();
-            redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                begin = measure_time();
+                cpu_initialize_clusters(512);
+                end = measure_time();
+                cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            begin = measure_time();
-            cpu_initialize_clusters(512);
-            end = measure_time();
-            cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-            begin = measure_time();
-            cpu_assemble_neighbor_lists(cutoff_radius);
-            end = measure_time();
-            neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                begin = measure_time();
+                cpu_assemble_neighbor_lists(cutoff_radius+0.3);
+                end = measure_time();
+                neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+            }
 
 
             LIKWID_MARKER_START("Force computation");
