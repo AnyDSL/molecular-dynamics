@@ -68,13 +68,14 @@ int main(int argc, char **argv) {
     std::vector<double> deallocation_time(runs, 0);
     double const factor = 1e-6;
     cpu_set_thread_count(nthreads);
-
+    double const verlet_buffer = 0.5;
 
     LIKWID_MARKER_INIT;
-    LIKWID_MARKER_THREADINIT;
+    //LIKWID_MARKER_THREADINIT;
+
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+0.3, 2048);
+        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -102,7 +103,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             
-            if(j % 20 == 0) {
+            if(j % 50 == 0) {
                 begin = measure_time();
                 cpu_redistribute_particles();
                 end = measure_time();
@@ -114,18 +115,18 @@ int main(int argc, char **argv) {
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                cpu_assemble_neighbor_lists(cutoff_radius+0.3);
+                cpu_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
                 end = measure_time();
                 neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             }
 
 
-            LIKWID_MARKER_START("Force computation");
+	    LIKWID_MARKER_START("Force");
             begin = measure_time();
             cpu_compute_forces(cutoff_radius, epsilon, sigma);
             end = measure_time();
-            LIKWID_MARKER_STOP("Force computation");
-            force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+	    LIKWID_MARKER_STOP("Force");
+	    force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             begin = measure_time();
             cpu_integrate_velocity(dt);
