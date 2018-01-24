@@ -3,11 +3,22 @@
 #include <string>
 #include <cstdint>
 #include <utility>
-#include <likwid.h>
 #include "anydsl_includes.h"
 #include "initialize.h"
 #include "time.h"
 #include "vtk.h"
+#ifdef LIKWID_PERFMON
+#include <likwid.h>
+#else
+#define LIKWID_MARKER_INIT
+#define LIKWID_MARKER_THREADINIT
+#define LIKWID_MARKER_SWITCH
+#define LIKWID_MARKER_REGISTER(regionTag)
+#define LIKWID_MARKER_START(regionTag)
+#define LIKWID_MARKER_STOP(regionTag)
+#define LIKWID_MARKER_CLOSE
+#define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
+#endif
 
 void print_usage(char *name) {
     std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
@@ -68,7 +79,7 @@ int main(int argc, char **argv) {
     std::vector<double> deallocation_time(runs, 0);
     double const factor = 1e-6;
     cpu_set_thread_count(nthreads);
-    double const verlet_buffer = 0.5;
+    double const verlet_buffer = 0.3;
 
     LIKWID_MARKER_INIT;
     //LIKWID_MARKER_THREADINIT;
@@ -103,7 +114,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             
-            if(j % 50 == 0) {
+            if(j % 20 == 0) {
                 begin = measure_time();
                 cpu_redistribute_particles();
                 end = measure_time();

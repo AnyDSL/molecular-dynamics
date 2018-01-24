@@ -20,10 +20,10 @@ set(BACKEND_FILE backend_${BACKEND}.impala)
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
 option(LIKWID_PERFMON "LIKWID_PERFMON" OFF)
 if(LIKWID_PERFMON)
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLIKWID_PERFMON -pthread")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -pthread")
 endif()
 
-set(CLANG_FLAGS -O3 -march=native)
+set(CLANG_FLAGS -march=native)
 set(IMPALA_FLAGS -O3 --log-level error)
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM
