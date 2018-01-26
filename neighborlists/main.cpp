@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     int const nthreads = atoi(argv[6]);
     std::string output_directory;
     double dt = 1e-3;
-    double const cutoff_radius = 2.0;
+    double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
     double const maximum_velocity = 1.0;
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     double const verlet_buffer = 0.3;
 
     LIKWID_MARKER_INIT;
-    //LIKWID_MARKER_THREADINIT;
+    LIKWID_MARKER_THREADINIT;
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
@@ -162,11 +162,13 @@ int main(int argc, char **argv) {
         cpu_deallocate_grid();
         end = measure_time();
         deallocation_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        std::cout << std::flush << std::endl;
     }
-    std::cout << std::endl;
+    std::cout << std::flush << std::endl;
     LIKWID_MARKER_CLOSE;
 
     std::vector<std::pair<double,double>> time_results(10);
+    std::cout << "Code Region\tAverage\tStandard Deviation" << std::endl;
     time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
     time_results[1] = print_time_statistics(position_integration_time, "position_integration");
     time_results[2] = print_time_statistics(redistribution_time, "redistribution");
@@ -181,6 +183,8 @@ int main(int argc, char **argv) {
         stdev_sum += time_results[i].second;
     }
     std::cout << "Total" << "\t" << mean_sum << "\tms " << stdev_sum << " ms" << std::endl;
+
+    std::cout << "Counted number of FLOPS within the force computation: " << get_number_of_flops() << std::endl;
 
 
     return EXIT_SUCCESS;

@@ -2,6 +2,7 @@
 
 ## Building
 cmake . -DAnyDSL-runtime_DIR="/path_to/anydsl/runtime"  
+to use likwid for performance monitoring additionally pass: -DLIKWID_DIR="/path/to/likwid"  
 make
 
 ## Usage
@@ -14,4 +15,6 @@ timesteps: Number of time steps computed
 runs: Number of test runs  
 threads: Number of threads used for parallelization   
 -vtk: If this argument is provided, vtk output files are created in the directory specified.  
-All other simulation parameters are currently hardcoded.  
+All other simulation parameters are currently hardcoded.   
+If you want to do a specific performance monitoring of the force computation kernel, you can enable the "MONITOR_FORCE_COMPUTATION"-flag in CMake.  
+Additionally, the number of FLOPS can be directly counted with the flag "COUNT_FLOPS".  
