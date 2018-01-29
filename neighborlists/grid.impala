@@ -24,6 +24,20 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
     grid 
 }
 
+fn grid_count_clusters_and_neighbors(grid: &Grid) -> [i32 * 2] {
+    let mut cluster_count = 0;
+    let mut neighbor_count = 0;
+    for cell, index in map_over_grid(grid, range, range) {
+        cluster_count += cell.nclusters;
+        let clusters = get_array_of_clusters(cell.clusters);
+        for i in range(0, cell.nclusters) {
+           let neighborlist = clusters(i).neighbor_list;
+           neighbor_count += neighborlist.size;
+        }
+    }
+    [cluster_count, neighbor_count]
+}
+
 fn deallocate_grid(grid: &Grid) -> () {
     for cell, index in map_over_grid(grid, range, range) {
         deallocate_cell(cell);

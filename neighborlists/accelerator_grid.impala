@@ -1,0 +1,77 @@
+struct AcceleratorGrid {
+    nx: i32,
+    ny: i32,
+    cell_sizes: Buffer,
+    masses: Buffer,
+    positions: Buffer,
+    velocites: Buffer,
+    forces: Buffer,
+    capacity_clusters: i32,
+    cluster_size: i32,
+    neighbors_per_cluster: Buffer, 
+    capacity_neighborlists: i32,
+    neighborlists: Buffer,
+}
+
+fn allocate_accelerator_grid(acc: Accelerator, nx: i32, ny: i32, capacity_clusters: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {
+   AcceleratorGrid {
+        nx: nx,
+        ny: ny,
+        cell_sizes: acc.alloc(nx * ny * sizeof[i32]()),
+        masses: acc.alloc(capacity_clusters * cluster_size * sizeof[real_t]()),
+        positions: acc.alloc(capacity_clusters * cluster_size * 3 * sizeof[real_t]()),
+        velocities: acc.alloc(capacity_clusters * cluster_size * 3 * sizeof[real_t]()),
+        forces: acc.alloc(capacity_clusters * cluster_size * 3 * sizeof[real_t]()),
+        capacity_clusters: capacity_clusters,
+        cluster_size: cluster_size,
+        neighbors_per_cluster: acc.alloc(capacity_clusters * sizeof[i32]()),
+        capacity_neighborlists: neighbor_lists_capacity,
+        neighborlists: acc.alloc(neighbor_lists_capacity * sizeof[i32]()),
+   }
+}
+
+fn deallocate_accelerator_grid(accelerator_grid: AcceleratorGrid) -> () {
+    release(accelerator_grid.cell_sizes);
+    release(accelerator_grid.masses);
+    release(accelerator_grid.positions);
+    release(accelerator_grid.velocities);
+    release(accelerator_grid.forces);
+    release(accelerator_grid.neighbors_per_cluster);
+    release(accelerator_grid.neighborlists);
+}
+
+fn copy_to_accelerator(acc: Accelerator, grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> () {
+    let counts = grid_count_clusters_and_neighbors(grid);
+    let number_of_clusters = counts(0);
+    let number_of_neighbors = counts(1);
+    if(number_of_clusters > accelerator_grid.capacity_clusters) {
+       release(accelerator_grid.masses); 
+       release(accelerator_grid.positions); 
+       release(accelerator_grid.velocities); 
+       release(accelerator_grid.forces); 
+       release(accelerator_grid.neighbors_per_cluster);
+
+       let new_capacity = number_of_clusters + accelerator_grid.capacity_clusters / 10;
+       accelerator_grid.capacity_clusters = new_capacity;
+       accelerator_grid.masses = acc.alloc(new_capacity * sizeof[real_t]()); 
+       accelerator_grid.positions = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
+       accelerator_grid.velocities = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
+       accelerator_grid.forces = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
+       accelerator_grid.neighbors_per_cluster = acc.alloc(new_capacity * sizeof[i32]());
+    }
+    if(number_of_neighbors > accelerator_grid.capacity_neighborlists) {
+        release(accelerator_grid.neighborlists);
+
+        let new_capacity = number_of_neighbors + accelerator_grid.capacity_neighborlists / 10;
+        accelerator_grid.capacity_neighborlists = new_capacity;
+        accelerator_grid.neighborlists = acc.alloc(new_capacity * sizeof[i32]());
+    }
+
+    let mut offset_masses = 0;
+    let mut offset_vectors = 0;
+    let mut offset_clusters = 0;
+    let mut offset_neighbors = 0;
+    for cell, index in map_over_grid(grid, range, range) {
+        
+    }
+}
