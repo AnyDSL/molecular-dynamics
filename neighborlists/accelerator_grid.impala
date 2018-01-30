@@ -1,7 +1,5 @@
-struct AcceleratorGrid {
-    nx: i32,
-    ny: i32,
-    cell_sizes: Buffer,
+struct GPUgrid {
+    offsets: Buffer,
     masses: Buffer,
     positions: Buffer,
     velocites: Buffer,
@@ -10,14 +8,14 @@ struct AcceleratorGrid {
     cluster_size: i32,
     neighbors_per_cluster: Buffer, 
     capacity_neighborlists: i32,
-    neighborlists: Buffer,
+    size_neighborlists: i32,
+    neighborlists_cpu: Buffer
+    neighborlists_gpu: Buffer
 }
 
-fn allocate_accelerator_grid(acc: Accelerator, nx: i32, ny: i32, capacity_clusters: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {
-   AcceleratorGrid {
-        nx: nx,
-        ny: ny,
-        cell_sizes: acc.alloc(nx * ny * sizeof[i32]()),
+fn allocate_gpu_grid(acc: Accelerator, nx: i32, ny: i32, capacity_clusters: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> GPUgrid {
+   GPUgrid {
+        offsets: alloc_cpu(nx * ny * sizeof[i32]()), // only needed for cpu-gpu transfer
         masses: acc.alloc(capacity_clusters * cluster_size * sizeof[real_t]()),
         positions: acc.alloc(capacity_clusters * cluster_size * 3 * sizeof[real_t]()),
         velocities: acc.alloc(capacity_clusters * cluster_size * 3 * sizeof[real_t]()),
@@ -26,52 +24,97 @@ fn allocate_accelerator_grid(acc: Accelerator, nx: i32, ny: i32, capacity_cluste
         cluster_size: cluster_size,
         neighbors_per_cluster: acc.alloc(capacity_clusters * sizeof[i32]()),
         capacity_neighborlists: neighbor_lists_capacity,
-        neighborlists: acc.alloc(neighbor_lists_capacity * sizeof[i32]()),
+        size_neighborlists: 0,
+        neighborlists_cpu: alloc_cpu(neighbor_lists_capacity * sizeof[i32]())
+        neighborlists_gpu: acc.alloc(neighbor_lists_capacity * sizeof[i32]())
    }
 }
 
-fn deallocate_accelerator_grid(accelerator_grid: AcceleratorGrid) -> () {
-    release(accelerator_grid.cell_sizes);
-    release(accelerator_grid.masses);
-    release(accelerator_grid.positions);
-    release(accelerator_grid.velocities);
-    release(accelerator_grid.forces);
-    release(accelerator_grid.neighbors_per_cluster);
-    release(accelerator_grid.neighborlists);
+fn deallocate_gpu_grid(gpu_grid: GPUgrid) -> () {
+    release(gpu_grid.masses);
+    release(gpu_grid.positions);
+    release(gpu_grid.velocities);
+    release(gpu_grid.forces);
+    release(gpu_grid.neighbors_per_cluster);
+    release(gpu_grid.neighborlists_cpu);
+    release(gpu_grid.neighborlists_gpu);
 }
 
-fn copy_to_accelerator(acc: Accelerator, grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> () {
+fn copy_to_accelerator(acc: Accelerator, grid: &Grid, gpu_grid: &mut GPUgrid) -> () {
     let counts = grid_count_clusters_and_neighbors(grid);
     let number_of_clusters = counts(0);
     let number_of_neighbors = counts(1);
-    if(number_of_clusters > accelerator_grid.capacity_clusters) {
-       release(accelerator_grid.masses); 
-       release(accelerator_grid.positions); 
-       release(accelerator_grid.velocities); 
-       release(accelerator_grid.forces); 
-       release(accelerator_grid.neighbors_per_cluster);
+    if(number_of_clusters > gpu_grid.capacity_clusters) {
+       release(gpu_grid.masses); 
+       release(gpu_grid.positions); 
+       release(gpu_grid.velocities); 
+       release(gpu_grid.forces); 
+       release(gpu_grid.neighbors_per_cluster);
 
-       let new_capacity = number_of_clusters + accelerator_grid.capacity_clusters / 10;
-       accelerator_grid.capacity_clusters = new_capacity;
-       accelerator_grid.masses = acc.alloc(new_capacity * sizeof[real_t]()); 
-       accelerator_grid.positions = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
-       accelerator_grid.velocities = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
-       accelerator_grid.forces = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
-       accelerator_grid.neighbors_per_cluster = acc.alloc(new_capacity * sizeof[i32]());
+       let new_capacity = number_of_clusters + gpu_grid.capacity_clusters / 10;
+       gpu_grid.capacity_clusters = new_capacity;
+       gpu_grid.masses = acc.alloc(new_capacity * sizeof[real_t]()); 
+       gpu_grid.positions = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
+       gpu_grid.velocities = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
+       gpu_grid.forces = acc.alloc(new_capacity * 3 * sizeof[real_t]()); 
+       gpu_grid.neighbors_per_cluster = acc.alloc(new_capacity * sizeof[i32]());
     }
-    if(number_of_neighbors > accelerator_grid.capacity_neighborlists) {
-        release(accelerator_grid.neighborlists);
+    if(number_of_neighbors > gpu_grid.capacity_neighborlists) {
+        release(gpu_grid.neighborlists);
 
-        let new_capacity = number_of_neighbors + accelerator_grid.capacity_neighborlists / 10;
-        accelerator_grid.capacity_neighborlists = new_capacity;
-        accelerator_grid.neighborlists = acc.alloc(new_capacity * sizeof[i32]());
+        let new_capacity = number_of_neighbors + gpu_grid.capacity_neighborlists / 10;
+        gpu_grid.capacity_neighborlists = new_capacity;
+        gpu_grid.neighborlists_cpu = alloc_cpu(new_capacity * sizeof[i32]());
+        gpu_grid.neighborlists_gpu = acc.alloc(new_capacity * sizeof[i32]());
     }
 
     let mut offset_masses = 0;
     let mut offset_vectors = 0;
     let mut offset_clusters = 0;
+    let offsets = get_array_of_i32(gpu_grid.offsets);
+    let mut sum_of_sizes = 0;
+
+    for cell, index in map_over_grid(grid, range, range) {
+        let size = cell.size + cell.padding;
+        let flat_index = flatten_index(index, grid); 
+        offsets(flat_index) = sum_of_sizes;
+        sum_of_sizes += size;
+
+        let size_masses = size * sizeof[real_t]();
+        copy_offset(cell.masses, 0, gpu_grid.masses, offset_masses, size_masses);
+        offset_masses += size_masses;
+
+        let size_vectors = size * sizeof[Vector]();
+        copy_offset(cell.positions, 0, gpu_grid.positions, offset_vectors, size_vectors);
+        copy_offset(cell.velocities, 0, gpu_grid.velocities, offset_vectors, size_vectors);
+        offset_vectors += size_vectors;
+
+        let neighbors_per_cluster_in_cell = alloc_cpu(cell.nclusters * sizeof[i32]());
+        let clusters_in_cell = get_array_of_clusters(cell.clusters);
+        for i in range(0, cell.nclusters) {
+            neighbors_per_cluster_in_cell(i) = clusters_in_cell(i).neighborlist.size;
+        }
+        let size_clusters = nclusters * sizeof[i32]());
+        copy_offset(neighbors_per_cluster_in_cell, 0, gpu_grid.neighbors_per_cluster, offset_clusters, size_clusters);
+        offset_clusters += size_clusters;
+        release(neighbors_per_cluster_in_cell);
+    }
+
     let mut offset_neighbors = 0;
     for cell, index in map_over_grid(grid, range, range) {
-        
+        let clusters_in_cell = get_array_of_clusters(cell.clusters); 
+        for i in range(0, cell.nclusters) {
+            let neighborlist = clusters_in_cell(i).neighbor_list;
+            let neighboring_cells = get_array_of_cell_pointers(neighborlist.cells);
+            let neighboring_indices = get_array_of_i32(neighborlist.indices);
+            let neighborlists_cpu = get_array_of_i32(gpu_grid.neighborlists_cpu);
+            for j in range(0, neighborlist.size) {
+                let cell = neighboring_cells(j);
+                neighborlists_cpu(offset_neighbors) = offsets(cell.index) + neighboring_indices(j);
+                ++offset_neighbors;
+            }
+        }
     }
+    gpu_grid.size_neighborlists = offset_neighbors;
+    copy(gpu_grid.neighborlists_cpu, gpu_grid.neighborlists_gpu, gpu_grid.size_neighborlists);
 }

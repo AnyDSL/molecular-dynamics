@@ -19,7 +19,7 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
         nparticles: 0
     }; 
     for cell, cell_index in map_over_grid(grid, range, range) {
-        *cell = allocate_cell(0, initial_cell_capacity, cluster_size, allocate);
+        *cell = allocate_cell(flatten_index(cell_index, grid), 0, initial_cell_capacity, cluster_size, allocate);
     }
     grid 
 }

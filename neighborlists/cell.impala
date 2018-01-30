@@ -34,6 +34,7 @@ fn print_cluster(cluster: &Cluster) -> () {
 }
 
 struct Cell {
+    index: i32,
     masses: Buffer,
     positions: Buffer,
     velocities: Buffer,
@@ -46,9 +47,10 @@ struct Cell {
     cluster_size: i32
 }
 
-fn allocate_cell(size: i32, capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
+fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
     let N = if(size + 4 > capacity) {size + 4} else {capacity};
     Cell {
+        index: index,
         masses: allocate(N * sizeof[real_t]()),
         positions: allocate(N * sizeof[Vector]()),
         velocities: allocate(N * sizeof[Vector]()),
@@ -162,7 +164,7 @@ fn move_particle(i: i32, src: &mut Cell, dest: &mut Cell, allocate: fn(i32) -> B
 
 fn reallocate_cell(new_size: i32, dest: &mut Cell, allocate: fn(i32) -> Buffer) -> () {
     let new_capacity = dest.capacity + (dest.nclusters / 10 + 1) * dest.cluster_size;  
-    let mut new_cell = allocate_cell(new_size, new_capacity, dest.cluster_size, allocate);
+    let mut new_cell = allocate_cell(dest.index, new_size, new_capacity, dest.cluster_size, allocate);
     copy_cell(dest, &mut new_cell);
     deallocate_cell(dest);
     *dest = new_cell;
