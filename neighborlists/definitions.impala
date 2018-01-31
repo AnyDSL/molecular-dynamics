@@ -1,6 +1,6 @@
 static DIMENSION = 3;
 type real_t = f64;
 static EPSILON = 1e-9 as real_t;
-static PRUNING_THRESHOLD = 1e-3;
+static PRUNING_THRESHOLD = 1e-2;
 static VECTOR_LENGTH = 4;
 static ALIGNMENT = 32;

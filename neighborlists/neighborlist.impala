@@ -228,10 +228,13 @@ fn assemble_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: 
     }
     let squared_cutoff_distance = cutoff_distance * cutoff_distance;
     let cells = get_array_of_cells(grid.cells);
+    let flat_cell_index = flatten_index(cell_index, grid);
     for i in range(begin(0), end(0)) {
         for j in range(begin(1), end(1)) {
             let neighboring_cell_index = [i,j];
-            let neighboring_cell = &cells(flatten_index(neighboring_cell_index, grid));
+            let flat_neighboring_cell_index = flatten_index(neighboring_cell_index, grid);
+            let same_cell = flat_cell_index == flat_neighboring_cell_index;
+            let neighboring_cell = &cells(flat_neighboring_cell_index);
             if(neighboring_cell.nclusters > 0) {
                 let mut k = 0;
                 let clusters = get_array_of_clusters(neighboring_cell.clusters);
@@ -241,17 +244,18 @@ fn assemble_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: 
                     z_distance = compute_distance(cluster.aabb, clusters(k).aabb, 2);
                 }
                 while(k < neighboring_cell.nclusters && z_distance < cutoff_distance) {
-                    let x_distance = compute_distance(cluster.aabb, clusters(k).aabb, 0); 
-                    let y_distance = compute_distance(cluster.aabb, clusters(k).aabb, 1); 
-                    let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
-                    let difference = squared_cutoff_distance - squared_distance;
-                    if(difference > PRUNING_THRESHOLD) {
-                        append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
-                    }
-                    else {
-                        // pruning
-                        if(individual_particles_are_in_distance(squared_cutoff_distance, cluster_index, cell, k, neighboring_cell) == true) {
-                            append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
+                    if(same_cell == false || cluster_index != k) {
+                        let x_distance = compute_distance(cluster.aabb, clusters(k).aabb, 0); 
+                        let y_distance = compute_distance(cluster.aabb, clusters(k).aabb, 1); 
+                        let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
+                        let difference = squared_cutoff_distance - squared_distance;
+                        if(difference > 0.0) {
+                            if(difference > PRUNING_THRESHOLD) {
+                                append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
+                            }
+                            else if(individual_particles_are_in_distance(squared_cutoff_distance, cluster_index, cell, k, neighboring_cell) == true) {
+                                append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
+                            }
                         }
                     }
                     ++k;

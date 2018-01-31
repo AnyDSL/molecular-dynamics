@@ -9,8 +9,8 @@ fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Gri
         force_sums(i).y = 0.0;
         force_sums(i).z = 0.0;
     }
-    for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-    //for i in unroll(begin, end) {
+    //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+    for i in unroll(begin, end) {
         for j in unroll(i + 1, end) {
             // Calculate interactions within cluster
             compute_pairwise_forces(&mut force_sums(i - begin), i, j, cell, cell, squared_cutoff_distance, potential);
@@ -22,8 +22,8 @@ fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Gri
         let cluster_size_neighbor = neighboring_cell.cluster_size;
         let begin_neighbor = neighboring_cluster_index * cluster_size_neighbor;
         let end_neighbor = min_i32(begin_neighbor + cluster_size_neighbor, neighboring_cell.size);
-        for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-        //for i in unroll(begin, end) {
+        //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+        for i in unroll(begin, end) {
             for j in unroll(begin_neighbor, end_neighbor) {
                 compute_pairwise_forces(&mut force_sums(i - begin), i, j, cell, neighboring_cell, squared_cutoff_distance, potential);
             }
