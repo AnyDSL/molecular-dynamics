@@ -8,14 +8,26 @@ include(${ANYDSL_RUNTIME_CMAKE_DIR}/Runtime.cmake)
 include_directories(${ANYDSL_RUNTIME_DIR}/src)
 include_directories(${LIKWID_DIR}/include)
 
-set(BACKEND ${BACKEND} CACHE STRING "select the backend from the following: CPU, AVX")
-if(NOT BACKEND)
-    set(BACKEND cpu CACHE STRING "select the backend from the following: CPU, AVX" FORCE)
+set(CPU_BACKEND ${CPU_BACKEND} CACHE STRING "select the cpu backend from the following: CPU, AVX")
+if(NOT CPU_BACKEND)
+    set(CPU_BACKEND cpu CACHE STRING "select the cpu backend from the following: CPU, AVX" FORCE)
 endif()
-string(TOLOWER "${BACKEND}" BACKEND)
-message(STATUS "Selected backend: ${BACKEND}")
+string(TOLOWER "${CPU_BACKEND}" CPU_BACKEND)
+message(STATUS "Selected backend: ${CPU_BACKEND}")
 
-set(BACKEND_FILE backend_${BACKEND}.impala)
+set(CPU_BACKEND_FILE backend_${CPU_BACKEND}.impala)
+
+
+set(GPU_BACKEND ${GPU_BACKEND} CACHE STRING "select the gpu backend from the following: cuda, nvvm, opencl, amdgpu")
+if(NOT GPU_BACKEND)
+    set(GPU_BACKEND opencl CACHE STRING "select the cpu backend from the following: cuda, nvvm, opencl, amdgpu" FORCE)
+endif()
+string(TOLOWER "${GPU_BACKEND}" GPU_BACKEND)
+message(STATUS "Selected backend: ${GPU_BACKEND}")
+
+set(GPU_BACKEND_FILE backend_${GPU_BACKEND}.impala)
+
+
 
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
 option(MONITOR_FORCE_COMPUTATION "MONITOR_FORCE_COMPUTATION" OFF)
@@ -30,7 +42,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES
-    backend_${BACKEND}.impala definitions.impala utilities.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala energy.impala test_cpu.impala)
+    backend_${CPU_BACKEND}.impala backend_${GPU_BACKEND}.impala definitions.impala utilities.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala energy.impala gpu_grid.impala test_cpu.impala)
 
 add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
