@@ -14,7 +14,8 @@ struct GPUgrid {
     neighborlists_gpu: Buffer // neighborlists on the GPU: [i32]
 }
 
-fn allocate_gpu_grid(acc: Accelerator, nx: i32, ny: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> GPUgrid {
+fn allocate_gpu_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> GPUgrid {
+    let acc = accelerator(device_id);
    GPUgrid {
         cell_offsets: alloc_cpu(nx * ny * sizeof[i32]()), // only needed for cpu-gpu transfer
         masses: acc.alloc(capacity_neighbors_per_cluster * cluster_size * sizeof[real_t]()),
@@ -42,7 +43,8 @@ fn deallocate_gpu_grid(gpu_grid: GPUgrid) -> () {
     release(gpu_grid.neighborlists_gpu);
 }
 
-fn copy_to_accelerator(acc: Accelerator, grid: &Grid, gpu_grid: &mut GPUgrid) -> () {
+fn copy_to_accelerator(grid: &Grid, gpu_grid: &mut GPUgrid) -> () {
+    let acc = accelerator(device_id);
     // count the total number of clusters and neighbors within all cells
     let counts = grid_count_clusters_and_neighbors(grid);
     let number_of_clusters = counts(0);
@@ -142,7 +144,7 @@ fn copy_to_accelerator(acc: Accelerator, grid: &Grid, gpu_grid: &mut GPUgrid) ->
     copy(gpu_grid.neighborlists_cpu, gpu_grid.neighborlists_gpu, gpu_grid.total_number_of_neighbors);
 }
 
-fn copy_from_accelerator(acc: Accelerator, gpu_grid: &GPUgrid, grid: &Grid) -> () {
+fn copy_from_accelerator(gpu_grid: &GPUgrid, grid: &Grid) -> () {
     let cell_offsets = get_array_of_i32(gpu_grid.cell_offsets);
     for cell, index in map_over_grid(grid, range, range) {
         if(cell.cluster_size != gpu_grid.cluster_size) {
