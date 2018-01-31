@@ -49,8 +49,8 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
     return std::make_tuple(masses, positions, velocities);
 }
 
-int init_rectangular_grid(unsigned const seed, AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
-    //unsigned seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
+    seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937_64 random_engine(seed);
     std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
     double velocity[3];
@@ -72,7 +72,7 @@ int init_rectangular_grid(unsigned const seed, AABB aabb, double spacing[3], dou
                 std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
         }*/
     auto size = std::get<0>(tuple).size();
-    cpu_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
+    md_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
     return size;
 }
 
@@ -106,7 +106,7 @@ int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spac
     std::get<2>(tuple1).insert(std::get<2>(tuple1).end(), std::get<2>(tuple2).begin(), std::get<2>(tuple2).end());
 
     auto size = std::get<0>(tuple1).size();
-    cpu_initialize_grid(std::get<0>(tuple1).data(), std::get<1>(tuple1).data(), std::get<2>(tuple1).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
+    md_initialize_grid(std::get<0>(tuple1).data(), std::get<1>(tuple1).data(), std::get<2>(tuple1).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
     return size;
 }
 

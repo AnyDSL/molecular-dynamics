@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
     std::vector<double> velocity_integration_time(runs, 0);
     std::vector<double> deallocation_time(runs, 0);
     double const factor = 1e-6;
-    cpu_set_thread_count(nthreads);
+    md_set_thread_count(nthreads);
     double const verlet_buffer = 0.3;
 
     LIKWID_MARKER_INIT;
@@ -103,30 +103,30 @@ int main(int argc, char **argv) {
         std::vector<Vector3D> velocities(size);
         if(vtk) {
             output_directory = std::string(argv[8]) + "/";
-            cpu_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
+            md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
             write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities);
         }
         for(int j = 0; j < steps; ++j) {
             std::cout << "Time step: " << j+1 << "\r" << std::flush;
 
             begin = measure_time();
-            cpu_integrate_position(dt);
+            md_integrate_position(dt);
             end = measure_time();
             position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             
             if(j % 20 == 0) {
                 begin = measure_time();
-                cpu_redistribute_particles();
+                md_redistribute_particles();
                 end = measure_time();
                 redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                cpu_initialize_clusters(512);
+                md_initialize_clusters(512);
                 end = measure_time();
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                cpu_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
+                md_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
                 end = measure_time();
                 neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             }
@@ -134,18 +134,18 @@ int main(int argc, char **argv) {
 
 	    LIKWID_MARKER_START("Force");
             begin = measure_time();
-            cpu_compute_forces(cutoff_radius, epsilon, sigma);
+            md_compute_forces(cutoff_radius, epsilon, sigma);
             end = measure_time();
 	    LIKWID_MARKER_STOP("Force");
 	    force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             begin = measure_time();
-            cpu_integrate_velocity(dt);
+            md_integrate_velocity(dt);
             end = measure_time();
             velocity_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             if(vtk && i == 0) {
-                int nparticles = cpu_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
+                int nparticles = md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
                 if(nparticles > 0) {
                     masses.resize(nparticles);
                     positions.resize(nparticles);
@@ -156,10 +156,10 @@ int main(int argc, char **argv) {
                     write_vtk_to_file(filename, masses, positions, velocities);
                 }
             }
-            //std::cout << "Kinetic energy: " << cpu_compute_total_kinetic_energy() << std::endl;
+            //std::cout << "Kinetic energy: " << md_compute_total_kinetic_energy() << std::endl;
         }
         begin = measure_time();
-        cpu_deallocate_grid();
+        md_deallocate_grid();
         end = measure_time();
         deallocation_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
         std::cout << std::flush << std::endl;

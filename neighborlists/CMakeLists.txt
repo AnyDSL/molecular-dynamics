@@ -27,7 +27,12 @@ message(STATUS "Selected backend: ${GPU_BACKEND}")
 
 set(GPU_BACKEND_FILE backend_${GPU_BACKEND}.impala)
 
-
+option(USE_GPU "USE_GPU" OFF)
+if(USE_GPU)
+    set(RUNTIME_FILE test_gpu.impala)
+else()
+    set(RUNTIME_FILE test_cpu.impala)
+endif()
 
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
 option(MONITOR_FORCE_COMPUTATION "MONITOR_FORCE_COMPUTATION" OFF)
@@ -42,7 +47,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES
-    backend_${CPU_BACKEND}.impala backend_${GPU_BACKEND}.impala definitions.impala utilities.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala energy.impala gpu_grid.impala test_cpu.impala)
+    ${CPU_BACKEND_FILE} ${GPU_BACKEND_FILE} definitions.impala utilities.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala energy.impala gpu_grid.impala ${RUNTIME_FILE})
 
 add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)

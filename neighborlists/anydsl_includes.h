@@ -7,20 +7,20 @@ extern "C" {
 				double y;
 				double z;
 		};
-		void cpu_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double, int);
-		void cpu_integrate_position(double);
-		void cpu_integrate_velocity(double);
-		int cpu_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, int);
-		void cpu_redistribute_particles();
-		void cpu_initialize_clusters(int);
-		void cpu_assemble_neighbor_lists(double);
-		void cpu_deallocate_grid();
-		void cpu_print_grid();
-        void cpu_reset_forces();
-		void cpu_compute_forces(double, double, double);
-        double cpu_compute_total_kinetic_energy();
+		void md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double, int);
+		void md_integrate_position(double);
+		void md_integrate_velocity(double);
+		int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, int);
+		void md_redistribute_particles();
+		void md_initialize_clusters(int);
+		void md_assemble_neighbor_lists(double);
+		void md_deallocate_grid();
+		void md_print_grid();
+        void md_reset_forces();
+		void md_compute_forces(double, double, double);
+        double md_compute_total_kinetic_energy();
         uint64_t get_number_of_flops();
-        void cpu_set_thread_count(int);
+        void md_set_thread_count(int);
 }
 #endif // ANYDSL_INCLUDES
 

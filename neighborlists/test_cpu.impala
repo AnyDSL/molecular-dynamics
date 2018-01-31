@@ -1,12 +1,12 @@
 static mut grid_ : Grid;
 
 extern 
-fn cpu_set_thread_count(thread_count: i32) -> () {
+fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
 }
 
 extern 
-fn cpu_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector], 
+fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector], 
                        nparticles: i32, min: &[real_t], max: &[real_t], cell_spacing: real_t, cell_capacity: i32) -> () {
     let aabb = AABB {
         min: [min(0), min(1), min(2)],
@@ -17,58 +17,58 @@ fn cpu_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Ve
 }
 
 extern
-fn cpu_deallocate_grid() -> () {
+fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
 }
 
 extern 
-fn cpu_integrate_position(dt: real_t) -> () {
+fn md_integrate_position(dt: real_t) -> () {
     integrate_position(grid_, dt, outer_loop, inner_loop);
 }
 
 
 extern 
-fn cpu_integrate_velocity(dt: real_t) -> () {
+fn md_integrate_velocity(dt: real_t) -> () {
     integrate_velocity(grid_, dt, outer_loop, inner_loop);
 }
 
 extern
-fn cpu_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32) -> i32 {
+fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32) -> i32 {
     write_grid_data_to_arrays(masses, positions, velocities, size, &grid_)
 }
 
 extern
-fn cpu_redistribute_particles() -> () {
+fn md_redistribute_particles() -> () {
     redistribute_particles(grid_, alloc_cpu);
 }
 
 extern 
-fn cpu_initialize_clusters(neighbor_list_capacity: i32) -> () {
+fn md_initialize_clusters(neighbor_list_capacity: i32) -> () {
    grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu, outer_loop, inner_loop);  
 }
 
 extern
-fn cpu_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
+fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
     grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop, inner_loop);
 }
 
 extern
-fn cpu_reset_forces() -> () {
+fn md_reset_forces() -> () {
     grid_set_forces_to_zero(grid_, outer_loop, inner_loop);
 }
 
 extern
-fn cpu_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
+fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
     grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, outer_loop, inner_loop);
 }
 
 extern
-fn cpu_compute_total_kinetic_energy() -> real_t {
+fn md_compute_total_kinetic_energy() -> real_t {
    compute_total_kinetic_energy(grid_, outer_loop, inner_loop)
 }
 
 extern
-fn cpu_print_grid() -> () {
+fn md_print_grid() -> () {
     print_grid(grid_);
 }
