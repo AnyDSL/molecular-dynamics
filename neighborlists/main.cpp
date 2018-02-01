@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
     }
 
     std::vector<double> grid_initialization_time(runs, 0);
+    std::vector<double> copy_data_to_accelerator_time(runs, 0);
+    std::vector<double> copy_data_from_accelerator_time(runs, 0);
     std::vector<double> position_integration_time(runs, 0);
     std::vector<double> redistribution_time(runs, 0);
     std::vector<double> cluster_initialization_time(runs, 0);
@@ -98,6 +100,12 @@ int main(int argc, char **argv) {
             std::cout << "Zero particles created. Aborting." << std::endl;
             return EXIT_FAILURE;
         }
+
+        begin = measure_time();
+        md_copy_data_to_accelerator();
+        end = measure_time();
+        copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
         std::vector<double> masses(size);
         std::vector<Vector3D> positions(size);
         std::vector<Vector3D> velocities(size);
@@ -114,7 +122,13 @@ int main(int argc, char **argv) {
             end = measure_time();
             position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             
-            if(j % 20 == 0) {
+            if(j > 0 && j % 20 == 0) {
+
+                begin = measure_time();
+                md_copy_data_from_accelerator();
+                end = measure_time();
+                copy_data_from_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
                 begin = measure_time();
                 md_redistribute_particles();
                 end = measure_time();
@@ -129,6 +143,11 @@ int main(int argc, char **argv) {
                 md_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
                 end = measure_time();
                 neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+                begin = measure_time();
+                md_copy_data_to_accelerator();
+                end = measure_time();
+                copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             }
 
 
@@ -177,6 +196,8 @@ int main(int argc, char **argv) {
     time_results[5] = print_time_statistics(force_computation_time, "force_computation");
     time_results[6] = print_time_statistics(velocity_integration_time, "velocity_integration");
     time_results[7] = print_time_statistics(deallocation_time, "deallocation");
+    time_results[8] = print_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
+    time_results[9] = print_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
     double mean_sum = 0, stdev_sum = 0;
     for(size_t i = 0; i < time_results.size(); ++i) {
         mean_sum += time_results[i].first;

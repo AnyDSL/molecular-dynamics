@@ -16,6 +16,9 @@ fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vec
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
 }
 
+extern fn md_copy_data_to_accelerator() -> () {}
+extern fn md_copy_data_from_accelerator() -> () {}
+
 extern
 fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);

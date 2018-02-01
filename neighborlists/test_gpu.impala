@@ -21,6 +21,14 @@ fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vec
     gpu_grid_ = allocate_gpu_grid(grid_.nx, grid_.ny, capacity, cluster_size, capacity * 64); 
 }
 
+
+extern fn md_copy_data_to_accelerator() -> () {
+    copy_to_accelerator(grid_, &mut gpu_grid_);
+}
+extern fn md_copy_data_from_accelerator() -> () {
+    copy_from_accelerator(gpu_grid_, grid_);
+}
+
 extern
 fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
