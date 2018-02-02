@@ -1,0 +1,13 @@
+fn @is_nvvm() -> bool { false }
+fn @is_cuda() -> bool { false }
+fn @is_opencl() -> bool { false }
+fn @is_amdgpu() -> bool { false }
+fn @has_ldg() -> bool { false }
+
+fn accelerator_allocate(size: i32) -> Buffer {
+    Buffer {
+        device: 0,
+        data: 0 as &[i8] 
+    }
+}
+fn transfer_to_accelerator(source: Buffer, destination: Buffer, size: i32) -> () {}
