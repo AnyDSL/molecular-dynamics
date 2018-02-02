@@ -9,5 +9,5 @@ fn accelerator_allocate(size: i32) -> Buffer {
 }
 
 fn transfer_to_accelerator(source: Buffer, destination: Buffer, size: i32) -> () {
-    copy(source, buffer, size);
+    copy(source, destination, size);
 }

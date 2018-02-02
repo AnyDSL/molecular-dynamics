@@ -1,0 +1,228 @@
+struct AcceleratorGrid {
+    cluster_size: i32, // size of one cluster on the accelerator
+    total_number_of_clusters: i32, // equals the size of neighbors_per_cluster
+    capacity_neighbors_per_cluster: i32, // capacity of the array neighbors_per_cluster
+    total_number_of_neighbors: i32, // equals the size of the neighborlists arrays
+    capacity_neighborlists: i32, // capacity of the neighborlists arrays
+    cell_offsets: Buffer, // offsets of the data stored in each cell within data array
+
+    masses_cpu: Buffer, // masses of all particles on the CPU: [real_t]
+    positions_cpu: Buffer, // positions of all particles on the CPU: [Vector]
+    velocities_cpu: Buffer, // velocities of all particles on the CPU: [Vector]
+    forces_cpu: Buffer, // forces of all particles on the CPU: [Vector]
+    neighbors_per_cluster_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
+    neighborlist_offsets_cpu: Buffer, // offsets to the data stored in each neighbor list on the CPU: [i32]
+    neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
+
+    masses_accelerator: Buffer, // masses of all particles on the accelerator: [real_t]
+    positions_accelerator: Buffer, // positions of all particles on the accelerator: [Vector]
+    velocities_accelerator: Buffer, // velocities of all particles on the accelerator: [Vector]
+    forces_accelerator: Buffer, // forces of all particles on the accelerator: [Vector]
+    neighbors_per_cluster_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
+    neighborlist_offsets_accelerator: Buffer, // offsets to the data stored in each neighbor list on the accelerator: [i32] 
+    neighborlists_accelerator: Buffer // neighborlists on the accelerator: [i32]
+}
+
+fn allocate_accelerator_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {
+    let capacity_particles = capacity_neighbors_per_cluster * cluster_size;
+   AcceleratorGrid {
+        cluster_size: cluster_size,
+        total_number_of_clusters: 0,
+        capacity_neighbors_per_cluster: capacity_neighbors_per_cluster,
+        total_number_of_neighbors: 0,
+        capacity_neighborlists: neighbor_lists_capacity,
+        cell_offsets: alloc_cpu(nx * ny * sizeof[i32]()), // only needed for cpu-accelerator transfer
+
+        masses_cpu: alloc_cpu(capacity_particles * sizeof[real_t]()),
+        positions_cpu: alloc_cpu(capacity_particles * sizeof[Vector]()),
+        velocities_cpu: alloc_cpu(capacity_particles * sizeof[Vector]()),
+        forces_cpu: alloc_cpu(capacity_particles * sizeof[Vector]()),
+        neighbors_per_cluster_cpu: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
+        neighborlist_offsets_cpu: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
+        neighborlists_cpu: alloc_cpu(neighbor_lists_capacity * sizeof[i32]()),
+
+        masses_accelerator: accelerator_allocate(capacity_particles * sizeof[real_t]()),
+        positions_accelerator: accelerator_allocate(capacity_particles * sizeof[Vector]()),
+        velocities_accelerator: accelerator_allocate(capacity_particles * sizeof[Vector]()),
+        forces_accelerator: accelerator_allocate(capacity_particles * sizeof[Vector]()),
+        neighbors_per_cluster_accelerator: accelerator_allocate(capacity_neighbors_per_cluster * sizeof[i32]()),
+        neighborlist_offsets_accelerator: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
+        neighborlists_accelerator: accelerator_allocate(neighbor_lists_capacity * sizeof[i32]())
+   }
+}
+
+fn deallocate_accelerator_grid(accelerator_grid: AcceleratorGrid) -> () {
+    release(accelerator_grid.cell_offsets);
+
+    release(accelerator_grid.masses_cpu);
+    release(accelerator_grid.positions_cpu);
+    release(accelerator_grid.velocities_cpu);
+    release(accelerator_grid.forces_cpu);
+    release(accelerator_grid.neighbors_per_cluster_cpu);
+    release(accelerator_grid.neighborlist_offsets_cpu);
+    release(accelerator_grid.neighborlists_cpu);
+
+    release(accelerator_grid.masses_accelerator);
+    release(accelerator_grid.positions_accelerator);
+    release(accelerator_grid.velocities_accelerator);
+    release(accelerator_grid.forces_accelerator);
+    release(accelerator_grid.neighbors_per_cluster_accelerator);
+    release(accelerator_grid.neighborlist_offsets_accelerator);
+    release(accelerator_grid.neighborlists_accelerator);
+}
+
+fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> () {
+    // count the total number of clusters and neighbors within all cells
+    let counts = grid_count_clusters_and_neighbors(grid);
+    let number_of_clusters = counts(0);
+    let number_of_neighbors = counts(1);
+    // if the total number of clusters exceeds the capacity of the accelerator arrays 
+    // reallocate a sufficient amount of memory
+    if(number_of_clusters > accelerator_grid.capacity_neighbors_per_cluster) {
+
+       release(accelerator_grid.masses_cpu); 
+       release(accelerator_grid.positions_cpu); 
+       release(accelerator_grid.velocities_cpu); 
+       release(accelerator_grid.forces_cpu); 
+       release(accelerator_grid.neighbors_per_cluster_cpu);
+       release(accelerator_grid.neighborlists_cpu);
+
+       release(accelerator_grid.masses_accelerator); 
+       release(accelerator_grid.positions_accelerator); 
+       release(accelerator_grid.velocities_accelerator); 
+       release(accelerator_grid.forces_accelerator); 
+       release(accelerator_grid.neighbors_per_cluster_accelerator);
+       release(accelerator_grid.neighborlist_offsets_accelerator);
+
+
+       let new_capacity = number_of_clusters + accelerator_grid.capacity_neighbors_per_cluster / 10;
+
+       accelerator_grid.capacity_neighbors_per_cluster = new_capacity;
+
+       accelerator_grid.masses_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[real_t]()); 
+       accelerator_grid.positions_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.velocities_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.forces_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.neighbors_per_cluster_cpu = alloc_cpu(new_capacity * sizeof[i32]());
+       accelerator_grid.neighborlist_offsets_cpu = alloc_cpu(new_capacity * sizeof[i32]());
+
+       accelerator_grid.masses_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[real_t]()); 
+       accelerator_grid.positions_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.velocities_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.forces_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.neighbors_per_cluster_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
+       accelerator_grid.neighborlist_offsets_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
+    }
+    accelerator_grid.total_number_of_clusters = number_of_clusters;
+
+    // if the total number neighbors exceeds the capacity in the neighborlists cpu and accelerator array 
+    // reallocate a sufficient amount of memory
+    if(number_of_neighbors > accelerator_grid.capacity_neighborlists) {
+        release(accelerator_grid.neighborlists_cpu);
+        release(accelerator_grid.neighborlists_accelerator);
+
+        let new_capacity = number_of_neighbors + accelerator_grid.capacity_neighborlists / 10;
+        accelerator_grid.capacity_neighborlists = new_capacity;
+        accelerator_grid.neighborlists_cpu = alloc_cpu(new_capacity * sizeof[i32]());
+        accelerator_grid.neighborlists_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
+    }
+
+    let mut offset_masses = 0;
+    let mut offset_vectors = 0;
+    let mut offset_clusters = 0;
+    let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
+    let neighbors_per_cluster = get_array_of_i32(accelerator_grid.neighbors_per_cluster_cpu);
+    let neighborlist_offsets = get_array_of_i32(accelerator_grid.neighborlist_offsets_cpu);
+    let mut sum_of_sizes = 0;
+    let mut offset_neighbors = 0;
+
+    // copy cell data to the accelerator
+    for cell, index in map_over_grid(grid, range, range) {
+        if(cell.cluster_size != accelerator_grid.cluster_size) {
+            print_string("Cluster sizes on CPU and accelerator are not equal!");
+        }
+        else {
+            // first compute the offset for each cell within the accelerator arrays
+            // the offset for the next cell is obtained by adding the size of the last cell to the old offset value
+            let total_cell_size = cell.size + cell.padding;
+            let flat_index = flatten_index(index, grid); 
+            cell_offsets(flat_index) = sum_of_sizes;
+            sum_of_sizes += total_cell_size;
+            if(cell.size > 0) {
+                let size_masses = total_cell_size * sizeof[real_t]();
+                copy_offset(cell.masses, 0, accelerator_grid.masses_cpu, offset_masses, size_masses);
+                offset_masses += size_masses;
+
+                let size_vectors = total_cell_size * sizeof[Vector]();
+                copy_offset(cell.positions, 0, accelerator_grid.positions_cpu, offset_vectors, size_vectors);
+                copy_offset(cell.velocities, 0, accelerator_grid.velocities_cpu, offset_vectors, size_vectors);
+                offset_vectors += size_vectors;
+
+                let clusters_in_cell = get_array_of_clusters(cell.clusters);
+                for i in range(0, cell.nclusters) {
+                    neighbors_per_cluster_cpu(offset_clusters + i) = clusters_in_cell(i).neighbor_list.size;
+                    neighborlist_offsets(offset_clusters + i) = offset_neighbors;
+                    offset_neighbors += clusters_in_cell(i).neighbor_list.size;
+                }
+                offset_clusters += cell.nclusters;
+                release(buf_neighbors_per_cluster_in_cell);
+            }
+        }
+    }
+
+    offset_neighbors = 0;
+    let neighborlists_cpu = get_array_of_i32(accelerator_grid.neighborlists_cpu);
+    for cell, index in map_over_grid(grid, range, range) {
+
+        if(cell.cluster_size != accelerator_grid.cluster_size) {
+            print_string("Cluster sizes on CPU and accelerator are not equal!");
+        }
+        else {
+            if(cell.size > 0) {
+                let clusters_in_cell = get_array_of_clusters(cell.clusters); 
+                for i in range(0, cell.nclusters) {
+                    let neighborlist = clusters_in_cell(i).neighbor_list;
+                    let neighboring_cells = get_array_of_cell_pointers(neighborlist.cells);
+                    let neighboring_indices = get_array_of_i32(neighborlist.indices);
+                    for j in range(0, neighborlist.size) {
+                        let neighboring_cell = neighboring_cells(j);
+                        neighborlists_cpu(offset_neighbors) = cell_offsets(neighboring_cell.index) + neighboring_indices(j) * accelerator_grid.cluster_size;
+                        ++offset_neighbors;
+                    }
+                }
+            }
+
+        }
+    }
+    let total_data_size_masses = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size * sizeof[real_t]();
+    let total_data_size_vectors = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size * sizeof[Vector]();
+    let total_data_size_neighbors_per_cluster = accelerator_grid.total_number_of_clusters * sizeof[i32]();
+    copy(accelerator_grid.masses_cpu, accelerator_grid.masses_accelerator, total_data_size_masses);
+    copy(accelerator_grid.positions_cpu, accelerator_grid.positions_accelerator, total_data_size_vectors);
+    copy(accelerator_grid.velocities_cpu, accelerator_grid.velocities_accelerator, total_data_size_vectors);
+    copy(accelerator_grid.neighbors_per_cluster_cpu, accelerator_grid.neighbors_per_cluster_accelerator, total_data_size_neighbors_per_cluster);
+
+    accelerator_grid.total_number_of_neighbors = offset_neighbors;
+    copy(accelerator_grid.neighborlists_cpu, accelerator_grid.neighborlists_accelerator, accelerator_grid.total_number_of_neighbors * sizeof[i32]());
+}
+
+fn copy_from_accelerator(accelerator_grid: &AcceleratorGrid, grid: &Grid) -> () { 
+    let total_data_size_vectors = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size * sizeof[Vector]();
+    copy(accelerator_grid.positions_accelerator, accelerator_grid.positions_cpu, total_data_size_vectors);
+    copy(accelerator_grid.velocities_accelerator, accelerator_grid.velocities_cpu, total_data_size_vectors);
+    
+    let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
+    for cell, index in map_over_grid(grid, range, range) {
+        if(cell.cluster_size != accelerator_grid.cluster_size) {
+            print_string("Cluster sizes on CPU and accelerator are not equal!");
+        }
+        else {
+            if(cell.size > 0) {
+                let flat_index = flatten_index(index, grid);
+                let offset_vectors = cell_offsets(flat_index) * sizeof[Vector]();
+                copy_offset(accelerator_grid.positions_cpu, offset_vectors, cell.positions, 0, cell.size * sizeof[Vector]());
+                copy_offset(accelerator_grid.velocities_cpu, offset_vectors, cell.velocities, 0, cell.size * sizeof[Vector]());
+            }
+        }
+    }
+}

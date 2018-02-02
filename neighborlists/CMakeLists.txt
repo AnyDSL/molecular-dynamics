@@ -42,7 +42,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES
-    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala energy.impala gpu_grid.impala ${RUNTIME_FILE})
+    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala lennard_jones.impala energy.impala accelerator_grid.impala ${RUNTIME_FILE})
 
 add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 #target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} 

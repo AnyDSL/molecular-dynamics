@@ -1,6 +1,5 @@
 static mut grid_ : Grid;
-static mut accelerator_ : Accelerator;
-static mut gpu_grid_ : GPUgrid;
+static mut accelerator_grid_ : AcceleratorGrid;
 
 extern 
 fn md_set_thread_count(thread_count: i32) -> () {
@@ -18,21 +17,21 @@ fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vec
     grid_ = allocate_grid(aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     let capacity = nparticles / 4 + 128;
-    gpu_grid_ = allocate_gpu_grid(grid_.nx, grid_.ny, capacity, cluster_size, capacity * 64); 
+    accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, capacity, cluster_size, capacity * 64); 
 }
 
 
 extern fn md_copy_data_to_accelerator() -> () {
-    copy_to_accelerator(grid_, &mut gpu_grid_);
+    copy_to_accelerator(grid_, &mut accelerator_grid_);
 }
 extern fn md_copy_data_from_accelerator() -> () {
-    copy_from_accelerator(gpu_grid_, grid_);
+    copy_from_accelerator(accelerator_grid_, grid_);
 }
 
 extern
 fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
-    deallocate_gpu_grid(gpu_grid_);
+    deallocate_accelerator_grid(accelerator_grid_);
 }
 
 extern 
