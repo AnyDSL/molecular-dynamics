@@ -8,6 +8,6 @@ fn accelerator_allocate(size: i32) -> Buffer {
     acc.alloc(size)
 }
 
-fn transfer_to_accelerator(source: Buffer, destination: Buffer, size: i32) -> () {
+fn transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {
     copy(source, destination, size);
 }

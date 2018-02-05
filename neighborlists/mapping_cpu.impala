@@ -7,7 +7,7 @@ fn @has_ldg() -> bool { false }
 fn accelerator_allocate(size: i32) -> Buffer {
     Buffer {
         device: 0,
-        data: 0 as &[i8] 
+        data: 0 as &[i8]
     }
 }
-fn transfer_to_accelerator(source: Buffer, destination: Buffer, size: i32) -> () {}
+fn transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
