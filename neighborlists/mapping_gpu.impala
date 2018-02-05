@@ -3,11 +3,13 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
-fn accelerator_allocate(size: i32) -> Buffer {
+fn @accelerator_allocate(size: i32) -> Buffer {
     let acc = accelerator(device_id);
     acc.alloc(size)
 }
 
-fn transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {
+fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {
     copy(source, destination, size);
 }
+
+fn @get_cluster_size() -> i32 {8}

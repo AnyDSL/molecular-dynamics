@@ -5,6 +5,3 @@ fn @is_avx2() -> bool { false }
 
 fn @get_vector_length() -> i32 { 1 }
 fn @get_alignment() -> i32 { 4 }
-
-
-

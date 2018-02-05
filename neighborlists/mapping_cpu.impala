@@ -4,10 +4,12 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
-fn accelerator_allocate(size: i32) -> Buffer {
+fn @accelerator_allocate(size: i32) -> Buffer {
     Buffer {
         device: 0,
         data: 0 as &[i8]
     }
 }
-fn transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
+fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
+
+fn @get_cluster_size() -> i32 {4}

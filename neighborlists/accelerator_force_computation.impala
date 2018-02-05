@@ -1,10 +1,10 @@
 fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     for cluster_index in outer_loop(0, accelerator_grid.total_number_of_clusters) {
-        let cluster_size = accelerator_grid.cluster_size;
+        let cluster_size = 4;
         let begin = cluster_index * cluster_size;
         let end = begin + cluster_size;
-        //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-        for i in unroll(begin, end) {
+        for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+        //for i in unroll(begin, end) {
             for j in unroll(i + 1, end) {
                 // Calculate interactions within cluster
                 accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
@@ -16,8 +16,8 @@ fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff
         for k in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlist(neighborlist_offset + k * cluster_size);
             let end_neighbor = begin_neighbor + cluster_size;
-            //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-            for i in unroll(begin, end) {
+            for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+            //for i in unroll(begin, end) {
                 for j in unroll(begin_neighbor, end_neighbor) {
                     accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
                 }
