@@ -1,22 +1,21 @@
 fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
-    for cluster_index in outer_loop(0, accelerator_grid.total_number_of_clusters) {
-    //for cluster_index in parallel(1, 0, accelerator_grid.total_number_of_clusters) {
+    for cluster_index in outer_loop_cpu(0, accelerator_grid.total_number_of_clusters) {
         let cluster_size = accelerator_grid.cluster_size;
         let begin = cluster_index * cluster_size;
         let end = begin + cluster_size;
         for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-            for j in unroll(i + 1, end) {
-                // Calculate interactions within cluster
-                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+            for j in unroll(begin, end) {
+                if(i != j) {
+                    // Calculate interactions within cluster
+                    accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+                }
             }
-        }
-        let number_of_neighbors = get_i32(cluster_index, accelerator_grid.neighbors_per_cluster_cpu);
-        let neighborlist_offset = get_i32(cluster_index, accelerator_grid.neighborlist_offsets_cpu);
-        let neighborlist = get_array_of_i32(accelerator_grid.neighborlists_cpu);
-        for k in range(0, number_of_neighbors) {
-            let begin_neighbor = neighborlist(neighborlist_offset + k * cluster_size);
-            let end_neighbor = begin_neighbor + cluster_size;
-            for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+            let number_of_neighbors = get_i32(cluster_index, accelerator_grid.neighbors_per_cluster_cpu);
+            let neighborlist_offset = get_i32(cluster_index, accelerator_grid.neighborlist_offsets_cpu);
+            let neighborlist = get_array_of_i32(accelerator_grid.neighborlists_cpu);
+            for k in range(0, number_of_neighbors) {
+                let begin_neighbor = neighborlist(neighborlist_offset + k * cluster_size);
+                let end_neighbor = begin_neighbor + cluster_size;
                 for j in unroll(begin_neighbor, end_neighbor) {
                     accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
                 }
@@ -50,7 +49,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i
 }
 
 fn accelerator_set_forces_to_zero(accelerator_grid: &AcceleratorGrid) -> () {
-    for i in outer_loop(0, accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size) {
+    for i in outer_loop_cpu(0, accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size) {
         set_vector(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
     }
 }
@@ -58,7 +57,7 @@ fn accelerator_set_forces_to_zero(accelerator_grid: &AcceleratorGrid) -> () {
 fn accelerator_integrate_position(accelerator_grid: &AcceleratorGrid, dt: real_t) -> () {
     let positions = get_array_of_vectors(accelerator_grid.positions_cpu);
     let velocities = get_array_of_vectors(accelerator_grid.velocities_cpu);
-    for i in inner_loop(0, accelerator_grid.total_number_of_clusters) {
+    for i in inner_loop_cpu(0, accelerator_grid.total_number_of_clusters) {
         let base = i * accelerator_grid.cluster_size;
         for j in vectorize(get_vector_length(), get_alignment(), 0, accelerator_grid.cluster_size) {
             let k = base + j;
@@ -73,7 +72,7 @@ fn accelerator_integrate_velocity(accelerator_grid: &AcceleratorGrid, dt: real_t
     let masses = get_array_of_reals(accelerator_grid.masses_cpu);
     let velocities = get_array_of_vectors(accelerator_grid.velocities_cpu);
     let forces = get_array_of_vectors(accelerator_grid.forces_cpu);
-    for i in inner_loop(0, accelerator_grid.total_number_of_clusters) {
+    for i in inner_loop_cpu(0, accelerator_grid.total_number_of_clusters) {
         let base = i * accelerator_grid.cluster_size;
         for j in vectorize(get_vector_length(), get_alignment(), 0, accelerator_grid.cluster_size) {
             let k = base + j;

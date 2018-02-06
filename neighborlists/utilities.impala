@@ -5,21 +5,14 @@ fn @set_thread_count(thread_count: i32) -> () {
 
 fn @get_thread_count() -> i32 { THREAD_COUNT }
 
-fn @outer_loop(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+fn @outer_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     for i in parallel(get_thread_count(), lower, upper) {
         @@body(i);
     }
 }
-fn @outer_loop_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
-    for i in parallel(get_thread_count(), 0, (upper - lower) / step) {
-        @@body(i * step + lower);
-    }
-}
-fn @inner_loop(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+
+fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     range(lower, upper, body)
-}
-fn @inner_loop_step(lower: i32, upper: i32, step: i32, body: fn(i32) -> ()) -> () {
-    range_step(lower, upper, step, body)
 }
 
 struct Vector {

@@ -57,12 +57,12 @@ fn md_redistribute_particles() -> () {
 
 extern 
 fn md_initialize_clusters(neighbor_list_capacity: i32) -> () {
-   grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu, outer_loop, inner_loop);  
+   grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu, outer_loop_cpu, inner_loop_cpu);  
 }
 
 extern
 fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop, inner_loop);
+    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop_cpu, inner_loop_cpu);
 }
 
 extern
@@ -78,7 +78,7 @@ fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) ->
 
 extern
 fn md_compute_total_kinetic_energy() -> real_t {
-   compute_total_kinetic_energy(grid_, outer_loop, inner_loop)
+   compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
 }
 
 extern
