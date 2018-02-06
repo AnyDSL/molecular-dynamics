@@ -19,10 +19,8 @@ set(BACKEND_FILE backend_${BACKEND}.impala)
 
 if(BACKEND STREQUAL "cpu" OR BACKEND STREQUAL "avx")
     set(MAPPING_FILE mapping_cpu.impala)
-    set(COMPUTE_FILE compute_cpu.impala)
 else()
     set(MAPPING_FILE mapping_gpu.impala)
-    set(COMPUTE_FILE compute_gpu.impala)
 endif()
 if(LIKWID_DIR)
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid")
@@ -41,7 +39,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     FILES
-    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala accelerator_grid.impala ${COMPUTE_FILE} lennard_jones.impala energy.impala runtime.impala)
+    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala)
 
 add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 #target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARY} ${ANYDSL_RUNTIME_LIBRARIES} 

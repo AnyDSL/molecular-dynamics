@@ -13,3 +13,54 @@ fn @accelerator_allocate(size: i32) -> Buffer {
 fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
 
 fn @get_cluster_size() -> i32 {4}
+
+fn loop_accelerator(lower: i32, upper: i32, body: fn(i32, i32, i32) -> ()) -> () {
+    for cluster_index in outer_loop_cpu(lower, upper) {
+        let cluster_size = get_cluster_size();
+        let begin = cluster_index * cluster_size;
+        let end = begin + cluster_size;
+        for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+            @@body(i, cluster_index, cluster_size);
+        } 
+    }
+}
+
+fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
+    get_i32(cluster_index, accelerator_grid.neighbors_per_cluster_cpu)
+}
+
+fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
+    get_i32(cluster_index, accelerator_grid.neighborlist_offsets_cpu)
+}
+
+fn @get_neighborlists(accelerator_grid: &AcceleratorGrid) -> &mut[i32] {
+    get_array_of_i32(accelerator_grid.neighborlists_cpu)
+}
+
+fn @get_masses(accelerator_grid: &AcceleratorGrid) -> &mut[real_t] {
+    get_array_of_reals(accelerator_grid.masses_cpu)
+}
+
+fn @get_positions(accelerator_grid: &AcceleratorGrid) -> &mut[Vector] {
+    get_array_of_vectors(accelerator_grid.positions_cpu)
+}
+
+fn @get_velocities(accelerator_grid: &AcceleratorGrid) -> &mut[Vector] {
+    get_array_of_vectors(accelerator_grid.velocities_cpu)
+}
+
+fn @get_forces(accelerator_grid: &AcceleratorGrid) -> &mut[Vector] {
+    get_array_of_vectors(accelerator_grid.forces_cpu)
+}
+
+fn @get_position(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
+    get_vector(i, accelerator_grid.positions_cpu)
+}
+
+fn @reset_force(i: i32, accelerator_grid: &AcceleratorGrid) -> () {
+    set_vector(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+}
+
+fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
+    add_to_vector(i, accelerator_grid.forces_cpu, dF_x, dF_y, dF_z);
+}
