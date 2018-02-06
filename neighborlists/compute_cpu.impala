@@ -1,10 +1,9 @@
 fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     for cluster_index in outer_loop(0, accelerator_grid.total_number_of_clusters) {
-        let cluster_size = 4;
+        let cluster_size = accelerator_grid.cluster_size;
         let begin = cluster_index * cluster_size;
         let end = begin + cluster_size;
         for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-        //for i in unroll(begin, end) {
             for j in unroll(i + 1, end) {
                 // Calculate interactions within cluster
                 accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
@@ -17,7 +16,6 @@ fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff
             let begin_neighbor = neighborlist(neighborlist_offset + k * cluster_size);
             let end_neighbor = begin_neighbor + cluster_size;
             for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
-            //for i in unroll(begin, end) {
                 for j in unroll(begin_neighbor, end_neighbor) {
                     accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
                 }
@@ -46,12 +44,6 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i
         // 3 FLOPS
         add_to_vector(i, accelerator_grid.forces_cpu, dF_x, dF_y, dF_z);
         increase_flops(14);
-        //sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
-        // 3 FLOPS
-        //atomic_add_to_vector(i, cell.forces, dF_x, dF_y, dF_z);
-        // 3 FLOPS
-        //atomic_sub_from_vector(j, neighboring_cell.forces, dF_x, dF_y, dF_z);
-        //increase_flops(17);
 
     }
 }
@@ -59,5 +51,37 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i
 fn accelerator_set_forces_to_zero(accelerator_grid: &AcceleratorGrid) -> () {
     for i in outer_loop(0, accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size) {
         set_vector(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+    }
+}
+
+fn accelerator_integrate_position(accelerator_grid: &AcceleratorGrid, dt: real_t) -> () {
+    let positions = get_array_of_vectors(accelerator_grid.positions_cpu);
+    let velocities = get_array_of_vectors(accelerator_grid.velocities_cpu);
+    for i in outer_loop(0, accelerator_grid.total_number_of_clusters) {
+        let base = i * accelerator_grid.cluster_size;
+        for j in vectorize(get_vector_length(), get_alignment(), 0, accelerator_grid.cluster_size) {
+        //for j in unroll(0, accelerator_grid.cluster_size) {
+            let k = base + j;
+            positions(k).x += dt * velocities(k).x;
+            positions(k).y += dt * velocities(k).y;
+            positions(k).z += dt * velocities(k).z;
+        }
+    }
+}
+
+fn accelerator_integrate_velocity(accelerator_grid: &AcceleratorGrid, dt: real_t) -> () {
+    let masses = get_array_of_reals(accelerator_grid.masses_cpu);
+    let velocities = get_array_of_vectors(accelerator_grid.velocities_cpu);
+    let forces = get_array_of_vectors(accelerator_grid.forces_cpu);
+    for i in outer_loop(0, accelerator_grid.total_number_of_clusters) {
+        let base = i * accelerator_grid.cluster_size;
+        for j in vectorize(get_vector_length(), get_alignment(), 0, accelerator_grid.cluster_size) {
+        //for j in unroll(0, accelerator_grid.cluster_size) {
+            let k = base + j;
+            let inverse_mass = 1.0 as real_t / masses(i);
+            velocities(k).x += dt * forces(k).x * inverse_mass;
+            velocities(k).y += dt * forces(k).y * inverse_mass;
+            velocities(k).z += dt * forces(k).z * inverse_mass;
+        }
     }
 }
