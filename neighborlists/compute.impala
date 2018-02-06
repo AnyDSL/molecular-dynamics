@@ -30,6 +30,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i
     let dz = neighbor_position.z - position.z;
     // 5 FLOPS
     let squared_distance = dx * dx + dy * dy + dz * dz;
+    increase_flops(8);
     if(squared_distance < squared_cutoff_distance) {
         // 8 FLOPS for Lennard-Jones
         let f = potential(squared_distance);
@@ -39,6 +40,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i
         let dF_z = f * dz;
         // 3 FLOPS
         add_to_force(i, accelerator_grid, dF_x, dF_y, dF_z);
+        increase_flops(14);
     }
 }
 

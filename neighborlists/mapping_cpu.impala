@@ -19,7 +19,8 @@ fn loop_accelerator(lower: i32, upper: i32, body: fn(i32, i32, i32) -> ()) -> ()
         let cluster_size = get_cluster_size();
         let begin = cluster_index * cluster_size;
         let end = begin + cluster_size;
-        for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+        //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
+        for i in unroll(begin, end) {
             @@body(i, cluster_index, cluster_size);
         } 
     }

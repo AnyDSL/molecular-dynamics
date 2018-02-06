@@ -50,7 +50,7 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
 }
 
 int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
-    seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    //seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937_64 random_engine(seed);
     std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
     double velocity[3];
