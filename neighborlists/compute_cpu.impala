@@ -1,5 +1,6 @@
 fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     for cluster_index in outer_loop(0, accelerator_grid.total_number_of_clusters) {
+    //for cluster_index in parallel(1, 0, accelerator_grid.total_number_of_clusters) {
         let cluster_size = accelerator_grid.cluster_size;
         let begin = cluster_index * cluster_size;
         let end = begin + cluster_size;
@@ -57,10 +58,9 @@ fn accelerator_set_forces_to_zero(accelerator_grid: &AcceleratorGrid) -> () {
 fn accelerator_integrate_position(accelerator_grid: &AcceleratorGrid, dt: real_t) -> () {
     let positions = get_array_of_vectors(accelerator_grid.positions_cpu);
     let velocities = get_array_of_vectors(accelerator_grid.velocities_cpu);
-    for i in outer_loop(0, accelerator_grid.total_number_of_clusters) {
+    for i in inner_loop(0, accelerator_grid.total_number_of_clusters) {
         let base = i * accelerator_grid.cluster_size;
         for j in vectorize(get_vector_length(), get_alignment(), 0, accelerator_grid.cluster_size) {
-        //for j in unroll(0, accelerator_grid.cluster_size) {
             let k = base + j;
             positions(k).x += dt * velocities(k).x;
             positions(k).y += dt * velocities(k).y;
@@ -73,10 +73,9 @@ fn accelerator_integrate_velocity(accelerator_grid: &AcceleratorGrid, dt: real_t
     let masses = get_array_of_reals(accelerator_grid.masses_cpu);
     let velocities = get_array_of_vectors(accelerator_grid.velocities_cpu);
     let forces = get_array_of_vectors(accelerator_grid.forces_cpu);
-    for i in outer_loop(0, accelerator_grid.total_number_of_clusters) {
+    for i in inner_loop(0, accelerator_grid.total_number_of_clusters) {
         let base = i * accelerator_grid.cluster_size;
         for j in vectorize(get_vector_length(), get_alignment(), 0, accelerator_grid.cluster_size) {
-        //for j in unroll(0, accelerator_grid.cluster_size) {
             let k = base + j;
             let inverse_mass = 1.0 as real_t / masses(i);
             velocities(k).x += dt * forces(k).x * inverse_mass;
