@@ -33,7 +33,7 @@ if(MONITOR_ONLY_FORCE_COMPUTATION)
 endif()
 
 set(CLANG_FLAGS -march=native)
-set(IMPALA_FLAGS -O3 --log-level error)
+set(IMPALA_FLAGS -O3 --log-level warn)
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}

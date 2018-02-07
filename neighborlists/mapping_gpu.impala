@@ -16,7 +16,7 @@ fn @get_cluster_size() -> i32 {8}
 
 fn loop_accelerator(lower: i32, upper: i32, body: fn(i32, i32, i32) -> ()) -> () {
     let acc = accelerator(device_id);
-    let grid = (upper - lower, 1, 1);
+    let grid = ((upper - lower)*get_cluster_size(), 1, 1);
     let block = (get_cluster_size(), 1, 1);
     for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
         let (tidx, _, _) = tid;
@@ -31,41 +31,41 @@ fn loop_accelerator(lower: i32, upper: i32, body: fn(i32, i32, i32) -> ()) -> ()
 }
 
 fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
-    get_i32_accelerator(cluster_index, accelerator_grid.neighbors_per_cluster_accelerator)
+    @@get_i32_accelerator(cluster_index, accelerator_grid.neighbors_per_cluster_accelerator)
 }
 
 fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
-    get_i32_accelerator(cluster_index, accelerator_grid.neighborlist_offsets_accelerator)
+    @@get_i32_accelerator(cluster_index, accelerator_grid.neighborlist_offsets_accelerator)
 }
 
 fn @get_neighborlists(accelerator_grid: &AcceleratorGrid) -> &mut[1][i32] {
-    get_array_of_i32_accelerator(accelerator_grid.neighborlists_accelerator)
+    @@get_array_of_i32_accelerator(accelerator_grid.neighborlists_accelerator)
 }
 
 fn @get_masses(accelerator_grid: &AcceleratorGrid) -> &mut[1][real_t] {
-    get_array_of_reals_accelerator(accelerator_grid.masses_accelerator)
+    @@get_array_of_reals_accelerator(accelerator_grid.masses_accelerator)
 }
 
 fn @get_positions(accelerator_grid: &AcceleratorGrid) -> &mut[1][Vector] {
-    get_array_of_vectors_accelerator(accelerator_grid.positions_accelerator)
+    @@get_array_of_vectors_accelerator(accelerator_grid.positions_accelerator)
 }
 
 fn @get_velocities(accelerator_grid: &AcceleratorGrid) -> &mut[1][Vector] {
-    get_array_of_vectors_accelerator(accelerator_grid.velocities_accelerator)
+    @@get_array_of_vectors_accelerator(accelerator_grid.velocities_accelerator)
 }
 
 fn @get_forces(accelerator_grid: &AcceleratorGrid) -> &mut[1][Vector] {
-    get_array_of_vectors_accelerator(accelerator_grid.forces_accelerator)
+    @@get_array_of_vectors_accelerator(accelerator_grid.forces_accelerator)
 }
 
 fn @get_position(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
-    get_vector_accelerator(i, accelerator_grid.positions_accelerator)
+    @@get_vector_accelerator(i, accelerator_grid.positions_accelerator)
 }
 
 fn @reset_force(i: i32, accelerator_grid: &AcceleratorGrid) -> () {
-    set_vector_accelerator(i, accelerator_grid.forces_accelerator, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+    @@set_vector_accelerator(i, accelerator_grid.forces_accelerator, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
 }
 
 fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
-    add_to_vector_accelerator(i, accelerator_grid.forces_accelerator, dF_x, dF_y, dF_z);
+    @@add_to_vector_accelerator(i, accelerator_grid.forces_accelerator, dF_x, dF_y, dF_z);
 }
