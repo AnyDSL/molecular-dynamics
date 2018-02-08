@@ -97,6 +97,14 @@ fn @get_array_of_i32(buf: Buffer) -> &mut[i32] {
     bitcast[&mut[i32]](buf.data)
 }
 
+fn @get_bool(i: i32, buf: Buffer) -> bool {
+    bitcast[&[bool]](buf.data)(i)
+}
+
+fn @set_bool(i: i32, buf: Buffer, value: bool) -> () { 
+    bitcast[&mut[bool]](buf.data)(i) = value;
+}
+
 fn @get_cell_pointer(i: i32, buf: Buffer) -> &Cell {
     bitcast[&[&Cell]](buf.data)(i)
 }

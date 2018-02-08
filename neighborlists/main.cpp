@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             
-            //if(j > 0 && j % 20 == 0) {
+            if(j > 0 && j % 20 == 0) {
 
                 begin = measure_time();
                 md_copy_data_from_accelerator();
@@ -182,11 +182,12 @@ int main(int argc, char **argv) {
                 md_copy_data_to_accelerator();
                 end = measure_time();
                 copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-            //}
+            }
 
 
 	    LIKWID_MARKER_START("Force");
             begin = measure_time();
+            md_reset_forces();
             md_compute_forces(cutoff_radius, epsilon, sigma);
             end = measure_time();
 	    LIKWID_MARKER_STOP("Force");

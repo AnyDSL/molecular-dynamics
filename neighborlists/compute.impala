@@ -1,28 +1,31 @@
-fn accelerator_compute_forces(accelerator_grid: &AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
-    for tid, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
-        let begin = cluster_index * cluster_size;
-        let i = begin + tid;
-        let end = begin + cluster_size;
-        for j in unroll(begin, end) {
-            // Calculate interactions within cluster
-            if(i != j) {
-                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
+    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+        if(get_mask_value(i, accelerator_grid) == true) {
+            let begin = cluster_index * cluster_size;
+            for jj in unroll(0, cluster_size) {
+                let j = begin + jj; 
+                // Calculate interactions within cluster
+                if(i != j && get_mask_value(j, accelerator_grid) == true) {
+                    accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+                }
             }
-        }
-        let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
-        let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
-        let neighborlists = get_neighborlists(accelerator_grid);
-        for k in range(0, number_of_neighbors) {
-            let begin_neighbor = neighborlists(neighborlist_offset + k * cluster_size);
-            let end_neighbor = begin_neighbor + cluster_size;
-            for j in unroll(begin_neighbor, end_neighbor) {
-                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+            let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
+            let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
+            let neighborlists = get_neighborlists(accelerator_grid);
+            for k in range(0, number_of_neighbors) {
+                let begin_neighbor = neighborlists(neighborlist_offset + k);
+                for jj in unroll(0, cluster_size) {
+                    let j = begin_neighbor + jj;
+                    if(get_mask_value(j, accelerator_grid) == true) {  
+                        accelerator_compute_pairwise_forces(accelerator_grid, i, i, squared_cutoff_distance, potential);
+                    }
+                }
             }
         }
     }
 }
 
-fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i32, j: i32, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
+fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i32, j: i32, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () { 
     let position = get_position(i, accelerator_grid);
     let neighbor_position = get_position(j, accelerator_grid);
     // 3 FLOPS
@@ -40,37 +43,39 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: &AcceleratorGrid, i: i
         let dF_y = f * dy;
         let dF_z = f * dz;
         // 3 FLOPS
-        add_to_force(i, accelerator_grid, dF_x, dF_y, dF_z);
+
         increase_flops(14);
     }
 }
 
-fn accelerator_set_forces_to_zero(accelerator_grid: &AcceleratorGrid) -> () {
-    for tid, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
-        reset_force(cluster_index * cluster_size + tid, accelerator_grid);
+fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
+    //print_string("force_resetting\n");
+    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+        //print_string("i: ");
+        //print_i32(i);
+        //print_string("\n");
+        reset_force(i, accelerator_grid);
     }
 }
 
-fn accelerator_integrate_position(accelerator_grid: &AcceleratorGrid, dt: real_t) -> () {
+fn accelerator_integrate_position(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
     let positions = get_positions(accelerator_grid);
     let velocities = get_velocities(accelerator_grid);
-    for tid, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
-        let k = cluster_index * cluster_size + tid;
-        positions(k).x += dt * velocities(k).x;
-        positions(k).y += dt * velocities(k).y;
-        positions(k).z += dt * velocities(k).z;
+    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+        positions(i).x += dt * velocities(i).x;
+        positions(i).y += dt * velocities(i).y;
+        positions(i).z += dt * velocities(i).z;
     }
 }
 
-fn accelerator_integrate_velocity(accelerator_grid: &AcceleratorGrid, dt: real_t) -> () {
+fn accelerator_integrate_velocity(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
     let masses = get_masses(accelerator_grid);
     let velocities = get_velocities(accelerator_grid);
     let forces = get_forces(accelerator_grid);
-    for tid, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
-        let k = cluster_index * cluster_size + tid;
-        let inverse_mass = 1.0 as real_t / masses(cluster_index * cluster_size);
-        velocities(k).x += dt * forces(k).x * inverse_mass;
-        velocities(k).y += dt * forces(k).y * inverse_mass;
-        velocities(k).z += dt * forces(k).z * inverse_mass;
+    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+        let inverse_mass = 1.0 as real_t / masses(i);
+        velocities(i).x += dt * forces(i).x * inverse_mass;
+        velocities(i).y += dt * forces(i).y * inverse_mass;
+        velocities(i).z += dt * forces(i).z * inverse_mass;
     }
 }

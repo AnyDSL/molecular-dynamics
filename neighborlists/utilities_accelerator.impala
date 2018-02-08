@@ -19,9 +19,15 @@ fn @set_vector_accelerator(i: i32, buf: Buffer, value: Vector) -> () {
 }
 
 fn @add_to_vector_accelerator(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () { 
-    bitcast[&mut[1][Vector]](buf.data)(i).x += x;
-    bitcast[&mut[1][Vector]](buf.data)(i).y += y;
-    bitcast[&mut[1][Vector]](buf.data)(i).z += z;
+    let vector_old = bitcast[&[1][Vector]](buf.data)(i);
+    let mut vector_new : Vector;
+    vector_new.x = vector_old.x + x;
+    vector_new.y = vector_old.y + y;
+    vector_new.z = vector_old.z + z;
+    set_vector_accelerator(i, buf, vector_new);
+    //bitcast[&mut[1][Vector]](buf.data)(i).x += x;
+    //bitcast[&mut[1][Vector]](buf.data)(i).y += y;
+    //bitcast[&mut[1][Vector]](buf.data)(i).z += z;
 }
 
 
@@ -45,4 +51,8 @@ fn @set_i32_accelerator(i: i32, buf: Buffer, value: i32) -> () {
 
 fn @get_array_of_i32_accelerator(buf: Buffer) -> &mut[1][i32] {
     bitcast[&mut[1][i32]](buf.data)
+}
+
+fn @get_bool_accelerator(i: i32, buf: Buffer) -> bool {
+    bitcast[&[1][bool]](buf.data)(i)
 }

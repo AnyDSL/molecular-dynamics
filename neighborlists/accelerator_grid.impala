@@ -10,6 +10,7 @@ struct AcceleratorGrid {
     positions_cpu: Buffer, // positions of all particles on the CPU: [Vector]
     velocities_cpu: Buffer, // velocities of all particles on the CPU: [Vector]
     forces_cpu: Buffer, // forces of all particles on the CPU: [Vector]
+    interaction_mask_cpu: Buffer, // interaction mask on the CPU: [bool]
     neighbors_per_cluster_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlist_offsets_cpu: Buffer, // offsets to the data stored in each neighbor list on the CPU: [i32]
     neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
@@ -18,6 +19,7 @@ struct AcceleratorGrid {
     positions_accelerator: Buffer, // positions of all particles on the accelerator: [Vector]
     velocities_accelerator: Buffer, // velocities of all particles on the accelerator: [Vector]
     forces_accelerator: Buffer, // forces of all particles on the accelerator: [Vector]
+    interaction_mask_accelerator: Buffer, // interaction mask on the accelerator: [bool]
     neighbors_per_cluster_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
     neighborlist_offsets_accelerator: Buffer, // offsets to the data stored in each neighbor list on the accelerator: [i32] 
     neighborlists_accelerator: Buffer // neighborlists on the accelerator: [i32]
@@ -37,6 +39,7 @@ fn allocate_accelerator_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i
         positions_cpu: alloc_cpu(capacity_particles * sizeof[Vector]()),
         velocities_cpu: alloc_cpu(capacity_particles * sizeof[Vector]()),
         forces_cpu: alloc_cpu(capacity_particles * sizeof[Vector]()),
+        interaction_mask_cpu: alloc_cpu(capacity_particles * sizeof[i8]()),
         neighbors_per_cluster_cpu: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlist_offsets_cpu: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlists_cpu: alloc_cpu(neighbor_lists_capacity * sizeof[i32]()),
@@ -45,6 +48,7 @@ fn allocate_accelerator_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i
         positions_accelerator: accelerator_allocate(capacity_particles * sizeof[Vector]()),
         velocities_accelerator: accelerator_allocate(capacity_particles * sizeof[Vector]()),
         forces_accelerator: accelerator_allocate(capacity_particles * sizeof[Vector]()),
+        interaction_mask_accelerator: alloc_cpu(capacity_particles * sizeof[i8]()),
         neighbors_per_cluster_accelerator: accelerator_allocate(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlist_offsets_accelerator: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlists_accelerator: accelerator_allocate(neighbor_lists_capacity * sizeof[i32]())
@@ -58,6 +62,7 @@ fn deallocate_accelerator_grid(accelerator_grid: AcceleratorGrid) -> () {
     release(accelerator_grid.positions_cpu);
     release(accelerator_grid.velocities_cpu);
     release(accelerator_grid.forces_cpu);
+    release(accelerator_grid.interaction_mask_cpu);
     release(accelerator_grid.neighbors_per_cluster_cpu);
     release(accelerator_grid.neighborlist_offsets_cpu);
     release(accelerator_grid.neighborlists_cpu);
@@ -66,6 +71,7 @@ fn deallocate_accelerator_grid(accelerator_grid: AcceleratorGrid) -> () {
     release(accelerator_grid.positions_accelerator);
     release(accelerator_grid.velocities_accelerator);
     release(accelerator_grid.forces_accelerator);
+    release(accelerator_grid.interaction_mask_accelerator);
     release(accelerator_grid.neighbors_per_cluster_accelerator);
     release(accelerator_grid.neighborlist_offsets_accelerator);
     release(accelerator_grid.neighborlists_accelerator);
@@ -84,6 +90,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
        release(accelerator_grid.positions_cpu); 
        release(accelerator_grid.velocities_cpu); 
        release(accelerator_grid.forces_cpu); 
+       release(accelerator_grid.interaction_mask_cpu); 
        release(accelerator_grid.neighbors_per_cluster_cpu);
        release(accelerator_grid.neighborlist_offsets_cpu);
 
@@ -91,6 +98,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
        release(accelerator_grid.positions_accelerator); 
        release(accelerator_grid.velocities_accelerator); 
        release(accelerator_grid.forces_accelerator); 
+       release(accelerator_grid.interaction_mask_accelerator); 
        release(accelerator_grid.neighbors_per_cluster_accelerator);
        release(accelerator_grid.neighborlist_offsets_accelerator);
 
@@ -107,6 +115,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
        accelerator_grid.positions_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
        accelerator_grid.velocities_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
        accelerator_grid.forces_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.interaction_mask_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[i8]()); 
        accelerator_grid.neighbors_per_cluster_cpu = alloc_cpu(new_capacity * sizeof[i32]());
        accelerator_grid.neighborlist_offsets_cpu = alloc_cpu(new_capacity * sizeof[i32]());
 
@@ -114,6 +123,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
        accelerator_grid.positions_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
        accelerator_grid.velocities_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
        accelerator_grid.forces_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[Vector]()); 
+       accelerator_grid.interaction_mask_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[i8]()); 
        accelerator_grid.neighbors_per_cluster_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
        accelerator_grid.neighborlist_offsets_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
     }
@@ -133,6 +143,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
 
     let mut offset_masses = 0;
     let mut offset_vectors = 0;
+    let mut offset_interaction_mask = 0;
     let mut offset_clusters = 0;
     let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
     let neighbors_per_cluster = get_array_of_i32(accelerator_grid.neighbors_per_cluster_cpu);
@@ -163,6 +174,14 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
                 copy_offset(cell.velocities, 0, accelerator_grid.velocities_cpu, offset_vectors, size_vectors);
                 offset_vectors += size_vectors;
 
+                for i in range(0, cell.size) {
+                    set_bool(offset_interaction_mask + i, accelerator_grid.interaction_mask_cpu, true);
+                }
+                for i in range(cell.size, total_cell_size) { 
+                    set_bool(offset_interaction_mask + i, accelerator_grid.interaction_mask_cpu, false);
+                }
+                offset_interaction_mask += total_cell_size;
+
                 let clusters_in_cell = get_array_of_clusters(cell.clusters);
                 for i in range(0, cell.nclusters) {
                     neighbors_per_cluster(offset_clusters + i) = clusters_in_cell(i).neighbor_list.size;
@@ -192,6 +211,11 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
                     for j in range(0, neighborlist.size) {
                         let neighboring_cell = neighboring_cells(j);
                         neighborlists_cpu(offset_neighbors + j) = cell_offsets(neighboring_cell.index) + neighboring_indices(j) * accelerator_grid.cluster_size;
+                        /*print_string("index: ");
+                        print_i32(offset_neighbors + j);
+                        print_string("\nneighbor: ");
+                        print_i32(neighborlists_cpu(offset_neighbors + j));
+                        print_string("\n");*/
                     }
                     offset_neighbors += neighborlist.size;
                 }
@@ -202,10 +226,12 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
     
     let total_data_size_masses = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size * sizeof[real_t]();
     let total_data_size_vectors = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size * sizeof[Vector]();
+    let total_data_size_interaction_mask = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size * sizeof[i8]();
     let total_data_size_neighbors_per_cluster = accelerator_grid.total_number_of_clusters * sizeof[i32]();
     transfer_between_devices(accelerator_grid.masses_cpu, accelerator_grid.masses_accelerator, total_data_size_masses);
     transfer_between_devices(accelerator_grid.positions_cpu, accelerator_grid.positions_accelerator, total_data_size_vectors);
     transfer_between_devices(accelerator_grid.velocities_cpu, accelerator_grid.velocities_accelerator, total_data_size_vectors);
+    transfer_between_devices(accelerator_grid.interaction_mask_cpu, accelerator_grid.interaction_mask_accelerator, total_data_size_interaction_mask);
     transfer_between_devices(accelerator_grid.neighbors_per_cluster_cpu, accelerator_grid.neighbors_per_cluster_accelerator, total_data_size_neighbors_per_cluster);
 
     accelerator_grid.total_number_of_neighbors = offset_neighbors;

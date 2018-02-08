@@ -15,13 +15,13 @@ fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> 
 fn @get_cluster_size() -> i32 {4}
 
 fn loop_accelerator(lower: i32, upper: i32, body: fn(i32, i32, i32) -> ()) -> () {
-    for cluster_index in outer_loop_cpu(lower, upper) {
+    for cluster_index in range(lower, upper) {
         let cluster_size = get_cluster_size();
         let begin = cluster_index * cluster_size;
         let end = begin + cluster_size;
         //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
         for i in unroll(begin, end) {
-            @@body(i-begin, cluster_index, cluster_size);
+            @@body(i, cluster_index, cluster_size);
         } 
     }
 }
@@ -64,4 +64,8 @@ fn @reset_force(i: i32, accelerator_grid: &AcceleratorGrid) -> () {
 
 fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
     add_to_vector(i, accelerator_grid.forces_cpu, dF_x, dF_y, dF_z);
+}
+
+fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> bool {
+    get_bool(i, accelerator_grid.interaction_mask_cpu)
 }
