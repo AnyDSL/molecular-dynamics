@@ -36,13 +36,15 @@ fn md_deallocate_grid() -> () {
 
 extern 
 fn md_integrate_position(dt: real_t) -> () {
-    accelerator_integrate_position(accelerator_grid_, dt);
+    accelerator_integrate_position(accelerator_grid_, dt, grid_.aabb);
+    //integrate_position(grid_, dt, outer_loop_cpu, inner_loop_cpu);
 }
 
 
 extern 
 fn md_integrate_velocity(dt: real_t) -> () {
     accelerator_integrate_velocity(accelerator_grid_, dt);
+    //integrate_velocity(grid_, dt, outer_loop_cpu, inner_loop_cpu);
 }
 
 extern
@@ -74,6 +76,7 @@ extern
 fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
     accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+    //grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, outer_loop_cpu, inner_loop_cpu);
 }
 
 extern

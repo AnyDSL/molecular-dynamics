@@ -71,6 +71,6 @@ fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y:
 }
 
 
-fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> bool {
-    get_bool_accelerator(i, accelerator_grid.interaction_mask_cpu)
+fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> real_t {
+    get_real_accelerator(i, accelerator_grid.interaction_mask_accelerator)
 }

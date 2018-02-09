@@ -1,25 +1,21 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
-        if(get_mask_value(i, accelerator_grid) == true) {
-            let begin = cluster_index * cluster_size;
-            for jj in unroll(0, cluster_size) {
-                let j = begin + jj; 
-                // Calculate interactions within cluster
-                if(i != j && get_mask_value(j, accelerator_grid) == true) {
-                    accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
-                }
+        let begin = cluster_index * cluster_size;
+        for jj in unroll(0, cluster_size) {
+            let j = begin + jj; 
+            // Calculate interactions within cluster
+            if(i != j) {
+                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
             }
-            let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
-            let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
-            let neighborlists = get_neighborlists(accelerator_grid);
-            for k in range(0, number_of_neighbors) {
-                let begin_neighbor = neighborlists(neighborlist_offset + k);
-                for jj in unroll(0, cluster_size) {
-                    let j = begin_neighbor + jj;
-                    if(get_mask_value(j, accelerator_grid) == true) {  
-                        accelerator_compute_pairwise_forces(accelerator_grid, i, i, squared_cutoff_distance, potential);
-                    }
-                }
+        }
+        let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
+        let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
+        let neighborlists = get_neighborlists(accelerator_grid);
+        for k in range(0, number_of_neighbors) {
+            let begin_neighbor = neighborlists(neighborlist_offset + k);
+            for jj in unroll(0, cluster_size) {
+                let j = begin_neighbor + jj;
+                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
             }
         }
     }
@@ -35,7 +31,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i3
     // 5 FLOPS
     let squared_distance = dx * dx + dy * dy + dz * dz;
     increase_flops(8);
-    if(squared_distance < squared_cutoff_distance) {
+    if(squared_distance < squared_cutoff_distance * get_mask_value(i, accelerator_grid) * get_mask_value(j, accelerator_grid)) {
         // 8 FLOPS for Lennard-Jones
         let f = potential(squared_distance);
         // 3 FLOPS
@@ -43,7 +39,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i3
         let dF_y = f * dy;
         let dF_z = f * dz;
         // 3 FLOPS
-
+        add_to_force(i, accelerator_grid, dF_x, dF_y, dF_z);
         increase_flops(14);
     }
 }
@@ -58,14 +54,48 @@ fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
     }
 }
 
-fn accelerator_integrate_position(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
+fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
     let positions = get_positions(accelerator_grid);
     let velocities = get_velocities(accelerator_grid);
     for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+        if(positions(i).x < aabb.min(0)) {
+            positions(i).x = aabb.min(0) + EPSILON;
+        }
+        else if(positions(i).x > aabb.max(0)) {
+            positions(i).x = aabb.max(0) - EPSILON;
+        }
+        if(positions(i).y < aabb.min(1)) {
+            positions(i).y = aabb.min(1) + EPSILON;
+        }
+        else if(positions(i).y > aabb.max(1)) {
+            positions(i).y = aabb.max(1) - EPSILON;
+        }
+        if(positions(i).z < aabb.min(2)) {
+            positions(i).z = aabb.min(2) + EPSILON;
+        }
+        else if(positions(i).z > aabb.max(2)) {
+            positions(i).z = aabb.max(2) - EPSILON;
+        } 
+    }
+}
+
+
+fn accelerator_integrate_position(accelerator_grid: AcceleratorGrid, dt: real_t, aabb: AABB) -> () {
+    let positions = get_positions(accelerator_grid);
+    let velocities = get_velocities(accelerator_grid);
+    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+        
+        /*print_string("i: ");
+        print_i32(i);
+        print_string("\n");
+        print_string("Position: ");
+        print_vector(positions(i));
+        print_string("\n");*/
         positions(i).x += dt * velocities(i).x;
         positions(i).y += dt * velocities(i).y;
         positions(i).z += dt * velocities(i).z;
     }
+    //accelerator_restrict_to_boundary(accelerator_grid, aabb); 
 }
 
 fn accelerator_integrate_velocity(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {

@@ -11,9 +11,11 @@ fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Gri
     }
     //for i in vectorize(get_vector_length(), get_alignment(), begin, end) {
     for i in unroll(begin, end) {
-        for j in unroll(i + 1, end) {
+        for j in unroll(begin, end) {
+            if(i != j) {
             // Calculate interactions within cluster
-            compute_pairwise_forces(&mut force_sums(i - begin), i, j, cell, cell, squared_cutoff_distance, potential);
+                compute_pairwise_forces(&mut force_sums(i - begin), i, j, cell, cell, squared_cutoff_distance, potential);
+            }
         }
     }
     for k in range(0, neighbor_list.size) {

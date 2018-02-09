@@ -1,14 +1,22 @@
 fn integrate_position(grid: &Grid, dt: real_t, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    let mut k = 0;
    for cell, cell_index in map_over_grid(grid, outer_loop, inner_loop) {
         let positions = get_array_of_vectors((*cell).positions);
         let velocities = get_array_of_vectors((*cell).velocities);
         for i in range(0, cell.size) {
-        //for i in vectorize(get_vector_length(), get_alignment(), 0, cell.size) {
+
+            /*print_string("i: ");
+            print_i32(k);
+            print_string("\n");
+            print_string("Position: ");
+            print_vector(positions(i));
+            print_string("\n");*/
             positions(i).x += dt * velocities(i).x;
             positions(i).y += dt * velocities(i).y;
             positions(i).z += dt * velocities(i).z;
+            ++k;
         }
-        restrict_to_boundary(cell, grid.aabb);
+        //restrict_to_boundary(cell, grid.aabb);
    }
 }
 

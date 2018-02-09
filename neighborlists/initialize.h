@@ -85,8 +85,8 @@ int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spac
     }
     AABB aabb;
     for(int d = 0; d < 3; ++d) {
-        aabb.min[d] = std::min(aabb1.min[d], aabb2.min[d]) - 10;
-        aabb.max[d] = std::max(aabb1.max[d], aabb2.max[d]) + 10;
+        aabb.min[d] = std::min(aabb1.min[d], aabb2.min[d]) - 20;
+        aabb.max[d] = std::max(aabb1.max[d], aabb2.max[d]) + 20;
     }
 
     double velocity1[3];
