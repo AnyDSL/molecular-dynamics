@@ -33,11 +33,11 @@ fn redistribute_particles(grid: &Grid, allocate: fn(i32) -> Buffer) -> () {
                 }
             }
             else {
-                //print_string("remove particle\n");
-                //let position = get_vector(i, cell.positions);
-                //print_string("Position: ");
-                //print_vector(position);
-                //print_string("\n");
+                print_string("remove particle\n");
+                let position = get_vector(i, cell.positions);
+                print_string("Position: ");
+                print_vector(position);
+                print_string("\n");
                 remove_particle(i, cell);
             }
             /*print_string("i: ");

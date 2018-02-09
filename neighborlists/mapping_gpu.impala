@@ -70,7 +70,6 @@ fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y:
     add_to_vector_accelerator(i, accelerator_grid.forces_accelerator, dF_x, dF_y, dF_z);
 }
 
-
-fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> real_t {
-    get_real_accelerator(i, accelerator_grid.interaction_mask_accelerator)
+fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> bool {
+    get_bool_accelerator(i, accelerator_grid.interaction_mask_accelerator)
 }

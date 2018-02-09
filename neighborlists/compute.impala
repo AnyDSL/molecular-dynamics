@@ -1,25 +1,30 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
-        let begin = cluster_index * cluster_size;
-        for jj in unroll(0, cluster_size) {
-            let j = begin + jj; 
-            // Calculate interactions within cluster
-            if(i != j) {
-                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
-            }
-        }
-        let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
-        let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
-        let neighborlists = get_neighborlists(accelerator_grid);
-        for k in range(0, number_of_neighbors) {
-            let begin_neighbor = neighborlists(neighborlist_offset + k);
+        if(get_mask_value(i, accelerator_grid)) {
+            let begin = cluster_index * cluster_size;
             for jj in unroll(0, cluster_size) {
-                let j = begin_neighbor + jj;
-                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+                let j = begin + jj; 
+                // Calculate interactions within cluster
+                if(i != j && get_mask_value(j, accelerator_grid)) {
+                    accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+                }
+            }
+            let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
+            let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
+            let neighborlists = get_neighborlists(accelerator_grid);
+            for k in range(0, number_of_neighbors) {
+                let begin_neighbor = neighborlists(neighborlist_offset + k);
+                for jj in unroll(0, cluster_size) {
+                    let j = begin_neighbor + jj;
+                    if(get_mask_value(j, accelerator_grid)) {  
+                        accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
+                    }
+                }
             }
         }
     }
 }
+
 
 fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i32, j: i32, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () { 
     let position = get_position(i, accelerator_grid);
@@ -31,7 +36,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i3
     // 5 FLOPS
     let squared_distance = dx * dx + dy * dy + dz * dz;
     increase_flops(8);
-    if(squared_distance < squared_cutoff_distance * get_mask_value(i, accelerator_grid) * get_mask_value(j, accelerator_grid)) {
+    if(squared_distance < squared_cutoff_distance) {
         // 8 FLOPS for Lennard-Jones
         let f = potential(squared_distance);
         // 3 FLOPS
