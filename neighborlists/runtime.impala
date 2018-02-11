@@ -26,6 +26,7 @@ extern fn md_copy_data_to_accelerator() -> () {
 }
 extern fn md_copy_data_from_accelerator() -> () {
     copy_from_accelerator(accelerator_grid_, grid_);
+    //print_grid(grid_);
 }
 
 extern

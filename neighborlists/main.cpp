@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     int const runs = atoi(argv[5]);
     int const nthreads = atoi(argv[6]);
     std::string output_directory;
-    double dt = 5e-5;
+    double dt = 1e-4;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
@@ -78,14 +78,14 @@ int main(int argc, char **argv) {
     double spacing1[3];
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
-        aabb1.max[i] = 50 + 10 * potential_minimum;
+        aabb1.max[i] = 50 + 2 * potential_minimum;
         spacing1[i] = potential_minimum;
     }
     AABB aabb2;
     double spacing2[3];
     for(int i = 0; i < 3; ++i) {
         aabb2.min[i] = 50;
-        aabb2.max[i] = 50 + 10 * potential_minimum;
+        aabb2.max[i] = 50 + 2 * potential_minimum;
         spacing2[i] = potential_minimum;
     }
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
@@ -111,8 +111,8 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        //int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
-        int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, 5, 2048);
+        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+        //int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, 5, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 

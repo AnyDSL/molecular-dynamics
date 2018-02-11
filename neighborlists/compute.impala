@@ -1,5 +1,5 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
-    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         if(get_mask_value(i, accelerator_grid)) {
             let begin = cluster_index * cluster_size;
             for jj in unroll(0, cluster_size) {
@@ -51,7 +51,7 @@ fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i3
 
 fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
     //print_string("force_resetting\n");
-    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         //print_string("i: ");
         //print_i32(i);
         //print_string("\n");
@@ -62,7 +62,7 @@ fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
 fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
     let positions = get_positions(accelerator_grid);
     let velocities = get_velocities(accelerator_grid);
-    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         if(positions(i).x < aabb.min(0)) {
             positions(i).x = aabb.min(0) + EPSILON;
         }
@@ -88,7 +88,7 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
 fn accelerator_integrate_position(accelerator_grid: AcceleratorGrid, dt: real_t, aabb: AABB) -> () {
     let positions = get_positions(accelerator_grid);
     let velocities = get_velocities(accelerator_grid);
-    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         
         /*print_string("i: ");
         print_i32(i);
@@ -107,7 +107,7 @@ fn accelerator_integrate_velocity(accelerator_grid: AcceleratorGrid, dt: real_t)
     let masses = get_masses(accelerator_grid);
     let velocities = get_velocities(accelerator_grid);
     let forces = get_forces(accelerator_grid);
-    for i, cluster_index, cluster_size in loop_accelerator(0, accelerator_grid.total_number_of_clusters) {
+    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         let inverse_mass = 1.0 as real_t / masses(i);
         velocities(i).x += dt * forces(i).x * inverse_mass;
         velocities(i).y += dt * forces(i).y * inverse_mass;

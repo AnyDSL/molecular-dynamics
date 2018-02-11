@@ -6,8 +6,11 @@ fn create_potential(sigma: real_t, epsilon: real_t) -> fn(real_t) -> real_t {
     let tmp2 = 2.0 as real_t * sigma6;
     | squared_distance : real_t | {
         // 3 FLOPS
-        let distance_8_inv = 1.0 as real_t / square(square(squared_distance));
+        let distance_2_inv = 1.0 / squared_distance;
+        //let distance_8_inv = 1.0 as real_t / square(square(squared_distance));
+        let distance_6_inv = distance_2_inv * distance_2_inv * distance_2_inv;
+        //cuda_print_f64(distance_8_inv);
         // 5 FLOPS
-        tmp1 * distance_8_inv * (1.0 as real_t - squared_distance * distance_8_inv * tmp2)
+        tmp1 * distance_6_inv * (1.0 as real_t - distance_6_inv * tmp2) * distance_2_inv
     }
 }
