@@ -12,6 +12,7 @@ extern "C" {
     void md_copy_data_to_accelerator();
     void md_integrate_position(double);
     void md_integrate_velocity(double);
+    void md_integration(double);
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, int);
     void md_redistribute_particles();
     void md_initialize_clusters(int);

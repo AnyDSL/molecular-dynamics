@@ -12,7 +12,7 @@ fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> 
     copy(source, destination, size);
 }
 
-fn @get_cluster_size() -> i32 {4}
+fn @get_cluster_size() -> i32 {32}
 
 fn loop_accelerator(size: i32, body: fn(i32, i32, i32) -> ()) -> () {
     let acc = accelerator(device_id);

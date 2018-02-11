@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
     }
     
     // Body Collision Test
-    double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
+    /*double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
 
     AABB aabb1;
@@ -90,17 +90,16 @@ int main(int argc, char **argv) {
     }
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
-    aabb2.max[1] -= shift;
+    aabb2.max[1] -= shift;*/
     
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
     std::vector<double> copy_data_from_accelerator_time(runs, 0);
-    std::vector<double> position_integration_time(runs, 0);
+    std::vector<double> integration_time(runs, 0);
     std::vector<double> redistribution_time(runs, 0);
     std::vector<double> cluster_initialization_time(runs, 0);
     std::vector<double> neighborlist_creation_time(runs, 0);
     std::vector<double> force_computation_time(runs, 0);
-    std::vector<double> velocity_integration_time(runs, 0);
     std::vector<double> deallocation_time(runs, 0);
     double const factor = 1e-6;
     md_set_thread_count(nthreads);
@@ -151,12 +150,19 @@ int main(int argc, char **argv) {
         for(int j = 0; j < steps; ++j) {
             std::cout << "Time step: " << j+1 << "\r" << std::flush;
 
+	    LIKWID_MARKER_START("Force");
             begin = measure_time();
-            md_integrate_position(dt);
+            md_compute_forces(cutoff_radius, epsilon, sigma);
             end = measure_time();
-            position_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-            
-            //if(j > 0 && j % 20 == 0) {
+	    LIKWID_MARKER_STOP("Force");
+	    force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+            begin = measure_time();
+            md_integration(dt);
+            end = measure_time();
+            integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+            if(j > 0 && j % 20 == 0) {
 
                 begin = measure_time();
                 md_copy_data_from_accelerator();
@@ -182,21 +188,8 @@ int main(int argc, char **argv) {
                 md_copy_data_to_accelerator();
                 end = measure_time();
                 copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-            //}
+            }
 
-
-	    LIKWID_MARKER_START("Force");
-            begin = measure_time();
-            md_reset_forces();
-            md_compute_forces(cutoff_radius, epsilon, sigma);
-            end = measure_time();
-	    LIKWID_MARKER_STOP("Force");
-	    force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-            begin = measure_time();
-            md_integrate_velocity(dt);
-            end = measure_time();
-            velocity_integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             if(vtk && i == 0) {
                 int nparticles = md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
@@ -221,18 +214,17 @@ int main(int argc, char **argv) {
     std::cout << std::flush << std::endl;
     LIKWID_MARKER_CLOSE;
 
-    std::vector<std::pair<double,double>> time_results(10);
+    std::vector<std::pair<double,double>> time_results(9);
     std::cout << "Code Region\tAverage\tStandard Deviation" << std::endl;
     time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
-    time_results[1] = print_time_statistics(position_integration_time, "position_integration");
+    time_results[1] = print_time_statistics(integration_time, "integration");
     time_results[2] = print_time_statistics(redistribution_time, "redistribution");
     time_results[3] = print_time_statistics(cluster_initialization_time, "cluster_initialization");
     time_results[4] = print_time_statistics(neighborlist_creation_time, "neighborlist_creation");
     time_results[5] = print_time_statistics(force_computation_time, "force_computation");
-    time_results[6] = print_time_statistics(velocity_integration_time, "velocity_integration");
-    time_results[7] = print_time_statistics(deallocation_time, "deallocation");
-    time_results[8] = print_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
-    time_results[9] = print_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
+    time_results[6] = print_time_statistics(deallocation_time, "deallocation");
+    time_results[7] = print_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
+    time_results[8] = print_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
     double mean_sum = 0, stdev_sum = 0;
     for(size_t i = 0; i < time_results.size(); ++i) {
         mean_sum += time_results[i].first;

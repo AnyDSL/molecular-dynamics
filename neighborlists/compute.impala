@@ -1,6 +1,7 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
     for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         if(get_mask_value(i, accelerator_grid)) {
+            reset_force(i, accelerator_grid);
             let begin = cluster_index * cluster_size;
             for jj in unroll(0, cluster_size) {
                 let j = begin + jj; 
@@ -112,5 +113,21 @@ fn accelerator_integrate_velocity(accelerator_grid: AcceleratorGrid, dt: real_t)
         velocities(i).x += dt * forces(i).x * inverse_mass;
         velocities(i).y += dt * forces(i).y * inverse_mass;
         velocities(i).z += dt * forces(i).z * inverse_mass;
+    }
+}
+
+fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
+    let masses = get_masses(accelerator_grid);
+    let positions = get_positions(accelerator_grid);
+    let velocities = get_velocities(accelerator_grid);
+    let forces = get_forces(accelerator_grid);
+    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
+        let inverse_mass = 1.0 as real_t / masses(i);
+        velocities(i).x += dt * forces(i).x * inverse_mass;
+        velocities(i).y += dt * forces(i).y * inverse_mass;
+        velocities(i).z += dt * forces(i).z * inverse_mass;
+        positions(i).x += dt * velocities(i).x;
+        positions(i).y += dt * velocities(i).y;
+        positions(i).z += dt * velocities(i).z;
     }
 }

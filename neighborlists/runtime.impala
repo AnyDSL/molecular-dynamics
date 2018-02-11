@@ -38,15 +38,19 @@ fn md_deallocate_grid() -> () {
 extern 
 fn md_integrate_position(dt: real_t) -> () {
     accelerator_integrate_position(accelerator_grid_, dt, grid_.aabb);
-    //integrate_position(grid_, dt, outer_loop_cpu, inner_loop_cpu);
 }
 
 
 extern 
 fn md_integrate_velocity(dt: real_t) -> () {
     accelerator_integrate_velocity(accelerator_grid_, dt);
-    //integrate_velocity(grid_, dt, outer_loop_cpu, inner_loop_cpu);
 }
+
+extern 
+fn md_integration(dt: real_t) -> () {
+    accelerator_integration(accelerator_grid_, dt);
+}
+
 
 extern
 fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32) -> i32 {
@@ -69,15 +73,9 @@ fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
 }
 
 extern
-fn md_reset_forces() -> () {
-    accelerator_set_forces_to_zero(accelerator_grid_);
-}
-
-extern
 fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
     accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
-    //grid_compute_forces(grid_, cutoff_distance*cutoff_distance, potential, outer_loop_cpu, inner_loop_cpu);
 }
 
 extern
