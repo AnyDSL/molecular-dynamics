@@ -15,6 +15,44 @@ fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     range(lower, upper, body)
 }
 
+struct Quantity3D {
+    x: Buffer,
+    y: Buffer,
+    z: Buffer
+}
+
+fn allocate_quantity(N: i32) -> Quantity3D {
+    Quantity3D {
+        x: alloc_cpu(N * sizeof[real_t]()),
+        y: alloc_cpu(N * sizeof[real_t]()),
+        z: alloc_cpu(N * sizeof[real_t]())
+    }
+}
+
+fn deallocate_quantity(quantity: Quantity3D) -> () {
+    release(quantity.x);
+    release(quantity.y);
+    release(quantity.z);
+}
+
+fn copy_quantity(i: i32, j: i32, src: Quantity3D, dest: Quantity3D) -> () {
+   bitcast[&mut[real_t]](dest.x)(j) = bitcast[&[real_t]](src.x)(i);  
+   bitcast[&mut[real_t]](dest.y)(j) = bitcast[&[real_t]](src.y)(i);  
+   bitcast[&mut[real_t]](dest.z)(j) = bitcast[&[real_t]](src.z)(i);  
+}
+
+fn swap_quantity(i: i32, j: i32, quantity: Quantity3D) -> () {
+   let tmp_x = bitcast[&[real_t]](quantity.x)(i);  
+   let tmp_y = bitcast[&[real_t]](quantity.y)(i);  
+   let tmp_z = bitcast[&[real_t]](quantity.z)(i);  
+   bitcast[&mut[real_t]](quantity.x)(i) = bitcast[&[real_t]](quantity.x)(j);  
+   bitcast[&mut[real_t]](quantity.y)(i) = bitcast[&[real_t]](quantity.y)(j);  
+   bitcast[&mut[real_t]](quantity.z)(i) = bitcast[&[real_t]](quantity.z)(j);  
+   bitcast[&mut[real_t]](quantity.x)(j) = tmp_x;  
+   bitcast[&mut[real_t]](quantity.y)(j) = tmp_y;  
+   bitcast[&mut[real_t]](quantity.z)(j) = tmp_z;  
+}
+
 struct Vector {
     x: real_t,
     y: real_t,

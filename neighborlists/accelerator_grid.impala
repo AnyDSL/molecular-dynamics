@@ -23,6 +23,25 @@ struct AcceleratorGrid {
     neighbors_per_cluster_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
     neighborlist_offsets_accelerator: Buffer, // offsets to the data stored in each neighbor list on the accelerator: [i32] 
     neighborlists_accelerator: Buffer // neighborlists on the accelerator: [i32]
+    
+}
+
+struct SimulationData { 
+    cluster_size: i32, // size of one cluster on the accelerator
+    total_number_of_clusters: i32, // equals the size of neighbors_per_cluster
+    capacity_neighbors_per_cluster: i32, // capacity of the array neighbors_per_cluster
+    total_number_of_neighbors: i32, // equals the size of the neighborlists arrays
+    capacity_neighborlists: i32, // capacity of the neighborlists arrays
+    cell_offsets: Buffer, // offsets of the data stored in each cell within data array
+
+    masses_cpu: Buffer, // masses of all particles on the CPU: [real_t]
+    positions_cpu: Quantity3D, // positions of all particles on the CPU: [Vector]
+    velocities_cpu: Quantity3D, // velocities of all particles on the CPU: [Vector]
+    forces_cpu: Quantity3D, // forces of all particles on the CPU: [Vector]
+    interaction_mask_cpu: Buffer, // interaction mask on the CPU: [bool]
+    neighbors_per_cluster_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
+    neighborlist_offsets_cpu: Buffer, // offsets to the data stored in each neighbor list on the CPU: [i32]
+    neighborlists_cpu: Buffer // neighborlists on the CPU: [i32]
 }
 
 fn allocate_accelerator_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {

@@ -1,0 +1,46 @@
+extern "C" {
+    fn rv_align(&[i8], i32) -> &[i8];
+    fn rv_shuffle(real_t, i32) -> real_t;
+}
+
+fn vector_map(a: Vector, f: fn (real_t) -> real_t) -> Vector { Vector { x: f(a.x), y: f(a.y), z: f(a.z) } }
+fn vector_zip(a: Vector, b: Vector, f: fn (real_t, real_t) -> real_t) -> Vector { Vector { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }
+fn vector_add(a: Vector, b: Vector) -> Vector { vector_zip(a, b, |x, y| x + y) }
+fn vector_sub(a: Vector, b: Vector) -> Vector { vector_zip(a, b, |x, y| x - y) }
+fn vector_mul(a: Vector, b: Vector) -> Vector { vector_zip(a, b, |x, y| x * y) }
+fn vector_div(a: Vector, b: Vector) -> Vector { vector_zip(a, b, |x, y| x / y) }
+fn vector_dot(a: Vector, b: Vector) -> real_t { a.x * b.x + a.y * b.y + a.z * b.z }
+fn vector_len2(a: Vector) -> real_t { vector_dot(a, a) }
+fn vector_scale(a: real_t, b: Vector) -> Vector { vector_map(b, |x| x * a) }
+
+extern fn new_force_kernel(data: SimulationData, squared_cutoff_distance: real_t) -> () {
+    let potential = create_potential(1.0, 1.0); 
+    for i in range(0, data.total_number_of_clusters) { 
+        let cluster_size = get_cluster_size();
+        let begin = i * cluster_size;
+        let alignment = 32;
+        for j in vectorize(cluster_size, 32, 0, cluster_size) {
+            let force_x = bitcast[&mut[real_t]](rv_align(data.forces_cpu.x.data, alignment));
+            let force_y = bitcast[&mut[real_t]](rv_align(data.forces_cpu.y.data, alignment));
+            let force_z = bitcast[&mut[real_t]](rv_align(data.forces_cpu.z.data, alignment));
+            let pos_x = bitcast[&mut[real_t]](rv_align(data.positions_cpu.x.data, alignment));
+            let pos_y = bitcast[&mut[real_t]](rv_align(data.positions_cpu.y.data, alignment));
+            let pos_z = bitcast[&mut[real_t]](rv_align(data.positions_cpu.z.data, alignment));
+            let mut force = Vector { x: 0.0, y: 0.0, z: 0.0 };
+            let pos = Vector { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
+            for k in range(1, cluster_size) {
+                let pos_neighbor = Vector { x: rv_shuffle(pos.x, k), y: rv_shuffle(pos.y, k), z: rv_shuffle(pos.z, k) };
+                let diff = vector_sub(pos, pos_neighbor);
+                let len2 = vector_len2(diff);
+                if len2 < squared_cutoff_distance {
+                    force = vector_add(force, vector_scale(potential(len2), diff));
+                }
+            }
+
+            force_x(begin + j) = force.x; 
+            force_y(begin + j) = force.y; 
+            force_z(begin + j) = force.z; 
+        }
+    }
+}
+

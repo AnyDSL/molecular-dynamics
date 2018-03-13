@@ -18,10 +18,10 @@ fn loop_accelerator(size: i32, body: fn(i32, i32, i32) -> ()) -> () {
     for cluster_index in outer_loop_cpu(0, size) {
         let cluster_size = get_cluster_size();
         let begin = cluster_index * cluster_size;
-        for ii in vectorize(get_vector_length(), get_alignment(), 0, cluster_size) {
-        //for ii in unroll(0, cluster_size) {
+        //for ii in vectorize(get_vector_length(), get_alignment(), 0, cluster_size) {
+        for ii in unroll(0, cluster_size) {
             let i = begin + ii; 
-            @@body(i, cluster_index, cluster_size);
+            @@body(i, cluster_index, cluster_size)
         } 
     }
 }
