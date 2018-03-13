@@ -25,6 +25,10 @@ fn @get_neighborlists2(data: &SimulationData) -> &mut[i32] {
     get_array_of_i32(data.neighborlists_cpu)
 }
 
+fn @get_mask_value2(i: i32, data: &SimulationData) -> bool {
+    get_bool(i, data.interaction_mask_cpu)
+}
+
 extern fn new_force_kernel(data: SimulationData, squared_cutoff_distance: real_t) -> () {
     let potential = create_potential(1.0, 1.0); 
     for i in range(0, data.total_number_of_clusters) { 
@@ -49,13 +53,14 @@ extern fn new_force_kernel(data: SimulationData, squared_cutoff_distance: real_t
                 let pos_neighbor = Vector { x: rv_shuffle(pos.x, k), y: rv_shuffle(pos.y, k), z: rv_shuffle(pos.z, k) };
                 let diff = vector_sub(pos, pos_neighbor);
                 let len2 = vector_len2(diff);
-                let new_force = vector_add(force, vector_scale(potential(len2), diff));
-                force = select(len2 < squared_cutoff_distance, new_force, force);
+                if get_mask_value2(begin + k, data) && len2 < squared_cutoff_distance {
+                    force = vector_add(force, vector_scale(potential(len2), diff));
+                }
             }
 
             for n in range(0, number_of_neighbors) {
                 let begin_neighbor = neighborlists(neighborlist_offset + n);
-                for k in unroll(0, cluster_size) {
+                for k in range(0, cluster_size) {
                     let pos_neighbor = Vector {
                         x: pos_x(begin_neighbor + k),
                         y: pos_y(begin_neighbor + k),
@@ -63,8 +68,9 @@ extern fn new_force_kernel(data: SimulationData, squared_cutoff_distance: real_t
                     };
                     let diff = vector_sub(pos, pos_neighbor);
                     let len2 = vector_len2(diff);
-                    let new_force = vector_add(force, vector_scale(potential(len2), diff));
-                    force = select(len2 < squared_cutoff_distance, new_force, force);
+                    if get_mask_value2(begin_neighbor + k, data) && len2 < squared_cutoff_distance {
+                        force = vector_add(force, vector_scale(potential(len2), diff));
+                    }
                 }
             }
 

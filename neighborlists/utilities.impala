@@ -127,8 +127,16 @@ fn @get_i32(i: i32, buf: Buffer) -> i32 {
     bitcast[&[i32]](buf.data)(i)
 }
 
-fn @set_i32(i: i32, buf: Buffer, value: i32) -> () { 
+fn @set_i32(i: i32, buf: Buffer, value: i32) -> () {
     bitcast[&mut[i32]](buf.data)(i) = value;
+}
+
+fn @get_i64(i: i32, buf: Buffer) -> i64 {
+    bitcast[&[i64]](buf.data)(i)
+}
+
+fn @set_i64(i: i32, buf: Buffer, value: i64) -> () {
+    bitcast[&mut[i64]](buf.data)(i) = value;
 }
 
 fn @get_array_of_i32(buf: Buffer) -> &mut[i32] {
