@@ -43,47 +43,47 @@ fn @copy_offset_quantity(src: Quantity3D, offset_src: i32, dest: Quantity3D, off
 }
 
 fn set_quantity(i: i32, quantity: Quantity3D, vector: Vector) -> () {
-    bitcast[&mut[real_t]](quantity.x)(i) = vector.x;
-    bitcast[&mut[real_t]](quantity.y)(i) = vector.y;
-    bitcast[&mut[real_t]](quantity.z)(i) = vector.z;
+    bitcast[&mut[real_t]](quantity.x.data)(i) = vector.x;
+    bitcast[&mut[real_t]](quantity.y.data)(i) = vector.y;
+    bitcast[&mut[real_t]](quantity.z.data)(i) = vector.z;
 }
 
 fn get_vector_from_quantity(i: i32, quantity: Quantity3D) -> Vector {
     Vector {
-        x: bitcast[&mut[real_t]](quantity.x)(i), 
-        y: bitcast[&mut[real_t]](quantity.y)(i), 
-        z: bitcast[&mut[real_t]](quantity.z)(i) 
+        x: bitcast[&mut[real_t]](quantity.x.data)(i), 
+        y: bitcast[&mut[real_t]](quantity.y.data)(i), 
+        z: bitcast[&mut[real_t]](quantity.z.data)(i) 
     }
 }
 
 fn get_x_component(i: i32, quantity: Quantity3D) -> real_t {
-    bitcast[&mut[real_t]](quantity.x)(i)
+    bitcast[&mut[real_t]](quantity.x.data)(i)
 }
 
 fn get_y_component(i: i32, quantity: Quantity3D) -> real_t {
-    bitcast[&mut[real_t]](quantity.y)(i)
+    bitcast[&mut[real_t]](quantity.y.data)(i)
 }
 
 fn get_z_component(i: i32, quantity: Quantity3D) -> real_t {
-    bitcast[&mut[real_t]](quantity.z)(i)
+    bitcast[&mut[real_t]](quantity.z.data)(i)
 }
 
 fn copy_quantity(i: i32, j: i32, src: Quantity3D, dest: Quantity3D) -> () {
-   bitcast[&mut[real_t]](dest.x)(j) = bitcast[&[real_t]](src.x)(i);  
-   bitcast[&mut[real_t]](dest.y)(j) = bitcast[&[real_t]](src.y)(i);  
-   bitcast[&mut[real_t]](dest.z)(j) = bitcast[&[real_t]](src.z)(i);  
+   bitcast[&mut[real_t]](dest.x.data)(j) = bitcast[&[real_t]](src.x.data)(i);  
+   bitcast[&mut[real_t]](dest.y.data)(j) = bitcast[&[real_t]](src.y.data)(i);  
+   bitcast[&mut[real_t]](dest.z.data)(j) = bitcast[&[real_t]](src.z.data)(i);  
 }
 
 fn swap_quantity(i: i32, j: i32, quantity: Quantity3D) -> () {
-   let tmp_x = bitcast[&[real_t]](quantity.x)(i);  
-   let tmp_y = bitcast[&[real_t]](quantity.y)(i);  
-   let tmp_z = bitcast[&[real_t]](quantity.z)(i);  
-   bitcast[&mut[real_t]](quantity.x)(i) = bitcast[&[real_t]](quantity.x)(j);  
-   bitcast[&mut[real_t]](quantity.y)(i) = bitcast[&[real_t]](quantity.y)(j);  
-   bitcast[&mut[real_t]](quantity.z)(i) = bitcast[&[real_t]](quantity.z)(j);  
-   bitcast[&mut[real_t]](quantity.x)(j) = tmp_x;  
-   bitcast[&mut[real_t]](quantity.y)(j) = tmp_y;  
-   bitcast[&mut[real_t]](quantity.z)(j) = tmp_z;  
+   let tmp_x = bitcast[&[real_t]](quantity.x.data)(i);  
+   let tmp_y = bitcast[&[real_t]](quantity.y.data)(i);  
+   let tmp_z = bitcast[&[real_t]](quantity.z.data)(i);  
+   bitcast[&mut[real_t]](quantity.x.data)(i) = bitcast[&[real_t]](quantity.x.data)(j);  
+   bitcast[&mut[real_t]](quantity.y.data)(i) = bitcast[&[real_t]](quantity.y.data)(j);  
+   bitcast[&mut[real_t]](quantity.z.data)(i) = bitcast[&[real_t]](quantity.z.data)(j);  
+   bitcast[&mut[real_t]](quantity.x.data)(j) = tmp_x;  
+   bitcast[&mut[real_t]](quantity.y.data)(j) = tmp_y;  
+   bitcast[&mut[real_t]](quantity.z.data)(j) = tmp_z;  
 }
 
 struct Vector {

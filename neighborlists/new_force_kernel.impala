@@ -13,23 +13,23 @@ fn @vector_dot(a: Vector, b: Vector) -> real_t { a.x * b.x + a.y * b.y + a.z * b
 fn @vector_len2(a: Vector) -> real_t { vector_dot(a, a) }
 fn @vector_scale(a: real_t, b: Vector) -> Vector { vector_map(b, @ |x| x * a) }
 
-fn @get_number_of_neighbors2(cluster_index: i32, data: &SimulationData) -> i32 {
+fn @get_number_of_neighbors2(cluster_index: i32, data: &AcceleratorGrid) -> i32 {
     get_i32(cluster_index, data.neighbors_per_cluster_cpu)
 }
 
-fn @get_neighborlist_offset2(cluster_index: i32, data: &SimulationData) -> i32 {
+fn @get_neighborlist_offset2(cluster_index: i32, data: &AcceleratorGrid) -> i32 {
     get_i32(cluster_index, data.neighborlist_offsets_cpu)
 }
 
-fn @get_neighborlists2(data: &SimulationData) -> &mut[i32] {
+fn @get_neighborlists2(data: &AcceleratorGrid) -> &mut[i32] {
     get_array_of_i32(data.neighborlists_cpu)
 }
 
-fn @get_mask_value2(i: i32, data: &SimulationData) -> bool {
+fn @get_mask_value2(i: i32, data: &AcceleratorGrid) -> bool {
     get_bool(i, data.interaction_mask_cpu)
 }
 
-extern fn new_force_kernel(data: SimulationData, squared_cutoff_distance: real_t) -> () {
+extern fn new_force_kernel(data: AcceleratorGrid, squared_cutoff_distance: real_t) -> () {
     let potential = create_potential(1.0, 1.0); 
     for i in range(0, data.total_number_of_clusters) { 
         let cluster_size = get_cluster_size();

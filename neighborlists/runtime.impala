@@ -18,7 +18,6 @@ fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vec
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, capacity, cluster_size, capacity * 64); 
 }
-/*
 extern fn md_copy_data_to_accelerator() -> () {
     copy_to_accelerator(grid_, &mut accelerator_grid_);
 }
@@ -61,6 +60,7 @@ extern
 fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
     accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+    //new_force_kernel(accelerator_grid_, cutoff_distance*cutoff_distance);
 }
 
 extern
@@ -73,4 +73,4 @@ fn md_compute_total_kinetic_energy() -> real_t {
 extern
 fn md_print_grid() -> () {
     print_grid(grid_);
-}*/
+}
