@@ -5,7 +5,6 @@ extern
 fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
 }
-
 extern 
 fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector], 
                        nparticles: i32, min: &[real_t], max: &[real_t], cell_spacing: real_t, cell_capacity: i32) -> () {
@@ -19,8 +18,7 @@ fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vec
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, capacity, cluster_size, capacity * 64); 
 }
-
-
+/*
 extern fn md_copy_data_to_accelerator() -> () {
     copy_to_accelerator(grid_, &mut accelerator_grid_);
 }
@@ -28,22 +26,10 @@ extern fn md_copy_data_from_accelerator() -> () {
     copy_from_accelerator(accelerator_grid_, grid_);
     //print_grid(grid_);
 }
-
 extern
 fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
     deallocate_accelerator_grid(accelerator_grid_);
-}
-
-extern 
-fn md_integrate_position(dt: real_t) -> () {
-    accelerator_integrate_position(accelerator_grid_, dt, grid_.aabb);
-}
-
-
-extern 
-fn md_integrate_velocity(dt: real_t) -> () {
-    accelerator_integrate_velocity(accelerator_grid_, dt);
 }
 
 extern 
@@ -71,7 +57,6 @@ extern
 fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
     grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop_cpu, inner_loop_cpu);
 }
-
 extern
 fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
@@ -80,10 +65,12 @@ fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) ->
 
 extern
 fn md_compute_total_kinetic_energy() -> real_t {
-   compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
+    // TODO fix this function
+   //compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
+   0.0
 }
 
 extern
 fn md_print_grid() -> () {
     print_grid(grid_);
-}
+}*/

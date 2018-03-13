@@ -130,8 +130,8 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], vel
                 print_vector(get_vector(k, (*cell).velocities));
                 */
                 masses(array_index) = get_real(k, (*cell).masses);
-                positions(array_index) = get_vector(k, (*cell).positions);
-                velocities(array_index) = get_vector(k, (*cell).velocities);
+                positions(array_index) = get_vector_from_quantity(k, (*cell).positions);
+                velocities(array_index) = get_vector_from_quantity(k, (*cell).velocities);
                 ++array_index;
             }
         }

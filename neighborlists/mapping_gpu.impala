@@ -7,6 +7,17 @@ fn @accelerator_allocate(size: i32) -> Buffer {
     let acc = accelerator(device_id);
     acc.alloc(size)
 }
+fn @accelerator_allocate_quantity(N: i32) -> Quantity3D {
+    let acc = accelerator(device_id);
+    let size = N * sizeof[real_t]();
+    Quantity3D {
+        x: acc.alloc(size),
+        y: acc.alloc(size),
+        z: acc.alloc(size)
+    }
+
+}
+
 
 fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {
     copy(source, destination, size);
@@ -44,18 +55,6 @@ fn @get_neighborlists(accelerator_grid: &AcceleratorGrid) -> &mut[1][i32] {
 
 fn @get_masses(accelerator_grid: &AcceleratorGrid) -> &mut[1][real_t] {
     get_array_of_reals_accelerator(accelerator_grid.masses_accelerator)
-}
-
-fn @get_positions(accelerator_grid: &AcceleratorGrid) -> &mut[1][Vector] {
-    get_array_of_vectors_accelerator(accelerator_grid.positions_accelerator)
-}
-
-fn @get_velocities(accelerator_grid: &AcceleratorGrid) -> &mut[1][Vector] {
-    get_array_of_vectors_accelerator(accelerator_grid.velocities_accelerator)
-}
-
-fn @get_forces(accelerator_grid: &AcceleratorGrid) -> &mut[1][Vector] {
-    get_array_of_vectors_accelerator(accelerator_grid.forces_accelerator)
 }
 
 fn @get_position(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {

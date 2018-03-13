@@ -2,7 +2,7 @@
 fn cell_sort(cell: &Cell) -> () {
     for i in range(1, cell.size) {
         let mut j = i;
-        while (j > 0 && get_vector(j - 1, cell.positions).z > get_vector(j, cell.positions).z) { 
+        while (j > 0 && get_z_component(j - 1, cell.positions) > get_z_component(j, cell.positions)) { 
             swap_particles(j, j - 1, cell);
             --j;
         }
@@ -39,33 +39,33 @@ fn cell_deallocate_clusters(cell: &mut Cell) -> () {
     }
 }
 
-fn @compute_bounding_box(positions: &[Vector], base_index: i32, @cluster_size: i32) -> AABB {
+fn @compute_bounding_box(positions: Quantity3D, base_index: i32, @cluster_size: i32) -> AABB {
     let mut aabb : AABB;
-    aabb.min(0) = positions(base_index).x;
-    aabb.min(1) = positions(base_index).y;
-    aabb.min(2) = positions(base_index).z;
-    aabb.max(0) = positions(base_index).x;
-    aabb.max(1) = positions(base_index).y;
-    aabb.max(2) = positions(base_index).z;
-    for j in unroll(1, cluster_size) {
+    aabb.min(0) = get_x_component(base_index, positions);
+    aabb.min(1) = get_y_component(base_index, positions);
+    aabb.min(2) = get_z_component(base_index, positions);
+    aabb.max(0) = get_x_component(base_index, positions);
+    aabb.max(1) = get_y_component(base_index, positions);
+    aabb.max(2) = get_z_component(base_index, positions);
+    for j in range(1, cluster_size) {
         let index = base_index + j;
-        if(positions(index).x < aabb.min(0)) {
-            aabb.min(0) = positions(index).x;
+        if(get_x_component(index, positions) < aabb.min(0)) {
+            aabb.min(0) = get_x_component(index, positions);
         }
-        else if(positions(index).x > aabb.max(0)) {
-            aabb.max(0) = positions(index).x;
+        else if(get_x_component(index, positions) > aabb.max(0)) {
+            aabb.max(0) = get_x_component(index, positions);
         }
-        if(positions(index).y < aabb.min(1)) {
-            aabb.min(1) = positions(index).y;
+        if(get_y_component(index, positions) < aabb.min(1)) {
+            aabb.min(1) = get_y_component(index, positions);
         }
-        else if(positions(index).y > aabb.max(1)) {
-            aabb.max(1) = positions(index).y;
+        else if(get_y_component(index, positions) > aabb.max(1)) {
+            aabb.max(1) = get_y_component(index, positions);
         }
-        if(positions(index).z < aabb.min(2)) {
-            aabb.min(2) = positions(index).z;
+        if(get_z_component(index, positions) < aabb.min(2)) {
+            aabb.min(2) = get_z_component(index, positions);
         }
-        else if(positions(index).z > aabb.max(2)) {
-            aabb.max(2) = positions(index).z;
+        else if(get_z_component(index, positions) > aabb.max(2)) {
+            aabb.max(2) = get_z_component(index, positions);
         }
     }
     //print_AABB(aabb);
@@ -76,12 +76,11 @@ fn cell_compute_bounding_boxes(cell: &Cell) -> () {
     let nclusters = cell.nclusters;
     let cluster_size = cell.cluster_size;
     let clusters = get_array_of_clusters(cell.clusters);
-    let positions = get_array_of_vectors(cell.positions);
     for i in range(0, nclusters - 1) {
-        clusters(i).aabb = compute_bounding_box(positions, i * cluster_size, cluster_size);
+        clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size);
     }
     let i = nclusters - 1;
-    clusters(i).aabb = compute_bounding_box(positions, i * cluster_size, cluster_size - cell.padding);  
+    clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size - cell.padding);  
 }
 
 fn grid_initialize_clusters(grid: &Grid, neighbor_list_capacity: i32, allocate: fn(i32) -> Buffer, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
@@ -250,12 +249,12 @@ fn assemble_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: 
                         let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
                         let difference = squared_cutoff_distance - squared_distance;
                         if(difference > 0.0) {
-                            if(difference > PRUNING_THRESHOLD) {
+                            //if(difference > PRUNING_THRESHOLD) {
                                 append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
-                            }
-                            else if(individual_particles_are_in_distance(squared_cutoff_distance, cluster_index, cell, k, neighboring_cell) == true) {
+                            //}
+                            /*else if(individual_particles_are_in_distance(squared_cutoff_distance, cluster_index, cell, k, neighboring_cell) == true) {
                                 append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
-                            }
+                            }*/
                         }
                     }
                     ++k;
@@ -267,7 +266,7 @@ fn assemble_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: 
         } 
     }
 }
-
+/*
 fn individual_particles_are_in_distance(squared_cutoff_distance: real_t, cluster_index1: i32, cell1: &Cell, cluster_index2: i32, cell2: &Cell) -> bool {
     let positions1 = get_array_of_vectors(cell1.positions);
     let positions2 = get_array_of_vectors(cell2.positions);
@@ -301,7 +300,7 @@ fn individual_particles_are_in_distance(squared_cutoff_distance: real_t, cluster
     }
     retval
 }
-
+*/
 
 fn cell_assemble_neighbor_lists(cell: &Cell, cell_index: [i32 * 2], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer) -> () {
     let clusters = get_array_of_clusters(cell.clusters);

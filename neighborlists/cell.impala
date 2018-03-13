@@ -36,9 +36,9 @@ fn print_cluster(cluster: &Cluster) -> () {
 struct Cell {
     index: i32,
     masses: Buffer,
-    positions: Buffer,
-    velocities: Buffer,
-    forces: Buffer,
+    positions: Quantity3D,
+    velocities: Quantity3D,
+    forces: Quantity3D,
     size: i32,
     padding: i32,
     capacity: i32,
@@ -52,9 +52,9 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
     Cell {
         index: index,
         masses: allocate(N * sizeof[real_t]()),
-        positions: allocate(N * sizeof[Vector]()),
-        velocities: allocate(N * sizeof[Vector]()),
-        forces: allocate(N * sizeof[Vector]()),
+        positions: allocate_quantity(N),
+        velocities: allocate_quantity(N),
+        forces: allocate_quantity(N),
         capacity: N,
         padding: 0,
         size: size,
@@ -64,6 +64,7 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
     }
 }
 
+// TODO adapt to new data layout
 fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
     print_string("Memory address: ");
     print_i64(cell as i64);
@@ -84,17 +85,17 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
     print_string("\n");
     print_string("Positions:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector(i, cell.positions));
+        print_vector(get_vector_from_quantity(i, cell.positions));
         print_string("\n");
     }
     print_string("Forces:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector(i, cell.forces));
+        print_vector(get_vector_from_quantity(i, cell.forces));
         print_string("\n");
     }
     print_string("Velocities:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector(i, cell.velocities));
+        print_vector(get_vector_from_quantity(i, cell.velocities));
         print_string("\n");
     }
 
@@ -109,10 +110,10 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
 }
 
 fn deallocate_cell(cell: &mut Cell) -> () {
-    release((*cell).masses);
-    release((*cell).positions);
-    release((*cell).velocities);
-    release((*cell).forces);
+    release(cell.masses);
+    deallocate_quantity(cell.positions);
+    deallocate_quantity(cell.velocities);
+    deallocate_quantity(cell.forces);
     cell.size = 0;
     cell.capacity = 0;
     cell_deallocate_clusters(cell);
@@ -120,22 +121,20 @@ fn deallocate_cell(cell: &mut Cell) -> () {
 
 fn copy_cell(src: &Cell, dest: &mut Cell) -> () {
     for i in range(0, src.size) {
-       set_real(i, dest.masses, get_real(i, src.masses)); 
-       set_vector(i, dest.positions, get_vector(i, src.positions));
-       set_vector(i, dest.velocities, get_vector(i, src.velocities));
+        copy_particle(i, i, src, dest);
     }
 }
 
 fn @swap_particles(i: i32, j: i32, cell: &Cell) -> () {
     swap_real(i, j, (*cell).masses);
-    swap_vector(i, j, (*cell).positions);
-    swap_vector(i, j, (*cell).velocities);
+    swap_quantity(i, j, (*cell).positions);
+    swap_quantity(i, j, (*cell).velocities);
 }
 
 fn @copy_particle(i: i32, j: i32, src: &Cell, dest: &Cell) -> () {
     set_real(j, dest.masses, get_real(i, src.masses));
-    set_vector(j, dest.positions, get_vector(i, src.positions));
-    set_vector(j, dest.velocities, get_vector(i, src.velocities));
+    copy_quantity(i, j, src.positions, dest.positions);
+    copy_quantity(i, j, src.velocities, dest.velocities);
 }
 
 fn @remove_particle(i: i32, cell: &mut Cell) -> () {
@@ -178,6 +177,7 @@ fn append_particle(mass: real_t, position: Vector, velocity: Vector, dest: &mut 
     print_string(" Velocity: ");
     print_vector(velocity);
     print_string("\n");*/
+    
     let new_size = dest.size + 1;
     if(dest.size == dest.capacity) {
         reallocate_cell(new_size, dest, allocate);
@@ -190,7 +190,7 @@ fn append_particle(mass: real_t, position: Vector, velocity: Vector, dest: &mut 
     print_i32(new_size);
     print_string("\n");*/
     set_real(new_size-1, dest.masses, mass);
-    set_vector(new_size-1, dest.positions, position);
-    set_vector(new_size-1, dest.velocities, velocity);
+    set_quantity(new_size-1, dest.positions, position);
+    set_quantity(new_size-1, dest.velocities, velocity);
 }
 

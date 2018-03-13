@@ -59,73 +59,45 @@ fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
 }
 
 fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
-    let positions = get_positions(accelerator_grid);
-    let velocities = get_velocities(accelerator_grid);
     for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
-        if(positions(i).x < aabb.min(0)) {
-            positions(i).x = aabb.min(0) + EPSILON;
+        let mut position = get_position(i, accelerator_grid); 
+        if(position.x < aabb.min(0)) {
+            position.x = aabb.min(0) + EPSILON;
         }
-        else if(positions(i).x > aabb.max(0)) {
-            positions(i).x = aabb.max(0) - EPSILON;
+        else if(position.x > aabb.max(0)) {
+            position.x = aabb.max(0) - EPSILON;
         }
-        if(positions(i).y < aabb.min(1)) {
-            positions(i).y = aabb.min(1) + EPSILON;
+        if(position.y < aabb.min(1)) {
+            position.y = aabb.min(1) + EPSILON;
         }
-        else if(positions(i).y > aabb.max(1)) {
-            positions(i).y = aabb.max(1) - EPSILON;
+        else if(position.y > aabb.max(1)) {
+            position.y = aabb.max(1) - EPSILON;
         }
-        if(positions(i).z < aabb.min(2)) {
-            positions(i).z = aabb.min(2) + EPSILON;
+        if(position.z < aabb.min(2)) {
+            position.z = aabb.min(2) + EPSILON;
         }
-        else if(positions(i).z > aabb.max(2)) {
-            positions(i).z = aabb.max(2) - EPSILON;
+        else if(position.z > aabb.max(2)) {
+            position.z = aabb.max(2) - EPSILON;
         } 
+        set_position(i, accelerator_grid, position);
     }
 }
 
-
-fn accelerator_integrate_position(accelerator_grid: AcceleratorGrid, dt: real_t, aabb: AABB) -> () {
-    let positions = get_positions(accelerator_grid);
-    let velocities = get_velocities(accelerator_grid);
-    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
-        
-        /*print_string("i: ");
-        print_i32(i);
-        print_string("\n");
-        print_string("Position: ");
-        print_vector(positions(i));
-        print_string("\n");*/
-        positions(i).x += dt * velocities(i).x;
-        positions(i).y += dt * velocities(i).y;
-        positions(i).z += dt * velocities(i).z;
-    }
-    //accelerator_restrict_to_boundary(accelerator_grid, aabb); 
-}
-
-fn accelerator_integrate_velocity(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
-    let masses = get_masses(accelerator_grid);
-    let velocities = get_velocities(accelerator_grid);
-    let forces = get_forces(accelerator_grid);
-    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
-        let inverse_mass = 1.0 as real_t / masses(i);
-        velocities(i).x += dt * forces(i).x * inverse_mass;
-        velocities(i).y += dt * forces(i).y * inverse_mass;
-        velocities(i).z += dt * forces(i).z * inverse_mass;
-    }
-}
 
 fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
     let masses = get_masses(accelerator_grid);
-    let positions = get_positions(accelerator_grid);
-    let velocities = get_velocities(accelerator_grid);
-    let forces = get_forces(accelerator_grid);
     for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
         let inverse_mass = 1.0 as real_t / masses(i);
-        velocities(i).x += dt * forces(i).x * inverse_mass;
-        velocities(i).y += dt * forces(i).y * inverse_mass;
-        velocities(i).z += dt * forces(i).z * inverse_mass;
-        positions(i).x += dt * velocities(i).x;
-        positions(i).y += dt * velocities(i).y;
-        positions(i).z += dt * velocities(i).z;
+        let mut position = get_position(i, accelerator_grid);
+        let mut velocity = get_velocity(i, accelerator_grid);
+        let force = get_force(i, accelerator_grid);
+        velocity.x += dt * force.x * inverse_mass;
+        velocity.y += dt * force.y * inverse_mass;
+        velocity.z += dt * force.z * inverse_mass;
+        position.x += dt * velocity.x;
+        position.y += dt * velocity.y;
+        position.z += dt * velocity.z;
+        set_velocity(i, accelerator_grid, velocity);
+        set_position(i, accelerator_grid, position);
     }
 }

@@ -10,7 +10,22 @@ fn @accelerator_allocate(size: i32) -> Buffer {
         data: 0 as &[i8]
     }
 }
+
+fn @accelerator_allocate_quantity(N: i32) -> Quantity3D {
+    let null_buf = Buffer {
+        device: 0,
+        data: 0 as &[i8]
+    };
+    Quantity3D {
+        x: null_buf, 
+        y: null_buf,
+        z: null_buf
+    }
+}
+
 fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
+fn @transfer_quantity_between_devices(source: Quantity3D, destination: Quantity3D, N: i32) -> () {}
+
 
 fn @get_cluster_size() -> i32 {4}
 
@@ -42,28 +57,42 @@ fn @get_masses(accelerator_grid: &AcceleratorGrid) -> &mut[real_t] {
     get_array_of_reals(accelerator_grid.masses_cpu)
 }
 
-fn @get_positions(accelerator_grid: &AcceleratorGrid) -> &mut[Vector] {
-    get_array_of_vectors(accelerator_grid.positions_cpu)
-}
-
-fn @get_velocities(accelerator_grid: &AcceleratorGrid) -> &mut[Vector] {
-    get_array_of_vectors(accelerator_grid.velocities_cpu)
-}
-
-fn @get_forces(accelerator_grid: &AcceleratorGrid) -> &mut[Vector] {
-    get_array_of_vectors(accelerator_grid.forces_cpu)
-}
-
 fn @get_position(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
-    get_vector(i, accelerator_grid.positions_cpu)
+    get_vector_from_quantity(i, accelerator_grid.positions_cpu)
 }
+
+fn @set_position(i: i32, accelerator_grid: &AcceleratorGrid, position: Vector) -> () {
+    set_quantity(i, accelerator_grid.positions_cpu, position)
+}
+
+fn @get_velocity(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
+    get_vector_from_quantity(i, accelerator_grid.velocities_cpu)
+}
+
+fn @set_velocity(i: i32, accelerator_grid: &AcceleratorGrid, velocity: Vector) -> () {
+    set_quantity(i, accelerator_grid.velocities_cpu, velocity)
+}
+
+fn @get_force(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
+    get_vector_from_quantity(i, accelerator_grid.forces_cpu)
+}
+
+fn @set_force(i: i32, accelerator_grid: &AcceleratorGrid, force: Vector) -> () {
+    set_quantity(i, accelerator_grid.forces_cpu, force)
+}
+
+
 
 fn @reset_force(i: i32, accelerator_grid: &AcceleratorGrid) -> () {
-    set_vector(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+    set_quantity(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
 }
 
 fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
-    add_to_vector(i, accelerator_grid.forces_cpu, dF_x, dF_y, dF_z);
+    let mut force = get_vector_from_quantity(i, accelerator_grid.forces_cpu);
+    force.x += dF_x;
+    force.y += dF_y;
+    force.z += dF_z;
+    set_quantity(i, accelerator_grid.forces_cpu, force);
 }
 
 fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> bool {

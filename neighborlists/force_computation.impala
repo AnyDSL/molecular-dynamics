@@ -32,14 +32,14 @@ fn compute_forces(cluster: &Cluster, cluster_index: i32, cell: &Cell, grid: &Gri
         }
     }
     for i in unroll(begin, end) {
-        set_vector(i, cell.forces, force_sums(i - begin));
+        set_quantity(i, cell.forces, force_sums(i - begin));
     }
 
 }
 
 fn @compute_pairwise_forces(force_sum: &mut Vector, i: i32, j: i32, cell: &Cell, neighboring_cell: &Cell, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
-    let position = get_vector(i, cell.positions);
-    let neighbor_position = get_vector(j, neighboring_cell.positions);
+    let position = get_vector_from_quantity(i, cell.positions);
+    let neighbor_position = get_vector_from_quantity(j, neighboring_cell.positions);
     // 3 FLOPS
     let dx = neighbor_position.x - position.x;
     let dy = neighbor_position.y - position.y;
@@ -86,7 +86,7 @@ fn grid_compute_forces(grid: &Grid, squared_cutoff_distance: real_t, potential: 
 
 fn cell_set_forces_to_zero(cell: &Cell) -> () {
     for i in range(0, cell.size) {
-        set_vector(i, cell.forces, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+        set_quantity(i, cell.forces, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
     }
 }
 

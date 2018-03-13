@@ -10,37 +10,6 @@ fn @get_array_of_reals_accelerator(buf: Buffer) -> &mut[1][real_t] {
     bitcast[&mut[1][real_t]](buf.data)
 }
 
-fn @get_vector_accelerator(i: i32, buf: Buffer) -> Vector {
-    bitcast[&[1][Vector]](buf.data)(i)
-}
-
-fn @set_vector_accelerator(i: i32, buf: Buffer, value: Vector) -> () { 
-    bitcast[&mut[1][Vector]](buf.data)(i) = value;
-}
-
-fn @add_to_vector_accelerator(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () { 
-    /*let vector_old = bitcast[&[1][Vector]](buf.data)(i);
-    let mut vector_new : Vector;
-    vector_new.x = vector_old.x + x;
-    vector_new.y = vector_old.y + y;
-    vector_new.z = vector_old.z + z;
-    set_vector_accelerator(i, buf, vector_new);*/
-    bitcast[&mut[1][Vector]](buf.data)(i).x += x;
-    bitcast[&mut[1][Vector]](buf.data)(i).y += y;
-    bitcast[&mut[1][Vector]](buf.data)(i).z += z;
-}
-
-
-fn @sub_from_vector_accelerator(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () { 
-    bitcast[&mut[1][Vector]](buf.data)(i).x -= x;
-    bitcast[&mut[1][Vector]](buf.data)(i).y -= y;
-    bitcast[&mut[1][Vector]](buf.data)(i).z -= z;
-}
-
-fn @get_array_of_vectors_accelerator(buf: Buffer) -> &mut[1][Vector] {
-    bitcast[&mut[1][Vector]](buf.data)
-}
-
 fn @get_i32_accelerator(i: i32, buf: Buffer) -> i32 {
     bitcast[&[1][i32]](buf.data)(i)
 }

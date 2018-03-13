@@ -1,4 +1,4 @@
-fn compute_total_kinetic_energy(grid: &Grid, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> real_t {
+/*fn compute_total_kinetic_energy(grid: &Grid, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> real_t {
     let mut kinetic_energy = 0.0;
     for cell, cell_index in map_over_grid(grid, outer_loop, inner_loop) {
         let masses = get_array_of_reals(cell.masses);
@@ -9,4 +9,4 @@ fn compute_total_kinetic_energy(grid: &Grid, outer_loop: fn(i32, i32, fn(i32) ->
         }
     }
     kinetic_energy
-}
+}*/
