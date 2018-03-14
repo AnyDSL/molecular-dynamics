@@ -120,7 +120,7 @@ fn @set_force(i: i32, accelerator_grid: AcceleratorGrid, force: Vector) -> () {
 }
 
 fn @reset_force(i: i32, accelerator_grid: AcceleratorGrid) -> () {
-    set_quantity(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+    set_quantity(i, accelerator_grid.forces_accelerator, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
 }
 
 fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
