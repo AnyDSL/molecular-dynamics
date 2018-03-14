@@ -1,21 +1,21 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-        let force_x = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.x.data, get_alignment()));
-        let force_y = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.y.data, get_alignment()));
-        let force_z = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.z.data, get_alignment()));
-        let pos_x = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.x.data, get_alignment()));
-        let pos_y = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.y.data, get_alignment()));
-        let pos_z = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.z.data, get_alignment()));
+        let force_x = bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.x.data, get_alignment()));
+        let force_y = bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.y.data, get_alignment()));
+        let force_z = bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.z.data, get_alignment()));
+        let pos_x = bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.x.data, get_alignment()));
+        let pos_y = bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.y.data, get_alignment()));
+        let pos_z = bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.z.data, get_alignment()));
 
         let mut force = Vector { x: 0.0, y: 0.0, z: 0.0 };
         let pos = Vector { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
 
         let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
         for k in unroll(1, cluster_size) {
-            let pos_neighbor = Vector { x: rv_shuffle(pos.x, k), y: rv_shuffle(pos.y, k), z: rv_shuffle(pos.z, k) };
-            let diff = vector_sub(pos_neighbor, pos);
-            let len2 = vector_len2(diff);
-            if bitcast[i64](rv_shuffle(bitcast[f64](mask), k)) != 0i64 && len2 < squared_cutoff_distance {
+                let pos_neighbor = Vector { x: shuffle(pos.x, k), y: shuffle(pos.y, k), z: shuffle(pos.z, k) };
+                let diff = vector_sub(pos_neighbor, pos);
+                let len2 = vector_len2(diff);
+                if bitcast[i64](shuffle(bitcast[f64](mask), k)) != 0i64 && len2 < squared_cutoff_distance {
                 force = vector_add(force, vector_scale(potential(len2), diff));
             }
         }
@@ -125,8 +125,8 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
 
 
 fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
-    let masses = get_masses(accelerator_grid);
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+        let masses = get_masses(accelerator_grid);
         let inverse_mass = 1.0 as real_t / masses(i);
         let mut position = get_position(begin + j, accelerator_grid);
         let mut velocity = get_velocity(begin + j, accelerator_grid);

@@ -25,3 +25,18 @@ fn @get_array_of_i32_accelerator(buf: Buffer) -> &mut[1][i32] {
 fn @get_bool_accelerator(i: i32, buf: Buffer) -> bool {
     bitcast[&[1][bool]](buf.data)(i)
 }
+
+fn set_quantity_accelerator(i: i32, quantity: Quantity3D, vector: Vector) -> () {
+    bitcast[&mut[1][real_t]](quantity.x.data)(i) = vector.x;
+    bitcast[&mut[1][real_t]](quantity.y.data)(i) = vector.y;
+    bitcast[&mut[1][real_t]](quantity.z.data)(i) = vector.z;
+}
+
+fn get_vector_from_quantity_accelerator(i: i32, quantity: Quantity3D) -> Vector {
+    Vector {
+        x: bitcast[&mut[1][real_t]](quantity.x.data)(i), 
+        y: bitcast[&mut[1][real_t]](quantity.y.data)(i), 
+        z: bitcast[&mut[1][real_t]](quantity.z.data)(i) 
+    }
+}
+

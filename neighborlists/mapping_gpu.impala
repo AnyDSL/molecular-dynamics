@@ -3,6 +3,31 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
+fn @get_alignment() -> i32 {4}
+
+fn nvvm_shfldown(data: f32, lane_offset: i32, clamp: i32) -> f32 {
+    let mut res: f32;
+    asm("shfl.down.b32 $0, $1, $2, $3;"
+            : "=f"(res)
+            : "f"(data), "r"(lane_offset), "r"(clamp)
+       );
+    res
+}
+
+fn @shuffle(x: real_t, i: i32) -> real_t {
+    let a = bitcast[i64](x);
+    let x_lower = bitcast[f32](a as i32);
+    let x_upper = bitcast[f32]((a >> 32i64) as i32);
+    let y_lower = bitcast[i32](nvvm_shfldown(x_lower, i, 32));
+    let y_upper = bitcast[i32](nvvm_shfldown(x_upper, i, 32));
+    bitcast[f64]((y_lower as i64) | ((y_upper as i64) << 32i64))
+}
+
+fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
+    ptr
+}
+
+
 fn @accelerator_allocate(size: i32) -> Buffer {
     let acc = accelerator(device_id);
     acc.alloc(size)
@@ -23,52 +48,90 @@ fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> 
     copy(source, destination, size);
 }
 
+
+fn @transfer_quantity_between_devices(src: Quantity3D, dest: Quantity3D, N: i32) -> () {
+    copy(src.x, dest.x, N * sizeof[real_t]());
+    copy(src.y, dest.y, N * sizeof[real_t]());
+    copy(src.z, dest.z, N * sizeof[real_t]());
+}
+
 fn @get_cluster_size() -> i32 {32}
 
-fn loop_accelerator(size: i32, body: fn(i32, i32, i32) -> ()) -> () {
+fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+    let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
-    let grid = (size*get_cluster_size(), 1, 1);
-    let block = (get_cluster_size(), 1, 1);
+    let grid = (size*cluster_size, 1, 1);
+    let block = (cluster_size, 1, 1);
+    
     for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-        let (gidx, _, _) = gid;
-        let gid_x = gidx();
+        let (tidx, _, _) = tid;
+        let j = tidx();
         let (bidx, _, _) = bid;
-        let bid_x = bidx();
+        let i = bidx();
         let (bdimx, _, _) = bdim;
-        let bdim_x = bdimx();
-        @@body(gid_x, bid_x, bdim_x);
+        let cluster_size = bdimx();
+        let begin = i * cluster_size;
+        let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
+        let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
+        let neighborlists = get_neighborlists(accelerator_grid);
+        @@body(i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists);
     }
     acc.sync();
 }
 
-fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
+fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
     get_i32_accelerator(cluster_index, accelerator_grid.neighbors_per_cluster_accelerator)
 }
 
-fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
+fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
     get_i32_accelerator(cluster_index, accelerator_grid.neighborlist_offsets_accelerator)
 }
 
-fn @get_neighborlists(accelerator_grid: &AcceleratorGrid) -> &mut[1][i32] {
+fn @get_neighborlists(accelerator_grid: AcceleratorGrid) -> &mut[1][i32] {
     get_array_of_i32_accelerator(accelerator_grid.neighborlists_accelerator)
 }
 
-fn @get_masses(accelerator_grid: &AcceleratorGrid) -> &mut[1][real_t] {
+fn @get_masses(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
     get_array_of_reals_accelerator(accelerator_grid.masses_accelerator)
 }
 
-fn @get_position(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
-    get_vector_accelerator(i, accelerator_grid.positions_accelerator)
+fn @get_position(i: i32, accelerator_grid: AcceleratorGrid) -> Vector {
+    get_vector_from_quantity_accelerator(i, accelerator_grid.positions_accelerator)
 }
 
-fn @reset_force(i: i32, accelerator_grid: &AcceleratorGrid) -> () {
-    set_vector_accelerator(i, accelerator_grid.forces_accelerator, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+fn @set_position(i: i32, accelerator_grid: AcceleratorGrid, position: Vector) -> () {
+    set_quantity_accelerator(i, accelerator_grid.positions_accelerator, position)
 }
 
-fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
-    add_to_vector_accelerator(i, accelerator_grid.forces_accelerator, dF_x, dF_y, dF_z);
+fn @get_velocity(i: i32, accelerator_grid: AcceleratorGrid) -> Vector {
+    get_vector_from_quantity_accelerator(i, accelerator_grid.velocities_accelerator)
 }
 
-fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> bool {
+fn @set_velocity(i: i32, accelerator_grid: AcceleratorGrid, velocity: Vector) -> () {
+    set_quantity_accelerator(i, accelerator_grid.velocities_accelerator, velocity)
+}
+
+fn @get_force(i: i32, accelerator_grid: AcceleratorGrid) -> Vector {
+    get_vector_from_quantity_accelerator(i, accelerator_grid.forces_accelerator)
+}
+
+fn @set_force(i: i32, accelerator_grid: AcceleratorGrid, force: Vector) -> () {
+    set_quantity_accelerator(i, accelerator_grid.forces_accelerator, force)
+}
+
+fn @reset_force(i: i32, accelerator_grid: AcceleratorGrid) -> () {
+    set_quantity(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+}
+
+fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
+    let mut force = get_vector_from_quantity(i, accelerator_grid.forces_accelerator);
+    force.x += dF_x;
+    force.y += dF_y;
+    force.z += dF_z;
+    set_quantity(i, accelerator_grid.forces_accelerator, force);
+
+}
+
+fn @get_mask_value(i: i32, accelerator_grid: AcceleratorGrid) -> bool {
     get_bool_accelerator(i, accelerator_grid.interaction_mask_accelerator)
 }

@@ -9,6 +9,14 @@ extern "C" {
     fn rv_shuffle(real_t, i32) -> real_t;
 }
 
+fn @shuffle(x: real_t, i: i32) -> real_t {
+    rv_shuffle(x, i)
+}
+
+fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
+    rv_align(ptr, alignment)
+}
+
 fn @accelerator_allocate(size: i32) -> Buffer {
     Buffer {
         device: 0,
@@ -58,53 +66,53 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
     }
 }*/
 
-fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
+fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
     get_i32(cluster_index, accelerator_grid.neighbors_per_cluster_cpu)
 }
 
-fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: &AcceleratorGrid) -> i32 {
+fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
     get_i32(cluster_index, accelerator_grid.neighborlist_offsets_cpu)
 }
 
-fn @get_neighborlists(accelerator_grid: &AcceleratorGrid) -> &mut[i32] {
+fn @get_neighborlists(accelerator_grid: AcceleratorGrid) -> &mut[i32] {
     get_array_of_i32(accelerator_grid.neighborlists_cpu)
 }
 
-fn @get_masses(accelerator_grid: &AcceleratorGrid) -> &mut[real_t] {
+fn @get_masses(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
     get_array_of_reals(accelerator_grid.masses_cpu)
 }
 
-fn @get_position(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
+fn @get_position(i: i32, accelerator_grid: AcceleratorGrid) -> Vector {
     get_vector_from_quantity(i, accelerator_grid.positions_cpu)
 }
 
-fn @set_position(i: i32, accelerator_grid: &AcceleratorGrid, position: Vector) -> () {
+fn @set_position(i: i32, accelerator_grid: AcceleratorGrid, position: Vector) -> () {
     set_quantity(i, accelerator_grid.positions_cpu, position)
 }
 
-fn @get_velocity(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
+fn @get_velocity(i: i32, accelerator_grid: AcceleratorGrid) -> Vector {
     get_vector_from_quantity(i, accelerator_grid.velocities_cpu)
 }
 
-fn @set_velocity(i: i32, accelerator_grid: &AcceleratorGrid, velocity: Vector) -> () {
+fn @set_velocity(i: i32, accelerator_grid: AcceleratorGrid, velocity: Vector) -> () {
     set_quantity(i, accelerator_grid.velocities_cpu, velocity)
 }
 
-fn @get_force(i: i32, accelerator_grid: &AcceleratorGrid) -> Vector {
+fn @get_force(i: i32, accelerator_grid: AcceleratorGrid) -> Vector {
     get_vector_from_quantity(i, accelerator_grid.forces_cpu)
 }
 
-fn @set_force(i: i32, accelerator_grid: &AcceleratorGrid, force: Vector) -> () {
+fn @set_force(i: i32, accelerator_grid: AcceleratorGrid, force: Vector) -> () {
     set_quantity(i, accelerator_grid.forces_cpu, force)
 }
 
 
 
-fn @reset_force(i: i32, accelerator_grid: &AcceleratorGrid) -> () {
+fn @reset_force(i: i32, accelerator_grid: AcceleratorGrid) -> () {
     set_quantity(i, accelerator_grid.forces_cpu, Vector {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
 }
 
-fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
+fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
     let mut force = get_vector_from_quantity(i, accelerator_grid.forces_cpu);
     force.x += dF_x;
     force.y += dF_y;
@@ -112,6 +120,6 @@ fn @add_to_force(i: i32, accelerator_grid: &AcceleratorGrid, dF_x: real_t, dF_y:
     set_quantity(i, accelerator_grid.forces_cpu, force);
 }
 
-fn @get_mask_value(i: i32, accelerator_grid: &AcceleratorGrid) -> bool {
+fn @get_mask_value(i: i32, accelerator_grid: AcceleratorGrid) -> bool {
     get_bool(i, accelerator_grid.interaction_mask_cpu)
 }
