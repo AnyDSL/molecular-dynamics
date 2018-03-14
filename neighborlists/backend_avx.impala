@@ -3,7 +3,7 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
-fn @get_vector_length() -> i32 { 4 }
+fn @get_cluster_size() -> i32 {4}
 fn @get_alignment() -> i32 { 32 }
 
 // amount of full vector iterations that trigger loop vectorization

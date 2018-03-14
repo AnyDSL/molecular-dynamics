@@ -3,5 +3,5 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
-fn @get_vector_length() -> i32 { 1 }
+fn @get_cluster_size() -> i32 {1}
 fn @get_alignment() -> i32 { 4 }

@@ -1,52 +1,43 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
-    for i in range(0, accelerator_grid.total_number_of_clusters) { 
-        let cluster_size = get_cluster_size();
-        let begin = i * cluster_size;
-        let alignment = 32;
-        let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
-        let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
-        let neighborlists = get_neighborlists(accelerator_grid);
+    for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+        let force_x = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.x.data, get_alignment()));
+        let force_y = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.y.data, get_alignment()));
+        let force_z = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.z.data, get_alignment()));
+        let pos_x = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.x.data, get_alignment()));
+        let pos_y = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.y.data, get_alignment()));
+        let pos_z = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.z.data, get_alignment()));
 
-        for j in vectorize(cluster_size, alignment, 0, cluster_size) {
-            let force_x = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.x.data, alignment));
-            let force_y = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.y.data, alignment));
-            let force_z = bitcast[&mut[real_t]](rv_align(accelerator_grid.forces_cpu.z.data, alignment));
-            let pos_x = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.x.data, alignment));
-            let pos_y = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.y.data, alignment));
-            let pos_z = bitcast[&mut[real_t]](rv_align(accelerator_grid.positions_cpu.z.data, alignment));
+        let mut force = Vector { x: 0.0, y: 0.0, z: 0.0 };
+        let pos = Vector { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
 
-            let mut force = Vector { x: 0.0, y: 0.0, z: 0.0 };
-            let pos = Vector { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
-            
-            let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
-            for k in unroll(1, cluster_size) {
-                let pos_neighbor = Vector { x: rv_shuffle(pos.x, k), y: rv_shuffle(pos.y, k), z: rv_shuffle(pos.z, k) };
+        let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
+        for k in unroll(1, cluster_size) {
+            let pos_neighbor = Vector { x: rv_shuffle(pos.x, k), y: rv_shuffle(pos.y, k), z: rv_shuffle(pos.z, k) };
+            let diff = vector_sub(pos_neighbor, pos);
+            let len2 = vector_len2(diff);
+            if bitcast[i64](rv_shuffle(bitcast[f64](mask), k)) != 0i64 && len2 < squared_cutoff_distance {
+                force = vector_add(force, vector_scale(potential(len2), diff));
+            }
+        }
+        for n in range(0, number_of_neighbors) {
+            let begin_neighbor = neighborlists(neighborlist_offset + n);
+            for k in range(0, cluster_size) {
+                let pos_neighbor = Vector {
+                    x: pos_x(begin_neighbor + k),
+                    y: pos_y(begin_neighbor + k),
+                    z: pos_z(begin_neighbor + k)
+                };
                 let diff = vector_sub(pos_neighbor, pos);
                 let len2 = vector_len2(diff);
-                if bitcast[i64](rv_shuffle(bitcast[f64](mask), k)) != 0i64 && len2 < squared_cutoff_distance {
+                if get_mask_value(begin_neighbor + k, accelerator_grid) && len2 < squared_cutoff_distance {
                     force = vector_add(force, vector_scale(potential(len2), diff));
                 }
             }
-            for n in range(0, number_of_neighbors) {
-                let begin_neighbor = neighborlists(neighborlist_offset + n);
-                for k in range(0, cluster_size) {
-                    let pos_neighbor = Vector {
-                        x: pos_x(begin_neighbor + k),
-                        y: pos_y(begin_neighbor + k),
-                        z: pos_z(begin_neighbor + k)
-                    };
-                    let diff = vector_sub(pos_neighbor, pos);
-                    let len2 = vector_len2(diff);
-                    if get_mask_value(begin_neighbor + k, accelerator_grid) && len2 < squared_cutoff_distance {
-                        force = vector_add(force, vector_scale(potential(len2), diff));
-                    }
-                }
-            }
-
-            force_x(begin + j) = force.x; 
-            force_y(begin + j) = force.y; 
-            force_z(begin + j) = force.z; 
         }
+
+        force_x(begin + j) = force.x; 
+        force_y(begin + j) = force.y; 
+        force_z(begin + j) = force.z; 
     }
 }
 /*
@@ -108,8 +99,8 @@ fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
 */
 
 fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
-    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
-        let mut position = get_position(i, accelerator_grid); 
+    for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+        let mut position = get_position(begin + j, accelerator_grid); 
         if(position.x < aabb.min(0)) {
             position.x = aabb.min(0) + EPSILON;
         }
@@ -128,25 +119,25 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
         else if(position.z > aabb.max(2)) {
             position.z = aabb.max(2) - EPSILON;
         } 
-        set_position(i, accelerator_grid, position);
+        set_position(begin + j, accelerator_grid, position);
     }
 }
 
 
 fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
     let masses = get_masses(accelerator_grid);
-    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
+    for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
         let inverse_mass = 1.0 as real_t / masses(i);
-        let mut position = get_position(i, accelerator_grid);
-        let mut velocity = get_velocity(i, accelerator_grid);
-        let force = get_force(i, accelerator_grid);
+        let mut position = get_position(begin + j, accelerator_grid);
+        let mut velocity = get_velocity(begin + j, accelerator_grid);
+        let force = get_force(begin + j, accelerator_grid);
         velocity.x += dt * force.x * inverse_mass;
         velocity.y += dt * force.y * inverse_mass;
         velocity.z += dt * force.z * inverse_mass;
         position.x += dt * velocity.x;
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
-        set_velocity(i, accelerator_grid, velocity);
-        set_position(i, accelerator_grid, position);
+        set_velocity(begin + j, accelerator_grid, velocity);
+        set_position(begin + j, accelerator_grid, position);
     }
 }
