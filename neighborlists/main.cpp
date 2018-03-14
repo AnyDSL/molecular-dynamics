@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     int const runs = atoi(argv[5]);
     int const nthreads = atoi(argv[6]);
     std::string output_directory;
-    double dt = 1e-4;
+    double dt = 1e-3;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
     }
     
     // Body Collision Test
-    
+    /* 
     double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
 
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
     aabb2.max[1] -= shift;
-     
+     */
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
     std::vector<double> copy_data_from_accelerator_time(runs, 0);
@@ -111,8 +111,8 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        //int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
-        int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, 5, 2048);
+        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+        //int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, 5, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            //if(j > 0 && j % 20 == 0) {
+            if(j > 0 && j % 20 == 0) {
 
                 begin = measure_time();
                 md_copy_data_from_accelerator();
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
                 md_copy_data_to_accelerator();
                 end = measure_time();
                 copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-            //}
+            }
 
 
             if(vtk && i == 0) {
