@@ -1,11 +1,11 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-        let force_x = bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.x.data, get_alignment()));
-        let force_y = bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.y.data, get_alignment()));
-        let force_z = bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.z.data, get_alignment()));
-        let pos_x = bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.x.data, get_alignment()));
-        let pos_y = bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.y.data, get_alignment()));
-        let pos_z = bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.z.data, get_alignment()));
+        let force_x = bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.x.data, get_alignment()));
+        let force_y = bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.y.data, get_alignment()));
+        let force_z = bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.z.data, get_alignment()));
+        let pos_x = bitcast[&mut[1][real_t]](align(accelerator_grid.positions_accelerator.x.data, get_alignment()));
+        let pos_y = bitcast[&mut[1][real_t]](align(accelerator_grid.positions_accelerator.y.data, get_alignment()));
+        let pos_z = bitcast[&mut[1][real_t]](align(accelerator_grid.positions_accelerator.z.data, get_alignment()));
 
         let mut force = Vector { x: 0.0, y: 0.0, z: 0.0 };
         let pos = Vector { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
