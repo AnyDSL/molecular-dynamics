@@ -1,5 +1,6 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+        // TODO fix this to work on both CPU and GPU
         let force_x = bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.x.data, get_alignment()));
         let force_y = bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.y.data, get_alignment()));
         let force_z = bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.z.data, get_alignment()));

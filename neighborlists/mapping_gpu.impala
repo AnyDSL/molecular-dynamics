@@ -124,7 +124,7 @@ fn @reset_force(i: i32, accelerator_grid: AcceleratorGrid) -> () {
 }
 
 fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
-    let mut force = get_vector_from_quantity(i, accelerator_grid.forces_accelerator);
+    let mut force = get_vector_from_quantity_accelerator(i, accelerator_grid.forces_accelerator);
     force.x += dF_x;
     force.y += dF_y;
     force.z += dF_z;
