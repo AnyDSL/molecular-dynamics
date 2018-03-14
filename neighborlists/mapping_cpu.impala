@@ -4,6 +4,11 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
+extern "C" {
+    fn rv_align(&[i8], i32) -> &[i8];
+    fn rv_shuffle(real_t, i32) -> real_t;
+}
+
 fn @accelerator_allocate(size: i32) -> Buffer {
     Buffer {
         device: 0,

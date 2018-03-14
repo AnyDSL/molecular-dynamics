@@ -178,5 +178,14 @@ fn @min_i32(a: i32, b: i32) -> i32 {
     if(a < b) {a} else {b}
 }
 
+fn @vector_map(a: Vector, f: fn (real_t) -> real_t) -> Vector { Vector { x: f(a.x), y: f(a.y), z: f(a.z) } }
+fn @vector_zip(a: Vector, b: Vector, f: fn (real_t, real_t) -> real_t) -> Vector { Vector { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }
+fn @vector_add(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x + y) }
+fn @vector_sub(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x - y) }
+fn @vector_mul(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x * y) }
+fn @vector_div(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x / y) }
+fn @vector_dot(a: Vector, b: Vector) -> real_t { a.x * b.x + a.y * b.y + a.z * b.z }
+fn @vector_len2(a: Vector) -> real_t { vector_dot(a, a) }
+fn @vector_scale(a: real_t, b: Vector) -> Vector { vector_map(b, @ |x| x * a) }
 
 

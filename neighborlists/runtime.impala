@@ -58,9 +58,9 @@ fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
 }
 extern
 fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
-    //let potential = create_potential(sigma, epsilon);
-    //accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
-    new_force_kernel(accelerator_grid_, cutoff_distance*cutoff_distance);
+    let potential = create_potential(sigma, epsilon);
+    accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+    //new_force_kernel(accelerator_grid_, cutoff_distance*cutoff_distance);
 }
 
 extern

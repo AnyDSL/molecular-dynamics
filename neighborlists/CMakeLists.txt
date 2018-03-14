@@ -34,7 +34,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     NAME md
     FILES
-    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala new_force_kernel.impala)
+    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala)
 
 add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
