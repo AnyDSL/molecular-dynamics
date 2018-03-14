@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 project(molecular-dynamics CXX)
 #enable_testing()
 
-
 find_package(AnyDSL_runtime REQUIRED)
 include_directories(${AnyDSL_runtime_INCLUDE_DIRS})
 set(BACKEND ${BACKEND} CACHE STRING "select the cpu backend from the following: cpu, avx, cuda, nvvm, opencl, amdgpu")
@@ -38,13 +37,14 @@ anydsl_runtime_wrap(MD_PROGRAM
     ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala integration.impala force_computation.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala new_force_kernel.impala)
 
 add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
-target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES})
+target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
 set_target_properties(md PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(md PROPERTIES CXX_STANDARD 14)
+
 if(LIKWID_DIR)
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid")
+    target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
 endif()
 if(MONITOR_ONLY_FORCE_COMPUTATION)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -pthread")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -pthread ")
 endif()
 
