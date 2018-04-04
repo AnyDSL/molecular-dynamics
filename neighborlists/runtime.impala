@@ -23,7 +23,6 @@ extern fn md_copy_data_to_accelerator() -> () {
 }
 extern fn md_copy_data_from_accelerator() -> () {
     copy_from_accelerator(accelerator_grid_, grid_);
-    //print_grid(grid_);
 }
 extern
 fn md_deallocate_grid() -> () {
@@ -39,6 +38,7 @@ fn md_integration(dt: real_t) -> () {
 
 extern
 fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32) -> i32 {
+	print_grid(grid_);
     write_grid_data_to_arrays(masses, positions, velocities, size, &grid_)
 }
 

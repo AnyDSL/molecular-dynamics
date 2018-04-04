@@ -5,22 +5,47 @@ fn @is_avx2() -> bool { false }
 
 fn @get_alignment() -> i32 {4}
 
-fn nvvm_shfldown(data: f32, lane_offset: i32, clamp: i32) -> f32 {
-    let mut res: f32;
-    asm("shfl.down.b32 $0, $1, $2, $3;"
-            : "=f"(res)
-            : "f"(data), "r"(lane_offset), "r"(clamp)
-       );
-    res
+fn @nvvm_shfldown_i32(var: i32, delta: i32, width: i32) -> i32 {
+    let mut res: i32;
+    let warp_size = 32; 
+    let c = ((warp_size - width) << 8) | 0x1f;
+    asm("shfl.down.b32 $0, $1, $2, $3;" : "=r"(res) : "r"(var), "r"(delta as u32), "r"(c));
+    res 
 }
 
-fn @shuffle(x: real_t, i: i32) -> real_t {
-    let a = bitcast[i64](x);
-    let x_lower = bitcast[f32](a as i32);
-    let x_upper = bitcast[f32]((a >> 32i64) as i32);
-    let y_lower = bitcast[i32](nvvm_shfldown(x_lower, i, 32));
-    let y_upper = bitcast[i32](nvvm_shfldown(x_upper, i, 32));
-    bitcast[f64]((y_lower as i64) | ((y_upper as i64) << 32i64))
+fn @nvvm_shfldown_f64(var: f64, delta: i32, width: i32) -> f64 {
+    let mut res = var;
+    let mut lo: u32;
+    let mut hi: u32;
+    asm("mov.b64 { $0, $1 }, $2;" : "=r"(lo), "=r"(hi) : "d"(res));
+    hi = nvvm_shfldown_i32(hi as i32, delta, width) as u32;
+    lo = nvvm_shfldown_i32(lo as i32, delta, width) as u32;
+    asm("mov.b64 $0, { $1, $2 };" : "=d"(res) : "r"(lo), "r"(hi));
+    res 
+}
+
+fn @nvvm_shfl_i32(var: i32, srcLane: i32, width: i32) -> i32 {
+    let mut res: i32;
+    let warp_size = 32; 
+    let c = ((warp_size - width) << 8) | 0x1f;
+	asm("shfl.idx.b32 $0, $1, $2, $3;" : "=r"(res) : "r"(var), "r"(srcLane as u32), "r"(c));
+    res 
+}
+
+fn @nvvm_shfl_f64(var: f64, srcLane: i32, width: i32) -> f64 {
+    let mut res = var;
+    let mut lo: u32;
+    let mut hi: u32;
+    asm("mov.b64 { $0, $1 }, $2;" : "=r"(lo), "=r"(hi) : "d"(res));
+    hi = nvvm_shfl_i32(hi as i32, srcLane, width) as u32;
+    lo = nvvm_shfl_i32(lo as i32, srcLane, width) as u32;
+    asm("mov.b64 $0, { $1, $2 };" : "=d"(res) : "r"(lo), "r"(hi));
+    res 
+}
+
+
+fn @shuffle(x: real_t, srcLane: i32) -> real_t {
+	nvvm_shfl_f64(x, srcLane, get_cluster_size()) 
 }
 
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
@@ -62,6 +87,12 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
     let acc = accelerator(device_id);
     let grid = (size*cluster_size, 1, 1);
     let block = (cluster_size, 1, 1);
+	print_string("Grid size: ");
+	print_i32(size * cluster_size);
+	print_string("\nBlock size: ");
+	print_i32(cluster_size);
+	print_string("\n");
+
     
     for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
         let (tidx, _, _) = tid;
