@@ -35,7 +35,6 @@ fn md_integration(dt: real_t) -> () {
 
 extern
 fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32) -> i32 {
-	print_grid(grid_);
     write_grid_data_to_arrays(masses, positions, velocities, size, &grid_)
 }
 
@@ -58,7 +57,6 @@ extern
 fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
     accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
-    //new_force_kernel(accelerator_grid_, cutoff_distance*cutoff_distance);
 }
 
 extern
