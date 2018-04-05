@@ -3,4 +3,4 @@ static mut THREAD_COUNT = 1;
 static DIMENSION = 3;
 type real_t = f64;
 static EPSILON = 1e-9 as real_t;
-static PRUNING_THRESHOLD = 0.8;
+static PRUNING_THRESHOLD = 0.1;
