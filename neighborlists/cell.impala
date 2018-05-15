@@ -59,7 +59,7 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
         padding: 0,
         size: size,
         nclusters: 0,
-        clusters: Buffer {device: 0, data: 0 as &[i8]},
+        clusters: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
         cluster_size: cluster_size 
     }
 }

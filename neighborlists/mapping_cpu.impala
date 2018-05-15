@@ -20,14 +20,16 @@ fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
 fn @accelerator_allocate(size: i32) -> Buffer {
     Buffer {
         device: 0,
-        data: 0 as &[i8]
+        data: 0 as &[i8],
+        size: 0 as i64
     }
 }
 
 fn @accelerator_allocate_quantity(N: i32) -> Quantity3D {
     let null_buf = Buffer {
         device: 0,
-        data: 0 as &[i8]
+        data: 0 as &[i8],
+        size: 0 as i64
     };
     Quantity3D {
         x: null_buf, 
