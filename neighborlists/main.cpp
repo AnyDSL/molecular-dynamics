@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     int const runs = atoi(argv[5]);
     int const nthreads = atoi(argv[6]);
     std::string output_directory;
-    double dt = 1e-4;
+    double dt = 1e-3;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;

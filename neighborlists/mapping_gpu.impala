@@ -70,14 +70,18 @@ fn @accelerator_allocate_quantity(N: i32) -> Quantity3D {
 
 
 fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {
-    copy(source, destination, size);
+    //copy(source, destination, size);
+    copy(source, destination);
 }
 
 
 fn @transfer_quantity_between_devices(src: Quantity3D, dest: Quantity3D, N: i32) -> () {
-    copy(src.x, dest.x, N * sizeof[real_t]());
-    copy(src.y, dest.y, N * sizeof[real_t]());
-    copy(src.z, dest.z, N * sizeof[real_t]());
+    copy(src.x, dest.x);
+    copy(src.y, dest.y);
+    copy(src.z, dest.z);
+    //copy(src.x, dest.x, N * sizeof[real_t]());
+    //copy(src.y, dest.y, N * sizeof[real_t]());
+    //copy(src.z, dest.z, N * sizeof[real_t]());
 }
 
 fn @get_cluster_size() -> i32 {32}
@@ -87,12 +91,12 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
     let acc = accelerator(device_id);
     let grid = (size*cluster_size, 1, 1);
     let block = (cluster_size, 1, 1);
-	print_string("Grid size: ");
+	/*print_string("Grid size: ");
 	print_i32(size * cluster_size);
 	print_string("\nBlock size: ");
 	print_i32(cluster_size);
 	print_string("\n");
-
+*/
     
     for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
         let (tidx, _, _) = tid;
