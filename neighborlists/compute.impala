@@ -1,6 +1,5 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-        // TODO fix this to work on both CPU and GPU
         let force_x = get_forces_x(accelerator_grid);
         let force_y = get_forces_y(accelerator_grid); 
         let force_z = get_forces_z(accelerator_grid); 
@@ -42,63 +41,6 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
         force_z(begin + j) = force.z; 
     }
 }
-/*
-fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () {
-    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
-        reset_force(i, accelerator_grid);
-        let begin = cluster_index * cluster_size;
-        for jj in unroll(0, cluster_size) {
-            let j = begin + jj; 
-            // Calculate interactions within cluster
-            if(i != j && get_mask_value(j, accelerator_grid) && get_mask_value(i, accelerator_grid)) {
-                accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
-            }
-        }
-        let number_of_neighbors = get_number_of_neighbors(cluster_index, accelerator_grid);
-        let neighborlist_offset = get_neighborlist_offset(cluster_index, accelerator_grid);
-        let neighborlists = get_neighborlists(accelerator_grid);
-        for k in range(0, number_of_neighbors) {
-            let begin_neighbor = neighborlists(neighborlist_offset + k);
-            for jj in unroll(0, cluster_size) {
-                let j = begin_neighbor + jj;
-                if(get_mask_value(j, accelerator_grid) && get_mask_value(i, accelerator_grid)) {
-                    accelerator_compute_pairwise_forces(accelerator_grid, i, j, squared_cutoff_distance, potential);
-                }
-            }
-        }
-    }
-}
-
-
-fn @accelerator_compute_pairwise_forces(accelerator_grid: AcceleratorGrid, i: i32, j: i32, squared_cutoff_distance: real_t, potential: fn(real_t) -> real_t) -> () { 
-    let position = get_position(i, accelerator_grid);
-    let neighbor_position = get_position(j, accelerator_grid);
-    // 3 FLOPS
-    let dx = neighbor_position.x - position.x;
-    let dy = neighbor_position.y - position.y;
-    let dz = neighbor_position.z - position.z;
-    // 5 FLOPS
-    let squared_distance = dx * dx + dy * dy + dz * dz;
-    increase_flops(8);
-    if(squared_distance < squared_cutoff_distance) {
-        // 8 FLOPS for Lennard-Jones
-        let f = potential(squared_distance);
-        // 3 FLOPS
-        let dF_x = f * dx;
-        let dF_y = f * dy;
-        let dF_z = f * dz;
-        // 3 FLOPS
-        add_to_force(i, accelerator_grid, dF_x, dF_y, dF_z);
-        increase_flops(14);
-    }
-}
-
-fn accelerator_set_forces_to_zero(accelerator_grid: AcceleratorGrid) -> () {
-    for i, cluster_index, cluster_size in loop_accelerator(accelerator_grid.total_number_of_clusters) {
-        reset_force(i, accelerator_grid);
-    }
-}
-*/
 
 fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
