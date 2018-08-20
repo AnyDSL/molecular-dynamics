@@ -21,7 +21,7 @@ struct StructOfArrays3D {
     z: Buffer
 }
 
-fn allocate_quantity(N: i32) -> StructOfArrays3D {
+fn allocate_struct_of_arrays(N: i32) -> StructOfArrays3D {
     StructOfArrays3D {
         x: alloc_cpu(N * sizeof[real_t]()),
         y: alloc_cpu(N * sizeof[real_t]()),
@@ -29,70 +29,70 @@ fn allocate_quantity(N: i32) -> StructOfArrays3D {
     }
 }
 
-fn deallocate_quantity(quantity: StructOfArrays3D) -> () {
-    release(quantity.x);
-    release(quantity.y);
-    release(quantity.z);
+fn deallocate_struct_of_arrays(struct_of_arrays: StructOfArrays3D) -> () {
+    release(struct_of_arrays.x);
+    release(struct_of_arrays.y);
+    release(struct_of_arrays.z);
 }
 
 
-fn @copy_offset_quantity(src: StructOfArrays3D, offset_src: i32, dest: StructOfArrays3D, offset_dest: i32, N: i32) -> () { 
+fn @copy_offset_struct_of_arrays(src: StructOfArrays3D, offset_src: i32, dest: StructOfArrays3D, offset_dest: i32, N: i32) -> () { 
     copy_offset(src.x, offset_src * sizeof[real_t](), dest.x, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
     copy_offset(src.y, offset_src * sizeof[real_t](), dest.y, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
     copy_offset(src.z, offset_src * sizeof[real_t](), dest.z, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
 }
 
-fn set_quantity(i: i32, quantity: StructOfArrays3D, vector: Vector) -> () {
-    bitcast[&mut[real_t]](quantity.x.data)(i) = vector.x;
-    bitcast[&mut[real_t]](quantity.y.data)(i) = vector.y;
-    bitcast[&mut[real_t]](quantity.z.data)(i) = vector.z;
+fn set_struct_of_arrays(i: i32, struct_of_arrays: StructOfArrays3D, vector: Vector3D) -> () {
+    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i) = vector.x;
+    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i) = vector.y;
+    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) = vector.z;
 }
 
-fn get_vector_from_quantity(i: i32, quantity: StructOfArrays3D) -> Vector {
-    Vector {
-        x: bitcast[&mut[real_t]](quantity.x.data)(i), 
-        y: bitcast[&mut[real_t]](quantity.y.data)(i), 
-        z: bitcast[&mut[real_t]](quantity.z.data)(i) 
+fn get_vector_from_struct_of_arrays(i: i32, struct_of_arrays: StructOfArrays3D) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[real_t]](struct_of_arrays.x.data)(i), 
+        y: bitcast[&mut[real_t]](struct_of_arrays.y.data)(i), 
+        z: bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) 
     }
 }
 
-fn get_x_component(i: i32, quantity: StructOfArrays3D) -> real_t {
-    bitcast[&mut[real_t]](quantity.x.data)(i)
+fn get_x_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
+    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i)
 }
 
-fn get_y_component(i: i32, quantity: StructOfArrays3D) -> real_t {
-    bitcast[&mut[real_t]](quantity.y.data)(i)
+fn get_y_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
+    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i)
 }
 
-fn get_z_component(i: i32, quantity: StructOfArrays3D) -> real_t {
-    bitcast[&mut[real_t]](quantity.z.data)(i)
+fn get_z_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
+    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i)
 }
 
-fn copy_quantity(i: i32, j: i32, src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
+fn copy_struct_of_arrays(i: i32, j: i32, src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
    bitcast[&mut[real_t]](dest.x.data)(j) = bitcast[&[real_t]](src.x.data)(i);  
    bitcast[&mut[real_t]](dest.y.data)(j) = bitcast[&[real_t]](src.y.data)(i);  
    bitcast[&mut[real_t]](dest.z.data)(j) = bitcast[&[real_t]](src.z.data)(i);  
 }
 
-fn swap_quantity(i: i32, j: i32, quantity: StructOfArrays3D) -> () {
-   let tmp_x = bitcast[&[real_t]](quantity.x.data)(i);  
-   let tmp_y = bitcast[&[real_t]](quantity.y.data)(i);  
-   let tmp_z = bitcast[&[real_t]](quantity.z.data)(i);  
-   bitcast[&mut[real_t]](quantity.x.data)(i) = bitcast[&[real_t]](quantity.x.data)(j);  
-   bitcast[&mut[real_t]](quantity.y.data)(i) = bitcast[&[real_t]](quantity.y.data)(j);  
-   bitcast[&mut[real_t]](quantity.z.data)(i) = bitcast[&[real_t]](quantity.z.data)(j);  
-   bitcast[&mut[real_t]](quantity.x.data)(j) = tmp_x;  
-   bitcast[&mut[real_t]](quantity.y.data)(j) = tmp_y;  
-   bitcast[&mut[real_t]](quantity.z.data)(j) = tmp_z;  
+fn swap_struct_of_arrays(i: i32, j: i32, struct_of_arrays: StructOfArrays3D) -> () {
+   let tmp_x = bitcast[&[real_t]](struct_of_arrays.x.data)(i);  
+   let tmp_y = bitcast[&[real_t]](struct_of_arrays.y.data)(i);  
+   let tmp_z = bitcast[&[real_t]](struct_of_arrays.z.data)(i);  
+   bitcast[&mut[real_t]](struct_of_arrays.x.data)(i) = bitcast[&[real_t]](struct_of_arrays.x.data)(j);  
+   bitcast[&mut[real_t]](struct_of_arrays.y.data)(i) = bitcast[&[real_t]](struct_of_arrays.y.data)(j);  
+   bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) = bitcast[&[real_t]](struct_of_arrays.z.data)(j);  
+   bitcast[&mut[real_t]](struct_of_arrays.x.data)(j) = tmp_x;  
+   bitcast[&mut[real_t]](struct_of_arrays.y.data)(j) = tmp_y;  
+   bitcast[&mut[real_t]](struct_of_arrays.z.data)(j) = tmp_z;  
 }
 
-struct Vector {
+struct Vector3D {
     x: real_t,
     y: real_t,
     z: real_t
 }
 
-fn @print_vector(vector: Vector) -> () {
+fn @print_vector(vector: Vector3D) -> () {
     print_f64(vector.x as f64);
     print_string(" ");
     print_f64(vector.y as f64);
@@ -178,14 +178,14 @@ fn @min_i32(a: i32, b: i32) -> i32 {
     if(a < b) {a} else {b}
 }
 
-fn @vector_map(a: Vector, f: fn (real_t) -> real_t) -> Vector { Vector { x: f(a.x), y: f(a.y), z: f(a.z) } }
-fn @vector_zip(a: Vector, b: Vector, f: fn (real_t, real_t) -> real_t) -> Vector { Vector { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }
-fn @vector_add(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x + y) }
-fn @vector_sub(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x - y) }
-fn @vector_mul(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x * y) }
-fn @vector_div(a: Vector, b: Vector) -> Vector { vector_zip(a, b, @ |x, y| x / y) }
-fn @vector_dot(a: Vector, b: Vector) -> real_t { a.x * b.x + a.y * b.y + a.z * b.z }
-fn @vector_len2(a: Vector) -> real_t { vector_dot(a, a) }
-fn @vector_scale(a: real_t, b: Vector) -> Vector { vector_map(b, @ |x| x * a) }
+fn @vector_map(a: Vector3D, f: fn (real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x), y: f(a.y), z: f(a.z) } }
+fn @vector_zip(a: Vector3D, b: Vector3D, f: fn (real_t, real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }
+fn @vector_add(a: Vector3D, b: Vector3D) -> Vector3D { vector_zip(a, b, @ |x, y| x + y) }
+fn @vector_sub(a: Vector3D, b: Vector3D) -> Vector3D { vector_zip(a, b, @ |x, y| x - y) }
+fn @vector_mul(a: Vector3D, b: Vector3D) -> Vector3D { vector_zip(a, b, @ |x, y| x * y) }
+fn @vector_div(a: Vector3D, b: Vector3D) -> Vector3D { vector_zip(a, b, @ |x, y| x / y) }
+fn @vector_dot(a: Vector3D, b: Vector3D) -> real_t { a.x * b.x + a.y * b.y + a.z * b.z }
+fn @vector_len2(a: Vector3D) -> real_t { vector_dot(a, a) }
+fn @vector_scale(a: real_t, b: Vector3D) -> Vector3D { vector_map(b, @ |x| x * a) }
 
 

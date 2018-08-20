@@ -5,7 +5,7 @@ fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
 }
 extern 
-fn md_initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector], 
+fn md_initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
                        nparticles: i32, min: &[real_t], max: &[real_t], cell_spacing: real_t, cell_capacity: i32) -> () {
     let aabb = AABB {
         min: [min(0), min(1), min(2)],
@@ -34,7 +34,7 @@ fn md_integration(dt: real_t) -> () {
 }
 
 extern
-fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32) -> i32 {
+fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], size: i32) -> i32 {
     write_grid_data_to_arrays(masses, positions, velocities, size, &grid_)
 }
 

@@ -52,9 +52,9 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
     Cell {
         index: index,
         masses: allocate(N * sizeof[real_t]()),
-        positions: allocate_quantity(N),
-        velocities: allocate_quantity(N),
-        forces: allocate_quantity(N),
+        positions: allocate_struct_of_arrays(N),
+        velocities: allocate_struct_of_arrays(N),
+        forces: allocate_struct_of_arrays(N),
         capacity: N,
         padding: 0,
         size: size,
@@ -85,17 +85,17 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
     print_string("\n");
     print_string("Positions:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector_from_quantity(i, cell.positions));
+        print_vector(get_vector_from_struct_of_arrays(i, cell.positions));
         print_string("\n");
     }
     print_string("Forces:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector_from_quantity(i, cell.forces));
+        print_vector(get_vector_from_struct_of_arrays(i, cell.forces));
         print_string("\n");
     }
     print_string("Velocities:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector_from_quantity(i, cell.velocities));
+        print_vector(get_vector_from_struct_of_arrays(i, cell.velocities));
         print_string("\n");
     }
 
@@ -111,9 +111,9 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
 
 fn deallocate_cell(cell: &mut Cell) -> () {
     release(cell.masses);
-    deallocate_quantity(cell.positions);
-    deallocate_quantity(cell.velocities);
-    deallocate_quantity(cell.forces);
+    deallocate_struct_of_arrays(cell.positions);
+    deallocate_struct_of_arrays(cell.velocities);
+    deallocate_struct_of_arrays(cell.forces);
     cell.size = 0;
     cell.capacity = 0;
     cell_deallocate_clusters(cell);
@@ -127,14 +127,14 @@ fn copy_cell(src: &Cell, dest: &mut Cell) -> () {
 
 fn @swap_particles(i: i32, j: i32, cell: &Cell) -> () {
     swap_real(i, j, (*cell).masses);
-    swap_quantity(i, j, (*cell).positions);
-    swap_quantity(i, j, (*cell).velocities);
+    swap_struct_of_arrays(i, j, (*cell).positions);
+    swap_struct_of_arrays(i, j, (*cell).velocities);
 }
 
 fn @copy_particle(i: i32, j: i32, src: &Cell, dest: &Cell) -> () {
     set_real(j, dest.masses, get_real(i, src.masses));
-    copy_quantity(i, j, src.positions, dest.positions);
-    copy_quantity(i, j, src.velocities, dest.velocities);
+    copy_struct_of_arrays(i, j, src.positions, dest.positions);
+    copy_struct_of_arrays(i, j, src.velocities, dest.velocities);
 }
 
 fn @remove_particle(i: i32, cell: &mut Cell) -> () {
@@ -169,7 +169,7 @@ fn reallocate_cell(new_size: i32, dest: &mut Cell, allocate: fn(i32) -> Buffer) 
     *dest = new_cell;
 }
 
-fn append_particle(mass: real_t, position: Vector, velocity: Vector, dest: &mut Cell, allocate: fn(i32) -> Buffer) -> () {
+fn append_particle(mass: real_t, position: Vector3D, velocity: Vector3D, dest: &mut Cell, allocate: fn(i32) -> Buffer) -> () {
     /*print_string("Mass: ");
     print_f64(mass);
     print_string(" Position: ");
@@ -190,7 +190,7 @@ fn append_particle(mass: real_t, position: Vector, velocity: Vector, dest: &mut 
     print_i32(new_size);
     print_string("\n");*/
     set_real(new_size-1, dest.masses, mass);
-    set_quantity(new_size-1, dest.positions, position);
-    set_quantity(new_size-1, dest.velocities, velocity);
+    set_struct_of_arrays(new_size-1, dest.positions, position);
+    set_struct_of_arrays(new_size-1, dest.velocities, velocity);
 }
 

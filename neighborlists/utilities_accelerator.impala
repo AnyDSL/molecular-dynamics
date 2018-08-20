@@ -26,17 +26,17 @@ fn @get_bool_accelerator(i: i32, buf: Buffer) -> bool {
     bitcast[&[1][bool]](buf.data)(i)
 }
 
-fn @set_quantity_accelerator(i: i32, quantity: StructOfArrays3D, vector: Vector) -> () {
-    bitcast[&mut[1][real_t]](quantity.x.data)(i) = vector.x;
-    bitcast[&mut[1][real_t]](quantity.y.data)(i) = vector.y;
-    bitcast[&mut[1][real_t]](quantity.z.data)(i) = vector.z;
+fn @set_struct_of_arrays_accelerator(i: i32, struct_of_arrays: StructOfArrays3D, vector: Vector3D) -> () {
+    bitcast[&mut[1][real_t]](struct_of_arrays.x.data)(i) = vector.x;
+    bitcast[&mut[1][real_t]](struct_of_arrays.y.data)(i) = vector.y;
+    bitcast[&mut[1][real_t]](struct_of_arrays.z.data)(i) = vector.z;
 }
 
-fn @get_vector_from_quantity_accelerator(i: i32, quantity: StructOfArrays3D) -> Vector {
-    Vector {
-        x: bitcast[&mut[1][real_t]](quantity.x.data)(i), 
-        y: bitcast[&mut[1][real_t]](quantity.y.data)(i), 
-        z: bitcast[&mut[1][real_t]](quantity.z.data)(i) 
+fn @get_vector_from_struct_of_arrays_accelerator(i: i32, struct_of_arrays: StructOfArrays3D) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[1][real_t]](struct_of_arrays.x.data)(i), 
+        y: bitcast[&mut[1][real_t]](struct_of_arrays.y.data)(i), 
+        z: bitcast[&mut[1][real_t]](struct_of_arrays.z.data)(i) 
     }
 }
 

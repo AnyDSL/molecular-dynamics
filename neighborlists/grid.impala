@@ -45,13 +45,13 @@ fn deallocate_grid(grid: &Grid) -> () {
     release((*grid).cells);
 }
 
-fn @compute_cell_position(position: Vector, grid: &Grid) -> [i32 * 2] {
+fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 2] {
     let i = math.floor(((position.x - grid.aabb.min(0)) / grid.spacing) as f64) as i32;
     let j = math.floor(((position.y - grid.aabb.min(1)) / grid.spacing) as f64) as i32;
     [i, j]
 }
 
-fn @is_within_domain(position: Vector, grid: &Grid) -> bool {
+fn @is_within_domain(position: Vector3D, grid: &Grid) -> bool {
     let aabb = (*grid).aabb;
     position.x > aabb.min(0) && position.x < aabb.max(0) &&
     position.y > aabb.min(1) && position.y < aabb.max(1) &&
@@ -59,7 +59,7 @@ fn @is_within_domain(position: Vector, grid: &Grid) -> bool {
 }
 
 
-fn @insert_particle(mass: real_t, position: Vector, velocity: Vector, grid: &Grid, allocate: fn(i32) -> Buffer) -> () {
+fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &Grid, allocate: fn(i32) -> Buffer) -> () {
     /*print_string("Mass: ");
     print_f64(mass);
     print_string(" Position: ");
@@ -80,7 +80,7 @@ fn @insert_particle(mass: real_t, position: Vector, velocity: Vector, grid: &Gri
     append_particle(mass, position, velocity, cell, allocate);
 }
 
-fn initialize_grid(masses: &[real_t], positions: &[Vector], velocities: &[Vector], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () { 
+fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () { 
     for i in range(0, nparticles) {
        insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
     }
@@ -111,7 +111,7 @@ fn @flatten_index(cell_index: [i32 * 2], grid: &Grid) -> i32 {
     cell_index(0) * grid.ny + cell_index(1)
 }
 
-fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], velocities: &mut [Vector], size: i32, grid: &Grid) -> i32 {
+fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], size: i32, grid: &Grid) -> i32 {
     if(size < (*grid).nparticles) {
         print_string("The arrays are too small for storing ");
         print_i32(grid.nparticles);
@@ -130,8 +130,8 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector], vel
                 print_vector(get_vector(k, (*cell).velocities));
                 */
                 masses(array_index) = get_real(k, (*cell).masses);
-                positions(array_index) = get_vector_from_quantity(k, (*cell).positions);
-                velocities(array_index) = get_vector_from_quantity(k, (*cell).velocities);
+                positions(array_index) = get_vector_from_struct_of_arrays(k, (*cell).positions);
+                velocities(array_index) = get_vector_from_struct_of_arrays(k, (*cell).velocities);
                 ++array_index;
             }
         }

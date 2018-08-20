@@ -10,13 +10,13 @@ fn atomic_op_f64(a: &mut f64, b: f64, op: fn(f64, f64) -> f64) -> f64 {
 }
 
 fn atomic_add_to_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
-    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).x, x, |a,b|{a+b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).y, y, |a,b|{a+b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).z, z, |a,b|{a+b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).x, x, |a,b|{a+b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).y, y, |a,b|{a+b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).z, z, |a,b|{a+b}); 
 }
 
 fn atomic_sub_from_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
-    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).x, x, |a,b|{a-b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).y, y, |a,b|{a-b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector]](buf.data)(i).z, z, |a,b|{a-b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).x, x, |a,b|{a-b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).y, y, |a,b|{a-b}); 
+    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).z, z, |a,b|{a-b}); 
 }
