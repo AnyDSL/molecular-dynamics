@@ -57,10 +57,10 @@ fn @accelerator_allocate(size: i32) -> Buffer {
     let acc = accelerator(device_id);
     acc.alloc(size)
 }
-fn @accelerator_allocate_quantity(N: i32) -> Quantity3D {
+fn @accelerator_allocate_quantity(N: i32) -> StructOfArrays3D {
     let acc = accelerator(device_id);
     let size = N * sizeof[real_t]();
-    Quantity3D {
+    StructOfArrays3D {
         x: acc.alloc(size),
         y: acc.alloc(size),
         z: acc.alloc(size)
@@ -75,7 +75,7 @@ fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> 
 }
 
 
-fn @transfer_quantity_between_devices(src: Quantity3D, dest: Quantity3D, N: i32) -> () {
+fn @transfer_quantity_between_devices(src: StructOfArrays3D, dest: StructOfArrays3D, N: i32) -> () {
     copy(src.x, dest.x);
     copy(src.y, dest.y);
     copy(src.z, dest.z);

@@ -7,18 +7,18 @@ struct AcceleratorGrid {
     cell_offsets: Buffer, // offsets of the data stored in each cell within data array
 
     masses_cpu: Buffer, // masses of all particles on the CPU: [real_t]
-    positions_cpu: Quantity3D, // positions of all particles on the CPU: [Vector]
-    velocities_cpu: Quantity3D, // velocities of all particles on the CPU: [Vector]
-    forces_cpu: Quantity3D, // forces of all particles on the CPU: [Vector]
+    positions_cpu: StructOfArrays3D, // positions of all particles on the CPU: [Vector]
+    velocities_cpu: StructOfArrays3D, // velocities of all particles on the CPU: [Vector]
+    forces_cpu: StructOfArrays3D, // forces of all particles on the CPU: [Vector]
     interaction_mask_cpu: Buffer, // interaction mask on the CPU: [bool]
     neighbors_per_cluster_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlist_offsets_cpu: Buffer, // offsets to the data stored in each neighbor list on the CPU: [i32]
     neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
 
     masses_accelerator: Buffer, // masses of all particles on the accelerator: [real_t]
-    positions_accelerator: Quantity3D, // positions of all particles on the accelerator: [Vector]
-    velocities_accelerator: Quantity3D, // velocities of all particles on the accelerator: [Vector]
-    forces_accelerator: Quantity3D, // forces of all particles on the accelerator: [Vector]
+    positions_accelerator: StructOfArrays3D, // positions of all particles on the accelerator: [Vector]
+    velocities_accelerator: StructOfArrays3D, // velocities of all particles on the accelerator: [Vector]
+    forces_accelerator: StructOfArrays3D, // forces of all particles on the accelerator: [Vector]
     interaction_mask_accelerator: Buffer, // interaction mask on the accelerator: [bool]
     neighbors_per_cluster_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
     neighborlist_offsets_accelerator: Buffer, // offsets to the data stored in each neighbor list on the accelerator: [i32] 
@@ -35,9 +35,9 @@ struct SimulationData {
     cell_offsets: Buffer, // offsets of the data stored in each cell within data array
 
     masses_cpu: Buffer, // masses of all particles on the CPU: [real_t]
-    positions_cpu: Quantity3D, // positions of all particles on the CPU: [Vector]
-    velocities_cpu: Quantity3D, // velocities of all particles on the CPU: [Vector]
-    forces_cpu: Quantity3D, // forces of all particles on the CPU: [Vector]
+    positions_cpu: StructOfArrays3D, // positions of all particles on the CPU: [Vector]
+    velocities_cpu: StructOfArrays3D, // velocities of all particles on the CPU: [Vector]
+    forces_cpu: StructOfArrays3D, // forces of all particles on the CPU: [Vector]
     interaction_mask_cpu: Buffer, // interaction mask on the CPU: [bool]
     neighbors_per_cluster_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlist_offsets_cpu: Buffer, // offsets to the data stored in each neighbor list on the CPU: [i32]

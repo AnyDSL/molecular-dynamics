@@ -36,9 +36,9 @@ fn print_cluster(cluster: &Cluster) -> () {
 struct Cell {
     index: i32,
     masses: Buffer,
-    positions: Quantity3D,
-    velocities: Quantity3D,
-    forces: Quantity3D,
+    positions: StructOfArrays3D,
+    velocities: StructOfArrays3D,
+    forces: StructOfArrays3D,
     size: i32,
     padding: i32,
     capacity: i32,
