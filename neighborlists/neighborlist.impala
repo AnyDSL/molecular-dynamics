@@ -247,15 +247,13 @@ fn assemble_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: 
                         let x_distance = compute_distance(cluster.aabb, clusters(k).aabb, 0); 
                         let y_distance = compute_distance(cluster.aabb, clusters(k).aabb, 1); 
                         let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
-                        let difference = squared_cutoff_distance - squared_distance;
-                        if(difference > 0.0) {
-                            append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
-                            /*if(difference > squared_cutoff_distance) {
+                        if(squared_distance < squared_cutoff_distance) {
+                            if(squared_distance < 0.75 * squared_cutoff_distance) {
                                 append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
                             }
                             else if(individual_particles_are_in_distance(squared_cutoff_distance, cluster_index, cell, k, neighboring_cell) == true) {
                                 append_neighbor(&mut cluster.neighbor_list, neighboring_cell, k, allocate);
-                            }*/
+                            }
                         }
                     }
                     ++k;
