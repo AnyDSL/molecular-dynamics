@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     int const runs = atoi(argv[5]);
     int const nthreads = atoi(argv[6]);
     std::string output_directory;
-    double dt = 1e-3;
+    double dt = 1e-5;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
@@ -67,14 +67,14 @@ int main(int argc, char **argv) {
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
         aabb.max[i] = gridsize[i];
-        spacing[i] = 2.5;
+        spacing[i] = 1;
     }
     
     // Body Collision Test
-    /*double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
+    double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
 
-    AABB aabb1;
+    /*AABB aabb1;
     double spacing1[3];
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
@@ -90,8 +90,8 @@ int main(int argc, char **argv) {
     }
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
-    aabb2.max[1] -= shift;*/
-    
+    aabb2.max[1] -= shift;
+    */
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
     std::vector<double> copy_data_from_accelerator_time(runs, 0);

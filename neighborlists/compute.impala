@@ -10,14 +10,14 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
         let mut force = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
         let pos = Vector3D { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
 
-        let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
+        //let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
         for k in unroll(1, cluster_size) {
             let srcLane = (j + k) % cluster_size;
             let pos_neighbor = Vector3D { x: shuffle(pos.x, srcLane, k), y: shuffle(pos.y, srcLane, k), z: shuffle(pos.z, srcLane, k) };
             let diff = vector_sub(pos_neighbor, pos);
             let len2 = vector_len2(diff);
-            if bitcast[i64](shuffle(bitcast[f64](mask), srcLane, k)) != 0i64 && len2 < squared_cutoff_distance {
-            //if len2 < squared_cutoff_distance {
+            //if bitcast[i64](shuffle(bitcast[f64](mask), srcLane, k)) != 0i64 && len2 < squared_cutoff_distance {
+            if len2 < squared_cutoff_distance {
                 increase_flops(1);
                 force = vector_add(force, vector_scale(potential(len2), diff));
             }
@@ -32,8 +32,8 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
                 };
                 let diff = vector_sub(pos_neighbor, pos);
                 let len2 = vector_len2(diff);
-                if get_mask_value(begin_neighbor + k, accelerator_grid) && len2 < squared_cutoff_distance {
-                //if len2 < squared_cutoff_distance {
+                //if get_mask_value(begin_neighbor + k, accelerator_grid) && len2 < squared_cutoff_distance {
+                if len2 < squared_cutoff_distance {
                     increase_flops(1);
                     force = vector_add(force, vector_scale(potential(len2), diff));
                 }
