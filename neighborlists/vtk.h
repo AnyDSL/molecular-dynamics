@@ -1,6 +1,6 @@
 #ifndef VTK_H
 #define VTK_H
-void write_vtk_to_file(std::string filename, std::vector<double> const& masses, std::vector<Vector3D>const & positions, std::vector<Vector3D>const & velocities) {
+void write_vtk_to_file(std::string filename, std::vector<double> const& masses, std::vector<Vector3D>const & positions, std::vector<Vector3D>const & velocities, std::vector<Vector3D>const &forces) {
 		std::ofstream file(filename);
 		file << "# vtk DataFile Version 2.0\n";
 		file << "Particle data" << std::endl;
@@ -56,6 +56,28 @@ void write_vtk_to_file(std::string filename, std::vector<double> const& masses, 
 		}
 
 		file << std::endl;
+                file << "SCALARS force_x double\n";
+		file << "LOOKUP_TABLE default\n";
+		for(int i = 0; i < velocities.size(); ++i) {
+				file << std::fixed << forces[i].x << std::endl;
+		}
+		file << std::endl;
+
+		file << "SCALARS force_y double\n";
+		file << "LOOKUP_TABLE default\n";
+		for(int i = 0; i < velocities.size(); ++i) {
+				file << std::fixed << forces[i].y << std::endl;
+		}
+		file << std::endl;
+
+		file << "SCALARS force_z double\n";
+		file << "LOOKUP_TABLE default\n";
+		for(int i = 0; i < velocities.size(); ++i) {
+				file << std::fixed << forces[i].z << std::endl;
+		}
+
+		file << std::endl;
+
 		file.close();
 }
 #endif // VTK

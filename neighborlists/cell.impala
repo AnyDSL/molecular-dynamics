@@ -99,7 +99,7 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
         print_string("\n");
     }
 
-
+/*
     print_string("Clusters:\n");
     let clusters = get_array_of_clusters(cell.clusters);
     for i in range(0, cell.nclusters) {
@@ -107,6 +107,7 @@ fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
         print_string("\n");
     }
     print_string("\n");
+    */
 }
 
 fn deallocate_cell(cell: &mut Cell) -> () {

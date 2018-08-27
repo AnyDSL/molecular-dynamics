@@ -95,9 +95,9 @@ struct Vector3D {
 
 fn @print_vector(vector: Vector3D) -> () {
     print_f64(vector.x as f64);
-    print_string(" ");
+    print_string("\t");
     print_f64(vector.y as f64);
-    print_string(" ");
+    print_string("\t");
     print_f64(vector.z as f64);
 }
 

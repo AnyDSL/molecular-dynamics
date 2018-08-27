@@ -74,7 +74,7 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
 fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
     for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
         let masses = get_masses(accelerator_grid);
-        let inverse_mass = 1.0 as real_t / masses(i);
+        let inverse_mass = 1.0 as real_t / masses(begin + j);
         let mut position = get_position(begin + j, accelerator_grid);
         let mut velocity = get_velocity(begin + j, accelerator_grid);
         let force = get_force(begin + j, accelerator_grid);

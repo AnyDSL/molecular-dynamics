@@ -57,41 +57,39 @@ int main(int argc, char **argv) {
     int const runs = atoi(argv[5]);
     int const nthreads = atoi(argv[6]);
     std::string output_directory;
-    double dt = 1e-5;
+    double dt = 1e-4;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
     double const maximum_velocity = 1.0;
-    AABB aabb;
-    double spacing[3];
-    for(int i = 0; i < 3; ++i) {
-        aabb.min[i] = 0;
-        aabb.max[i] = gridsize[i];
-        spacing[i] = 1;
-    }
-    
-    // Body Collision Test
     double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
-
-    /*AABB aabb1;
+    AABB aabb;
+    double spacing[3];
+    /*for(int i = 0; i < 3; ++i) {
+        aabb.min[i] = 50;
+        aabb.max[i] = gridsize[i] * potential_minimum;
+        spacing[i] = potential_minimum;
+    }*/
+    
+    // Body Collision Test
+    AABB aabb1;
     double spacing1[3];
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
-        aabb1.max[i] = 50 + 1 * potential_minimum;
+        aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
         spacing1[i] = potential_minimum;
     }
     AABB aabb2;
     double spacing2[3];
     for(int i = 0; i < 3; ++i) {
         aabb2.min[i] = 50;
-        aabb2.max[i] = 50 + 1 * potential_minimum;
+        aabb2.max[i] = 50 + gridsize[i] * potential_minimum;
         spacing2[i] = potential_minimum;
     }
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
     aabb2.max[1] -= shift;
-    */
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
     std::vector<double> copy_data_from_accelerator_time(runs, 0);
@@ -110,8 +108,8 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
-        //int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, 5, 2048);
+        //int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+        int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, cutoff_radius+verlet_buffer, 2048);
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -142,10 +140,11 @@ int main(int argc, char **argv) {
         std::vector<double> masses(size);
         std::vector<Vector3D> positions(size);
         std::vector<Vector3D> velocities(size);
+        std::vector<Vector3D> forces(size);
         if(vtk) {
             output_directory = std::string(argv[8]) + "/";
-            md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
-            write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities);
+            md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data(), size);
+            write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities, forces);
         }
         for(int j = 0; j < steps; ++j) {
             std::cout << "Time step: " << j+1 << "\r" << std::flush;
@@ -162,6 +161,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
+            md_print_grid();
             if(vtk || (j > 0 && j % 20 == 0)) {
 
                 begin = measure_time();
@@ -192,15 +192,16 @@ int main(int argc, char **argv) {
 
 
             if(vtk && i == 0) {
-                int nparticles = md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), size);
+                int nparticles = md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data(), size);
                 if(nparticles > 0) {
                     masses.resize(nparticles);
                     positions.resize(nparticles);
                     velocities.resize(nparticles);
+                    forces.resize(nparticles);
                     std::string filename(output_directory + "particles_");
                     filename += std::to_string(j+1);
                     filename += ".vtk";
-                    write_vtk_to_file(filename, masses, positions, velocities);
+                    write_vtk_to_file(filename, masses, positions, velocities, forces);
                 }
             }
             //std::cout << "Kinetic energy: " << md_compute_total_kinetic_energy() << std::endl;

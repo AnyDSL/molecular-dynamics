@@ -34,8 +34,8 @@ fn md_integration(dt: real_t) -> () {
 }
 
 extern
-fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], size: i32) -> i32 {
-    write_grid_data_to_arrays(masses, positions, velocities, size, &grid_)
+fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], size: i32) -> i32 {
+    write_grid_data_to_arrays(masses, positions, velocities, forces, size, &grid_)
 }
 
 extern

@@ -38,7 +38,8 @@ fn redistribute_particles(grid: &Grid, allocate: fn(i32) -> Buffer) -> () {
                 print_string("Position: ");
                 print_vector(position);
                 print_string("\n");*/
-                remove_particle(i, cell);
+                //remove_particle(i, cell);
+                ++i;
             }
             /*print_string("i: ");
             print_i32(i);
