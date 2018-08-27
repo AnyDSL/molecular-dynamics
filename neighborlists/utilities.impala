@@ -22,11 +22,12 @@ struct StructOfArrays3D {
 }
 
 fn allocate_struct_of_arrays(N: i32) -> StructOfArrays3D {
-    StructOfArrays3D {
+    let struct_of_arrays = StructOfArrays3D {
         x: alloc_cpu(N * sizeof[real_t]()),
         y: alloc_cpu(N * sizeof[real_t]()),
         z: alloc_cpu(N * sizeof[real_t]())
-    }
+    };
+    struct_of_arrays
 }
 
 fn deallocate_struct_of_arrays(struct_of_arrays: StructOfArrays3D) -> () {

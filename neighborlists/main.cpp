@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
         aabb.max[i] = gridsize[i];
-        spacing[i] = 1;
+        spacing[i] = 2.5;
     }
     
     // Body Collision Test

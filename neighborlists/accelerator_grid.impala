@@ -183,15 +183,16 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
                 copy_offset(cell.masses, 0, accelerator_grid.masses_cpu, offset_masses, size_masses);
                 offset_masses += size_masses;
 
-                copy_offset_struct_of_arrays(cell.positions, 0, accelerator_grid.positions_cpu, sum_of_sizes, total_cell_size);
-                copy_offset_struct_of_arrays(cell.velocities, 0, accelerator_grid.velocities_cpu, sum_of_sizes, total_cell_size);
-
                 for i in range(0, cell.size) {
                     set_bool(offset_interaction_mask + i, accelerator_grid.interaction_mask_cpu, true);
                 }
                 for i in range(cell.size, total_cell_size) { 
+                    let infinity_vector = Vector3D {x: -INFINITY, y: -INFINITY, z: -INFINITY};
+                    set_struct_of_arrays(i, cell.positions, infinity_vector);
                     set_bool(offset_interaction_mask + i, accelerator_grid.interaction_mask_cpu, false);
                 }
+                copy_offset_struct_of_arrays(cell.positions, 0, accelerator_grid.positions_cpu, sum_of_sizes, total_cell_size);
+                copy_offset_struct_of_arrays(cell.velocities, 0, accelerator_grid.velocities_cpu, sum_of_sizes, total_cell_size);
                 offset_interaction_mask += total_cell_size;
 
                 let clusters_in_cell = get_array_of_clusters(cell.clusters);
