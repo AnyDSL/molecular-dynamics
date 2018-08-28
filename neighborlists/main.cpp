@@ -68,8 +68,8 @@ int main(int argc, char **argv) {
     double spacing[3];
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
-        aabb.max[i] = gridsize[i];
-        spacing[i] = 1;
+        aabb.max[i] = gridsize[i] * potential_minimum;
+        spacing[i] = potential_minimum;
     }
    /* 
     // Body Collision Test
