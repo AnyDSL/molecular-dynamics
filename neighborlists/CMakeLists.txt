@@ -45,6 +45,6 @@ if(LIKWID_DIR)
 	include_directories(${LIKWID_DIR}/include)
 endif()
 if(MONITOR_ONLY_FORCE_COMPUTATION)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -pthread ")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -llikwid -pthread ")
 endif()
 
