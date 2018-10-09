@@ -52,9 +52,10 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
         let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
         let neighborlists = get_neighborlists(accelerator_grid);
 
-        for j in vectorize(cluster_size) {
+        //vectorize(cluster_size, |j| {             
+        range(0, cluster_size, |j| {             
             body(i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists);
-        }
+        });
     }
 }
 
