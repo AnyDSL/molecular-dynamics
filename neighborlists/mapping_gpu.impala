@@ -86,7 +86,7 @@ fn @transfer_struct_of_arrays_between_devices(src: StructOfArrays3D, dest: Struc
 
 fn @get_cluster_size() -> i32 {32}
 
-fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
     let grid = (size*cluster_size, 1, 1);
@@ -109,7 +109,7 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
         let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
         let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
         let neighborlists = get_neighborlists(accelerator_grid);
-        @@body(i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists);
+        @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
     }
     acc.sync();
 }

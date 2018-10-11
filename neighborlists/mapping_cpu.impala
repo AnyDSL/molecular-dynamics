@@ -43,7 +43,7 @@ fn @transfer_struct_of_arrays_between_devices(source: StructOfArrays3D, destinat
 
 
 
-fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, i32, &mut[i32]) -> ()) -> () {
+fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> ()) -> () {
     for i in outer_loop_cpu(0, accelerator_grid.total_number_of_clusters) { 
         let cluster_size = get_cluster_size();
         let begin = i * cluster_size;
@@ -53,7 +53,7 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
         let neighborlists = get_neighborlists(accelerator_grid);
 
         for j in vectorize(cluster_size) {             
-            body(i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists);
+            body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
         }
     }
 }

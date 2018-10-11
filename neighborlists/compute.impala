@@ -1,5 +1,5 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
-    for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
         let force_x = get_forces_x(accelerator_grid);
         let force_y = get_forces_y(accelerator_grid); 
         let force_z = get_forces_z(accelerator_grid); 
@@ -11,8 +11,8 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
         let pos = Vector3D { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
 
         //let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
-        for k in unroll(1, cluster_size) {
-            let srcLane = (j + k) % cluster_size;
+        for k in unroll(1, get_cluster_size()) {
+            let srcLane = (j + k) % get_cluster_size();
             let pos_neighbor = Vector3D { x: shuffle(pos.x, srcLane, k), y: shuffle(pos.y, srcLane, k), z: shuffle(pos.z, srcLane, k) };
             let diff = vector_sub(pos_neighbor, pos);
             let len2 = vector_len2(diff);
@@ -24,7 +24,7 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
         }
         for n in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlists(neighborlist_offset + n);
-            for k in range(0, cluster_size) {
+            for k in range(0, get_cluster_size()) {
                 let pos_neighbor = Vector3D {
                     x: pos_x(begin_neighbor + k),
                     y: pos_y(begin_neighbor + k),
@@ -47,7 +47,7 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
 }
 
 fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
-    for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
         let mut position = get_position(begin + j, accelerator_grid); 
         if(position.x < aabb.min(0)) {
             position.x = aabb.min(0) + EPSILON;
@@ -72,7 +72,7 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
 }
 
 fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
-    for i, begin, j, cluster_size, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
         let masses = get_masses(accelerator_grid);
         let inverse_mass = 1.0 as real_t / masses(begin + j);
         let mut position = get_position(begin + j, accelerator_grid);
