@@ -206,6 +206,7 @@ int main(int argc, char **argv) {
             }
             //std::cout << "Kinetic energy: " << md_compute_total_kinetic_energy() << std::endl;
         }
+
         begin = measure_time();
         md_deallocate_grid();
         end = measure_time();

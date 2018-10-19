@@ -21,7 +21,7 @@ fn redistribute_particles(grid: &Grid, allocate: fn(i32) -> Buffer) -> () {
                 print_string("ny: ");
                 print_i32(grid.ny);
                 print_string("\n");*/
-                if(new_cell_index(0) != cell_index(0) || new_cell_index(1) != cell_index(1)) {
+                if(new_cell_index(0) != cell_index(0) || new_cell_index(1) != cell_index(1) || new_cell_index(2) != cell_index(2)) {
                     //print_string("move particle\n");
                     /*if(flatten_index(new_cell_index, grid) == flatten_index(cell_index, grid)) {
                         print_string("flattened indices are identical!\n");

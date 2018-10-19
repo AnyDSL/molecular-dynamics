@@ -2,6 +2,7 @@ struct Grid {
     aabb: AABB,
     nx: i32,
     ny: i32,
+    nz: i32,
     spacing: real_t,
     cells: Buffer,
     nparticles: i32
@@ -10,12 +11,14 @@ struct Grid {
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
+    let nz = math.floor(((aabb.max(2) - aabb.min(2)) / cell_spacing) as f64) as i32 + 1;
     let grid = Grid {
         aabb: aabb,
         nx: nx,
         ny: ny,
+        nz: nz,
         spacing: cell_spacing,
-        cells: allocate(nx * ny * sizeof[Cell]()),
+        cells: allocate(nx * ny * nz * sizeof[Cell]()),
         nparticles: 0
     }; 
     for cell, cell_index in map_over_grid(grid, range, range) {
@@ -42,13 +45,15 @@ fn deallocate_grid(grid: &Grid) -> () {
     for cell, index in map_over_grid(grid, range, range) {
         deallocate_cell(cell);
     }
+
     release((*grid).cells);
 }
 
-fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 2] {
+fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
     let i = math.floor(((position.x - grid.aabb.min(0)) / grid.spacing) as f64) as i32;
     let j = math.floor(((position.y - grid.aabb.min(1)) / grid.spacing) as f64) as i32;
-    [i, j]
+    let k = math.floor(((position.z - grid.aabb.min(2)) / grid.spacing) as f64) as i32;
+    [i, j, k]
 }
 
 fn @is_within_domain(position: Vector3D, grid: &Grid) -> bool {
@@ -74,6 +79,8 @@ fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: 
     print_i32(cell_index(0));
     print_string(" ");
     print_i32(cell_index(1));
+    print_string("\n");
+    print_i32(cell_index(2));
     print_string("\n");*/
     let cells = get_array_of_cells((*grid).cells);
     let cell = &mut cells(flatten_index(cell_index, grid));
@@ -87,28 +94,32 @@ fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vect
     grid.nparticles = nparticles;
 }
 
-fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), f: fn(&mut Cell, [i32 * 2]) -> ()) -> () {
+fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), f: fn(&mut Cell, [i32 * 3]) -> ()) -> () {
     let cells = get_array_of_cells((*grid).cells);
     for i in iterate_outer(0, grid.nx) {
         for j in iterate_inner(0, grid.ny) {
-            let cell_index = [i,j];
-            f(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
+            for k in iterate_inner(0, grid.nz) {
+                let cell_index = [i,j,k];
+                f(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
+            }
         }
     }
 }
 
-fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 2], end: [i32 * 2], iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(&mut Cell, [i32 * 2]) -> ()) -> () {
+fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 3], end: [i32 * 3], iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(&mut Cell, [i32 * 3]) -> ()) -> () {
     let cells = get_array_of_cells((*grid).cells);
     for i in iterate_outer(begin(0), end(0)) {
         for j in iterate_inner(begin(1), end(1)) {
-            let cell_index = [i,j];
-            body(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
+            for k in iterate_inner(begin(2), end(2)) {
+                let cell_index = [i,j,k];
+                body(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
+            }
         }
     }
 }
 
-fn @flatten_index(cell_index: [i32 * 2], grid: &Grid) -> i32 {
-    cell_index(0) * grid.ny + cell_index(1)
+fn @flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
+    cell_index(0) * grid.nz * grid.ny + cell_index(1) * grid.ny + cell_index(2)
 }
 
 fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], size: i32, grid: &Grid) -> i32 {

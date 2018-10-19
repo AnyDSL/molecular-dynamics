@@ -65,13 +65,15 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
 }
 
 // TODO adapt to new data layout
-fn print_cell(cell: &Cell, index: [i32 * 2]) -> () {
+fn print_cell(cell: &Cell, index: [i32 * 3]) -> () {
     print_string("Memory address: ");
     print_i64(cell as i64);
     print_string("\nIndex: ");
     print_i32(index(0));
     print_string(" ");
     print_i32(index(1));
+    print_string(" ");
+    print_i32(index(2));
     print_string("\nSize: ");
     print_i32(cell.size);
     print_string("\nCapacity: ");

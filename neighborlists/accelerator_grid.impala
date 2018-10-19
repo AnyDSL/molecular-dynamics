@@ -44,7 +44,7 @@ struct SimulationData {
     neighborlists_cpu: Buffer // neighborlists on the CPU: [i32]
 }
 
-fn allocate_accelerator_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {
+fn allocate_accelerator_grid(nx: i32, ny: i32, nz: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {
     let capacity_particles = capacity_neighbors_per_cluster * cluster_size;
    AcceleratorGrid {
         cluster_size: cluster_size,
@@ -52,7 +52,7 @@ fn allocate_accelerator_grid(nx: i32, ny: i32, capacity_neighbors_per_cluster: i
         capacity_neighbors_per_cluster: capacity_neighbors_per_cluster,
         total_number_of_neighbors: 0,
         capacity_neighborlists: neighbor_lists_capacity,
-        cell_offsets: alloc_cpu(nx * ny * sizeof[i32]()), // only needed for cpu-accelerator transfer
+        cell_offsets: alloc_cpu(nx * ny * nz * sizeof[i32]()), // only needed for cpu-accelerator transfer
 
         masses_cpu: alloc_cpu(capacity_particles * sizeof[real_t]()),
         positions_cpu: allocate_struct_of_arrays(capacity_particles),
