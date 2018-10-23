@@ -172,8 +172,8 @@ fn @compute_distance(a: AABB, b: AABB, dimension: i32) -> real_t {
 
 fn assemble_half_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () { 
     cluster.neighbor_list.size = 0;
-    let mut begin : [i32 * 2];
-    let mut end : [i32 * 2];
+    let mut begin : [i32 * 3];
+    let mut end : [i32 * 3];
     let nxyz = [grid.nx, grid.ny, grid.nz];
     for i in unroll(0, 3) {
         begin(i) = cell_index(i);
