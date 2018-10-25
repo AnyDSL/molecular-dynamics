@@ -11,10 +11,14 @@ fn redistribute_particles(grid: &Grid, allocate: fn(i32) -> Buffer) -> () {
                 print_i32(cell_index(0));
                 print_string(" ");
                 print_i32(cell_index(1));
+                print_string(" ");
+                print_i32(cell_index(2));
                 print_string("\nNew cell index: ");
                 print_i32(new_cell_index(0));
                 print_string(" ");
                 print_i32(new_cell_index(1));
+                print_string(" ");
+                print_i32(new_cell_index(2));
                 print_string("\ni: ");
                 print_i32(i);
                 print_string("\n");

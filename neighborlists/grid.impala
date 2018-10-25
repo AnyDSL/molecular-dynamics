@@ -8,10 +8,13 @@ struct Grid {
     nparticles: i32
 }
 
+fn @get_cells_at_z_axis() -> i32 { 2 }
+
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
-    let nz = math.floor(((aabb.max(2) - aabb.min(2)) / cell_spacing) as f64) as i32 + 1;
+    let nz = get_cells_at_z_axis();
+
     let grid = Grid {
         aabb: aabb,
         nx: nx,
@@ -52,7 +55,8 @@ fn deallocate_grid(grid: &Grid) -> () {
 fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
     let i = math.floor(((position.x - grid.aabb.min(0)) / grid.spacing) as f64) as i32;
     let j = math.floor(((position.y - grid.aabb.min(1)) / grid.spacing) as f64) as i32;
-    let k = math.floor(((position.z - grid.aabb.min(2)) / grid.spacing) as f64) as i32;
+    let k = math.floor(((position.z - grid.aabb.min(2)) / ((grid.aabb.max(2) - grid.aabb.min(2)) / (get_cells_at_z_axis() as f64))) as f64) as i32;
+
     [i, j, k]
 }
 
@@ -119,7 +123,7 @@ fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 3], end: [i32 * 3], iterat
 }
 
 fn @flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
-    cell_index(0) * grid.nz * grid.ny + cell_index(1) * grid.ny + cell_index(2)
+    (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
 }
 
 fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], size: i32, grid: &Grid) -> i32 {
