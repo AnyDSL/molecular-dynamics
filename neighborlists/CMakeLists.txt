@@ -20,30 +20,44 @@ else()
     set(MAPPING_FILE mapping_cpu.impala)
 endif()
 
+option(USE_MPI "USE_MPI" OFF)
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
 option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" ON)
-
 
 set(CLANG_FLAGS -march=native -O3)
 set(IMPALA_FLAGS --log-level warn -O3)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
+
+if(USE_MPI)
+    set(MPI_FILES "mpi.impala mapping_mpi.impala")
+    set(MPI_CPP "mpi.cpp")
+else()
+    set(MPI_FILES "mapping_no_mpi.impala")
+    set(MPI_CPP "")
+endif()
+
 # examples based on the "mapping"
 anydsl_runtime_wrap(MD_PROGRAM
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     NAME md
     FILES
-    ${BACKEND_FILE} ${MAPPING_FILE} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala)
+    ${BACKEND_FILE} ${MAPPING_FILE} ${MPI_FILES} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala)
 
-add_executable(md main.cpp anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
+add_executable(md main.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
 set_target_properties(md PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(md PROPERTIES CXX_STANDARD 14)
+
+if(USE_MPI)
+    target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${MPI_LIBRARIES})
+endif()
 
 if(LIKWID_DIR)
     target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
 	include_directories(${LIKWID_DIR}/include)
 endif()
+
 if(MONITOR_ONLY_FORCE_COMPUTATION)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -llikwid -pthread ")
 endif()
