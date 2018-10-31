@@ -64,24 +64,19 @@ int main(int argc, char **argv) {
     double const maximum_velocity = 1.0;
     double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
+    AABB aabb1;
+    AABB aabb2;
+    double spacing1[3];
+    double spacing2[3];
     AABB aabb;
     double spacing[3];
-    for(int i = 0; i < 3; ++i) {
-        aabb.min[i] = 0;
-        aabb.max[i] = gridsize[i] * potential_minimum;
-        spacing[i] = potential_minimum;
-    }
-   /* 
+
     // Body Collision Test
-    AABB aabb1;
-    double spacing1[3];
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
         aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
         spacing1[i] = potential_minimum;
     }
-    AABB aabb2;
-    double spacing2[3];
     for(int i = 0; i < 3; ++i) {
         aabb2.min[i] = 50;
         aabb2.max[i] = 50 + gridsize[i] * potential_minimum;
@@ -90,7 +85,12 @@ int main(int argc, char **argv) {
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
     aabb2.max[1] -= shift;
-    */
+    for(int i = 0; i < 3; ++i) {
+        aabb.min[i] = 0;
+        aabb.max[i] = gridsize[i] * potential_minimum;
+        spacing[i] = potential_minimum;
+    }
+
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
     std::vector<double> copy_data_from_accelerator_time(runs, 0);
@@ -109,8 +109,12 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
+
+#ifdef BODY_COLLISION_TEST
+        int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, cutoff_radius+verlet_buffer, 2048);
+    #else
         int size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
-        //int size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, cutoff_radius+verlet_buffer, 2048);
+    #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
