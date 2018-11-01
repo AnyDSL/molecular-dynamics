@@ -11,6 +11,10 @@ fn @outer_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     }
 }
 
+fn @middle_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
+    range(lower, upper, body)
+}
+
 fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     range(lower, upper, body)
 }

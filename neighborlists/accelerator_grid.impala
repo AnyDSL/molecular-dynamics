@@ -168,7 +168,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
 
     // copy cell data to the accelerator
     
-    for cell, index in map_over_grid(grid, range, range) {
+    for cell, index in map_over_grid(grid, range, range, range) {
         if(cell.cluster_size != accelerator_grid.cluster_size) {
             print_string("Cluster sizes on CPU and accelerator are not equal!\n");
         }
@@ -209,7 +209,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
     
     offset_neighbors = 0;
     let neighborlists_cpu = get_array_of_i32(accelerator_grid.neighborlists_cpu);
-    for cell, index in map_over_grid(grid, range, range) {
+    for cell, index in map_over_grid(grid, range, range, range) {
 
         if(cell.cluster_size != accelerator_grid.cluster_size) {
             print_string("Cluster sizes on CPU and accelerator are not equal!\n");
@@ -260,7 +260,7 @@ fn copy_from_accelerator(accelerator_grid: &AcceleratorGrid, grid: &Grid) -> () 
     transfer_struct_of_arrays_between_devices(accelerator_grid.forces_accelerator, accelerator_grid.forces_cpu, total_number_of_particles);
     
     let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-    for cell, index in map_over_grid(grid, range, range) {
+    for cell, index in map_over_grid(grid, range, range, range) {
         if(cell.cluster_size != accelerator_grid.cluster_size) {
             print_string("Cluster sizes on CPU and accelerator are not equal!\n");
         }

@@ -83,8 +83,8 @@ fn cell_compute_bounding_boxes(cell: &Cell) -> () {
     clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size - cell.padding);  
 }
 
-fn grid_initialize_clusters(grid: &Grid, neighbor_list_capacity: i32, allocate: fn(i32) -> Buffer, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
-    for cell, cell_index in map_over_grid(grid, outer_loop, inner_loop) {
+fn grid_initialize_clusters(grid: &Grid, neighbor_list_capacity: i32, allocate: fn(i32) -> Buffer, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), middle_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
         if(cell.size > 0) {
             cell_sort(cell);
             cell_allocate_clusters(cell, neighbor_list_capacity, allocate);
@@ -307,8 +307,8 @@ fn cell_assemble_neighbor_lists(cell: &Cell, cell_index: [i32 * 3], grid: &Grid,
     }
 }
 
-fn grid_assemble_neighbor_lists(grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
-    for cell, cell_index in map_over_grid(grid, outer_loop, inner_loop) {
+fn grid_assemble_neighbor_lists(grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), middle_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
         if(cell.size > 0) {
             cell_assemble_neighbor_lists(cell, cell_index, grid, cutoff_distance, allocate);
         }

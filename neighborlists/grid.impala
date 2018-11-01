@@ -24,7 +24,7 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
         cells: allocate(nx * ny * nz * sizeof[Cell]()),
         nparticles: 0
     }; 
-    for cell, cell_index in map_over_grid(grid, range, range) {
+    for cell, cell_index in map_over_grid(grid, range, range, range) {
         *cell = allocate_cell(flatten_index(cell_index, grid), 0, initial_cell_capacity, cluster_size, allocate);
     }
     grid 
@@ -33,7 +33,7 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
 fn grid_count_clusters_and_neighbors(grid: &Grid) -> [i32 * 2] {
     let mut cluster_count = 0;
     let mut neighbor_count = 0;
-    for cell, index in map_over_grid(grid, range, range) {
+    for cell, index in map_over_grid(grid, range, range, range) {
         cluster_count += cell.nclusters;
         let clusters = get_array_of_clusters(cell.clusters);
         for i in range(0, cell.nclusters) {
@@ -45,7 +45,7 @@ fn grid_count_clusters_and_neighbors(grid: &Grid) -> [i32 * 2] {
 }
 
 fn deallocate_grid(grid: &Grid) -> () {
-    for cell, index in map_over_grid(grid, range, range) {
+    for cell, index in map_over_grid(grid, range, range, range) {
         deallocate_cell(cell);
     }
 
@@ -98,10 +98,10 @@ fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vect
     grid.nparticles = nparticles;
 }
 
-fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), f: fn(&mut Cell, [i32 * 3]) -> ()) -> () {
+fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_middle: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), f: fn(&mut Cell, [i32 * 3]) -> ()) -> () {
     let cells = get_array_of_cells((*grid).cells);
     for i in iterate_outer(0, grid.nx) {
-        for j in iterate_inner(0, grid.ny) {
+        for j in iterate_middle(0, grid.ny) {
             for k in iterate_inner(0, grid.nz) {
                 let cell_index = [i,j,k];
                 f(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
@@ -110,10 +110,10 @@ fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), 
     }
 }
 
-fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 3], end: [i32 * 3], iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(&mut Cell, [i32 * 3]) -> ()) -> () {
+fn map_over_grid_subdomain(grid: &Grid, begin: [i32 * 3], end: [i32 * 3], iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_middle: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(&mut Cell, [i32 * 3]) -> ()) -> () {
     let cells = get_array_of_cells((*grid).cells);
     for i in iterate_outer(begin(0), end(0)) {
-        for j in iterate_inner(begin(1), end(1)) {
+        for j in iterate_middle(begin(1), end(1)) {
             for k in iterate_inner(begin(2), end(2)) {
                 let cell_index = [i,j,k];
                 body(&mut cells(flatten_index(cell_index, grid)), cell_index, continue)
@@ -135,7 +135,7 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], v
     }
     else {
         let mut array_index = 0;
-        for cell, cell_index in map_over_grid(grid, range, range) {
+        for cell, cell_index in map_over_grid(grid, range, range, range) {
             for k in range(0, cell.size) {
                 /*print_string("Mass: ");
                 print_f64(get_real(k, (*cell).masses));
@@ -157,7 +157,7 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], v
 }
 
 fn print_grid(grid: &Grid) -> () {
-    for cell, cell_index in map_over_grid(grid, range, range) {
+    for cell, cell_index in map_over_grid(grid, range, range, range) {
         if(cell.size > 0) {
             print_cell(cell, cell_index);
         }
