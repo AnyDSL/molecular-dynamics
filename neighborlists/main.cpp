@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
 
 #ifdef BODY_COLLISION_TEST
 
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, 100, cutoff_radius+verlet_buffer, 2048);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
 
 #else
 
