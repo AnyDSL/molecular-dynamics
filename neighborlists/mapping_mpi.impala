@@ -1,0 +1,118 @@
+static mut mpih : MPI;
+
+fn @get_comm_time_steps() -> i32 { 1 }
+
+fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
+  mpih = mpi();
+
+  mpih.init();
+
+  mpih.comm_size(mpih.comms.world, world_size);
+  mpih.comm_rank(mpih.comms.world, world_rank);
+}
+
+fn mpi_finalize() -> () {
+  mpih.finalize();
+}
+
+fn mpi_send_struct_of_arrays(arr : StructOfArrays3D, size : i32, dest : i32) -> () {
+  mpih.send(&arr.x as MPI_MutBuf, size, mpih.double_t, dest, 0, mpih.comms.world);
+  mpih.send(&arr.y as MPI_MutBuf, size, mpih.double_t, dest, 0, mpih.comms.world);
+  mpih.send(&arr.z as MPI_MutBuf, size, mpih.double_t, dest, 0, mpih.comms.world);
+}
+
+fn mpi_recv_struct_of_arrays(arr: StructOfArrays3D, size: i32, source: i32) -> () {
+  let mut status : MPIStatus;
+
+  mpih.recv(&arr.x as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&arr.y as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&arr.z  as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+}
+
+fn mpi_send_grid_subdomain(grid: Grid, begin: [i32 * 3], end: [i32 * 3], dest: i32) -> () {
+  let nxyz = [
+    end(0) - begin(0),
+    end(1) - begin(1),
+    end(2) - begin(2)
+  ];
+
+  mpih.send(&nxyz as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&grid.spacing as MPI_MutBuf, 1, mpih.double_t, dest, 0, mpih.comms.world);
+  mpih.send(&grid.nparticles as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&grid.aabb.min as MPI_MutBuf, 3, mpih.double_t, dest, 0, mpih.comms.world);
+  mpih.send(&grid.aabb.max as MPI_MutBuf, 3, mpih.double_t, dest, 0, mpih.comms.world);
+
+  for cell, cell_index in map_over_grid_subdomain(grid, begin, end, range, range, range) {
+    mpi_send_cell(*cell, dest);
+  }
+}
+
+fn mpi_recv_grid(mut grid: Grid, source: i32, allocate: fn(i32) -> Buffer) -> () {
+  let mut status : MPIStatus;
+  let mut nxyz : [i32 * 3];
+
+  mpih.recv(&nxyz as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&grid.spacing as MPI_MutBuf, 1, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&grid.nparticles as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&grid.aabb.min as MPI_MutBuf, 3, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&grid.aabb.max as MPI_MutBuf, 3, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+
+  grid.nx = nxyz(0);
+  grid.ny = nxyz(1);
+  grid.nz = nxyz(2);
+
+  grid.cells = allocate(grid.nx * grid.ny * grid.nz * sizeof[Cell]());
+
+  for cell, cell_index in map_over_grid(grid, range, range, range) {
+    mpi_recv_cell(cell, source, allocate);
+  }
+}
+
+fn mpi_send_cell(cell: Cell, dest: i32) -> () {
+  mpih.send(&cell.index as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&cell.size as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&cell.padding as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&cell.capacity as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&cell.cluster_size as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+
+  mpih.send(&cell.masses as MPI_MutBuf, cell.capacity, mpih.double_t, dest, 0, mpih.comms.world);
+  mpi_send_struct_of_arrays(cell.positions, cell.capacity, dest);
+  mpi_send_struct_of_arrays(cell.velocities, cell.capacity, dest);
+  mpi_send_struct_of_arrays(cell.forces, cell.capacity, dest);
+}
+
+fn mpi_recv_cell(cell: &mut Cell, source: i32, allocate: fn(i32) -> Buffer) -> () {
+  let mut status : MPIStatus;
+
+  mpih.recv(&cell.index as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&cell.size as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&cell.padding as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&cell.capacity as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&cell.cluster_size as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+
+  cell.masses = allocate(cell.capacity * sizeof[real_t]());
+  cell.positions = allocate_struct_of_arrays(cell.capacity);
+  cell.velocities = allocate_struct_of_arrays(cell.capacity);
+  cell.forces = allocate_struct_of_arrays(cell.capacity);
+
+  mpih.recv(&cell.masses as MPI_MutBuf, cell.capacity, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+  mpi_recv_struct_of_arrays(cell.positions, cell.capacity, source);
+  mpi_recv_struct_of_arrays(cell.velocities, cell.capacity, source);
+  mpi_recv_struct_of_arrays(cell.forces, cell.capacity, source);
+}
+
+fn mpi_distribute_data(grid : Grid, world_size: i32, world_rank: i32) -> () {
+  if(world_rank == 0) {
+    for i in range(1, world_size) {
+      let mut dom_begin : [i32 * 3];
+      let mut dom_end : [i32 * 3];
+
+      dom_begin = [0, 0, i * grid.nz / world_size - get_comm_time_steps()];
+      dom_end = [grid.nx, grid.ny, grid.nz];
+
+      mpi_send_grid_subdomain(grid, dom_begin, dom_end, i);
+    }
+  } else {
+    mpi_recv_grid(grid, 0, alloc_cpu);
+  }
+}

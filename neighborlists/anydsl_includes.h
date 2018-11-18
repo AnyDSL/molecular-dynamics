@@ -24,6 +24,9 @@ extern "C" {
     double md_compute_total_kinetic_energy();
     uint64_t get_number_of_flops();
     void md_set_thread_count(int);
+    void md_mpi_initialize(int *, int *);
+    void md_mpi_finalize();
+    void md_mpi_distribute_data(int, int);
 }
 #endif // ANYDSL_INCLUDES
 
