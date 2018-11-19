@@ -51,6 +51,8 @@ set_target_properties(md PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(md PROPERTIES CXX_STANDARD 14)
 
 if(USE_MPI)
+    find_package(MPI REQUIRED)
+    include_directories(SYSTEM ${MPI_INCLUDE_PATH})
     target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${MPI_LIBRARIES})
 endif()
 
