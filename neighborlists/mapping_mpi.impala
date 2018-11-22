@@ -26,7 +26,7 @@ fn mpi_recv_struct_of_arrays(mpih : MPI, arr: StructOfArrays3D, size: i32, sourc
 
   mpih.recv(&arr.x as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
   mpih.recv(&arr.y as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
-  mpih.recv(&arr.z  as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&arr.z as MPI_MutBuf, size, mpih.double_t, source, 0, mpih.comms.world, &mut status);
 }
 
 fn mpi_send_grid_subdomain(mpih : MPI, grid: Grid, begin: [i32 * 3], end: [i32 * 3], dest: i32) -> () {
@@ -36,7 +36,7 @@ fn mpi_send_grid_subdomain(mpih : MPI, grid: Grid, begin: [i32 * 3], end: [i32 *
     end(2) - begin(2)
   ];
 
-  mpih.send(&nxyz as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
+  mpih.send(&nxyz as MPI_MutBuf, 3, mpih.int_t, dest, 0, mpih.comms.world);
   mpih.send(&grid.spacing as MPI_MutBuf, 1, mpih.double_t, dest, 0, mpih.comms.world);
   mpih.send(&grid.nparticles as MPI_MutBuf, 1, mpih.int_t, dest, 0, mpih.comms.world);
   mpih.send(&grid.aabb.min as MPI_MutBuf, 3, mpih.double_t, dest, 0, mpih.comms.world);
@@ -49,9 +49,9 @@ fn mpi_send_grid_subdomain(mpih : MPI, grid: Grid, begin: [i32 * 3], end: [i32 *
 
 fn mpi_recv_grid(mpih : MPI, mut grid: Grid, source: i32, allocate: fn(i32) -> Buffer) -> () {
   let mut status : MPIStatus;
-  let nxyz = [0, 0, 0];
+  let mut nxyz : [i32 * 3];
 
-  mpih.recv(&nxyz as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
+  mpih.recv(&nxyz as MPI_MutBuf, 3, mpih.int_t, source, 0, mpih.comms.world, &mut status);
   mpih.recv(&grid.spacing as MPI_MutBuf, 1, mpih.double_t, source, 0, mpih.comms.world, &mut status);
   mpih.recv(&grid.nparticles as MPI_MutBuf, 1, mpih.int_t, source, 0, mpih.comms.world, &mut status);
   mpih.recv(&grid.aabb.min as MPI_MutBuf, 3, mpih.double_t, source, 0, mpih.comms.world, &mut status);
@@ -101,7 +101,7 @@ fn mpi_recv_cell(mpih : MPI, cell: &mut Cell, source: i32, allocate: fn(i32) -> 
   mpi_recv_struct_of_arrays(mpih, cell.forces, cell.capacity, source);
 }
 
-fn mpi_distribute_data(grid : Grid, world_size: i32, world_rank: i32) -> () {
+fn mpi_distribute_data(mut grid : Grid, world_size: i32, world_rank: i32) -> () {
   let mpih = mpi();
 
   if(world_rank == 0) {
