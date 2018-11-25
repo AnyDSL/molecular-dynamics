@@ -26,7 +26,6 @@ extern "C" {
     void md_set_thread_count(int);
     void md_mpi_initialize();
     void md_mpi_finalize();
-    void md_mpi_distribute_data(int, int);
 }
 #endif // ANYDSL_INCLUDES
 

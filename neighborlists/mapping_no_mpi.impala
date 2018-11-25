@@ -4,4 +4,5 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 }
 
 fn mpi_finalize() -> () { }
-fn mpi_distribute_data(grid : Grid, world_size: i32, world_rank: i32) -> () { }
+fn mpi_scatter_data(grid : Grid, world_size: i32, world_rank: i32) -> () { }
+fn mpi_gather_data(grid : Grid, world_size: i32, world_rank: i32) -> () { }

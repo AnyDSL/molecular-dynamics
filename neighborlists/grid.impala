@@ -3,12 +3,15 @@ struct Grid {
     nx: i32,
     ny: i32,
     nz: i32,
+    orig_nx: i32,
+    orig_ny: i32,
+    orig_nz: i32,
     spacing: real_t,
     cells: Buffer,
     nparticles: i32
 }
 
-fn @get_cells_at_z_axis() -> i32 { 2 }
+fn @get_cells_at_z_axis() -> i32 { 8 }
 
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
@@ -17,6 +20,9 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
 
     let grid = Grid {
         aabb: aabb,
+        orig_nx: nx,
+        orig_ny: nx,
+        orig_nz: nx,
         nx: nx,
         ny: ny,
         nz: nz,

@@ -22,7 +22,7 @@ fn md_initialize_grid(
       initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     }
 
-    mpi_distribute_data(&mut grid_, world_size, world_rank);
+    mpi_scatter_data(&mut grid_, world_size, world_rank);
 
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, capacity, cluster_size, capacity * 64); 
@@ -89,9 +89,4 @@ fn md_mpi_initialize() -> () {
 extern
 fn md_mpi_finalize() -> () {
   mpi_finalize();
-}
-
-extern
-fn md_mpi_distribute_data(world_size: i32, world_rank: i32) -> () {
-  mpi_distribute_data(&mut grid_, world_size, world_rank);
 }
