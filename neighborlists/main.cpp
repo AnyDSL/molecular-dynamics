@@ -101,43 +101,34 @@ int main(int argc, char **argv) {
     std::vector<double> neighborlist_creation_time(runs, 0);
     std::vector<double> force_computation_time(runs, 0);
     std::vector<double> deallocation_time(runs, 0);
-    std::vector<double> mpi_data_distribution_time(runs, 0);
     double const factor = 1e-6;
     md_set_thread_count(nthreads);
     double const verlet_buffer = 0.3;
     int size;
-    int world_size, world_rank;
 
-    md_mpi_initialize(&world_size, &world_rank);
+    md_mpi_initialize();
 
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
     for(int i = 0; i < runs; ++i) {
-        if(world_rank == 0) {
-            auto begin = measure_time();
-#ifdef BODY_COLLISION_TEST
-            size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
-#else
-            size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
-#endif
-            auto end = measure_time();
-            grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-            if(i == 0) {
-                std::cout << "Number of particles: " << size << std::endl;
-            }
-            std::cout << "Starting run " << i+1 << std::endl;
-            if(size == 0) {
-                std::cout << "Zero particles created. Aborting." << std::endl;
-                return EXIT_FAILURE;
-            }
-        }
-
         auto begin = measure_time();
-        md_mpi_distribute_data(world_size, world_rank);
+#ifdef BODY_COLLISION_TEST
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+#else
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+#endif
         auto end = measure_time();
-        mpi_data_distribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+        if(i == 0) {
+            std::cout << "Number of particles: " << size << std::endl;
+        }
+        std::cout << "Starting run " << i+1 << std::endl;
+        if(size == 0) {
+            std::cout << "Zero particles created. Aborting." << std::endl;
+            return EXIT_FAILURE;
+        }
 
         begin = measure_time();
         md_initialize_clusters(512);
@@ -234,7 +225,7 @@ int main(int argc, char **argv) {
 
     md_mpi_finalize();
 
-    std::vector<std::pair<double,double>> time_results(10);
+    std::vector<std::pair<double,double>> time_results(9);
     std::cout << "Code Region\tAverage\tStandard Deviation" << std::endl;
     time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
     time_results[1] = print_time_statistics(integration_time, "integration");
@@ -245,7 +236,6 @@ int main(int argc, char **argv) {
     time_results[6] = print_time_statistics(deallocation_time, "deallocation");
     time_results[7] = print_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
     time_results[8] = print_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
-    time_results[9] = print_time_statistics(mpi_data_distribution_time, "mpi_data_distribution_time");
     double mean_sum = 0, stdev_sum = 0;
     for(size_t i = 0; i < time_results.size(); ++i) {
         mean_sum += time_results[i].first;
