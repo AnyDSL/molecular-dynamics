@@ -160,3 +160,33 @@ fn mpi_gather_data(grid: &mut Grid, world_size: i32, world_rank: i32) -> () {
     mpi_send_grid_cells(mpih, *grid, dom_begin, dom_end, 0);
   }
 }
+
+fn mpi_synchronize_ghost_zone(grid: &mut Grid, world_size: i32, world_rank: i32) -> () {
+  let mpih = mpi();
+
+  if(world_rank % 2 == 0) {
+    mpi_recv_grid_cells(
+      mpih, grid,
+      [0, 0, grid.nz - get_comm_time_steps()],
+      [grid.nx, grid.ny, grid.nz],
+      world_rank + 1, alloc_cpu);
+
+    mpi_send_grid_cells(
+      mpih, *grid,
+      [0, 0, grid.nz - get_comm_time_steps() * 2],
+      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
+      world_rank + 1);
+  } else {
+    mpi_send_grid_cells(
+      mpih, *grid,
+      [0, 0, get_comm_time_steps()],
+      [grid.nx, grid.ny, get_comm_time_steps() * 2],
+      world_rank - 1);
+
+    mpi_recv_grid_cells(
+      mpih, grid,
+      [0, 0, 0],
+      [grid.nx, grid.ny, get_comm_time_steps()],
+      world_rank - 1, alloc_cpu);
+  }
+}
