@@ -3,9 +3,6 @@ struct Grid {
     nx: i32,
     ny: i32,
     nz: i32,
-    orig_nx: i32,
-    orig_ny: i32,
-    orig_nz: i32,
     spacing: real_t,
     cells: Buffer,
     nparticles: i32
@@ -16,13 +13,10 @@ fn @get_cells_at_z_axis() -> i32 { 8 }
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
-    let nz = get_cells_at_z_axis();
+    let nz = math.floor(((aabb.max(2) - aabb.min(2)) / cell_spacing) as f64) as i32 + 1;
 
     let grid = Grid {
         aabb: aabb,
-        orig_nx: nx,
-        orig_ny: nx,
-        orig_nz: nx,
         nx: nx,
         ny: ny,
         nz: nz,
@@ -30,9 +24,11 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
         cells: allocate(nx * ny * nz * sizeof[Cell]()),
         nparticles: 0
     }; 
+
     for cell, cell_index in map_over_grid(grid, range, range, range) {
         *cell = allocate_cell(flatten_index(cell_index, grid), 0, initial_cell_capacity, cluster_size, allocate);
     }
+
     grid 
 }
 
@@ -61,7 +57,7 @@ fn deallocate_grid(grid: &Grid) -> () {
 fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
     let i = math.floor(((position.x - grid.aabb.min(0)) / grid.spacing) as f64) as i32;
     let j = math.floor(((position.y - grid.aabb.min(1)) / grid.spacing) as f64) as i32;
-    let k = math.floor(((position.z - grid.aabb.min(2)) / ((grid.aabb.max(2) - grid.aabb.min(2)) / (get_cells_at_z_axis() as f64))) as f64) as i32;
+    let k = math.floor(((position.z - grid.aabb.min(2)) / grid.spacing) as f64) as i32;
 
     [i, j, k]
 }
@@ -99,8 +95,11 @@ fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: 
 
 fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () { 
     for i in range(0, nparticles) {
-       insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
+      if(is_within_domain(positions(i), grid)) {
+        insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
+      }
     }
+
     grid.nparticles = nparticles;
 }
 

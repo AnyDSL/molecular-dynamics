@@ -61,10 +61,6 @@ fn mpi_recv_grid(mpih: MPI, grid: &mut Grid, source: i32, allocate: fn(i32) -> B
   grid.ny = nxyz(1);
   grid.nz = nxyz(2);
 
-  grid.orig_nx = nxyz(0);
-  grid.orig_ny = nxyz(1);
-  grid.orig_nz = nxyz(2);
-
   grid.cells = allocate(grid.nx * grid.ny * grid.nz * sizeof[Cell]());
 
   for cell, cell_index in map_over_grid(grid, range, range, range) {
@@ -151,7 +147,6 @@ fn mpi_gather_data(grid: &mut Grid, world_size: i32, world_rank: i32) -> () {
       dom_end = [grid.nx, grid.ny, grid.nz];
 
       mpi_recv_grid_cells(mpih, grid, dom_begin, dom_end, i, alloc_cpu);
-      grid.nz = grid.orig_nz;
     }
   } else {
     dom_begin = [0, 0, get_comm_time_steps()];
@@ -188,5 +183,24 @@ fn mpi_synchronize_ghost_zone(grid: &mut Grid, world_size: i32, world_rank: i32)
       [0, 0, 0],
       [grid.nx, grid.ny, get_comm_time_steps()],
       world_rank - 1, alloc_cpu);
+  }
+}
+
+fn @mpi_get_rank_bounding_box(world_size: i32, rank: i32, cell_spacing: f64, grid_aabb: AABB) -> AABB {
+  let zlength = (grid_aabb.max(2) - grid_aabb.min(2)) / (world_size as f64);
+  let mut zmin = grid_aabb.min(2) + zlength * (rank as f64);
+  let mut zmax = grid_aabb.min(2) + zlength * ((rank + 1) as f64);
+
+  if(rank > 0) {
+    zmin -= (get_comm_time_steps() as f64) * cell_spacing;
+  }
+
+  if(rank < world_size - 1) {
+    zmax += (get_comm_time_steps() as f64) * cell_spacing;
+  }
+
+  AABB {
+    min: [grid_aabb.min(0), grid_aabb.min(1), zmin],
+    max: [grid_aabb.max(0), grid_aabb.max(1), zmax],
   }
 }
