@@ -7,7 +7,7 @@ extern "C" {
         double y;
         double z;
     };
-    void md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double, int);
+    int md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double, int);
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
     void md_integrate_position(double);

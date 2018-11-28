@@ -8,8 +8,6 @@ struct Grid {
     nparticles: i32
 }
 
-fn @get_cells_at_z_axis() -> i32 { 8 }
-
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
@@ -93,14 +91,17 @@ fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: 
     append_particle(mass, position, velocity, cell, allocate);
 }
 
-fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () { 
+fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
+    let mut particles = 0;
+
     for i in range(0, nparticles) {
       if(is_within_domain(positions(i), grid)) {
         insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
+        particles++;
       }
     }
 
-    grid.nparticles = nparticles;
+    grid.nparticles = particles;
 }
 
 fn map_over_grid(grid: &Grid, iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (), iterate_middle: fn(i32, i32, fn(i32) -> ()) -> (), iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (), f: fn(&mut Cell, [i32 * 3]) -> ()) -> () {

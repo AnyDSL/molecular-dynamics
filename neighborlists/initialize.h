@@ -72,8 +72,7 @@ int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double ma
                 std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
         }*/
     auto size = std::get<0>(tuple).size();
-    md_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
-    return size;
+    return md_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
 }
 
 
@@ -106,8 +105,7 @@ int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spac
     std::get<2>(tuple1).insert(std::get<2>(tuple1).end(), std::get<2>(tuple2).begin(), std::get<2>(tuple2).end());
 
     auto size = std::get<0>(tuple1).size();
-    md_initialize_grid(std::get<0>(tuple1).data(), std::get<1>(tuple1).data(), std::get<2>(tuple1).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
-    return size;
+    return md_initialize_grid(std::get<0>(tuple1).data(), std::get<1>(tuple1).data(), std::get<2>(tuple1).data(), size, aabb.min, aabb.max, cell_spacing, cell_capacity);
 }
 
 #endif // INITIALIZE_H

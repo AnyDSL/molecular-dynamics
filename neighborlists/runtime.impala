@@ -10,7 +10,7 @@ extern
 fn md_initialize_grid(
   masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
   nparticles: i32, min: &[real_t], max: &[real_t], cell_spacing: real_t,
-  cell_capacity: i32) -> () {
+  cell_capacity: i32) -> i32 {
     let aabb = AABB {
         min: [min(0), min(1), min(2)],
         max: [max(0), max(1), max(2)],
@@ -23,6 +23,8 @@ fn md_initialize_grid(
 
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, capacity, cluster_size, capacity * 64); 
+
+    grid_.nparticles
 }
 extern fn md_copy_data_to_accelerator() -> () {
     copy_to_accelerator(grid_, &mut accelerator_grid_);
