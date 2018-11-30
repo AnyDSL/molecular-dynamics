@@ -218,7 +218,7 @@ fn mpi_synchronize_ghost_zone(
     mpi_recv_ghostzone(grid, accelerator_grid, world_size, world_rank);
     mpi_send_ghostzone(grid, accelerator_grid, world_size, world_rank);
   }
-  
+
   transfer_struct_of_arrays_between_devices(
     accelerator_grid.positions_cpu,
     accelerator_grid.positions_accelerator,
