@@ -26,6 +26,8 @@ extern "C" {
     void md_set_thread_count(int);
     void md_mpi_initialize();
     void md_mpi_finalize();
+    int md_get_comm_time_steps();
+    void md_synchronize_ghost_zone();
 }
 #endif // ANYDSL_INCLUDES
 

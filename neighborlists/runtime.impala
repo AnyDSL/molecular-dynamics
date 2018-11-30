@@ -89,3 +89,13 @@ extern
 fn md_mpi_finalize() -> () {
   mpi_finalize();
 }
+
+extern
+fn md_get_comm_time_steps() -> i32 {
+  get_comm_time_steps()
+}
+
+extern
+fn md_synchronize_ghost_zone() -> () {
+  mpi_synchronize_ghost_zone(&mut grid_, &mut accelerator_grid_, world_size, world_rank);
+}
