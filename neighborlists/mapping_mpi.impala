@@ -44,19 +44,19 @@ fn mpi_receive_subdomains(
   grid: Grid,
   body: fn(i32, [i32 * 3], [i32 * 3]) -> ()) -> () {
 
-  if(rank > 0) {
-    body(
-      rank - 1,
-      [0, 0, 0],
-      [grid.nx, grid.ny, get_comm_time_steps()]
-    );
-  }
-
   if(rank < world_size - 1) {
     body(
       rank + 1,
       [0, 0, grid.nz - get_comm_time_steps()],
       [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  if(rank > 0) {
+    body(
+      rank - 1,
+      [0, 0, 0],
+      [grid.nx, grid.ny, get_comm_time_steps()]
     );
   }
 }
@@ -85,7 +85,7 @@ fn @mpi_get_rank_bounding_box(
   }
 }
 
-fn mpi_send_ghostzone(
+fn mpi_send_ghost_zone(
   grid: &mut Grid,
   accelerator_grid: &mut AcceleratorGrid,
   world_size: i32,
@@ -102,47 +102,63 @@ fn mpi_send_ghostzone(
       let offset = cell_offsets(flat_index);
       let nparticles = cell.size + cell.padding;
 
-      mpih.send(
-        &accelerator_grid.positions_cpu.x.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 1, mpih.comms.world);
-      mpih.send(
-        &accelerator_grid.positions_cpu.y.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 2, mpih.comms.world);
-      mpih.send(
-        &accelerator_grid.positions_cpu.z.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 3, mpih.comms.world);
+      if(nparticles > 0) {
+        print_i32(world_rank);
+        print_string("> send: (");
+        print_i32(index(0));
+        print_string(", ");
+        print_i32(index(1));
+        print_string(", ");
+        print_i32(index(2));
+        print_string("), nparticles: ");
+        print_i32(nparticles);
+        print_string(", offset: ");
+        print_i32(offset);
+        print_string("\n");
+        print_flush();
 
-      mpih.send(
-        &accelerator_grid.velocities_cpu.x.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 4, mpih.comms.world);
-      mpih.send(
-        &accelerator_grid.velocities_cpu.y.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 5, mpih.comms.world);
-      mpih.send(
-        &accelerator_grid.velocities_cpu.z.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 6, mpih.comms.world);
+        mpih.send(
+          &get_x_component(offset, accelerator_grid.positions_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 1, mpih.comms.world);
+        mpih.send(
+          &get_y_component(offset, accelerator_grid.positions_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 2, mpih.comms.world);
+        mpih.send(
+          &get_z_component(offset, accelerator_grid.positions_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 3, mpih.comms.world);
 
-      mpih.send(
-        &accelerator_grid.forces_cpu.x.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 7, mpih.comms.world);
-      mpih.send(
-        &accelerator_grid.forces_cpu.y.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 8, mpih.comms.world);
-      mpih.send(
-        &accelerator_grid.forces_cpu.z.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, dest_rank, 9, mpih.comms.world);
+        mpih.send(
+          &get_x_component(offset, accelerator_grid.velocities_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 4, mpih.comms.world);
+        mpih.send(
+          &get_y_component(offset, accelerator_grid.velocities_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 5, mpih.comms.world);
+        mpih.send(
+          &get_z_component(offset, accelerator_grid.velocities_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 6, mpih.comms.world);
+
+        mpih.send(
+          &get_x_component(offset, accelerator_grid.forces_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 7, mpih.comms.world);
+        mpih.send(
+          &get_y_component(offset, accelerator_grid.forces_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 8, mpih.comms.world);
+        mpih.send(
+          &get_z_component(offset, accelerator_grid.forces_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, dest_rank, 9, mpih.comms.world);
+      }
     }
   }
 }
 
-fn mpi_recv_ghostzone(
+fn mpi_recv_ghost_zone(
   grid: &mut Grid,
   accelerator_grid: &mut AcceleratorGrid,
   world_size: i32,
   world_rank: i32) -> () {
 
   let mpih = mpi();
-  let mut status : MPIStatus;
+  let mut status: MPIStatus;
 
   for source_rank, begin, end in
       mpi_receive_subdomains(world_size, world_rank, *grid) {
@@ -153,35 +169,51 @@ fn mpi_recv_ghostzone(
       let offset = cell_offsets(flat_index);
       let nparticles = cell.size + cell.padding;
 
-      mpih.recv(
-        &accelerator_grid.positions_cpu.x.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 1, mpih.comms.world, &mut status);
-      mpih.recv(
-        &accelerator_grid.positions_cpu.y.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 2, mpih.comms.world, &mut status);
-      mpih.recv(
-        &accelerator_grid.positions_cpu.z.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 3, mpih.comms.world, &mut status);
+      if(nparticles > 0) {
+        print_i32(world_rank);
+        print_string("> recv: (");
+        print_i32(index(0));
+        print_string(", ");
+        print_i32(index(1));
+        print_string(", ");
+        print_i32(index(2));
+        print_string("), nparticles: ");
+        print_i32(nparticles);
+        print_string(", offset: ");
+        print_i32(offset);
+        print_string("\n");
+        print_flush();
 
-      mpih.recv(
-        &accelerator_grid.velocities_cpu.x.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 4, mpih.comms.world, &mut status);
-      mpih.recv(
-        &accelerator_grid.velocities_cpu.y.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 5, mpih.comms.world, &mut status);
-      mpih.recv(
-        &accelerator_grid.velocities_cpu.z.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 6, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_x_component(offset, accelerator_grid.positions_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 1, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_y_component(offset, accelerator_grid.positions_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 2, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_z_component(offset, accelerator_grid.positions_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 3, mpih.comms.world, &mut status);
 
-      mpih.recv(
-        &accelerator_grid.forces_cpu.x.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 7, mpih.comms.world, &mut status);
-      mpih.recv(
-        &accelerator_grid.forces_cpu.y.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 8, mpih.comms.world, &mut status);
-      mpih.recv(
-        &accelerator_grid.forces_cpu.z.data(offset) as MPI_MutBuf,
-        nparticles, mpih.double_t, source_rank, 9, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_x_component(offset, accelerator_grid.velocities_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 4, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_y_component(offset, accelerator_grid.velocities_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 5, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_z_component(offset, accelerator_grid.velocities_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 6, mpih.comms.world, &mut status);
+
+        mpih.recv(
+          &get_x_component(offset, accelerator_grid.forces_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 7, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_y_component(offset, accelerator_grid.forces_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 8, mpih.comms.world, &mut status);
+        mpih.recv(
+          &get_z_component(offset, accelerator_grid.forces_cpu) as MPI_MutBuf,
+          nparticles, mpih.double_t, source_rank, 9, mpih.comms.world, &mut status);
+      }
     }
   }
 }
@@ -212,11 +244,11 @@ fn mpi_synchronize_ghost_zone(
     total_number_of_particles);
 
   if(world_rank % 2 == 0) {
-    mpi_send_ghostzone(grid, accelerator_grid, world_size, world_rank);
-    mpi_recv_ghostzone(grid, accelerator_grid, world_size, world_rank);
+    mpi_send_ghost_zone(grid, accelerator_grid, world_size, world_rank);
+    mpi_recv_ghost_zone(grid, accelerator_grid, world_size, world_rank);
   } else {
-    mpi_recv_ghostzone(grid, accelerator_grid, world_size, world_rank);
-    mpi_send_ghostzone(grid, accelerator_grid, world_size, world_rank);
+    mpi_recv_ghost_zone(grid, accelerator_grid, world_size, world_rank);
+    mpi_send_ghost_zone(grid, accelerator_grid, world_size, world_rank);
   }
 
   transfer_struct_of_arrays_between_devices(
