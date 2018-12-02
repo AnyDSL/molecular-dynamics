@@ -81,7 +81,7 @@ fn @mpi_get_rank_bounding_box(
 
   AABB {
     min: [grid_aabb.min(0), grid_aabb.min(1), zmin],
-    max: [grid_aabb.max(0), grid_aabb.max(1), zmax],
+    max: [grid_aabb.max(0), grid_aabb.max(1), zmax]
   }
 }
 
