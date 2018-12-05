@@ -68,6 +68,7 @@ int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double ma
         aabb.min[i] -= cell_spacing;
         aabb.max[i] += cell_spacing;
     }
+
     /*for(int i = 0; i < size; i++) {
                 std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
         }*/

@@ -13,6 +13,30 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
     let nz = math.floor(((aabb.max(2) - aabb.min(2)) / cell_spacing) as f64) as i32 + 1;
 
+    print_string("aabb.min = {");
+    print_f64(aabb.min(0));
+    print_string(", ");
+    print_f64(aabb.min(1));
+    print_string(", ");
+    print_f64(aabb.min(2));
+    print_string("}\n");
+
+    print_string("aabb.max = {");
+    print_f64(aabb.max(0));
+    print_string(", ");
+    print_f64(aabb.max(1));
+    print_string(", ");
+    print_f64(aabb.max(2));
+    print_string("}\n");
+
+    print_string("nx, ny, nz = ");
+    print_i32(nx);
+    print_string(" ");
+    print_i32(ny);
+    print_string(" ");
+    print_i32(nz);
+    print_string("\n");
+
     let grid = Grid {
         aabb: aabb,
         nx: nx,
@@ -62,9 +86,9 @@ fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
 
 fn @is_within_domain(position: Vector3D, grid: &Grid) -> bool {
     let aabb = (*grid).aabb;
-    position.x > aabb.min(0) && position.x < aabb.max(0) &&
-    position.y > aabb.min(1) && position.y < aabb.max(1) &&
-    position.z > aabb.min(2) && position.z < aabb.max(2)
+    position.x >= aabb.min(0) && position.x <= aabb.max(0) &&
+    position.y >= aabb.min(1) && position.y <= aabb.max(1) &&
+    position.z >= aabb.min(2) && position.z <= aabb.max(2)
 }
 
 

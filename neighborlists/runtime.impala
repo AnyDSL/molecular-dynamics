@@ -21,6 +21,41 @@ fn md_initialize_grid(
     grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
 
+    if(world_rank == 0) {
+      /*
+      for i in range(0, nparticles) {
+        print_f64(positions(i).x);
+        print_string(", ");
+        print_f64(positions(i).y);
+        print_string(", ");
+        print_f64(positions(i).z);
+        print_string("\n");
+      }
+      */
+
+      for cell, index in map_over_grid(grid_, range, range, range) {
+        if(cell.size > 0) {
+          print_string("<");
+          print_i32(index(0));
+          print_string(", ");
+          print_i32(index(1));
+          print_string(", ");
+          print_i32(index(2));
+          print_string(">: ");
+          print_i32(cell.size);
+
+          print_string(" (");
+
+          for i in range(0, cell.size) {
+            print_f64(get_z_component(0, cell.positions));
+            print_string(", ");
+          }
+
+          print_string(")\n");
+        }
+      }
+    }
+
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, capacity, cluster_size, capacity * 64); 
 
