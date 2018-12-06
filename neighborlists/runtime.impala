@@ -21,8 +21,8 @@ fn md_initialize_grid(
     grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
 
+    /*
     if(world_rank == 0) {
-      /*
       for i in range(0, nparticles) {
         print_f64(positions(i).x);
         print_string(", ");
@@ -31,7 +31,6 @@ fn md_initialize_grid(
         print_f64(positions(i).z);
         print_string("\n");
       }
-      */
 
       for cell, index in map_over_grid(grid_, range, range, range) {
         if(cell.size > 0) {
@@ -47,7 +46,7 @@ fn md_initialize_grid(
           print_string(" (");
 
           for i in range(0, cell.size) {
-            print_f64(get_z_component(0, cell.positions));
+            print_f64(get_z_component(i, cell.positions));
             print_string(", ");
           }
 
@@ -55,6 +54,7 @@ fn md_initialize_grid(
         }
       }
     }
+    */
 
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, capacity, cluster_size, capacity * 64); 
@@ -132,5 +132,5 @@ fn md_get_comm_time_steps() -> i32 {
 
 extern
 fn md_synchronize_ghost_zone() -> () {
-  mpi_synchronize_ghost_zone(&mut grid_, &mut accelerator_grid_, world_size, world_rank);
+  mpi_synchronize_ghost_zone(&mut grid_, accelerator_grid_, world_size, world_rank);
 }

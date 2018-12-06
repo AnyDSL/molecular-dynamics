@@ -132,4 +132,13 @@ fn @get_positions_y(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
 fn @get_positions_z(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
     bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.z.data, get_alignment()))
 }
+fn @get_velocities_x(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
+    bitcast[&mut[real_t]](align(accelerator_grid.velocities_cpu.x.data, get_alignment()))
+}
+fn @get_velocities_y(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
+    bitcast[&mut[real_t]](align(accelerator_grid.velocities_cpu.y.data, get_alignment()))
+}
+fn @get_velocities_z(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
+    bitcast[&mut[real_t]](align(accelerator_grid.velocities_cpu.z.data, get_alignment()))
+}
 
