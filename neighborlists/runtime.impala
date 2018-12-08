@@ -84,7 +84,7 @@ fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D]
 
 extern
 fn md_redistribute_particles() -> () {
-    redistribute_particles(grid_, alloc_cpu);
+    redistribute_particles(grid_, world_size, world_rank, alloc_cpu);
 }
 
 extern 
