@@ -309,16 +309,16 @@ fn mpi_send_exchange_cells(
         map_over_grid_subdomain(grid, begin, end, range, range, range) {
 
       mpih.send(
-        cell.size as MPI_MutBuf, 1, mpih.int_t,
+        &cell.size as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 0, mpih.comms.world);
       mpih.send(
-        cell.capacity as MPI_MutBuf, 1, mpih.int_t,
+        &cell.capacity as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 1, mpih.comms.world);
       mpih.send(
-        cell.padding as MPI_MutBuf, 1, mpih.int_t,
+        &cell.padding as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 2, mpih.comms.world);
       mpih.send(
-        cell.cluster_size as MPI_MutBuf, 1, mpih.int_t,
+        &cell.cluster_size as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 3, mpih.comms.world);
       mpih.send(
         cell.masses.data as MPI_MutBuf, cell.capacity, mpih.double_t,
@@ -372,16 +372,16 @@ fn mpi_recv_exchange_cells(
         map_over_grid_subdomain(grid, begin, end, range, range, range) {
 
       mpih.recv(
-        cell.size as MPI_MutBuf, 1, mpih.int_t,
+        &cell.size as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 0, mpih.comms.world, &mut status);
       mpih.recv(
-        cell.capacity as MPI_MutBuf, 1, mpih.int_t,
+        &cell.capacity as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 1, mpih.comms.world, &mut status);
       mpih.recv(
-        cell.padding as MPI_MutBuf, 1, mpih.int_t,
+        &cell.padding as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 2, mpih.comms.world, &mut status);
       mpih.recv(
-        cell.cluster_size as MPI_MutBuf, 1, mpih.int_t,
+        &cell.cluster_size as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 3, mpih.comms.world, &mut status);
       mpih.recv(
         cell.masses.data as MPI_MutBuf, cell.capacity, mpih.double_t,
