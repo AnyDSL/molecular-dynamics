@@ -28,6 +28,7 @@ extern "C" {
     void md_mpi_finalize();
     int md_get_comm_time_steps();
     void md_synchronize_ghost_zone();
+    int md_get_world_rank();
 }
 #endif // ANYDSL_INCLUDES
 

@@ -134,3 +134,8 @@ extern
 fn md_synchronize_ghost_zone() -> () {
   mpi_synchronize_ghost_zone(&mut grid_, accelerator_grid_, world_size, world_rank);
 }
+
+extern
+fn md_get_world_rank() -> i32 {
+  world_rank
+}
