@@ -1,4 +1,4 @@
-fn redistribute_particles(grid: &Grid, world_size: i32, world_rank: i32, allocate: fn(i32) -> Buffer) -> () {
+fn redistribute_particles(grid: &mut Grid, world_size: i32, world_rank: i32, allocate: fn(i32) -> Buffer) -> () {
     let cells = get_array_of_cells(grid.cells);
     for cell, cell_index in map_over_grid(grid, range, range, range) {
         let mut i = 0;

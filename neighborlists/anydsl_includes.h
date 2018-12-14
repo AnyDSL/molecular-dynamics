@@ -13,7 +13,7 @@ extern "C" {
     void md_integrate_position(double);
     void md_integrate_velocity(double);
     void md_integration(double);
-    int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *, int);
+    int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_redistribute_particles();
     void md_initialize_clusters(int);
     void md_assemble_neighbor_lists(double);
@@ -29,6 +29,7 @@ extern "C" {
     int md_get_comm_time_steps();
     void md_synchronize_ghost_zone();
     int md_get_world_rank();
+    int md_get_number_of_particles();
 }
 #endif // ANYDSL_INCLUDES
 

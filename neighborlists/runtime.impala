@@ -78,13 +78,13 @@ fn md_integration(dt: real_t) -> () {
 }
 
 extern
-fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], size: i32) -> i32 {
-    write_grid_data_to_arrays(masses, positions, velocities, forces, size, &grid_)
+fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
+    write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
 extern
 fn md_redistribute_particles() -> () {
-    redistribute_particles(grid_, world_size, world_rank, alloc_cpu);
+    redistribute_particles(&mut grid_, world_size, world_rank, alloc_cpu);
 }
 
 extern 
@@ -138,4 +138,9 @@ fn md_synchronize_ghost_zone() -> () {
 extern
 fn md_get_world_rank() -> i32 {
   world_rank
+}
+
+extern
+fn md_get_number_of_particles() -> i32 {
+  grid_.nparticles
 }

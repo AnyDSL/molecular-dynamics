@@ -152,7 +152,8 @@ int main(int argc, char **argv) {
         std::vector<Vector3D> forces(size);
         if(vtk) {
             output_directory = std::string(argv[8]) + std::to_string(md_get_world_rank()) + "/";
-            md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data(), size);
+            md_write_grid_data_to_arrays(
+              masses.data(), positions.data(), velocities.data(), forces.data());
             write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities, forces);
         }
         for(int j = 0; j < steps; ++j) {
@@ -207,12 +208,18 @@ int main(int argc, char **argv) {
 
 
             if(vtk && i == 0) {
-                int nparticles = md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data(), size);
+                int nparticles = md_get_number_of_particles();
+
                 if(nparticles > 0) {
                     masses.resize(nparticles);
                     positions.resize(nparticles);
                     velocities.resize(nparticles);
                     forces.resize(nparticles);
+
+                    md_write_grid_data_to_arrays(
+                      masses.data(), positions.data(), velocities.data(), forces.data()
+                    );
+
                     std::string filename(output_directory + "particles_");
                     filename += std::to_string(j+1);
                     filename += ".vtk";

@@ -1,4 +1,4 @@
-fn @get_comm_time_steps() -> i32 { 1 }
+fn @get_comm_time_steps() -> i32 { 2 }
 
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   let mpih = mpi();
@@ -130,6 +130,7 @@ fn mpi_send_ghost_zone(
       let nparticles = cell.size + cell.padding;
 
       if(nparticles > 0) {
+        /*
         print_i32(world_rank);
         print_string("> send: (");
         print_i32(index(0));
@@ -143,6 +144,7 @@ fn mpi_send_ghost_zone(
         print_i32(offset);
         print_string("\n");
         print_flush();
+        */
 
         mpih.send(
           &get_positions_x(accelerator_grid)(offset) as MPI_MutBuf,
@@ -198,6 +200,7 @@ fn mpi_recv_ghost_zone(
       let nparticles = cell.size + cell.padding;
 
       if(nparticles > 0) {
+        /*
         print_i32(world_rank);
         print_string("> recv: (");
         print_i32(index(0));
@@ -211,6 +214,7 @@ fn mpi_recv_ghost_zone(
         print_i32(offset);
         print_string("\n");
         print_flush();
+        */
 
         mpih.recv(
           &get_positions_x(accelerator_grid)(offset) as MPI_MutBuf,
@@ -296,7 +300,7 @@ fn mpi_synchronize_ghost_zone(
 }
 
 fn mpi_send_exchange_cells(
-  grid: &Grid,
+  grid: &mut Grid,
   world_size: i32,
   world_rank: i32) -> () {
 
@@ -312,53 +316,69 @@ fn mpi_send_exchange_cells(
         &cell.size as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 0, mpih.comms.world);
       mpih.send(
-        &cell.capacity as MPI_MutBuf, 1, mpih.int_t,
-        dest_rank, 1, mpih.comms.world);
-      mpih.send(
         &cell.padding as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 2, mpih.comms.world);
       mpih.send(
         &cell.cluster_size as MPI_MutBuf, 1, mpih.int_t,
         dest_rank, 3, mpih.comms.world);
-      mpih.send(
-        cell.masses.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 4, mpih.comms.world);
 
-      mpih.send(
-        cell.positions.x.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 5, mpih.comms.world);
-      mpih.send(
-        cell.positions.y.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 6, mpih.comms.world);
-      mpih.send(
-        cell.positions.z.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 7, mpih.comms.world);
+      let nparticles = cell.size + cell.padding;
 
-      mpih.send(
-        cell.velocities.x.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 8, mpih.comms.world);
-      mpih.send(
-        cell.velocities.y.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 9, mpih.comms.world);
-      mpih.send(
-        cell.velocities.z.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 10, mpih.comms.world);
+      if(nparticles > 0) {
+        /*
+        print_i32(world_rank);
+        print_string("> exchange_send: (");
+        print_i32(index(0));
+        print_string(", ");
+        print_i32(index(1));
+        print_string(", ");
+        print_i32(index(2));
+        print_string("), nparticles: ");
+        print_i32(nparticles);
+        print_string("\n");
+        print_flush();
+        */
 
-      mpih.send(
-        cell.forces.x.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 11, mpih.comms.world);
-      mpih.send(
-        cell.forces.y.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 12, mpih.comms.world);
-      mpih.send(
-        cell.forces.z.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        dest_rank, 13, mpih.comms.world);
+        mpih.send(
+          cell.masses.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 4, mpih.comms.world);
+
+        mpih.send(
+          cell.positions.x.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 5, mpih.comms.world);
+        mpih.send(
+          cell.positions.y.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 6, mpih.comms.world);
+        mpih.send(
+          cell.positions.z.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 7, mpih.comms.world);
+
+        mpih.send(
+          cell.velocities.x.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 8, mpih.comms.world);
+        mpih.send(
+          cell.velocities.y.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 9, mpih.comms.world);
+        mpih.send(
+          cell.velocities.z.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 10, mpih.comms.world);
+
+        mpih.send(
+          cell.forces.x.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 11, mpih.comms.world);
+        mpih.send(
+          cell.forces.y.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 12, mpih.comms.world);
+        mpih.send(
+          cell.forces.z.data as MPI_MutBuf, nparticles, mpih.double_t,
+          dest_rank, 13, mpih.comms.world);
+      }
     }
   }
 }
 
 fn mpi_recv_exchange_cells(
-  grid: &Grid,
+  grid: &mut Grid,
   world_size: i32,
   world_rank: i32) -> () {
 
@@ -371,57 +391,81 @@ fn mpi_recv_exchange_cells(
     for cell, index in
         map_over_grid_subdomain(grid, begin, end, range, range, range) {
 
+      let old_nparticles = cell.size + cell.padding;
+
       mpih.recv(
         &cell.size as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 0, mpih.comms.world, &mut status);
-      mpih.recv(
-        &cell.capacity as MPI_MutBuf, 1, mpih.int_t,
-        source_rank, 1, mpih.comms.world, &mut status);
       mpih.recv(
         &cell.padding as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 2, mpih.comms.world, &mut status);
       mpih.recv(
         &cell.cluster_size as MPI_MutBuf, 1, mpih.int_t,
         source_rank, 3, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.masses.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 4, mpih.comms.world, &mut status);
 
-      mpih.recv(
-        cell.positions.x.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 5, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.positions.y.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 6, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.positions.z.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 7, mpih.comms.world, &mut status);
+      if(cell.size >= cell.capacity) {
+        reallocate_cell(cell.size, cell, alloc_cpu);
+      }
 
-      mpih.recv(
-        cell.velocities.x.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 8, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.velocities.y.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 9, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.velocities.z.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 10, mpih.comms.world, &mut status);
+      let nparticles = cell.size + cell.padding;
 
-      mpih.recv(
-        cell.forces.x.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 11, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.forces.y.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 12, mpih.comms.world, &mut status);
-      mpih.recv(
-        cell.forces.z.data as MPI_MutBuf, cell.capacity, mpih.double_t,
-        source_rank, 13, mpih.comms.world, &mut status);
+      grid.nparticles += nparticles - old_nparticles;
+
+      if(nparticles > 0) {
+        /*
+        print_i32(world_rank);
+        print_string("> exchange_recv: (");
+        print_i32(index(0));
+        print_string(", ");
+        print_i32(index(1));
+        print_string(", ");
+        print_i32(index(2));
+        print_string("), nparticles: ");
+        print_i32(nparticles);
+        print_string("\n");
+        print_flush();
+        */
+
+        mpih.recv(
+          cell.masses.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 4, mpih.comms.world, &mut status);
+
+        mpih.recv(
+          cell.positions.x.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 5, mpih.comms.world, &mut status);
+        mpih.recv(
+          cell.positions.y.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 6, mpih.comms.world, &mut status);
+        mpih.recv(
+          cell.positions.z.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 7, mpih.comms.world, &mut status);
+
+        mpih.recv(
+          cell.velocities.x.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 8, mpih.comms.world, &mut status);
+        mpih.recv(
+          cell.velocities.y.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 9, mpih.comms.world, &mut status);
+        mpih.recv(
+          cell.velocities.z.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 10, mpih.comms.world, &mut status);
+
+        mpih.recv(
+          cell.forces.x.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 11, mpih.comms.world, &mut status);
+        mpih.recv(
+          cell.forces.y.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 12, mpih.comms.world, &mut status);
+        mpih.recv(
+          cell.forces.z.data as MPI_MutBuf, nparticles, mpih.double_t,
+          source_rank, 13, mpih.comms.world, &mut status);
+      }
     }
   }
 }
 
 fn mpi_exchange_ghost_zone(
-  grid: &Grid,
+  grid: &mut Grid,
   world_size: i32,
   world_rank: i32) -> () {
 

@@ -156,34 +156,26 @@ fn @flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
     (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
 }
 
-fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], size: i32, grid: &Grid) -> i32 {
-    if(size < (*grid).nparticles) {
-        print_string("The arrays are too small for storing ");
-        print_i32(grid.nparticles);
-        print_string(" particles!\n");
-        0
-    }
-    else {
-        let mut array_index = 0;
-        for cell, cell_index in map_over_grid(grid, range, range, range) {
-            for k in range(0, cell.size) {
-                /*print_string("Mass: ");
-                print_f64(get_real(k, (*cell).masses));
-                print_string("Position: ");
-                print_vector(get_vector(k, (*cell).positions));
-                print_string("Velocity: ");
-                print_vector(get_vector(k, (*cell).velocities));
-                */
-                masses(array_index) = get_real(k, (*cell).masses);
-                positions(array_index) = get_vector_from_struct_of_arrays(k, (*cell).positions);
-                velocities(array_index) = get_vector_from_struct_of_arrays(k, (*cell).velocities);
-                forces(array_index) = get_vector_from_struct_of_arrays(k, (*cell).forces);
+fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], grid: &Grid) -> i32 {
+    let mut array_index = 0;
+    for cell, cell_index in map_over_grid(grid, range, range, range) {
+        for k in range(0, cell.size) {
+            /*print_string("Mass: ");
+            print_f64(get_real(k, (*cell).masses));
+            print_string("Position: ");
+            print_vector(get_vector(k, (*cell).positions));
+            print_string("Velocity: ");
+            print_vector(get_vector(k, (*cell).velocities));
+            */
+            masses(array_index) = get_real(k, (*cell).masses);
+            positions(array_index) = get_vector_from_struct_of_arrays(k, (*cell).positions);
+            velocities(array_index) = get_vector_from_struct_of_arrays(k, (*cell).velocities);
+            forces(array_index) = get_vector_from_struct_of_arrays(k, (*cell).forces);
 
-                ++array_index;
-            }
+            ++array_index;
         }
-        array_index
     }
+    array_index
 }
 
 fn print_grid(grid: &Grid) -> () {
