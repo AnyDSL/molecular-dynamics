@@ -362,13 +362,16 @@ fn mpi_send_exchange_cells(
   for dest_rank, begin, end in
       mpi_send_subdomains(world_size, world_rank, *grid) {
 
-    rank_send_particles(dest_rank) = 0;
-
     let rank_buffer_particles =
       rank_send_particles(dest_rank) + rank_send_particles(dest_rank) / 2;
 
+    let rank_data_length =
+      rank_buffer_particles + rank_buffer_particles * 3 * 3;
+
     let buffer_data = get_array_of_reals(mpi_buffer);
     let mut buffer_ptr = 0;
+
+    rank_send_particles(dest_rank) = 0;
 
     for cell, index in
         map_over_grid_subdomain(grid, begin, end, range, range, range) {
@@ -405,7 +408,7 @@ fn mpi_send_exchange_cells(
     }
 
     mpih.send(
-      buffer_data as MPI_MutBuf, buffer_length,
+      buffer_data as MPI_MutBuf, dims_length + rank_data_length,
       mpih.double_t, dest_rank, 0, mpih.comms.world);
 
     if(max_send_particles < rank_send_particles(dest_rank)) {
@@ -437,11 +440,14 @@ fn mpi_recv_exchange_cells(
     let rank_buffer_particles =
       rank_recv_particles(source_rank) + rank_recv_particles(source_rank) / 2;
 
+    let rank_data_length =
+      rank_buffer_particles + rank_buffer_particles * 3 * 3;
+
     let buffer_data = get_array_of_reals(mpi_buffer);
     let mut buffer_ptr = 0;
 
     mpih.recv(
-      buffer_data as MPI_MutBuf, buffer_length,
+      buffer_data as MPI_MutBuf, dims_length + rank_data_length,
       mpih.double_t, source_rank, 0, mpih.comms.world, &mut status);
 
     rank_recv_particles(source_rank) = 0;
