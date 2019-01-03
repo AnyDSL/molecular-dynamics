@@ -18,7 +18,7 @@ extern "C" {
     fn MPI_Send(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm) -> i32;
     fn MPI_Recv(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, MPI_Status) -> i32;
     fn MPI_Irecv(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, &MPI_Request) -> i32;
-    fn MPI_Wait(&MPI_Request, &mut MPI_Status) -> i32;
+    fn MPI_Wait(&MPI_Request, MPI_Status) -> i32;
     fn MPI_Probe(i32, i32, MPI_Comm, MPI_Status) -> i32;
     fn MPI_Get_count(MPI_Status, MPI_Datatype, &mut i32) -> i32;
     fn MPI_Gather(MPI_Buf, i32, MPI_Datatype, MPI_MutBuf, i32, MPI_Datatype, i32, MPI_Comm) -> i32;
@@ -72,7 +72,7 @@ struct MPI {
     send : fn(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm) -> i32,
     recv : fn(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, &mut MPIStatus) -> i32,
     irecv : fn(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, &MPI_Request) -> i32,
-    wait : fn(&MPI_Request, &mut MPI_Status) -> i32,
+    wait : fn(&MPI_Request, &mut MPIStatus) -> i32,
     probe: fn(i32, i32, MPI_Comm, &mut MPIStatus) -> i32,
     get_count: fn(&mut MPIStatus, MPI_Datatype, &mut i32) -> i32,
     gather: fn(MPI_Buf, i32, MPI_Datatype, MPI_MutBuf, i32, MPI_Datatype, i32, MPI_Comm) -> i32,
@@ -105,7 +105,9 @@ fn @mpi() -> MPI {
             MPI_Recv(buf, count, datatype, source, tag, comm, status as MPI_Status)
         },
         irecv : MPI_Irecv,
-        wait : MPI_Wait,
+        wait : @|request, status| {
+          MPI_Wait(request, status as MPI_Status)
+        },
         probe: @|source, tag, comm, status| {
             MPI_Probe(source, tag, comm, status as MPI_Status)
         },
