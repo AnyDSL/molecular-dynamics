@@ -11,31 +11,7 @@ struct Grid {
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
-    let nz = math.floor(((aabb.max(2) - aabb.min(2)) / cell_spacing) as f64) as i32;
-
-    print_string("aabb.min = {");
-    print_f64(aabb.min(0));
-    print_string(", ");
-    print_f64(aabb.min(1));
-    print_string(", ");
-    print_f64(aabb.min(2));
-    print_string("}\n");
-
-    print_string("aabb.max = {");
-    print_f64(aabb.max(0));
-    print_string(", ");
-    print_f64(aabb.max(1));
-    print_string(", ");
-    print_f64(aabb.max(2));
-    print_string("}\n");
-
-    print_string("nx, ny, nz = ");
-    print_i32(nx);
-    print_string(" ");
-    print_i32(ny);
-    print_string(" ");
-    print_i32(nz);
-    print_string("\n");
+    let nz = math.floor(((aabb.max(2) - aabb.min(2) + (cell_spacing / 2.0)) / cell_spacing) as f64) as i32;
 
     let grid = Grid {
         aabb: aabb,
@@ -110,9 +86,32 @@ fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: 
     print_string("\n");
     print_i32(cell_index(2));
     print_string("\n");*/
-    let cells = get_array_of_cells((*grid).cells);
-    let cell = &mut cells(flatten_index(cell_index, grid));
-    append_particle(mass, position, velocity, cell, allocate);
+
+    if(
+      cell_index(0) < grid.nx &&
+      cell_index(1) < grid.ny &&
+      cell_index(2) < grid.nz
+    ) {
+      let cells = get_array_of_cells((*grid).cells);
+      let cell = &mut cells(flatten_index(cell_index, grid));
+      append_particle(mass, position, velocity, cell, allocate);
+    } else {
+      print_string("INVALID INDEX!\n");
+      print_string("index = ");
+      print_i32(cell_index(0));
+      print_string(",");
+      print_i32(cell_index(1));
+      print_string(",");
+      print_i32(cell_index(2));
+      print_string(" and nx, ny, nz = ");
+      print_i32(grid.nx);
+      print_string(",");
+      print_i32(grid.ny);
+      print_string(",");
+      print_i32(grid.nz);
+      print_string("\n");
+      print_flush();
+    }
 }
 
 fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {

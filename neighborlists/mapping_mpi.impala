@@ -3,7 +3,7 @@ static mut max_recv_particles : i32;
 static mut rank_send_particles : [i32 * 8];
 static mut rank_recv_particles : [i32 * 8];
 
-fn @get_comm_time_steps() -> i32 { 1 }
+fn @get_comm_time_steps() -> i32 { 2 }
 
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   let mpih = mpi();
@@ -18,52 +18,6 @@ fn mpi_finalize() -> () {
   let mpih = mpi();
 
   mpih.finalize();
-}
-
-fn mpi_send_subdomains(
-  world_size: i32,
-  rank: i32,
-  grid: Grid,
-  body: fn(i32, [i32 * 3], [i32 * 3]) -> ()) -> () {
-
-  if(rank > 0) {
-    body(
-      rank - 1,
-      [0, 0, get_comm_time_steps()],
-      [grid.nx, grid.ny, get_comm_time_steps() * 2]
-    );
-  }
-
-  if(rank < world_size - 1) {
-    body(
-      rank + 1,
-      [0, 0, grid.nz - get_comm_time_steps() * 2],
-      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()]
-    );
-  }
-}
-
-fn mpi_receive_subdomains(
-  world_size: i32,
-  rank: i32,
-  grid: Grid,
-  body: fn(i32, [i32 * 3], [i32 * 3]) -> ()) -> () {
-
-  if(rank < world_size - 1) {
-    body(
-      rank + 1,
-      [0, 0, grid.nz - get_comm_time_steps()],
-      [grid.nx, grid.ny, grid.nz]
-    );
-  }
-
-  if(rank > 0) {
-    body(
-      rank - 1,
-      [0, 0, 0],
-      [grid.nx, grid.ny, get_comm_time_steps()]
-    );
-  }
 }
 
 fn mpi_exchange_subdomains(
@@ -151,33 +105,28 @@ fn mpi_initialize_grid_comm(
   max_send_particles = 0;
   max_recv_particles = 0;
 
-  for dest_rank, begin, end in
-      mpi_send_subdomains(world_size, world_rank, grid) {
+  for exchange_rank, send_begin, send_end, recv_begin, recv_end in
+      mpi_exchange_subdomains(world_size, world_rank, grid) {
 
-    rank_send_particles(dest_rank) = 0;
-
-    for cell, index in
-        map_over_grid_subdomain(grid, begin, end, range, range, range) {
-      rank_send_particles(dest_rank) += cell.size + cell.padding;
-    }
-
-    if(max_send_particles < rank_send_particles(dest_rank)) {
-      max_send_particles = rank_send_particles(dest_rank);
-    }
-  }
-
-  for source_rank, begin, end in
-      mpi_receive_subdomains(world_size, world_rank, grid) {
-
-    rank_recv_particles(source_rank) = 0;
+    rank_send_particles(exchange_rank) = 0;
+    rank_recv_particles(exchange_rank) = 0;
 
     for cell, index in
-        map_over_grid_subdomain(grid, begin, end, range, range, range) {
-      rank_recv_particles(source_rank) += cell.size + cell.padding;
+        map_over_grid_subdomain(grid, send_begin, send_end, range, range, range) {
+      rank_send_particles(exchange_rank) += cell.size + cell.padding;
     }
 
-    if(max_recv_particles < rank_recv_particles(source_rank)) {
-      max_recv_particles = rank_recv_particles(source_rank);
+    for cell, index in
+        map_over_grid_subdomain(grid, recv_begin, recv_end, range, range, range) {
+      rank_recv_particles(exchange_rank) += cell.size + cell.padding;
+    }
+
+    if(max_send_particles < rank_send_particles(exchange_rank)) {
+      max_send_particles = rank_send_particles(exchange_rank);
+    }
+
+    if(max_recv_particles < rank_recv_particles(exchange_rank)) {
+      max_recv_particles = rank_recv_particles(exchange_rank);
     }
   }
 }
@@ -306,8 +255,16 @@ fn mpi_synchronize_ghost_zone(
   let mut request: MPI_Request;
   let mut status: MPIStatus;
 
+  print_i32(world_rank);
+  print_string("> alloc_cpu\n");
+  print_flush();
+
   let mpi_send_buffer = alloc_cpu(sizeof[real_t]() * (max_send_particles * 3 * 3));
   let mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * (max_recv_particles * 3 * 3));
+
+  print_i32(world_rank);
+  print_string("> mpi_synchronize_ghost_zone\n");
+  print_flush();
 
   let total_number_of_particles =
     accelerator_grid.total_number_of_clusters *
@@ -331,20 +288,40 @@ fn mpi_synchronize_ghost_zone(
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
 
+    print_i32(world_rank);
+    print_string("> mpi_pack_ghost_zone\n");
+    print_flush();
+
     mpi_pack_ghost_zone(
       mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
+
+    print_i32(world_rank);
+    print_string("> mpi_irecv\n");
+    print_flush();
 
     mpih.irecv(
       bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
       rank_recv_particles(exchange_rank) * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
+    print_i32(world_rank);
+    print_string("> mpi_send\n");
+    print_flush();
+
     mpih.send(
       bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
       rank_send_particles(exchange_rank) * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
+    print_i32(world_rank);
+    print_string("> mpi_wait\n");
+    print_flush();
+
     mpih.wait(&mut request, &mut status);
+
+    print_i32(world_rank);
+    print_string("> mpi_unpack_ghost_zone\n");
+    print_flush();
 
     mpi_unpack_ghost_zone(
       mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
@@ -481,14 +458,18 @@ fn mpi_exchange_ghost_zone(
 
   let dims_length = 3 * grid.nx * grid.ny * get_comm_time_steps();
   let send_particles = max_send_particles + max_send_particles / 2;
-  let send_length = send_particles + send_particles * 3 * 3;
   let recv_particles = max_recv_particles + max_recv_particles / 2;
+  let send_length = send_particles + send_particles * 3 * 3;
   let recv_length = recv_particles + recv_particles * 3 * 3;
   let mpi_send_buffer = alloc_cpu(sizeof[real_t]() * (dims_length + send_length));
   let mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * (dims_length + recv_length));
 
   max_send_particles = 0;
   max_recv_particles = 0;
+
+  print_i32(world_rank);
+  print_string("> mpi_exchange_ghost_zone\n");
+  print_flush();
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
