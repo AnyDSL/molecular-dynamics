@@ -2,6 +2,10 @@ static mut max_send_particles : i32;
 static mut max_recv_particles : i32;
 static mut rank_send_particles : [i32 * 8];
 static mut rank_recv_particles : [i32 * 8];
+static mut mpi_send_buffer_size : i32;
+static mut mpi_recv_buffer_size : i32;
+static mut mpi_send_buffer : Buffer;
+static mut mpi_recv_buffer : Buffer;
 
 fn @get_comm_time_steps() -> i32 { 2 }
 
@@ -10,6 +14,9 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 
   mpih.init();
 
+  mpi_send_buffer_size = 0;
+  mpi_recv_buffer_size = 0;
+
   mpih.comm_size(mpih.comms.world, world_size);
   mpih.comm_rank(mpih.comms.world, world_rank);
 }
@@ -17,7 +24,35 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 fn mpi_finalize() -> () {
   let mpih = mpi();
 
+  if(mpi_send_buffer_size > 0) {
+    release(mpi_send_buffer);
+  }
+
+  if(mpi_recv_buffer_size > 0) {
+    release(mpi_recv_buffer);
+  }
+
   mpih.finalize();
+}
+
+fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
+  if(send_size > mpi_send_buffer_size) {
+    if(mpi_send_buffer_size > 0) {
+      release(mpi_send_buffer);
+    }
+
+    mpi_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
+    mpi_send_buffer_size = send_size;
+  }
+
+  if(recv_size > mpi_recv_buffer_size) {
+    if(mpi_recv_buffer_size > 0) {
+      release(mpi_recv_buffer);
+    }
+
+    mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
+    mpi_recv_buffer_size = recv_size;
+  }
 }
 
 fn mpi_exchange_subdomains(
@@ -256,10 +291,9 @@ fn mpi_synchronize_ghost_zone(
   let mut status: MPIStatus;
 
   print_i32(world_rank);
-  print_string("> alloc_cpu\n");
+  print_string("> resize_mpi_buffers\n");
 
-  let mpi_send_buffer = alloc_cpu(sizeof[real_t]() * (max_send_particles * 3 * 3));
-  let mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * (max_recv_particles * 3 * 3));
+  resize_mpi_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
 
   print_i32(world_rank);
   print_string("> mpi_synchronize_ghost_zone\n");
@@ -334,9 +368,6 @@ fn mpi_synchronize_ghost_zone(
     accelerator_grid.forces_cpu,
     accelerator_grid.forces_accelerator,
     total_number_of_particles);
-
-  release(mpi_send_buffer);
-  release(mpi_recv_buffer);
 }
 
 fn mpi_pack_exchange_cells(
@@ -454,8 +485,8 @@ fn mpi_exchange_ghost_zone(
   let recv_particles = max_recv_particles + max_recv_particles / 2;
   let send_length = send_particles + send_particles * 3 * 3;
   let recv_length = recv_particles + recv_particles * 3 * 3;
-  let mpi_send_buffer = alloc_cpu(sizeof[real_t]() * (dims_length + send_length));
-  let mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * (dims_length + recv_length));
+
+  resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
   max_send_particles = 0;
   max_recv_particles = 0;
@@ -497,7 +528,4 @@ fn mpi_exchange_ghost_zone(
       max_recv_particles = rank_recv_particles(exchange_rank);
     }
   }
-
-  release(mpi_send_buffer);
-  release(mpi_recv_buffer);
 }
