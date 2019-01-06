@@ -87,31 +87,9 @@ fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: 
     print_i32(cell_index(2));
     print_string("\n");*/
 
-    if(
-      cell_index(0) < grid.nx &&
-      cell_index(1) < grid.ny &&
-      cell_index(2) < grid.nz
-    ) {
-      let cells = get_array_of_cells((*grid).cells);
-      let cell = &mut cells(flatten_index(cell_index, grid));
-      append_particle(mass, position, velocity, cell, allocate);
-    } else {
-      print_string("INVALID INDEX!\n");
-      print_string("index = ");
-      print_i32(cell_index(0));
-      print_string(",");
-      print_i32(cell_index(1));
-      print_string(",");
-      print_i32(cell_index(2));
-      print_string(" and nx, ny, nz = ");
-      print_i32(grid.nx);
-      print_string(",");
-      print_i32(grid.ny);
-      print_string(",");
-      print_i32(grid.nz);
-      print_string("\n");
-      print_flush();
-    }
+    let cells = get_array_of_cells((*grid).cells);
+    let cell = &mut cells(flatten_index(cell_index, grid));
+    append_particle(mass, position, velocity, cell, allocate);
 }
 
 fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {

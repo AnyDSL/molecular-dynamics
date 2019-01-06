@@ -257,14 +257,12 @@ fn mpi_synchronize_ghost_zone(
 
   print_i32(world_rank);
   print_string("> alloc_cpu\n");
-  print_flush();
 
   let mpi_send_buffer = alloc_cpu(sizeof[real_t]() * (max_send_particles * 3 * 3));
   let mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * (max_recv_particles * 3 * 3));
 
   print_i32(world_rank);
   print_string("> mpi_synchronize_ghost_zone\n");
-  print_flush();
 
   let total_number_of_particles =
     accelerator_grid.total_number_of_clusters *
@@ -290,14 +288,12 @@ fn mpi_synchronize_ghost_zone(
 
     print_i32(world_rank);
     print_string("> mpi_pack_ghost_zone\n");
-    print_flush();
 
     mpi_pack_ghost_zone(
       mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
 
     print_i32(world_rank);
     print_string("> mpi_irecv\n");
-    print_flush();
 
     mpih.irecv(
       bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
@@ -306,7 +302,6 @@ fn mpi_synchronize_ghost_zone(
 
     print_i32(world_rank);
     print_string("> mpi_send\n");
-    print_flush();
 
     mpih.send(
       bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
@@ -315,13 +310,11 @@ fn mpi_synchronize_ghost_zone(
 
     print_i32(world_rank);
     print_string("> mpi_wait\n");
-    print_flush();
 
     mpih.wait(&mut request, &mut status);
 
     print_i32(world_rank);
     print_string("> mpi_unpack_ghost_zone\n");
-    print_flush();
 
     mpi_unpack_ghost_zone(
       mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
@@ -469,7 +462,6 @@ fn mpi_exchange_ghost_zone(
 
   print_i32(world_rank);
   print_string("> mpi_exchange_ghost_zone\n");
-  print_flush();
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
