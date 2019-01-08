@@ -290,13 +290,7 @@ fn mpi_synchronize_ghost_zone(
   let mut request: MPI_Request;
   let mut status: MPIStatus;
 
-  print_i32(world_rank);
-  print_string("> resize_mpi_buffers\n");
-
   resize_mpi_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
-
-  print_i32(world_rank);
-  print_string("> mpi_synchronize_ghost_zone\n");
 
   let total_number_of_particles =
     accelerator_grid.total_number_of_clusters *
@@ -320,35 +314,20 @@ fn mpi_synchronize_ghost_zone(
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
 
-    print_i32(world_rank);
-    print_string("> mpi_pack_ghost_zone\n");
-
     mpi_pack_ghost_zone(
       mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
-
-    print_i32(world_rank);
-    print_string("> mpi_irecv\n");
 
     mpih.irecv(
       bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
       rank_recv_particles(exchange_rank) * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
-    print_i32(world_rank);
-    print_string("> mpi_send\n");
-
     mpih.send(
       bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
       rank_send_particles(exchange_rank) * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
-    print_i32(world_rank);
-    print_string("> mpi_wait\n");
-
     mpih.wait(&mut request, &mut status);
-
-    print_i32(world_rank);
-    print_string("> mpi_unpack_ghost_zone\n");
 
     mpi_unpack_ghost_zone(
       mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
@@ -490,9 +469,6 @@ fn mpi_exchange_ghost_zone(
 
   max_send_particles = 0;
   max_recv_particles = 0;
-
-  print_i32(world_rank);
-  print_string("> mpi_exchange_ghost_zone\n");
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
