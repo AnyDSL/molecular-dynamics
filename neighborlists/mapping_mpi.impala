@@ -41,7 +41,7 @@ fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
       release(mpi_send_buffer);
     }
 
-    mpi_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
+    mpi_send_buffer = alloc_cpu(sizeof[real_t]() * get_cluster_size() * send_size);
     mpi_send_buffer_size = send_size;
   }
 
@@ -50,7 +50,7 @@ fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
       release(mpi_recv_buffer);
     }
 
-    mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
+    mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * get_cluster_size() * recv_size);
     mpi_recv_buffer_size = recv_size;
   }
 }
