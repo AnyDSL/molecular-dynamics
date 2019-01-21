@@ -7,7 +7,7 @@ static mut mpi_recv_buffer_size : i32;
 static mut mpi_send_buffer : Buffer;
 static mut mpi_recv_buffer : Buffer;
 
-fn @get_comm_time_steps() -> i32 { 2 }
+fn @get_comm_time_steps() -> i32 { 1 }
 
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   let mpih = mpi();
@@ -62,7 +62,7 @@ fn mpi_exchange_subdomains(
   body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
 
   if(rank < world_size - 1) {
-    body(
+    @@body(
       rank + 1,
       [0, 0, grid.nz - get_comm_time_steps() * 2],
       [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
@@ -72,7 +72,7 @@ fn mpi_exchange_subdomains(
   }
 
   if(rank > 0) {
-    body(
+    @@body(
       rank - 1,
       [0, 0, get_comm_time_steps()],
       [grid.nx, grid.ny, get_comm_time_steps() * 2],
