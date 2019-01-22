@@ -180,7 +180,7 @@ fn mpi_pack_ghost_zone(
     let flat_index = flatten_index(index, grid);
     let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
     let offset = cell_offsets(flat_index);
-    let nparticles = cell.size + cell.padding;
+    let nparticles = cell.size;
 
     if(nparticles > 0) {
       buffer_ptr += copy_struct_of_arrays_to_buffer(
@@ -212,7 +212,7 @@ fn mpi_unpack_ghost_zone(
     let flat_index = flatten_index(index, grid);
     let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
     let offset = cell_offsets(flat_index);
-    let nparticles = cell.size + cell.padding;
+    let nparticles = cell.size;
 
     if(nparticles > 0) {
       buffer_ptr += copy_buffer_to_struct_of_arrays(
