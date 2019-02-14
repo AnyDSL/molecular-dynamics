@@ -6,8 +6,17 @@ static mut mpi_send_buffer_size : i32;
 static mut mpi_recv_buffer_size : i32;
 static mut mpi_send_buffer : Buffer;
 static mut mpi_recv_buffer : Buffer;
+static mut node_dims : [i32 * 3];
 
 fn @get_comm_time_steps() -> i32 { 1 }
+
+fn @flat_index(index: [i32 * 3], nx: i32, ny: i32) -> i32 {
+  (index(2) * ny + index(1)) * nx + index(0)
+}
+
+fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32) -> [i32 * 3] {
+  [index % nx, (index / nx) % ny, index / (nx * ny)]
+}
 
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   let mpih = mpi();
@@ -55,7 +64,7 @@ fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
   }
 }
 
-fn mpi_exchange_subdomains(
+fn mpi_exchange_subdomains_1d(
   world_size: i32,
   rank: i32,
   grid: Grid,
@@ -82,7 +91,7 @@ fn mpi_exchange_subdomains(
   }
 }
 
-fn @mpi_get_rank_bounding_box(
+fn @mpi_get_rank_bounding_box_1d(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,
@@ -129,6 +138,251 @@ fn @mpi_get_rank_bounding_box(
   AABB {
     min: [grid_aabb.min(0), grid_aabb.min(1), zmin],
     max: [grid_aabb.max(0), grid_aabb.max(1), zmax]
+  }
+}
+
+fn mpi_exchange_subdomains(
+  world_size: i32,
+  rank: i32,
+  grid: Grid,
+  body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
+
+  let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+
+  if(rank_index(0) < node_dims(0) - 1) {
+    @@body(
+      flat_index(
+        [rank_index(0) + 1, rank_index(1), rank_index(2)],
+        node_dims(0), node_dims(1)),
+      [grid.nx - get_comm_time_steps() * 2, 0, 0],
+      [grid.nx - get_comm_time_steps(), grid.ny, grid.nz],
+      [grid.nx - get_comm_time_steps(), 0, 0],
+      [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  if(rank_index(0) > 0) {
+    @@body(
+      flat_index(
+        [rank_index(0) - 1, rank_index(1), rank_index(2)],
+        node_dims(0), node_dims(1)),
+      [get_comm_time_steps(), 0, 0],
+      [get_comm_time_steps() * 2, grid.ny, grid.nz],
+      [0, 0, 0],
+      [get_comm_time_steps(), grid.ny, grid.nz]
+    );
+  }
+
+  if(rank_index(1) < node_dims(1) - 1) {
+    @@body(
+      flat_index(
+        [rank_index(0), rank_index(1) + 1, rank_index(2)],
+        node_dims(0), node_dims(1)),
+      [0, grid.ny - get_comm_time_steps() * 2, 0],
+      [grid.nx, grid.ny - get_comm_time_steps(), grid.nz],
+      [0, grid.ny - get_comm_time_steps(), 0],
+      [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  if(rank_index(1) > 0) {
+    @@body(
+      flat_index(
+        [rank_index(0), rank_index(1) - 1, rank_index(2)],
+        node_dims(0), node_dims(1)),
+      [0, get_comm_time_steps(), 0],
+      [grid.nx, get_comm_time_steps() * 2, grid.nz],
+      [0, 0, 0],
+      [grid.nx, get_comm_time_steps(), grid.nz]
+    );
+  }
+
+  if(rank_index(2) < node_dims(2) - 1) {
+    @@body(
+      flat_index(
+        [rank_index(0), rank_index(1), rank_index(2) + 1],
+        node_dims(0), node_dims(1)),
+      [0, 0, grid.nz - get_comm_time_steps() * 2],
+      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
+      [0, 0, grid.nz - get_comm_time_steps()],
+      [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  if(rank_index(2) > 0) {
+    @@body(
+      flat_index(
+        [rank_index(0), rank_index(1), rank_index(2) - 1],
+        node_dims(0), node_dims(1)),
+      [0, 0, get_comm_time_steps()],
+      [grid.nx, grid.ny, get_comm_time_steps() * 2],
+      [0, 0, 0],
+      [grid.nx, grid.ny, get_comm_time_steps()]
+    );
+  }
+}
+
+fn get_node_config(
+  world_size: i32,
+  rank: i32,
+  xcells: i32,
+  ycells: i32,
+  zcells: i32) -> [i32 * 3] {
+
+  let mut gx = 0;
+  let mut gy = 0;
+  let mut gz = 0;
+  let mut min_missing_factor = xcells * ycells * zcells;
+
+  /*
+  print_string("Cells = ");
+  print_i32(xcells);
+  print_string(", ");
+  print_i32(ycells);
+  print_string(", ");
+  print_i32(zcells);
+  print_string("\n");
+  */
+
+  for i in range(1, world_size) {
+    if(world_size % i == 0) {
+      let rem_yz = world_size / i;
+
+      for j in range(1, rem_yz) {
+        if(rem_yz % j == 0) {
+          let k = rem_yz / j;
+          let missing_factor = xcells % i + ycells % j + zcells % k;
+
+          if(min_missing_factor > missing_factor) {
+            gx = i;
+            gy = j;
+            gz = k;
+            min_missing_factor = missing_factor;
+          }
+        }
+      }
+    }
+  }
+
+  /*
+  print_string("Found config: (");
+  print_i32(gx);
+  print_string(", ");
+  print_i32(gy);
+  print_string(", ");
+  print_i32(gz);
+  print_string(")\n");
+
+  let uidx = unflat_index(rank, gx, gy, gz);
+
+  print_string("Rank index(");
+  print_i32(rank);
+  print_string(") = (");
+  print_i32(uidx(0));
+  print_string(", ");
+  print_i32(uidx(1));
+  print_string(", ");
+  print_i32(uidx(2));
+  print_string(") = ");
+  print_i32(flat_index(uidx, gx, gy));
+  print_string("\n");
+  */
+
+  [gx, gy, gz]
+}
+
+fn @mpi_get_rank_bounding_box(
+  world_size: i32,
+  rank: i32,
+  cell_spacing: f64,
+  aabb: AABB) -> AABB {
+
+  let mut xmin: f64;
+  let mut xmax: f64;
+  let mut ymin: f64;
+  let mut ymax: f64;
+  let mut zmin: f64;
+  let mut zmax: f64;
+
+  if(world_size > 1) {
+    let xcells = math.floor((aabb.max(0) - aabb.min(0)) / cell_spacing) as i32;
+    let ycells = math.floor((aabb.max(1) - aabb.min(1)) / cell_spacing) as i32;
+    let zcells = math.floor((aabb.max(2) - aabb.min(2)) / cell_spacing) as i32;
+
+    node_dims = get_node_config(world_size, rank, xcells, ycells, zcells);
+
+    let xlength = (xcells / node_dims(0)) as f64 * cell_spacing;
+    let ylength = (ycells / node_dims(1)) as f64 * cell_spacing;
+    let zlength = (zcells / node_dims(2)) as f64 * cell_spacing;
+    let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+
+    xmin = aabb.min(0) + zlength * (rank_index(0) as f64);
+    xmax = aabb.min(0) + zlength * ((rank_index(0) + 1) as f64);
+    ymin = aabb.min(1) + zlength * (rank_index(1) as f64);
+    ymax = aabb.min(1) + zlength * ((rank_index(1) + 1) as f64);
+    zmin = aabb.min(2) + zlength * (rank_index(2) as f64);
+    zmax = aabb.min(2) + zlength * ((rank_index(2) + 1) as f64);
+
+    if(rank_index(0) > 0) {
+      xmin -= (get_comm_time_steps() as f64) * cell_spacing;
+    }
+
+    if(rank_index(0) < node_dims(0) - 1) {
+      xmax += (get_comm_time_steps() as f64) * cell_spacing;
+    } else {
+      xmax += cell_spacing;
+    }
+
+    if(rank_index(1) > 0) {
+      ymin -= (get_comm_time_steps() as f64) * cell_spacing;
+    }
+
+    if(rank_index(1) < node_dims(1) - 1) {
+      ymax += (get_comm_time_steps() as f64) * cell_spacing;
+    } else {
+      ymax += cell_spacing;
+    }
+
+    if(rank_index(2) > 0) {
+      zmin -= (get_comm_time_steps() as f64) * cell_spacing;
+    }
+
+    if(rank_index(2) < node_dims(2) - 1) {
+      zmax += (get_comm_time_steps() as f64) * cell_spacing;
+    } else {
+      zmax += cell_spacing;
+    }
+
+    /*
+    print_i32(rank);
+    print_string("> xmin = ");
+    print_f64(xmin);
+    print_string(", xmax = ");
+    print_f64(xmax);
+    print_string(", ymin = ");
+    print_f64(ymin);
+    print_string(", ymax = ");
+    print_f64(ymax);
+    print_string(", zmin = ");
+    print_f64(zmin);
+    print_string(", zmax = ");
+    print_f64(zmax);
+    print_string(", cell_spacing = ");
+    print_f64(cell_spacing);
+    print_string("\n");
+    */
+  } else {
+    xmin = aabb.min(0);
+    xmax = aabb.max(0);
+    ymin = aabb.min(1);
+    ymax = aabb.max(1);
+    zmin = aabb.min(2);
+    zmax = aabb.max(2);
+  }
+
+  AABB {
+    min: [xmin, ymin, zmin],
+    max: [xmax, ymax, zmax]
   }
 }
 
@@ -314,23 +568,31 @@ fn mpi_synchronize_ghost_zone(
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
 
-    mpi_pack_ghost_zone(
-      mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
+    if(rank_send_particles(exchange_rank) > 0) {
+      mpi_pack_ghost_zone(
+        mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
+    }
 
-    mpih.irecv(
-      bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
-      rank_recv_particles(exchange_rank) * 3 * 3,
-      mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+    if(rank_recv_particles(exchange_rank) > 0) {
+      mpih.irecv(
+        bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
+        rank_recv_particles(exchange_rank) * 3 * 3,
+        mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+    }
 
-    mpih.send(
-      bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
-      rank_send_particles(exchange_rank) * 3 * 3,
-      mpih.double_t, exchange_rank, 0, mpih.comms.world);
+    if(rank_send_particles(exchange_rank) > 0) {
+      mpih.send(
+        bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
+        rank_send_particles(exchange_rank) * 3 * 3,
+        mpih.double_t, exchange_rank, 0, mpih.comms.world);
+    }
 
-    mpih.wait(&mut request, &mut status);
+    if(rank_recv_particles(exchange_rank) > 0) {
+      mpih.wait(&mut request, &mut status);
 
-    mpi_unpack_ghost_zone(
-      mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
+      mpi_unpack_ghost_zone(
+        mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
+    }
   }
 
   transfer_struct_of_arrays_between_devices(
@@ -459,19 +721,22 @@ fn mpi_exchange_ghost_zone(
   let mut request: MPI_Request;
   let mut status: MPIStatus;
 
-  let dims_length = 3 * grid.nx * grid.ny * get_comm_time_steps();
   let send_particles = max_send_particles + max_send_particles / 2;
   let recv_particles = max_recv_particles + max_recv_particles / 2;
   let send_length = send_particles + send_particles * 3 * 3;
   let recv_length = recv_particles + recv_particles * 3 * 3;
-
-  resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
   max_send_particles = 0;
   max_recv_particles = 0;
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
+
+    let dims_length = 3 * (send_end(0) - send_begin(0)) *
+                          (send_end(1) - send_begin(1)) *
+                          (send_end(2) - send_begin(2));
+
+    resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
     let rank_send_size =
       rank_send_particles(exchange_rank) + rank_send_particles(exchange_rank) / 2;

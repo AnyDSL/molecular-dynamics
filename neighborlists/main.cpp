@@ -126,10 +126,12 @@ int main(int argc, char **argv) {
             std::cout << "Number of particles: " << size << std::endl;
         }
         std::cout << "Starting run " << i+1 << std::endl;
+        /*
         if(size == 0) {
             std::cout << "Zero particles created. Aborting." << std::endl;
             return EXIT_FAILURE;
         }
+        */
 
         begin = measure_time();
         md_initialize_clusters(512);

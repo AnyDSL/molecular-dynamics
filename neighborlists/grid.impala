@@ -9,8 +9,12 @@ struct Grid {
 }
 
 fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {    
+    /*
     let nx = math.floor(((aabb.max(0) - aabb.min(0)) / cell_spacing) as f64) as i32 + 1;
     let ny = math.floor(((aabb.max(1) - aabb.min(1)) / cell_spacing) as f64) as i32 + 1;
+    */
+    let nx = math.floor(((aabb.max(0) - aabb.min(0) + (cell_spacing / 2.0)) / cell_spacing) as f64) as i32;
+    let ny = math.floor(((aabb.max(1) - aabb.min(1) + (cell_spacing / 2.0)) / cell_spacing) as f64) as i32;
     let nz = math.floor(((aabb.max(2) - aabb.min(2) + (cell_spacing / 2.0)) / cell_spacing) as f64) as i32;
 
     let grid = Grid {
