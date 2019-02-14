@@ -1,9 +1,9 @@
 static mut max_send_particles : i32;
 static mut max_recv_particles : i32;
-static mut rank_send_particles : [i32 * 8];
-static mut rank_recv_particles : [i32 * 8];
 static mut mpi_send_buffer_size : i32;
 static mut mpi_recv_buffer_size : i32;
+static mut rank_send_particles : Buffer;
+static mut rank_recv_particles : Buffer;
 static mut mpi_send_buffer : Buffer;
 static mut mpi_recv_buffer : Buffer;
 static mut node_dims : [i32 * 3];
@@ -28,6 +28,9 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 
   mpih.comm_size(mpih.comms.world, world_size);
   mpih.comm_rank(mpih.comms.world, world_rank);
+
+  rank_send_particles = alloc_cpu(sizeof[i32]() * *world_size);
+  rank_recv_particles = alloc_cpu(sizeof[i32]() * *world_size);
 }
 
 fn mpi_finalize() -> () {
@@ -40,6 +43,9 @@ fn mpi_finalize() -> () {
   if(mpi_recv_buffer_size > 0) {
     release(mpi_recv_buffer);
   }
+
+  release(rank_send_particles);
+  release(rank_recv_particles);
 
   mpih.finalize();
 }
@@ -394,28 +400,31 @@ fn mpi_initialize_grid_comm(
   max_send_particles = 0;
   max_recv_particles = 0;
 
+  let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
+  let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
+
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, grid) {
 
-    rank_send_particles(exchange_rank) = 0;
-    rank_recv_particles(exchange_rank) = 0;
+    rank_send_ptr(exchange_rank) = 0;
+    rank_recv_ptr(exchange_rank) = 0;
 
     for cell, index in
         map_over_grid_subdomain(grid, send_begin, send_end, range, range, range) {
-      rank_send_particles(exchange_rank) += cell.size + cell.padding;
+      rank_send_ptr(exchange_rank) += cell.size + cell.padding;
     }
 
     for cell, index in
         map_over_grid_subdomain(grid, recv_begin, recv_end, range, range, range) {
-      rank_recv_particles(exchange_rank) += cell.size + cell.padding;
+      rank_recv_ptr(exchange_rank) += cell.size + cell.padding;
     }
 
-    if(max_send_particles < rank_send_particles(exchange_rank)) {
-      max_send_particles = rank_send_particles(exchange_rank);
+    if(max_send_particles < rank_send_ptr(exchange_rank)) {
+      max_send_particles = rank_send_ptr(exchange_rank);
     }
 
-    if(max_recv_particles < rank_recv_particles(exchange_rank)) {
-      max_recv_particles = rank_recv_particles(exchange_rank);
+    if(max_recv_particles < rank_recv_ptr(exchange_rank)) {
+      max_recv_particles = rank_recv_ptr(exchange_rank);
     }
   }
 }
@@ -544,11 +553,14 @@ fn mpi_synchronize_ghost_zone(
   let mut request: MPI_Request;
   let mut status: MPIStatus;
 
-  resize_mpi_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
+  let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
+  let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
 
   let total_number_of_particles =
     accelerator_grid.total_number_of_clusters *
     accelerator_grid.cluster_size;
+
+  resize_mpi_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
 
   transfer_struct_of_arrays_between_devices(
     accelerator_grid.positions_accelerator,
@@ -568,26 +580,26 @@ fn mpi_synchronize_ghost_zone(
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
 
-    if(rank_send_particles(exchange_rank) > 0) {
+    if(rank_send_ptr(exchange_rank) > 0) {
       mpi_pack_ghost_zone(
         mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
     }
 
-    if(rank_recv_particles(exchange_rank) > 0) {
+    if(rank_recv_ptr(exchange_rank) > 0) {
       mpih.irecv(
         bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
-        rank_recv_particles(exchange_rank) * 3 * 3,
+        rank_recv_ptr(exchange_rank) * 3 * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
     }
 
-    if(rank_send_particles(exchange_rank) > 0) {
+    if(rank_send_ptr(exchange_rank) > 0) {
       mpih.send(
         bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
-        rank_send_particles(exchange_rank) * 3 * 3,
+        rank_send_ptr(exchange_rank) * 3 * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world);
     }
 
-    if(rank_recv_particles(exchange_rank) > 0) {
+    if(rank_recv_ptr(exchange_rank) > 0) {
       mpih.wait(&mut request, &mut status);
 
       mpi_unpack_ghost_zone(
@@ -721,6 +733,9 @@ fn mpi_exchange_ghost_zone(
   let mut request: MPI_Request;
   let mut status: MPIStatus;
 
+  let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
+  let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
+
   let send_particles = max_send_particles + max_send_particles / 2;
   let recv_particles = max_recv_particles + max_recv_particles / 2;
   let send_length = send_particles + send_particles * 3 * 3;
@@ -739,11 +754,11 @@ fn mpi_exchange_ghost_zone(
     resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
     let rank_send_size =
-      rank_send_particles(exchange_rank) + rank_send_particles(exchange_rank) / 2;
+      rank_send_ptr(exchange_rank) + rank_send_ptr(exchange_rank) / 2;
     let rank_recv_size =
-      rank_recv_particles(exchange_rank) + rank_recv_particles(exchange_rank) / 2;
+      rank_recv_ptr(exchange_rank) + rank_recv_ptr(exchange_rank) / 2;
 
-    rank_send_particles(exchange_rank) = mpi_pack_exchange_cells(
+    rank_send_ptr(exchange_rank) = mpi_pack_exchange_cells(
       mpi_send_buffer, grid, send_begin, send_end);
 
     mpih.irecv(
@@ -758,15 +773,15 @@ fn mpi_exchange_ghost_zone(
 
     mpih.wait(&mut request, &mut status);
 
-    rank_recv_particles(exchange_rank) = mpi_unpack_exchange_cells(
+    rank_recv_ptr(exchange_rank) = mpi_unpack_exchange_cells(
       mpi_recv_buffer, grid, recv_begin, recv_end);
 
-    if(max_send_particles < rank_send_particles(exchange_rank)) {
-      max_send_particles = rank_send_particles(exchange_rank);
+    if(max_send_particles < rank_send_ptr(exchange_rank)) {
+      max_send_particles = rank_send_ptr(exchange_rank);
     }
 
-    if(max_recv_particles < rank_recv_particles(exchange_rank)) {
-      max_recv_particles = rank_recv_particles(exchange_rank);
+    if(max_recv_particles < rank_recv_ptr(exchange_rank)) {
+      max_recv_particles = rank_recv_ptr(exchange_rank);
     }
   }
 }
