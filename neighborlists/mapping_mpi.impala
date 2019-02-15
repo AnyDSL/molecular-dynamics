@@ -1,12 +1,12 @@
-static mut max_send_particles : i32;
-static mut max_recv_particles : i32;
-static mut mpi_send_buffer_size : i32;
-static mut mpi_recv_buffer_size : i32;
-static mut rank_send_particles : Buffer;
-static mut rank_recv_particles : Buffer;
-static mut mpi_send_buffer : Buffer;
-static mut mpi_recv_buffer : Buffer;
-static mut node_dims : [i32 * 3];
+static mut max_send_particles: i32;
+static mut max_recv_particles: i32;
+static mut mpi_send_buffer_size: i32;
+static mut mpi_recv_buffer_size: i32;
+static mut rank_send_particles: Buffer;
+static mut rank_recv_particles: Buffer;
+static mut mpi_send_buffer: Buffer;
+static mut mpi_recv_buffer: Buffer;
+static mut node_dims: [i32 * 3];
 
 fn @get_comm_time_steps() -> i32 { 1 }
 
@@ -56,7 +56,7 @@ fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
       release(mpi_send_buffer);
     }
 
-    mpi_send_buffer = alloc_cpu(sizeof[real_t]() * get_cluster_size() * send_size);
+    mpi_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
     mpi_send_buffer_size = send_size;
   }
 
@@ -65,7 +65,7 @@ fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
       release(mpi_recv_buffer);
     }
 
-    mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * get_cluster_size() * recv_size);
+    mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
     mpi_recv_buffer_size = recv_size;
   }
 }
@@ -397,11 +397,11 @@ fn mpi_initialize_grid_comm(
   world_size: i32,
   world_rank: i32) -> () {
 
-  max_send_particles = 0;
-  max_recv_particles = 0;
-
   let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
   let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
+
+  max_send_particles = 0;
+  max_recv_particles = 0;
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, grid) {
@@ -751,12 +751,12 @@ fn mpi_exchange_ghost_zone(
                           (send_end(1) - send_begin(1)) *
                           (send_end(2) - send_begin(2));
 
-    resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
-
     let rank_send_size =
       rank_send_ptr(exchange_rank) + rank_send_ptr(exchange_rank) / 2;
     let rank_recv_size =
       rank_recv_ptr(exchange_rank) + rank_recv_ptr(exchange_rank) / 2;
+
+    resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
     rank_send_ptr(exchange_rank) = mpi_pack_exchange_cells(
       mpi_send_buffer, grid, send_begin, send_end);
