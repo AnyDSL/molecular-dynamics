@@ -235,9 +235,9 @@ fn get_node_config(
   ycells: i32,
   zcells: i32) -> [i32 * 3] {
 
-  let mut gx = 0;
-  let mut gy = 0;
-  let mut gz = 0;
+  let mut gx = 1;
+  let mut gy = 1;
+  let mut gz = 1;
   let mut min_missing_factor = xcells * ycells * zcells;
 
   /*
@@ -378,6 +378,8 @@ fn @mpi_get_rank_bounding_box(
     print_string("\n");
     */
   } else {
+    node_dims = [1, 1, 1];
+
     xmin = aabb.min(0);
     xmax = aabb.max(0);
     ymin = aabb.min(1);

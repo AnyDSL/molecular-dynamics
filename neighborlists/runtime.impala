@@ -16,7 +16,8 @@ fn md_initialize_grid(
         max: [max(0), max(1), max(2)],
     };
     let cluster_size = get_cluster_size();
-    let rank_aabb = mpi_get_rank_bounding_box(world_size, world_rank, cell_spacing, aabb);
+    let rank_aabb = mpi_get_rank_bounding_box(
+      world_size, world_rank, cell_spacing, aabb);
 
     /*
     print_i32(world_rank);
@@ -38,7 +39,8 @@ fn md_initialize_grid(
     print_string("}\n");
     */
 
-    grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
+    grid_ = allocate_grid(
+      rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
 
     /*
     print_i32(world_rank);
@@ -51,7 +53,8 @@ fn md_initialize_grid(
     print_string("\n");
     */
 
-    initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
+    initialize_grid(
+      masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
 
     mpi_initialize_grid_comm(grid_, world_size, world_rank);
 
