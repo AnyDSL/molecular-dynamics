@@ -1,3 +1,5 @@
+fn @get_comm_time_steps() -> i32 { 0 }
+
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   *world_size = 1;
   *world_rank = 0;
@@ -5,8 +7,32 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 
 fn mpi_finalize() -> () { }
 
-fn mpi_synchronize_ghost_zone(grid: &mut Grid, world_size: i32, world_rank: i32) -> () { }
+fn mpi_initialize_grid_comm(
+  grid: Grid,
+  world_size: i32,
+  world_rank: i32) -> () {
 
-fn @mpi_get_rank_bounding_box(world_size: i32, rank: i32, cell_spacing: f64, grid_aabb: AABB) -> AABB {
+}
+
+fn mpi_synchronize_ghost_zone(
+  grid: &mut Grid,
+  accelerator_grid: AcceleratorGrid,
+  world_size: i32,
+  world_rank: i32) -> () {
+
+}
+
+fn mpi_exchange_ghost_zone(
+  grid: &mut Grid,
+  world_size: i32,
+  world_rank: i32) -> () {
+
+}
+
+fn @mpi_get_rank_bounding_box(
+  world_size: i32,
+  rank: i32,
+  cell_spacing: f64,
+  grid_aabb: AABB) -> AABB {
   grid_aabb
 }
