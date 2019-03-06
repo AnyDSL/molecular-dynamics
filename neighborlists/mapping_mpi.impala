@@ -10,6 +10,8 @@ static mut node_dims: [i32 * 3];
 
 fn @get_comm_time_steps() -> i32 { 1 }
 
+fn @synchronize_diagonals() -> bool { true }
+
 fn @flat_index(index: [i32 * 3], nx: i32, ny: i32) -> i32 {
   (index(2) * ny + index(1)) * nx + index(0)
 }
@@ -155,7 +157,14 @@ fn mpi_exchange_subdomains(
 
   let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
 
-  if(rank_index(0) < node_dims(0) - 1) {
+  let xprev = rank_index(0) > 0;
+  let xnext = rank_index(0) < node_dims(0) - 1;
+  let yprev = rank_index(1) > 0;
+  let ynext = rank_index(1) < node_dims(1) - 1;
+  let zprev = rank_index(2) > 0;
+  let znext = rank_index(2) < node_dims(2) - 1;
+
+  if(rank_index(0) % 2 == 0 && xnext) {
     @@body(
       flat_index(
         [rank_index(0) + 1, rank_index(1), rank_index(2)],
@@ -167,7 +176,7 @@ fn mpi_exchange_subdomains(
     );
   }
 
-  if(rank_index(0) > 0) {
+  if(xprev) {
     @@body(
       flat_index(
         [rank_index(0) - 1, rank_index(1), rank_index(2)],
@@ -179,7 +188,19 @@ fn mpi_exchange_subdomains(
     );
   }
 
-  if(rank_index(1) < node_dims(1) - 1) {
+  if(rank_index(0) % 2 != 0 && xnext) {
+    @@body(
+      flat_index(
+        [rank_index(0) + 1, rank_index(1), rank_index(2)],
+        node_dims(0), node_dims(1)),
+      [grid.nx - get_comm_time_steps() * 2, 0, 0],
+      [grid.nx - get_comm_time_steps(), grid.ny, grid.nz],
+      [grid.nx - get_comm_time_steps(), 0, 0],
+      [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  if(rank_index(1) % 2 == 0 && ynext) {
     @@body(
       flat_index(
         [rank_index(0), rank_index(1) + 1, rank_index(2)],
@@ -191,7 +212,7 @@ fn mpi_exchange_subdomains(
     );
   }
 
-  if(rank_index(1) > 0) {
+  if(yprev) {
     @@body(
       flat_index(
         [rank_index(0), rank_index(1) - 1, rank_index(2)],
@@ -203,7 +224,19 @@ fn mpi_exchange_subdomains(
     );
   }
 
-  if(rank_index(2) < node_dims(2) - 1) {
+  if(rank_index(1) % 2 != 0 && ynext) {
+    @@body(
+      flat_index(
+        [rank_index(0), rank_index(1) + 1, rank_index(2)],
+        node_dims(0), node_dims(1)),
+      [0, grid.ny - get_comm_time_steps() * 2, 0],
+      [grid.nx, grid.ny - get_comm_time_steps(), grid.nz],
+      [0, grid.ny - get_comm_time_steps(), 0],
+      [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  if(rank_index(2) % 2 == 0 && znext) {
     @@body(
       flat_index(
         [rank_index(0), rank_index(1), rank_index(2) + 1],
@@ -215,7 +248,7 @@ fn mpi_exchange_subdomains(
     );
   }
 
-  if(rank_index(2) > 0) {
+  if(zprev) {
     @@body(
       flat_index(
         [rank_index(0), rank_index(1), rank_index(2) - 1],
@@ -226,6 +259,164 @@ fn mpi_exchange_subdomains(
       [grid.nx, grid.ny, get_comm_time_steps()]
     );
   }
+
+  if(rank_index(2) % 2 != 0 && znext) {
+    @@body(
+      flat_index(
+        [rank_index(0), rank_index(1), rank_index(2) + 1],
+        node_dims(0), node_dims(1)),
+      [0, 0, grid.nz - get_comm_time_steps() * 2],
+      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
+      [0, 0, grid.nz - get_comm_time_steps()],
+      [grid.nx, grid.ny, grid.nz]
+    );
+  }
+
+  /*
+  if(synchronize_diagonals() == true) {
+    if(xprev) {
+      if(yprev) {
+        // diagonal -1, -1, 0
+        @@body(
+          flat_index(
+            [rank_index(0) - 1, rank_index(1) - 1, rank_index(2)],
+            node_dims(0), node_dims(1)),
+          [get_comm_time_steps(), get_comm_time_steps(), 0],
+          [get_comm_time_steps() * 2, get_comm_time_steps() * 2, grid.nz],
+          [0, 0, 0],
+          [get_comm_time_steps(), get_comm_time_steps(), grid.nz]
+        );
+
+        if(zprev) {
+          // diagonal -1, -1, -1
+        }
+
+        if(znext) {
+          // diagonal -1, -1, 1
+        }
+      }
+
+      if(ynext) {
+        // diagonal -1, 1, 0
+
+        if(zprev) {
+          // diagonal -1, 1, -1
+        }
+ 
+        if(znext) {
+          // diagonal -1, 1, 1
+        }
+      }
+
+      if(zprev) {
+        // diagonal -1, 0, -1
+        @@body(
+          flat_index(
+            [rank_index(0) - 1, rank_index(1), rank_index(2) - 1],
+            node_dims(0), node_dims(1)),
+          [get_comm_time_steps(), 0, get_comm_time_steps()],
+          [get_comm_time_steps() * 2, grid.ny, get_comm_time_steps() * 2],
+          [0, 0, 0],
+          [get_comm_time_steps(), grid.ny, get_comm_time_steps()]
+        );
+      }
+
+      if(znext) {
+        // diagonal -1, 0, 1
+      }
+    }
+
+    if(xnext) {
+      if(yprev) {
+        // diagonal 1, -1, 0
+
+        if(zprev) {
+          // diagonal 1, -1, -1
+        }
+
+        if(znext) {
+          // diagonal 1, -1, 1
+        }
+      }
+
+      if(ynext) {
+        // diagonal 1, 1, 0
+        @@body(
+          flat_index(
+            [rank_index(0) + 1, rank_index(1) + 1, rank_index(2)],
+            node_dims(0), node_dims(1)),
+          [grid.nx - get_comm_time_steps() * 2, grid.ny - get_comm_time_steps() * 2, 0],
+          [grid.nx - get_comm_time_steps(), grid.ny - get_comm_time_steps(), grid.nz],
+          [grid.nx - get_comm_time_steps(), grid.ny - get_comm_time_steps(), 0],
+          [grid.nx, grid.ny, grid.nz]
+        );
+
+        if(zprev) {
+          // diagonal 1, 1, -1
+        }
+ 
+        if(znext) {
+          // diagonal 1, 1, 1
+        }
+      }
+
+      if(zprev) {
+        // diagonal 1, 0, -1
+      }
+
+      if(znext) {
+        // diagonal 1, 0, 1
+        @@body(
+          flat_index(
+            [rank_index(0) + 1, rank_index(1), rank_index(2) + 1],
+            node_dims(0), node_dims(1)),
+          [grid.nx - get_comm_time_steps() * 2, 0, grid.nz - get_comm_time_steps() * 2],
+          [grid.nx - get_comm_time_steps(), grid.ny, grid.nz - get_comm_time_steps()],
+          [grid.nx - get_comm_time_steps(), 0, grid.nz - get_comm_time_steps()],
+          [grid.nx, grid.ny, grid.nz]
+        );
+      }
+    }
+
+    if(yprev) {
+      if(zprev) {
+        // diagonal 0, -1, -1
+        @@body(
+          flat_index(
+            [rank_index(0), rank_index(1) - 1, rank_index(2) - 1],
+            node_dims(0), node_dims(1)),
+          [0, get_comm_time_steps(), get_comm_time_steps()],
+          [grid.nx, get_comm_time_steps() * 2, get_comm_time_steps() * 2],
+          [0, 0, 0],
+          [grid.nx, get_comm_time_steps(), get_comm_time_steps()]
+        );
+      }
+
+      if(znext) {
+        // diagonal 0, -1, 1
+      }
+    }
+
+    if(ynext) {
+      if(zprev) {
+        // diagonal 0, 1, -1
+      }
+
+      if(znext) {
+        // diagonal 0, 1, 1
+        @@body(
+          flat_index(
+            [rank_index(0), rank_index(1) + 1, rank_index(2) + 1],
+            node_dims(0), node_dims(1)),
+          [0, grid.nx - get_comm_time_steps() * 2, grid.nz - get_comm_time_steps() * 2],
+          [grid.nx, grid.ny - get_comm_time_steps(), grid.nz - get_comm_time_steps()],
+          [0, grid.ny - get_comm_time_steps(), grid.nz - get_comm_time_steps()],
+          [grid.nx, grid.ny, grid.nz]
+        );
+      }
+    }
+  }
+  */
 }
 
 fn get_node_config(
