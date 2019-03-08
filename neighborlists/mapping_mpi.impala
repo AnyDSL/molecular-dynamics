@@ -619,10 +619,10 @@ fn @mpi_get_rank_bounding_box(
     let zlength = (zcells / node_dims(2)) as f64 * cell_spacing;
     let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
 
-    xmin = aabb.min(0) + zlength * (rank_index(0) as f64);
-    xmax = aabb.min(0) + zlength * ((rank_index(0) + 1) as f64);
-    ymin = aabb.min(1) + zlength * (rank_index(1) as f64);
-    ymax = aabb.min(1) + zlength * ((rank_index(1) + 1) as f64);
+    xmin = aabb.min(0) + xlength * (rank_index(0) as f64);
+    xmax = aabb.min(0) + xlength * ((rank_index(0) + 1) as f64);
+    ymin = aabb.min(1) + ylength * (rank_index(1) as f64);
+    ymax = aabb.min(1) + ylength * ((rank_index(1) + 1) as f64);
     zmin = aabb.min(2) + zlength * (rank_index(2) as f64);
     zmax = aabb.min(2) + zlength * ((rank_index(2) + 1) as f64);
 
