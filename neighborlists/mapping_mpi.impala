@@ -790,101 +790,139 @@ fn mpi_pack_exchange_cells(
   mpi_buffer: Buffer,
   grid: &mut Grid,
   begin: [i32 * 3],
-  end: [i32 * 3]) -> i32 {
+  end: [i32 * 3],
+  start_iteration: i32,
+  max_particles: i32,
+  packed_iterations: &mut i32,
+  rmng_particles: &mut i32) -> i32 {
 
   let buffer_data = get_array_of_reals(mpi_buffer);
   let mut buffer_ptr = 0;
-  let mut particle_counter = 0;
+  let mut iterations = 0;
+  let mut packed_particles = 0;
+  let mut keep_packing = true;
+
+  *rmng_particles = 0;
+  *packed_iterations = 0;
+
+  buffer_ptr += 2;
 
   for cell, index in
       map_over_grid_subdomain(grid, begin, end, range, range, range) {
 
-    buffer_data(buffer_ptr) = cell.size as real_t;
-    buffer_data(buffer_ptr + 1) = cell.padding as real_t;
-    buffer_data(buffer_ptr + 2) = cell.cluster_size as real_t;
-
-    buffer_ptr += 3;
-
     let nparticles = cell.size + cell.padding;
 
-    particle_counter += nparticles;
+    if(iterations >= start_iteration) {
+      if(!keep_packing || packed_particles + nparticles > max_particles) {
+        *rmng_particles += nparticles;
+        keep_packing = false;
+      } else {
+        buffer_data(buffer_ptr) = cell.size as real_t;
+        buffer_data(buffer_ptr + 1) = cell.padding as real_t;
+        buffer_data(buffer_ptr + 2) = cell.cluster_size as real_t;
 
-    if(nparticles > 0) {
-      copy_offset(
-        cell.masses, 0,
-        mpi_buffer, buffer_ptr * sizeof[real_t](), nparticles);
+        buffer_ptr += 3;
 
-      buffer_ptr += nparticles;
+        if(nparticles > 0) {
+          copy_offset(
+            cell.masses, 0,
+            mpi_buffer, buffer_ptr * sizeof[real_t](), nparticles);
 
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
-        cell.positions, 0,
-        mpi_buffer, buffer_ptr, nparticles);
+          buffer_ptr += nparticles;
 
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
-        cell.velocities, 0,
-        mpi_buffer, buffer_ptr, nparticles);
+          buffer_ptr += copy_struct_of_arrays_to_buffer(
+            cell.positions, 0,
+            mpi_buffer, buffer_ptr, nparticles);
 
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
-        cell.forces, 0,
-        mpi_buffer, buffer_ptr, nparticles);
+          buffer_ptr += copy_struct_of_arrays_to_buffer(
+            cell.velocities, 0,
+            mpi_buffer, buffer_ptr, nparticles);
+
+          buffer_ptr += copy_struct_of_arrays_to_buffer(
+            cell.forces, 0,
+            mpi_buffer, buffer_ptr, nparticles);
+
+          packed_particles += nparticles;
+        }
+
+        *packed_iterations = *packed_iterations + 1;
+      }
     }
+
+    iterations++;
   }
 
-  particle_counter
+  buffer_data(0) = *rmng_particles as real_t;
+  buffer_data(1) = *packed_iterations as real_t;
+
+  packed_particles
 }
 
 fn mpi_unpack_exchange_cells(
   mpi_buffer: Buffer,
   grid: &mut Grid,
   begin: [i32 * 3],
-  end: [i32 * 3]) -> i32 {
+  end: [i32 * 3],
+  start_iter: i32,
+  unpacked_iterations: &mut i32,
+  rmng_particles: &mut i32) -> i32 {
 
   let buffer_data = get_array_of_reals(mpi_buffer);
   let mut buffer_ptr = 0;
-  let mut particle_counter = 0;
+  let mut iterations = 0;
+  let mut unpacked_particles = 0;
+
+  *rmng_particles = buffer_data(0) as i32;
+  *unpacked_iterations = buffer_data(1) as i32;
+  buffer_ptr += 2;
 
   for cell, index in
       map_over_grid_subdomain(grid, begin, end, range, range, range) {
 
-    let old_nparticles = cell.size + cell.padding;
+    if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
+      let old_nparticles = cell.size + cell.padding;
 
-    cell.size = buffer_data(buffer_ptr) as i32;
-    cell.padding = buffer_data(buffer_ptr + 1) as i32;
-    cell.cluster_size = buffer_data(buffer_ptr + 2) as i32;
+      cell.size = buffer_data(buffer_ptr) as i32;
+      cell.padding = buffer_data(buffer_ptr + 1) as i32;
+      cell.cluster_size = buffer_data(buffer_ptr + 2) as i32;
 
-    buffer_ptr += 3;
+      buffer_ptr += 3;
 
-    if(cell.size >= cell.capacity) {
-      reallocate_cell(cell.size, cell, alloc_cpu);
+      if(cell.size >= cell.capacity) {
+        reallocate_cell(cell.size, cell, alloc_cpu);
+      }
+
+      let nparticles = cell.size + cell.padding;
+
+      grid.nparticles += nparticles - old_nparticles;
+
+      if(nparticles > 0) {
+        copy_offset(
+          mpi_buffer, buffer_ptr * sizeof[real_t](),
+          cell.masses, 0, nparticles);
+
+        buffer_ptr += nparticles;
+
+        buffer_ptr += copy_buffer_to_struct_of_arrays(
+          mpi_buffer, buffer_ptr,
+          cell.positions, 0, nparticles);
+
+        buffer_ptr += copy_buffer_to_struct_of_arrays(
+          mpi_buffer, buffer_ptr,
+          cell.velocities, 0, nparticles);
+
+        buffer_ptr += copy_buffer_to_struct_of_arrays(
+          mpi_buffer, buffer_ptr,
+          cell.forces, 0, nparticles);
+
+        unpacked_particles += nparticles;
+      }
     }
 
-    let nparticles = cell.size + cell.padding;
-
-    particle_counter += nparticles;
-    grid.nparticles += nparticles - old_nparticles;
-
-    if(nparticles > 0) {
-      copy_offset(
-        mpi_buffer, buffer_ptr * sizeof[real_t](),
-        cell.masses, 0, nparticles);
-
-      buffer_ptr += nparticles;
-
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
-        mpi_buffer, buffer_ptr,
-        cell.positions, 0, nparticles);
-
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
-        mpi_buffer, buffer_ptr,
-        cell.velocities, 0, nparticles);
-
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
-        mpi_buffer, buffer_ptr,
-        cell.forces, 0, nparticles);
-    }
+    iterations++;
   }
 
-  particle_counter
+  unpacked_particles
 }
 
 fn mpi_exchange_ghost_zone(
@@ -910,34 +948,102 @@ fn mpi_exchange_ghost_zone(
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
       mpi_exchange_subdomains(world_size, world_rank, *grid) {
 
+    let mut rmng_send_ptcs: i32;
+    let mut rmng_recv_ptcs: i32;
+    let mut packed_iterations: i32;
+    let mut unpacked_iterations: i32;
+
     let dims_length = 3 * (send_end(0) - send_begin(0)) *
                           (send_end(1) - send_begin(1)) *
                           (send_end(2) - send_begin(2));
 
-    let rank_send_size =
+    let rank_send_ptcs =
       rank_send_ptr(exchange_rank) + rank_send_ptr(exchange_rank) / 2;
-    let rank_recv_size =
+    let rank_recv_ptcs =
       rank_recv_ptr(exchange_rank) + rank_recv_ptr(exchange_rank) / 2;
 
     resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
     rank_send_ptr(exchange_rank) = mpi_pack_exchange_cells(
-      mpi_send_buffer, grid, send_begin, send_end);
+      mpi_send_buffer, grid, send_begin, send_end,
+      0, rank_send_ptcs, &mut packed_iterations, &mut rmng_send_ptcs);
 
     mpih.irecv(
       bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
-      dims_length + rank_recv_size + rank_recv_size * 3 * 3,
+      dims_length + rank_recv_ptcs + rank_recv_ptcs * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
     mpih.send(
       bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
-      dims_length + rank_send_size + rank_send_size * 3 * 3,
+      dims_length + rank_send_ptcs + rank_send_ptcs * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
     mpih.wait(&mut request, &mut status);
 
     rank_recv_ptr(exchange_rank) = mpi_unpack_exchange_cells(
-      mpi_recv_buffer, grid, recv_begin, recv_end);
+      mpi_recv_buffer, grid, recv_begin, recv_end,
+      0, &mut unpacked_iterations, &mut rmng_recv_ptcs);
+
+    if(rmng_recv_ptcs > 0) {
+      let rmng_recv_length = rmng_recv_ptcs + rmng_recv_ptcs * 3 * 3;
+
+      resize_mpi_buffers(0, dims_length + rmng_recv_length);
+
+      print_i32(world_rank);
+      print_string("> recv remaining particles: ");
+      print_i32(rmng_recv_ptcs);
+      print_string("\n");
+      print_flush();
+
+      mpih.irecv(
+        bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
+        dims_length + rmng_recv_length,
+        mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+    }
+
+    if(rmng_send_ptcs > 0) {
+      let rmng_send_length = rmng_send_ptcs + rmng_send_ptcs * 3 * 3;
+
+      resize_mpi_buffers(dims_length + rmng_send_length, 0);
+
+      /*
+      print_i32(world_rank);
+      print_string("> send remaining particles: ");
+      print_i32(rmng_send_ptcs);
+      print_string(", packed iterations: ");
+      print_i32(packed_iterations);
+      print_string("\n");
+      print_flush();
+      */
+
+      rank_send_ptr(exchange_rank) += mpi_pack_exchange_cells(
+        mpi_send_buffer, grid, send_begin, send_end,
+        packed_iterations, rmng_send_ptcs,
+        &mut packed_iterations, &mut rmng_send_ptcs);
+
+      mpih.send(
+        bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
+        dims_length + rmng_send_length,
+        mpih.double_t, exchange_rank, 0, mpih.comms.world);
+    }
+
+    if(rmng_recv_ptcs > 0) {
+      /*
+      print_i32(world_rank);
+      print_string("> wait remaining particles: ");
+      print_i32(rmng_recv_ptcs);
+      print_string(", unpacked iterations: ");
+      print_i32(unpacked_iterations);
+      print_string("\n");
+      print_flush();
+      */
+
+      mpih.wait(&mut request, &mut status);
+
+      rank_recv_ptr(exchange_rank) += mpi_unpack_exchange_cells(
+        mpi_recv_buffer, grid, recv_begin, recv_end,
+        unpacked_iterations, &mut unpacked_iterations, &mut rmng_recv_ptcs);
+    }
 
     if(max_send_particles < rank_send_ptr(exchange_rank)) {
       max_send_particles = rank_send_ptr(exchange_rank);
