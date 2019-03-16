@@ -7,7 +7,7 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 
 fn mpi_finalize() -> () { }
 
-fn mpi_initialize_grid_comm(
+fn initialize_grid_comm(
   grid: Grid,
   world_size: i32,
   world_rank: i32) -> () {
@@ -29,7 +29,7 @@ fn exchange_ghost_layer_particles(
 
 }
 
-fn @get_comm_rank_bounding_box(
+fn @get_node_bounding_box(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,

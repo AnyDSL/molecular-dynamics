@@ -1,11 +1,11 @@
 static mut max_send_particles: i32;
 static mut max_recv_particles: i32;
-static mut mpi_send_buffer_size: i32;
-static mut mpi_recv_buffer_size: i32;
+static mut comm_send_buffer_size: i32;
+static mut comm_recv_buffer_size: i32;
 static mut rank_send_particles: Buffer;
 static mut rank_recv_particles: Buffer;
-static mut mpi_send_buffer: Buffer;
-static mut mpi_recv_buffer: Buffer;
+static mut comm_send_buffer: Buffer;
+static mut comm_recv_buffer: Buffer;
 static mut node_dims: [i32 * 3];
 static mut grid_transfer_ranges: [[i32 * 4] * 9];
 
@@ -36,8 +36,8 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 
   mpih.init();
 
-  mpi_send_buffer_size = 0;
-  mpi_recv_buffer_size = 0;
+  comm_send_buffer_size = 0;
+  comm_recv_buffer_size = 0;
 
   mpih.comm_size(mpih.comms.world, world_size);
   mpih.comm_rank(mpih.comms.world, world_rank);
@@ -49,12 +49,12 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 fn mpi_finalize() -> () {
   let mpih = mpi();
 
-  if(mpi_send_buffer_size > 0) {
-    release(mpi_send_buffer);
+  if(comm_send_buffer_size > 0) {
+    release(comm_send_buffer);
   }
 
-  if(mpi_recv_buffer_size > 0) {
-    release(mpi_recv_buffer);
+  if(comm_recv_buffer_size > 0) {
+    release(comm_recv_buffer);
   }
 
   release(rank_send_particles);
@@ -63,23 +63,23 @@ fn mpi_finalize() -> () {
   mpih.finalize();
 }
 
-fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
-  if(send_size > mpi_send_buffer_size) {
-    if(mpi_send_buffer_size > 0) {
-      release(mpi_send_buffer);
+fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
+  if(send_size > comm_send_buffer_size) {
+    if(comm_send_buffer_size > 0) {
+      release(comm_send_buffer);
     }
 
-    mpi_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
-    mpi_send_buffer_size = send_size;
+    comm_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
+    comm_send_buffer_size = send_size;
   }
 
-  if(recv_size > mpi_recv_buffer_size) {
-    if(mpi_recv_buffer_size > 0) {
-      release(mpi_recv_buffer);
+  if(recv_size > comm_recv_buffer_size) {
+    if(comm_recv_buffer_size > 0) {
+      release(comm_recv_buffer);
     }
 
-    mpi_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
-    mpi_recv_buffer_size = recv_size;
+    comm_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
+    comm_recv_buffer_size = recv_size;
   }
 }
 
@@ -110,7 +110,7 @@ fn communication_nodes_1d(
   }
 }
 
-fn @get_comm_rank_bounding_box_1d(
+fn @get_node_bounding_box_1d(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,
@@ -456,7 +456,7 @@ fn get_node_config(
   [gx, gy, gz]
 }
 
-fn @get_comm_rank_bounding_box(
+fn @get_node_bounding_box(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,
@@ -553,7 +553,7 @@ fn @get_comm_rank_bounding_box(
   }
 }
 
-fn mpi_initialize_grid_comm(
+fn initialize_grid_comm(
   grid: Grid,
   world_size: i32,
   world_rank: i32) -> () {
@@ -593,7 +593,7 @@ fn mpi_initialize_grid_comm(
 }
 
 fn pack_ghost_layer_cells(
-  mpi_buffer: Buffer,
+  comm_buffer: Buffer,
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
   begin: [i32 * 3],
@@ -611,21 +611,21 @@ fn pack_ghost_layer_cells(
     if(nparticles > 0) {
       buffer_ptr += copy_struct_of_arrays_to_buffer(
         accelerator_grid.positions_cpu, offset,
-        mpi_buffer, buffer_ptr, nparticles);
+        comm_buffer, buffer_ptr, nparticles);
 
       buffer_ptr += copy_struct_of_arrays_to_buffer(
         accelerator_grid.velocities_cpu, offset,
-        mpi_buffer, buffer_ptr, nparticles);
+        comm_buffer, buffer_ptr, nparticles);
 
       buffer_ptr += copy_struct_of_arrays_to_buffer(
         accelerator_grid.forces_cpu, offset,
-        mpi_buffer, buffer_ptr, nparticles);
+        comm_buffer, buffer_ptr, nparticles);
     }
   }
 }
 
 fn unpack_ghost_layer_cells(
-  mpi_buffer: Buffer,
+  comm_buffer: Buffer,
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
   begin: [i32 * 3],
@@ -642,15 +642,15 @@ fn unpack_ghost_layer_cells(
 
     if(nparticles > 0) {
       buffer_ptr += copy_buffer_to_struct_of_arrays(
-        mpi_buffer, buffer_ptr,
+        comm_buffer, buffer_ptr,
         accelerator_grid.positions_cpu, offset, nparticles);
 
       buffer_ptr += copy_buffer_to_struct_of_arrays(
-        mpi_buffer, buffer_ptr,
+        comm_buffer, buffer_ptr,
         accelerator_grid.velocities_cpu, offset, nparticles);
 
       buffer_ptr += copy_buffer_to_struct_of_arrays(
-        mpi_buffer, buffer_ptr,
+        comm_buffer, buffer_ptr,
         accelerator_grid.forces_cpu, offset, nparticles);
     }
   }
@@ -723,7 +723,7 @@ fn synchronize_ghost_layer_cells(
     accelerator_grid.total_number_of_clusters *
     accelerator_grid.cluster_size;
 
-  resize_mpi_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
+  resize_comm_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
 
   transfer_struct_of_arrays_between_devices(
     accelerator_grid.positions_accelerator,
@@ -745,19 +745,19 @@ fn synchronize_ghost_layer_cells(
 
     if(rank_send_ptr(exchange_rank) > 0) {
       pack_ghost_layer_cells(
-        mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
+        comm_send_buffer, grid, accelerator_grid, send_begin, send_end);
     }
 
     if(rank_recv_ptr(exchange_rank) > 0) {
       mpih.irecv(
-        bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
+        bitcast[&mut[real_t]](comm_recv_buffer.data) as MPI_MutBuf,
         rank_recv_ptr(exchange_rank) * 3 * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
     }
 
     if(rank_send_ptr(exchange_rank) > 0) {
       mpih.send(
-        bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
+        bitcast[&mut[real_t]](comm_send_buffer.data) as MPI_MutBuf,
         rank_send_ptr(exchange_rank) * 3 * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world);
     }
@@ -766,7 +766,7 @@ fn synchronize_ghost_layer_cells(
       mpih.wait(&mut request, &mut status);
 
       unpack_ghost_layer_cells(
-        mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
+        comm_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
     }
   }
 
@@ -787,7 +787,7 @@ fn synchronize_ghost_layer_cells(
 }
 
 fn pack_ghost_layer_particles(
-  mpi_buffer: Buffer,
+  comm_buffer: Buffer,
   grid: &mut Grid,
   begin: [i32 * 3],
   end: [i32 * 3],
@@ -796,7 +796,7 @@ fn pack_ghost_layer_particles(
   packed_iterations: &mut i32,
   rmng_particles: &mut i32) -> i32 {
 
-  let buffer_data = get_array_of_reals(mpi_buffer);
+  let buffer_data = get_array_of_reals(comm_buffer);
   let mut buffer_ptr = 0;
   let mut iterations = 0;
   let mut packed_particles = 0;
@@ -826,21 +826,21 @@ fn pack_ghost_layer_particles(
         if(nparticles > 0) {
           copy_offset(
             cell.masses, 0,
-            mpi_buffer, buffer_ptr * sizeof[real_t](), nparticles);
+            comm_buffer, buffer_ptr * sizeof[real_t](), nparticles);
 
           buffer_ptr += nparticles;
 
           buffer_ptr += copy_struct_of_arrays_to_buffer(
             cell.positions, 0,
-            mpi_buffer, buffer_ptr, nparticles);
+            comm_buffer, buffer_ptr, nparticles);
 
           buffer_ptr += copy_struct_of_arrays_to_buffer(
             cell.velocities, 0,
-            mpi_buffer, buffer_ptr, nparticles);
+            comm_buffer, buffer_ptr, nparticles);
 
           buffer_ptr += copy_struct_of_arrays_to_buffer(
             cell.forces, 0,
-            mpi_buffer, buffer_ptr, nparticles);
+            comm_buffer, buffer_ptr, nparticles);
 
           packed_particles += nparticles;
         }
@@ -859,7 +859,7 @@ fn pack_ghost_layer_particles(
 }
 
 fn unpack_ghost_layer_particles(
-  mpi_buffer: Buffer,
+  comm_buffer: Buffer,
   grid: &mut Grid,
   begin: [i32 * 3],
   end: [i32 * 3],
@@ -867,7 +867,7 @@ fn unpack_ghost_layer_particles(
   unpacked_iterations: &mut i32,
   rmng_particles: &mut i32) -> i32 {
 
-  let buffer_data = get_array_of_reals(mpi_buffer);
+  let buffer_data = get_array_of_reals(comm_buffer);
   let mut buffer_ptr = 0;
   let mut iterations = 0;
   let mut unpacked_particles = 0;
@@ -898,21 +898,21 @@ fn unpack_ghost_layer_particles(
 
       if(nparticles > 0) {
         copy_offset(
-          mpi_buffer, buffer_ptr * sizeof[real_t](),
+          comm_buffer, buffer_ptr * sizeof[real_t](),
           cell.masses, 0, nparticles);
 
         buffer_ptr += nparticles;
 
         buffer_ptr += copy_buffer_to_struct_of_arrays(
-          mpi_buffer, buffer_ptr,
+          comm_buffer, buffer_ptr,
           cell.positions, 0, nparticles);
 
         buffer_ptr += copy_buffer_to_struct_of_arrays(
-          mpi_buffer, buffer_ptr,
+          comm_buffer, buffer_ptr,
           cell.velocities, 0, nparticles);
 
         buffer_ptr += copy_buffer_to_struct_of_arrays(
-          mpi_buffer, buffer_ptr,
+          comm_buffer, buffer_ptr,
           cell.forces, 0, nparticles);
 
         unpacked_particles += nparticles;
@@ -962,32 +962,32 @@ fn exchange_ghost_layer_particles(
     let rank_recv_ptcs =
       rank_recv_ptr(exchange_rank) + rank_recv_ptr(exchange_rank) / 2;
 
-    resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
+    resize_comm_buffers(dims_length + send_length, dims_length + recv_length);
 
     rank_send_ptr(exchange_rank) = pack_ghost_layer_particles(
-      mpi_send_buffer, grid, send_begin, send_end,
+      comm_send_buffer, grid, send_begin, send_end,
       0, rank_send_ptcs, &mut packed_iterations, &mut rmng_send_ptcs);
 
     mpih.irecv(
-      bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
+      bitcast[&mut[real_t]](comm_recv_buffer.data) as MPI_MutBuf,
       dims_length + rank_recv_ptcs + rank_recv_ptcs * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
     mpih.send(
-      bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
+      bitcast[&mut[real_t]](comm_send_buffer.data) as MPI_MutBuf,
       dims_length + rank_send_ptcs + rank_send_ptcs * 3 * 3,
       mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
     mpih.wait(&mut request, &mut status);
 
     rank_recv_ptr(exchange_rank) = unpack_ghost_layer_particles(
-      mpi_recv_buffer, grid, recv_begin, recv_end,
+      comm_recv_buffer, grid, recv_begin, recv_end,
       0, &mut unpacked_iterations, &mut rmng_recv_ptcs);
 
     if(rmng_recv_ptcs > 0) {
       let rmng_recv_length = rmng_recv_ptcs + rmng_recv_ptcs * 3 * 3;
 
-      resize_mpi_buffers(0, dims_length + rmng_recv_length);
+      resize_comm_buffers(0, dims_length + rmng_recv_length);
 
       /*
       print_i32(world_rank);
@@ -998,7 +998,7 @@ fn exchange_ghost_layer_particles(
       */
 
       mpih.irecv(
-        bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
+        bitcast[&mut[real_t]](comm_recv_buffer.data) as MPI_MutBuf,
         dims_length + rmng_recv_length,
         mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
     }
@@ -1006,7 +1006,7 @@ fn exchange_ghost_layer_particles(
     if(rmng_send_ptcs > 0) {
       let rmng_send_length = rmng_send_ptcs + rmng_send_ptcs * 3 * 3;
 
-      resize_mpi_buffers(dims_length + rmng_send_length, 0);
+      resize_comm_buffers(dims_length + rmng_send_length, 0);
 
       /*
       print_i32(world_rank);
@@ -1019,12 +1019,12 @@ fn exchange_ghost_layer_particles(
       */
 
       rank_send_ptr(exchange_rank) += pack_ghost_layer_particles(
-        mpi_send_buffer, grid, send_begin, send_end,
+        comm_send_buffer, grid, send_begin, send_end,
         packed_iterations, rmng_send_ptcs,
         &mut packed_iterations, &mut rmng_send_ptcs);
 
       mpih.send(
-        bitcast[&mut[real_t]](mpi_send_buffer.data) as MPI_MutBuf,
+        bitcast[&mut[real_t]](comm_send_buffer.data) as MPI_MutBuf,
         dims_length + rmng_send_length,
         mpih.double_t, exchange_rank, 0, mpih.comms.world);
     }
@@ -1043,7 +1043,7 @@ fn exchange_ghost_layer_particles(
       mpih.wait(&mut request, &mut status);
 
       rank_recv_ptr(exchange_rank) += unpack_ghost_layer_particles(
-        mpi_recv_buffer, grid, recv_begin, recv_end,
+        comm_recv_buffer, grid, recv_begin, recv_end,
         unpacked_iterations, &mut unpacked_iterations, &mut rmng_recv_ptcs);
     }
 
