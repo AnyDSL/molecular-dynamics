@@ -26,7 +26,7 @@ extern "C" {
     void md_set_thread_count(int);
     void md_mpi_initialize();
     void md_mpi_finalize();
-    int md_get_comm_time_steps();
+    int md_get_sync_timesteps();
     void md_synchronize_ghost_layer();
     int md_get_world_rank();
     int md_get_number_of_particles();

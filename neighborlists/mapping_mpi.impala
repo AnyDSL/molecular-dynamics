@@ -1,26 +1,42 @@
-static mut max_send_particles: i32;
-static mut max_recv_particles: i32;
-static mut comm_send_buffer_size: i32;
-static mut comm_recv_buffer_size: i32;
-static mut rank_send_particles: Buffer;
-static mut rank_recv_particles: Buffer;
-static mut comm_send_buffer: Buffer;
-static mut comm_recv_buffer: Buffer;
+/* Number of nodes in each dimension */
 static mut node_dims: [i32 * 3];
+
+/* Lookup table for ghost layer ranges */
 static mut grid_transfer_ranges: [[i32 * 4] * 9];
 
-fn @get_comm_time_steps() -> i32 { 1 }
+/* Number of send and receive particles per rank */
+static mut rank_send_particles: Buffer;
+static mut rank_recv_particles: Buffer;
 
-fn @synchronize_diagonals() -> bool { true }
+/* Maximum number of send and receive particles */
+static mut max_send_particles: i32;
+static mut max_recv_particles: i32;
 
+/* Buffers for send and receive communications */
+static mut comm_send_buffer: Buffer;
+static mut comm_recv_buffer: Buffer;
+
+/* Sizes for communication buffers */
+static mut comm_send_buffer_size: i32;
+static mut comm_recv_buffer_size: i32;
+
+/* Timesteps to perform cell synchronization (ghost layer width) */
+fn @get_sync_timesteps() -> i32 { 1 }
+
+/* Must synchronize diagonals (true/false) */
+fn @synchronize_diagonals() -> bool { false }
+
+/* Flatten index for ranks (3D cartesian mapping) */
 fn @flat_index(index: [i32 * 3], nx: i32, ny: i32) -> i32 {
   (index(2) * ny + index(1)) * nx + index(0)
 }
 
+/* Unflatten index for ranks (3D cartesian mapping) */
 fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32) -> [i32 * 3] {
   [index % nx, (index / nx) % ny, index / (nx * ny)]
 }
 
+/* Mirrored communication (avoid deadlocks) */
 fn @mirror_comm(
   xoffset: i32,
   yoffset: i32,
@@ -31,124 +47,146 @@ fn @mirror_comm(
   @@body(-xoffset, -yoffset, -zoffset);
 }
 
+/* Initialize MPI and defined data structures for communication */
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   let mpih = mpi();
 
+  /* Initialize MPI */
   mpih.init();
 
+  /* Set sizes to zero */
   comm_send_buffer_size = 0;
   comm_recv_buffer_size = 0;
 
+  /* Get world size and rank for current node */
   mpih.comm_size(mpih.comms.world, world_size);
   mpih.comm_rank(mpih.comms.world, world_rank);
 
+  /* Allocate buffer for storing number of send and receive particles */
   rank_send_particles = alloc_cpu(sizeof[i32]() * *world_size);
   rank_recv_particles = alloc_cpu(sizeof[i32]() * *world_size);
 }
 
+/* Finalize MPI and free data structures for communication */
 fn mpi_finalize() -> () {
   let mpih = mpi();
 
+  /* Release communication send buffer */
   if(comm_send_buffer_size > 0) {
     release(comm_send_buffer);
   }
 
+  /* Release communication receive buffer */
   if(comm_recv_buffer_size > 0) {
     release(comm_recv_buffer);
   }
 
+  /* Release buffer for storing number of send and receive particles */
   release(rank_send_particles);
   release(rank_recv_particles);
 
+  /* Finalize MPI */
   mpih.finalize();
 }
 
+/* Resize communication buffers (if necessary) */
 fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
+  /* If new send buffer size is higher than current one */
   if(send_size > comm_send_buffer_size) {
+    /* Release communication send buffer */
     if(comm_send_buffer_size > 0) {
       release(comm_send_buffer);
     }
 
+    /* Allocate new buffer with new size and update size */
     comm_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
     comm_send_buffer_size = send_size;
   }
 
+  /* If new receive buffer size is higher than current one */
   if(recv_size > comm_recv_buffer_size) {
+    /* Release communication receive buffer */
     if(comm_recv_buffer_size > 0) {
       release(comm_recv_buffer);
     }
 
+    /* Allocate new buffer with new size and update size */
     comm_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
     comm_recv_buffer_size = recv_size;
   }
 }
 
+/* Communication pattern for 1D domain partitioning */
 fn communication_nodes_1d(
   world_size: i32,
   rank: i32,
   grid: Grid,
   body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
 
+  /* If rank is not the last one */
   if(rank < world_size - 1) {
+    /* Communicate with next rank */
     @@body(
       rank + 1,
-      [0, 0, grid.nz - get_comm_time_steps() * 2],
-      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
-      [0, 0, grid.nz - get_comm_time_steps()],
+      [0, 0, grid.nz - get_sync_timesteps() * 2],
+      [grid.nx, grid.ny, grid.nz - get_sync_timesteps()],
+      [0, 0, grid.nz - get_sync_timesteps()],
       [grid.nx, grid.ny, grid.nz]
     );
   }
 
+  /* If rank is not the first one */
   if(rank > 0) {
+    /* Communicate with previous rank */
     @@body(
       rank - 1,
-      [0, 0, get_comm_time_steps()],
-      [grid.nx, grid.ny, get_comm_time_steps() * 2],
+      [0, 0, get_sync_timesteps()],
+      [grid.nx, grid.ny, get_sync_timesteps() * 2],
       [0, 0, 0],
-      [grid.nx, grid.ny, get_comm_time_steps()]
+      [grid.nx, grid.ny, get_sync_timesteps()]
     );
   }
 }
 
+/* Get current node bounding box for 1D domain partitioning */
 fn @get_node_bounding_box_1d(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,
   grid_aabb: AABB) -> AABB {
 
+  /* Delimiters for current node bounding box */
   let mut zmin: f64;
   let mut zmax: f64;
 
+  /* If there are more nodes */
   if(world_size > 1) {
+    /* Number of cells in z axis */
     let zcells = math.floor(
       (grid_aabb.max(2) - grid_aabb.min(2)) / cell_spacing
     ) as i32;
 
+    /* Total length for cells in z axis */
     let zlength = (zcells / world_size) as f64 * cell_spacing;
 
+    /* Calculate zmin and zmax based on rank value */
     zmin = grid_aabb.min(2) + zlength * (rank as f64);
     zmax = grid_aabb.min(2) + zlength * ((rank + 1) as f64);
 
+    /* If this is not the first node, include ghost layer for lower z ranks */
     if(rank > 0) {
-      zmin -= (get_comm_time_steps() as f64) * cell_spacing;
+      zmin -= (get_sync_timesteps() as f64) * cell_spacing;
     }
 
+    /* If this is not the last node, include ghost layer for upper z ranks */
     if(rank < world_size - 1) {
-      zmax += (get_comm_time_steps() as f64) * cell_spacing;
+      zmax += (get_sync_timesteps() as f64) * cell_spacing;
+    /* Otherwise, just increase cell spacing to maximum delimiter to
+       reach any possible missing cells in the original bounding box */
     } else {
       zmax += cell_spacing;
     }
-
-    /*
-    print_i32(rank);
-    print_string("- zmin = ");
-    print_f64(zmin);
-    print_string(", zmax = ");
-    print_f64(zmax);
-    print_string(", cell_spacing = ");
-    print_f64(cell_spacing);
-    print_string("\n");
-    */
+  /* Otherwise, just use original bounding box */
   } else {
     zmin = grid_aabb.min(2);
     zmax = grid_aabb.max(2);
@@ -160,39 +198,53 @@ fn @get_node_bounding_box_1d(
   }
 }
 
+/* Get send and receive transfer ranges for communications */
 fn transfer_ranges(offset: i32, ncells: i32) -> [i32 * 4] {
   let mut send_begin: i32;
   let mut send_end: i32;
   let mut recv_begin: i32;
   let mut recv_end: i32;
 
+  /* If offset is zero (same position), communication must comprise all
+     cells in this axis (adjacent nodes) */
   if(offset == 0) {
     send_begin = 0;
     send_end = ncells;
     recv_begin = 0;
     recv_end = ncells;
+  /* If offset is less than zero (lower position), communication must
+     comprise only last cells in this axis */
   } else if(offset < 0) {
-    send_begin = ncells - get_comm_time_steps() * 2;
-    send_end = ncells - get_comm_time_steps();
-    recv_begin = ncells - get_comm_time_steps();
+    send_begin = ncells - get_sync_timesteps() * 2;
+    send_end = ncells - get_sync_timesteps();
+    recv_begin = ncells - get_sync_timesteps();
     recv_end = ncells;
+  /* If offset is greater than zero (lower position), communication must
+     comprise only first cells in this axis */
   } else {
-    send_begin = get_comm_time_steps();
-    send_end = get_comm_time_steps() * 2;
+    send_begin = get_sync_timesteps();
+    send_end = get_sync_timesteps() * 2;
     recv_begin = 0;
-    recv_end = get_comm_time_steps();
+    recv_end = get_sync_timesteps();
   }
 
   [send_begin, send_end, recv_begin, recv_end]
 }
 
+/* Build lookup table for transfer ranges in all dimensions */
 fn initialize_grid_transfer_ranges(grid: Grid) -> () {
+  /* Go through all offsets (-1, 0, +1) */
   for i in range(-1, 2) {
+    /* Get transfer ranges for x axis */
     let xranges = transfer_ranges(i, grid.nx);
+    /* Get transfer ranges for y axis */
     let yranges = transfer_ranges(i, grid.ny);
+    /* Get transfer ranges for z axis */
     let zranges = transfer_ranges(i, grid.nz);
 
+    /* Go through ranges (send begin, send end, recv begin and recv end) */
     for j in range(0, 4) {
+      /* Copy ranges to the table */
       grid_transfer_ranges(i + 1)(j) = xranges(j);
       grid_transfer_ranges(i + 4)(j) = yranges(j);
       grid_transfer_ranges(i + 7)(j) = zranges(j);
@@ -200,61 +252,73 @@ fn initialize_grid_transfer_ranges(grid: Grid) -> () {
   }
 }
 
+/* Generic communication pattern (include diagonals) */
 fn communication_nodes_generic(
   world_size: i32,
   rank: i32,
   grid: Grid,
   body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
 
+  /* Index of rank in the 3D cartesian grid */
   let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
 
+  /* Has previous node in x axis */
   let xprev = rank_index(0) > 0;
+  /* Has successor node in x axis */
   let xnext = rank_index(0) < node_dims(0) - 1;
+  /* Has previous node in y axis */
   let yprev = rank_index(1) > 0;
+  /* Has successor node in y axis */
   let ynext = rank_index(1) < node_dims(1) - 1;
+  /* Has previous node in z axis */
   let zprev = rank_index(2) > 0;
+  /* Has successor node in z axis */
   let znext = rank_index(2) < node_dims(2) - 1;
 
+  /* Go through x possible offsets */
   for xoffset in range(-1, 1) {
+    /* Go through y possible offsets */
     for yoffset in range(-1, 1 - xoffset) {
+      /* Go through z possible offsets */
       for zoffset in range(-1, 2) {
+        /* Number of zero offsets (diagonals include zero or one) */
         let nzeros = (xoffset == 0) as i32 +
                      (yoffset == 0) as i32 +
                      (zoffset == 0) as i32;
 
         //if(nzeros == 2 || (synchronize_diagonals() && nzeros < 3)) {
+
+        /* If number of zeros is two, not a diagonal (adjacent node) */
         if(nzeros == 2) {
+          /* Perform for original and mirrored offsets to avoid deadlocks */
           for xoff, yoff, zoff in mirror_comm(xoffset, yoffset, zoffset) {
+            /* Check if node for communication is valid */
             if(
                 ((xoff < 0 && xprev) || (xoff > 0 && xnext) || (xoff == 0)) &&
                 ((yoff < 0 && yprev) || (yoff > 0 && ynext) || (yoff == 0)) &&
                 ((zoff < 0 && zprev) || (zoff > 0 && znext) || (zoff == 0))
             ) {
-              print_i32(rank);
-              print_string("> OFFSETS ");
-              print_i32(xoff);
-              print_string(", ");
-              print_i32(yoff);
-              print_string(", ");
-              print_i32(zoff);
-              print_string("\n");
-              print_flush();
+              /* Exchange rank based on offsets */
+              let exchange_rank = flat_index(
+                [rank_index(0) + xoff, rank_index(1) + yoff, rank_index(2) + zoff],
+                node_dims(0), node_dims(1)
+              );
 
+              /* Get x ranges on lookup table */
               let xranges = grid_transfer_ranges(xoff + 1);
+              /* Get y ranges on lookup table */
               let yranges = grid_transfer_ranges(yoff + 4);
+              /* Get z ranges on lookup table */
               let zranges = grid_transfer_ranges(zoff + 7);
 
+              /* Build ranges based on vectors obtained from the lookup table */
               let send_begin = [xranges(0), yranges(0), zranges(0)];
               let send_end   = [xranges(1), yranges(1), zranges(1)];
               let recv_begin = [xranges(2), yranges(2), zranges(2)];
               let recv_end   = [xranges(3), yranges(3), zranges(3)];
 
-              @@body(
-                flat_index(
-                  [rank_index(0) + xoff, rank_index(1) + yoff, rank_index(2) + zoff],
-                  node_dims(0), node_dims(1)),
-                send_begin, send_end, recv_begin, recv_end
-              );
+              /* Performs communication with rank using the obtained ranges */
+              @@body(exchange_rank, send_begin, send_end, recv_begin, recv_end);
             }
           }
         }
@@ -263,29 +327,37 @@ fn communication_nodes_generic(
   }
 }
 
+/* Default communication pattern (do not include diagonals) */
 fn communication_nodes(
   world_size: i32,
   rank: i32,
   grid: Grid,
   body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
 
+  /* Index of rank in the 3D cartesian grid */
   let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
 
+  /* Has previous node in x axis */
   let xprev = rank_index(0) > 0;
+  /* Has successor node in x axis */
   let xnext = rank_index(0) < node_dims(0) - 1;
+  /* Has previous node in y axis */
   let yprev = rank_index(1) > 0;
+  /* Has successor node in y axis */
   let ynext = rank_index(1) < node_dims(1) - 1;
+  /* Has previous node in z axis */
   let zprev = rank_index(2) > 0;
+  /* Has successor node in z axis */
   let znext = rank_index(2) < node_dims(2) - 1;
 
-  if(rank_index(0) % 2 == 0 && xnext) {
+  if(xnext) {
     @@body(
       flat_index(
         [rank_index(0) + 1, rank_index(1), rank_index(2)],
         node_dims(0), node_dims(1)),
-      [grid.nx - get_comm_time_steps() * 2, 0, 0],
-      [grid.nx - get_comm_time_steps(), grid.ny, grid.nz],
-      [grid.nx - get_comm_time_steps(), 0, 0],
+      [grid.nx - get_sync_timesteps() * 2, 0, 0],
+      [grid.nx - get_sync_timesteps(), grid.ny, grid.nz],
+      [grid.nx - get_sync_timesteps(), 0, 0],
       [grid.nx, grid.ny, grid.nz]
     );
   }
@@ -295,33 +367,21 @@ fn communication_nodes(
       flat_index(
         [rank_index(0) - 1, rank_index(1), rank_index(2)],
         node_dims(0), node_dims(1)),
-      [get_comm_time_steps(), 0, 0],
-      [get_comm_time_steps() * 2, grid.ny, grid.nz],
+      [get_sync_timesteps(), 0, 0],
+      [get_sync_timesteps() * 2, grid.ny, grid.nz],
       [0, 0, 0],
-      [get_comm_time_steps(), grid.ny, grid.nz]
+      [get_sync_timesteps(), grid.ny, grid.nz]
     );
   }
 
-  if(rank_index(0) % 2 != 0 && xnext) {
-    @@body(
-      flat_index(
-        [rank_index(0) + 1, rank_index(1), rank_index(2)],
-        node_dims(0), node_dims(1)),
-      [grid.nx - get_comm_time_steps() * 2, 0, 0],
-      [grid.nx - get_comm_time_steps(), grid.ny, grid.nz],
-      [grid.nx - get_comm_time_steps(), 0, 0],
-      [grid.nx, grid.ny, grid.nz]
-    );
-  }
-
-  if(rank_index(1) % 2 == 0 && ynext) {
+  if(ynext) {
     @@body(
       flat_index(
         [rank_index(0), rank_index(1) + 1, rank_index(2)],
         node_dims(0), node_dims(1)),
-      [0, grid.ny - get_comm_time_steps() * 2, 0],
-      [grid.nx, grid.ny - get_comm_time_steps(), grid.nz],
-      [0, grid.ny - get_comm_time_steps(), 0],
+      [0, grid.ny - get_sync_timesteps() * 2, 0],
+      [grid.nx, grid.ny - get_sync_timesteps(), grid.nz],
+      [0, grid.ny - get_sync_timesteps(), 0],
       [grid.nx, grid.ny, grid.nz]
     );
   }
@@ -331,33 +391,21 @@ fn communication_nodes(
       flat_index(
         [rank_index(0), rank_index(1) - 1, rank_index(2)],
         node_dims(0), node_dims(1)),
-      [0, get_comm_time_steps(), 0],
-      [grid.nx, get_comm_time_steps() * 2, grid.nz],
+      [0, get_sync_timesteps(), 0],
+      [grid.nx, get_sync_timesteps() * 2, grid.nz],
       [0, 0, 0],
-      [grid.nx, get_comm_time_steps(), grid.nz]
+      [grid.nx, get_sync_timesteps(), grid.nz]
     );
   }
 
-  if(rank_index(1) % 2 != 0 && ynext) {
-    @@body(
-      flat_index(
-        [rank_index(0), rank_index(1) + 1, rank_index(2)],
-        node_dims(0), node_dims(1)),
-      [0, grid.ny - get_comm_time_steps() * 2, 0],
-      [grid.nx, grid.ny - get_comm_time_steps(), grid.nz],
-      [0, grid.ny - get_comm_time_steps(), 0],
-      [grid.nx, grid.ny, grid.nz]
-    );
-  }
-
-  if(rank_index(2) % 2 == 0 && znext) {
+  if(znext) {
     @@body(
       flat_index(
         [rank_index(0), rank_index(1), rank_index(2) + 1],
         node_dims(0), node_dims(1)),
-      [0, 0, grid.nz - get_comm_time_steps() * 2],
-      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
-      [0, 0, grid.nz - get_comm_time_steps()],
+      [0, 0, grid.nz - get_sync_timesteps() * 2],
+      [grid.nx, grid.ny, grid.nz - get_sync_timesteps()],
+      [0, 0, grid.nz - get_sync_timesteps()],
       [grid.nx, grid.ny, grid.nz]
     );
   }
@@ -367,22 +415,10 @@ fn communication_nodes(
       flat_index(
         [rank_index(0), rank_index(1), rank_index(2) - 1],
         node_dims(0), node_dims(1)),
-      [0, 0, get_comm_time_steps()],
-      [grid.nx, grid.ny, get_comm_time_steps() * 2],
+      [0, 0, get_sync_timesteps()],
+      [grid.nx, grid.ny, get_sync_timesteps() * 2],
       [0, 0, 0],
-      [grid.nx, grid.ny, get_comm_time_steps()]
-    );
-  }
-
-  if(rank_index(2) % 2 != 0 && znext) {
-    @@body(
-      flat_index(
-        [rank_index(0), rank_index(1), rank_index(2) + 1],
-        node_dims(0), node_dims(1)),
-      [0, 0, grid.nz - get_comm_time_steps() * 2],
-      [grid.nx, grid.ny, grid.nz - get_comm_time_steps()],
-      [0, 0, grid.nz - get_comm_time_steps()],
-      [grid.nx, grid.ny, grid.nz]
+      [grid.nx, grid.ny, get_sync_timesteps()]
     );
   }
 }
@@ -398,16 +434,6 @@ fn get_node_config(
   let mut gy = 1;
   let mut gz = 1;
   let mut min_missing_factor = xcells * ycells * zcells;
-
-  /*
-  print_string("Cells = ");
-  print_i32(xcells);
-  print_string(", ");
-  print_i32(ycells);
-  print_string(", ");
-  print_i32(zcells);
-  print_string("\n");
-  */
 
   for i in range(1, world_size) {
     if(world_size % i == 0) {
@@ -428,30 +454,6 @@ fn get_node_config(
       }
     }
   }
-
-  /*
-  print_string("Found config: (");
-  print_i32(gx);
-  print_string(", ");
-  print_i32(gy);
-  print_string(", ");
-  print_i32(gz);
-  print_string(")\n");
-
-  let uidx = unflat_index(rank, gx, gy, gz);
-
-  print_string("Rank index(");
-  print_i32(rank);
-  print_string(") = (");
-  print_i32(uidx(0));
-  print_string(", ");
-  print_i32(uidx(1));
-  print_string(", ");
-  print_i32(uidx(2));
-  print_string(") = ");
-  print_i32(flat_index(uidx, gx, gy));
-  print_string("\n");
-  */
 
   [gx, gy, gz]
 }
@@ -489,53 +491,34 @@ fn @get_node_bounding_box(
     zmax = aabb.min(2) + zlength * ((rank_index(2) + 1) as f64);
 
     if(rank_index(0) > 0) {
-      xmin -= (get_comm_time_steps() as f64) * cell_spacing;
+      xmin -= (get_sync_timesteps() as f64) * cell_spacing;
     }
 
     if(rank_index(0) < node_dims(0) - 1) {
-      xmax += (get_comm_time_steps() as f64) * cell_spacing;
+      xmax += (get_sync_timesteps() as f64) * cell_spacing;
     } else {
       xmax += cell_spacing;
     }
 
     if(rank_index(1) > 0) {
-      ymin -= (get_comm_time_steps() as f64) * cell_spacing;
+      ymin -= (get_sync_timesteps() as f64) * cell_spacing;
     }
 
     if(rank_index(1) < node_dims(1) - 1) {
-      ymax += (get_comm_time_steps() as f64) * cell_spacing;
+      ymax += (get_sync_timesteps() as f64) * cell_spacing;
     } else {
       ymax += cell_spacing;
     }
 
     if(rank_index(2) > 0) {
-      zmin -= (get_comm_time_steps() as f64) * cell_spacing;
+      zmin -= (get_sync_timesteps() as f64) * cell_spacing;
     }
 
     if(rank_index(2) < node_dims(2) - 1) {
-      zmax += (get_comm_time_steps() as f64) * cell_spacing;
+      zmax += (get_sync_timesteps() as f64) * cell_spacing;
     } else {
       zmax += cell_spacing;
     }
-
-    /*
-    print_i32(rank);
-    print_string("> xmin = ");
-    print_f64(xmin);
-    print_string(", xmax = ");
-    print_f64(xmax);
-    print_string(", ymin = ");
-    print_f64(ymin);
-    print_string(", ymax = ");
-    print_f64(ymax);
-    print_string(", zmin = ");
-    print_f64(zmin);
-    print_string(", zmax = ");
-    print_f64(zmax);
-    print_string(", cell_spacing = ");
-    print_f64(cell_spacing);
-    print_string("\n");
-    */
   } else {
     node_dims = [1, 1, 1];
 
@@ -989,14 +972,6 @@ fn exchange_ghost_layer_particles(
 
       resize_comm_buffers(0, dims_length + rmng_recv_length);
 
-      /*
-      print_i32(world_rank);
-      print_string("> recv remaining particles: ");
-      print_i32(rmng_recv_ptcs);
-      print_string("\n");
-      print_flush();
-      */
-
       mpih.irecv(
         bitcast[&mut[real_t]](comm_recv_buffer.data) as MPI_MutBuf,
         dims_length + rmng_recv_length,
@@ -1007,16 +982,6 @@ fn exchange_ghost_layer_particles(
       let rmng_send_length = rmng_send_ptcs + rmng_send_ptcs * 3 * 3;
 
       resize_comm_buffers(dims_length + rmng_send_length, 0);
-
-      /*
-      print_i32(world_rank);
-      print_string("> send remaining particles: ");
-      print_i32(rmng_send_ptcs);
-      print_string(", packed iterations: ");
-      print_i32(packed_iterations);
-      print_string("\n");
-      print_flush();
-      */
 
       rank_send_ptr(exchange_rank) += pack_ghost_layer_particles(
         comm_send_buffer, grid, send_begin, send_end,
@@ -1030,16 +995,6 @@ fn exchange_ghost_layer_particles(
     }
 
     if(rmng_recv_ptcs > 0) {
-      /*
-      print_i32(world_rank);
-      print_string("> wait remaining particles: ");
-      print_i32(rmng_recv_ptcs);
-      print_string(", unpacked iterations: ");
-      print_i32(unpacked_iterations);
-      print_string("\n");
-      print_flush();
-      */
-
       mpih.wait(&mut request, &mut status);
 
       rank_recv_ptr(exchange_rank) += unpack_ghost_layer_particles(

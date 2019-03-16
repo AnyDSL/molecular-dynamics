@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            if(vtk || (j > 0 && j % md_get_comm_time_steps() == 0)) {
+            if(vtk || (j > 0 && j % md_get_sync_timesteps() == 0)) {
               begin = measure_time();
               md_synchronize_ghost_layer();
               end = measure_time();

@@ -128,8 +128,8 @@ fn md_mpi_finalize() -> () {
 }
 
 extern
-fn md_get_comm_time_steps() -> i32 {
-  get_comm_time_steps()
+fn md_get_sync_timesteps() -> i32 {
+  get_sync_timesteps()
 }
 
 extern
