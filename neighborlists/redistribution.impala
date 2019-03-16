@@ -54,5 +54,5 @@ fn redistribute_particles(grid: &mut Grid, world_size: i32, world_rank: i32, all
         }
     }
 
-    mpi_exchange_ghost_zone(grid, world_size, world_rank);
+    exchange_ghost_layer_particles(grid, world_size, world_rank);
 }

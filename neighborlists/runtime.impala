@@ -16,7 +16,7 @@ fn md_initialize_grid(
         max: [max(0), max(1), max(2)],
     };
     let cluster_size = get_cluster_size();
-    let rank_aabb = mpi_get_rank_bounding_box(
+    let rank_aabb = get_comm_rank_bounding_box(
       world_size, world_rank, cell_spacing, aabb);
 
     /*
@@ -133,8 +133,8 @@ fn md_get_comm_time_steps() -> i32 {
 }
 
 extern
-fn md_synchronize_ghost_zone() -> () {
-  mpi_synchronize_ghost_zone(&mut grid_, accelerator_grid_, world_size, world_rank);
+fn md_synchronize_ghost_layer() -> () {
+  synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, world_size, world_rank);
 }
 
 extern

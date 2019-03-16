@@ -83,7 +83,7 @@ fn resize_mpi_buffers(send_size: i32, recv_size: i32) -> () {
   }
 }
 
-fn mpi_exchange_subdomains_1d(
+fn communication_nodes_1d(
   world_size: i32,
   rank: i32,
   grid: Grid,
@@ -110,7 +110,7 @@ fn mpi_exchange_subdomains_1d(
   }
 }
 
-fn @mpi_get_rank_bounding_box_1d(
+fn @get_comm_rank_bounding_box_1d(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,
@@ -200,7 +200,7 @@ fn initialize_grid_transfer_ranges(grid: Grid) -> () {
   }
 }
 
-fn mpi_exchange_subdomains_generic(
+fn communication_nodes_generic(
   world_size: i32,
   rank: i32,
   grid: Grid,
@@ -263,7 +263,7 @@ fn mpi_exchange_subdomains_generic(
   }
 }
 
-fn mpi_exchange_subdomains(
+fn communication_nodes(
   world_size: i32,
   rank: i32,
   grid: Grid,
@@ -456,7 +456,7 @@ fn get_node_config(
   [gx, gy, gz]
 }
 
-fn @mpi_get_rank_bounding_box(
+fn @get_comm_rank_bounding_box(
   world_size: i32,
   rank: i32,
   cell_spacing: f64,
@@ -565,7 +565,7 @@ fn mpi_initialize_grid_comm(
   max_recv_particles = 0;
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
-      mpi_exchange_subdomains(world_size, world_rank, grid) {
+      communication_nodes(world_size, world_rank, grid) {
 
     rank_send_ptr(exchange_rank) = 0;
     rank_recv_ptr(exchange_rank) = 0;
@@ -592,7 +592,7 @@ fn mpi_initialize_grid_comm(
   initialize_grid_transfer_ranges(grid);
 }
 
-fn mpi_pack_ghost_zone(
+fn pack_ghost_layer_cells(
   mpi_buffer: Buffer,
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
@@ -624,7 +624,7 @@ fn mpi_pack_ghost_zone(
   }
 }
 
-fn mpi_unpack_ghost_zone(
+fn unpack_ghost_layer_cells(
   mpi_buffer: Buffer,
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
@@ -706,7 +706,7 @@ fn copy_buffer_to_struct_of_arrays(
   size * 3
 }
 
-fn mpi_synchronize_ghost_zone(
+fn synchronize_ghost_layer_cells(
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
   world_size: i32,
@@ -741,10 +741,10 @@ fn mpi_synchronize_ghost_zone(
     total_number_of_particles);
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
-      mpi_exchange_subdomains(world_size, world_rank, *grid) {
+      communication_nodes(world_size, world_rank, *grid) {
 
     if(rank_send_ptr(exchange_rank) > 0) {
-      mpi_pack_ghost_zone(
+      pack_ghost_layer_cells(
         mpi_send_buffer, grid, accelerator_grid, send_begin, send_end);
     }
 
@@ -765,7 +765,7 @@ fn mpi_synchronize_ghost_zone(
     if(rank_recv_ptr(exchange_rank) > 0) {
       mpih.wait(&mut request, &mut status);
 
-      mpi_unpack_ghost_zone(
+      unpack_ghost_layer_cells(
         mpi_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
     }
   }
@@ -786,7 +786,7 @@ fn mpi_synchronize_ghost_zone(
     total_number_of_particles);
 }
 
-fn mpi_pack_exchange_cells(
+fn pack_ghost_layer_particles(
   mpi_buffer: Buffer,
   grid: &mut Grid,
   begin: [i32 * 3],
@@ -858,7 +858,7 @@ fn mpi_pack_exchange_cells(
   packed_particles
 }
 
-fn mpi_unpack_exchange_cells(
+fn unpack_ghost_layer_particles(
   mpi_buffer: Buffer,
   grid: &mut Grid,
   begin: [i32 * 3],
@@ -925,7 +925,7 @@ fn mpi_unpack_exchange_cells(
   unpacked_particles
 }
 
-fn mpi_exchange_ghost_zone(
+fn exchange_ghost_layer_particles(
   grid: &mut Grid,
   world_size: i32,
   world_rank: i32) -> () {
@@ -946,7 +946,7 @@ fn mpi_exchange_ghost_zone(
   max_recv_particles = 0;
 
   for exchange_rank, send_begin, send_end, recv_begin, recv_end in
-      mpi_exchange_subdomains(world_size, world_rank, *grid) {
+      communication_nodes(world_size, world_rank, *grid) {
 
     let mut rmng_send_ptcs: i32;
     let mut rmng_recv_ptcs: i32;
@@ -964,7 +964,7 @@ fn mpi_exchange_ghost_zone(
 
     resize_mpi_buffers(dims_length + send_length, dims_length + recv_length);
 
-    rank_send_ptr(exchange_rank) = mpi_pack_exchange_cells(
+    rank_send_ptr(exchange_rank) = pack_ghost_layer_particles(
       mpi_send_buffer, grid, send_begin, send_end,
       0, rank_send_ptcs, &mut packed_iterations, &mut rmng_send_ptcs);
 
@@ -980,7 +980,7 @@ fn mpi_exchange_ghost_zone(
 
     mpih.wait(&mut request, &mut status);
 
-    rank_recv_ptr(exchange_rank) = mpi_unpack_exchange_cells(
+    rank_recv_ptr(exchange_rank) = unpack_ghost_layer_particles(
       mpi_recv_buffer, grid, recv_begin, recv_end,
       0, &mut unpacked_iterations, &mut rmng_recv_ptcs);
 
@@ -989,11 +989,13 @@ fn mpi_exchange_ghost_zone(
 
       resize_mpi_buffers(0, dims_length + rmng_recv_length);
 
+      /*
       print_i32(world_rank);
       print_string("> recv remaining particles: ");
       print_i32(rmng_recv_ptcs);
       print_string("\n");
       print_flush();
+      */
 
       mpih.irecv(
         bitcast[&mut[real_t]](mpi_recv_buffer.data) as MPI_MutBuf,
@@ -1016,7 +1018,7 @@ fn mpi_exchange_ghost_zone(
       print_flush();
       */
 
-      rank_send_ptr(exchange_rank) += mpi_pack_exchange_cells(
+      rank_send_ptr(exchange_rank) += pack_ghost_layer_particles(
         mpi_send_buffer, grid, send_begin, send_end,
         packed_iterations, rmng_send_ptcs,
         &mut packed_iterations, &mut rmng_send_ptcs);
@@ -1040,7 +1042,7 @@ fn mpi_exchange_ghost_zone(
 
       mpih.wait(&mut request, &mut status);
 
-      rank_recv_ptr(exchange_rank) += mpi_unpack_exchange_cells(
+      rank_recv_ptr(exchange_rank) += unpack_ghost_layer_particles(
         mpi_recv_buffer, grid, recv_begin, recv_end,
         unpacked_iterations, &mut unpacked_iterations, &mut rmng_recv_ptcs);
     }
