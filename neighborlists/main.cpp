@@ -115,9 +115,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 64);
 #else
-        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 2048);
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 64);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
         */
 
         begin = measure_time();
-        md_initialize_clusters(512);
+        md_initialize_clusters(32);
         end = measure_time();
         cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
                 redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_initialize_clusters(512);
+                md_initialize_clusters(32);
                 end = measure_time();
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 

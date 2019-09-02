@@ -7,7 +7,7 @@ extern "C" {
         double y;
         double z;
     };
-    int md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double, int);
+    int md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double const *, double const *, double, int);
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
     void md_integrate_position(double);
@@ -30,6 +30,7 @@ extern "C" {
     void md_synchronize_ghost_layer();
     int md_get_world_rank();
     int md_get_number_of_particles();
+    void md_get_node_bounding_box(double, double const *, double const *, double (*)[3], double (*)[3]);
 }
 #endif // ANYDSL_INCLUDES
 
