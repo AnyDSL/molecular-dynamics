@@ -44,7 +44,10 @@ struct Cell {
     capacity: i32,
     nclusters: i32,
     clusters: Buffer,
-    cluster_size: i32
+    cluster_size: i32,
+    neighbor_cells: Buffer,
+    neighbor_indices: Buffer,
+    neighbor_total_capacity: i32
 }
 
 fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
@@ -60,7 +63,10 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
         size: size,
         nclusters: 0,
         clusters: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
-        cluster_size: cluster_size 
+        cluster_size: cluster_size,
+        neighbor_cells: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
+        neighbor_indices: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
+        neighbor_total_capacity: 0
     }
 }
 
