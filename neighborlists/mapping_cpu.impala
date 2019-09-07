@@ -4,17 +4,12 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
-extern "C" {
-    fn rv_align(&[i8], i32) -> &[i8];
-    fn rv_shuffle(real_t, i32) -> real_t;
-}
-
 fn @shuffle(x: real_t, srcLane: i32, laneOffset: i32) -> real_t {
-    rv_shuffle(x, laneOffset)
+    rv_shuffle(x as f32, laneOffset) as real_t
 }
 
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
-    rv_align(ptr, alignment)
+    rv_align(ptr as &i8, alignment) as &[i8]
 }
 
 fn @accelerator_allocate(size: i32) -> Buffer {

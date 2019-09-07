@@ -1,5 +1,16 @@
+fn atomic_op_f32(a: &mut f32, b: f32, op: fn(f32, f32) -> f32) -> f32 {
+    let addr_as_ui = a as &mut u32;
+    let mut done = false;
+    let mut value : u32;
+    while(!done) {
+        value = *addr_as_ui;
+        done = cmpxchg(addr_as_ui, value, bitcast[u32](op(bitcast[f32](value), b)))(1);
+    }
+    bitcast[f32](op(bitcast[f32](value),b))
+}
+
 fn atomic_op_f64(a: &mut f64, b: f64, op: fn(f64, f64) -> f64) -> f64 { 
-    let addr_as_ui  = a as &mut u64;
+    let addr_as_ui = a as &mut u64;
     let mut done = false;
     let mut value : u64;
     while(!done) {
@@ -10,13 +21,13 @@ fn atomic_op_f64(a: &mut f64, b: f64, op: fn(f64, f64) -> f64) -> f64 {
 }
 
 fn atomic_add_to_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
-    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).x, x, |a,b|{a+b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).y, y, |a,b|{a+b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).z, z, |a,b|{a+b}); 
+    atomic_op_real(&mut bitcast[&mut[Vector3D]](buf.data)(i).x, x, |a,b|{a+b});
+    atomic_op_real(&mut bitcast[&mut[Vector3D]](buf.data)(i).y, y, |a,b|{a+b});
+    atomic_op_real(&mut bitcast[&mut[Vector3D]](buf.data)(i).z, z, |a,b|{a+b});
 }
 
 fn atomic_sub_from_vector(i: i32, buf: Buffer, x: real_t, y: real_t, z: real_t) -> () {
-    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).x, x, |a,b|{a-b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).y, y, |a,b|{a-b}); 
-    atomic_op_f64(&mut bitcast[&mut[Vector3D]](buf.data)(i).z, z, |a,b|{a-b}); 
+    atomic_op_real(&mut bitcast[&mut[Vector3D]](buf.data)(i).x, x, |a,b|{a-b});
+    atomic_op_real(&mut bitcast[&mut[Vector3D]](buf.data)(i).y, y, |a,b|{a-b});
+    atomic_op_real(&mut bitcast[&mut[Vector3D]](buf.data)(i).z, z, |a,b|{a-b});
 }

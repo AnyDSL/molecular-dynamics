@@ -133,7 +133,7 @@ extern
 fn md_compute_total_kinetic_energy() -> real_t {
     // TODO fix this function
    //compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
-   0.0
+   0.0 as real_t
 }
 
 extern

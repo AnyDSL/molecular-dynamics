@@ -279,16 +279,16 @@ fn individual_particles_are_in_distance(squared_cutoff_distance: real_t, cluster
             let dx = get_x_component(j, cell2.positions) - get_x_component(i, cell1.positions);
             let dy = get_y_component(j, cell2.positions) - get_y_component(i, cell1.positions);
             let dz = get_z_component(j, cell2.positions) - get_z_component(i, cell1.positions);
-            let squared_distance = dx*dx + dy*dy + dz*dz;
+            let squared_distance = (dx*dx + dy*dy + dz*dz) as real_t;
 
             if(squared_distance < squared_cutoff_distance) {
-                if(squared_distance < 0.9 * squared_cutoff_distance) {
+                if(squared_distance < (0.9 as real_t) * squared_cutoff_distance) {
                     retval = true;
                     break()
                 }
                 ++count;
             }
-            if(count > (PRUNING_THRESHOLD * (cell1.cluster_size * cell2.cluster_size) as real_t) as i32)  {
+            if(count > (PRUNING_THRESHOLD * ((cell1.cluster_size * cell2.cluster_size) as real_t)) as i32)  {
                 retval = true;
                 break()
             }

@@ -180,7 +180,8 @@ fn append_particle(mass: real_t, position: Vector3D, velocity: Vector3D, dest: &
     print_string(" Velocity: ");
     print_vector(velocity);
     print_string("\n");*/
-    
+
+    let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let new_size = dest.size + 1;
     if(dest.size == dest.capacity) {
         reallocate_cell(new_size, dest, allocate);
@@ -195,5 +196,6 @@ fn append_particle(mass: real_t, position: Vector3D, velocity: Vector3D, dest: &
     set_real(new_size-1, dest.masses, mass);
     set_struct_of_arrays(new_size-1, dest.positions, position);
     set_struct_of_arrays(new_size-1, dest.velocities, velocity);
+    set_struct_of_arrays(new_size-1, dest.forces, null_vec);
 }
 

@@ -152,35 +152,35 @@ fn communication_nodes_1d(
 fn @get_node_bounding_box_1d(
   world_size: i32,
   rank: i32,
-  cell_spacing: f64,
+  cell_spacing: real_t,
   grid_aabb: AABB) -> AABB {
 
   /* Delimiters for current node bounding box */
-  let mut zmin: f64;
-  let mut zmax: f64;
+  let mut zmin: real_t;
+  let mut zmax: real_t;
 
   /* If there are more nodes */
   if(world_size > 1) {
     /* Number of cells in z axis */
-    let zcells = math.floor(
+    let zcells = real_floor(
       (grid_aabb.max(2) - grid_aabb.min(2)) / cell_spacing
     ) as i32;
 
     /* Total length for cells in z axis */
-    let zlength = (zcells / world_size) as f64 * cell_spacing;
+    let zlength = (zcells / world_size) as real_t * cell_spacing;
 
     /* Calculate zmin and zmax based on rank value */
-    zmin = grid_aabb.min(2) + zlength * (rank as f64);
-    zmax = grid_aabb.min(2) + zlength * ((rank + 1) as f64);
+    zmin = grid_aabb.min(2) + zlength * (rank as real_t);
+    zmax = grid_aabb.min(2) + zlength * ((rank + 1) as real_t);
 
     /* If this is not the first node, include ghost layer for lower z ranks */
     if(rank > 0) {
-      zmin -= (get_sync_timesteps() as f64) * cell_spacing;
+      zmin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
     /* If this is not the last node, include ghost layer for upper z ranks */
     if(rank < world_size - 1) {
-      zmax += (get_sync_timesteps() as f64) * cell_spacing;
+      zmax += (get_sync_timesteps() as real_t) * cell_spacing;
     /* Otherwise, just increase cell spacing to maximum delimiter to
        reach any possible missing cells in the original bounding box */
     } else {
@@ -461,61 +461,61 @@ fn get_node_config(
 fn @get_node_bounding_box(
   world_size: i32,
   rank: i32,
-  cell_spacing: f64,
+  cell_spacing: real_t,
   aabb: AABB) -> AABB {
 
-  let mut xmin: f64;
-  let mut xmax: f64;
-  let mut ymin: f64;
-  let mut ymax: f64;
-  let mut zmin: f64;
-  let mut zmax: f64;
+  let mut xmin: real_t;
+  let mut xmax: real_t;
+  let mut ymin: real_t;
+  let mut ymax: real_t;
+  let mut zmin: real_t;
+  let mut zmax: real_t;
 
   if(world_size > 1) {
-    let xcells = math.floor((aabb.max(0) - aabb.min(0)) / cell_spacing) as i32;
-    let ycells = math.floor((aabb.max(1) - aabb.min(1)) / cell_spacing) as i32;
-    let zcells = math.floor((aabb.max(2) - aabb.min(2)) / cell_spacing) as i32;
+    let xcells = real_floor((aabb.max(0) - aabb.min(0)) / cell_spacing) as i32;
+    let ycells = real_floor((aabb.max(1) - aabb.min(1)) / cell_spacing) as i32;
+    let zcells = real_floor((aabb.max(2) - aabb.min(2)) / cell_spacing) as i32;
 
     node_dims = get_node_config(world_size, rank, xcells, ycells, zcells);
 
-    let xlength = (xcells / node_dims(0)) as f64 * cell_spacing;
-    let ylength = (ycells / node_dims(1)) as f64 * cell_spacing;
-    let zlength = (zcells / node_dims(2)) as f64 * cell_spacing;
+    let xlength = (xcells / node_dims(0)) as real_t * cell_spacing;
+    let ylength = (ycells / node_dims(1)) as real_t * cell_spacing;
+    let zlength = (zcells / node_dims(2)) as real_t * cell_spacing;
     let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
 
-    xmin = aabb.min(0) + xlength * (rank_index(0) as f64);
-    xmax = aabb.min(0) + xlength * ((rank_index(0) + 1) as f64);
-    ymin = aabb.min(1) + ylength * (rank_index(1) as f64);
-    ymax = aabb.min(1) + ylength * ((rank_index(1) + 1) as f64);
-    zmin = aabb.min(2) + zlength * (rank_index(2) as f64);
-    zmax = aabb.min(2) + zlength * ((rank_index(2) + 1) as f64);
+    xmin = aabb.min(0) + xlength * (rank_index(0) as real_t);
+    xmax = aabb.min(0) + xlength * ((rank_index(0) + 1) as real_t);
+    ymin = aabb.min(1) + ylength * (rank_index(1) as real_t);
+    ymax = aabb.min(1) + ylength * ((rank_index(1) + 1) as real_t);
+    zmin = aabb.min(2) + zlength * (rank_index(2) as real_t);
+    zmax = aabb.min(2) + zlength * ((rank_index(2) + 1) as real_t);
 
     if(rank_index(0) > 0) {
-      xmin -= (get_sync_timesteps() as f64) * cell_spacing;
+      xmin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
     if(rank_index(0) < node_dims(0) - 1) {
-      xmax += (get_sync_timesteps() as f64) * cell_spacing;
+      xmax += (get_sync_timesteps() as real_t) * cell_spacing;
     } else {
       xmax += cell_spacing;
     }
 
     if(rank_index(1) > 0) {
-      ymin -= (get_sync_timesteps() as f64) * cell_spacing;
+      ymin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
     if(rank_index(1) < node_dims(1) - 1) {
-      ymax += (get_sync_timesteps() as f64) * cell_spacing;
+      ymax += (get_sync_timesteps() as real_t) * cell_spacing;
     } else {
       ymax += cell_spacing;
     }
 
     if(rank_index(2) > 0) {
-      zmin -= (get_sync_timesteps() as f64) * cell_spacing;
+      zmin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
     if(rank_index(2) < node_dims(2) - 1) {
-      zmax += (get_sync_timesteps() as f64) * cell_spacing;
+      zmax += (get_sync_timesteps() as real_t) * cell_spacing;
     } else {
       zmax += cell_spacing;
     }

@@ -7,7 +7,7 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
         let pos_y = get_positions_y(accelerator_grid);
         let pos_z = get_positions_z(accelerator_grid);
 
-        let mut force = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
+        let mut force = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
         let pos = Vector3D { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
 
         //let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
