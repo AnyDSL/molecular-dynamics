@@ -263,6 +263,7 @@ int main(int argc, char **argv) {
 
     std::cout << "Counted number of FLOPS within the force computation: " << get_number_of_flops() << std::endl;
 
+    md_report_memory_allocation();
 
     return EXIT_SUCCESS;
 }

@@ -18,6 +18,10 @@ fn cell_allocate_clusters(cell: &mut Cell, neighbor_list_capacity: i32, allocate
     let padding = nclusters * cell.cluster_size - cell.size;
     cell.padding = padding;
     if(nclusters != cell.nclusters) {
+        add_cluster_allocation(nclusters * sizeof[Cluster]());
+        add_neighbor_list_allocation(neighbor_list_capacity * sizeof[&Cell]());
+        add_neighbor_list_allocation(neighbor_list_capacity * sizeof[i32]());
+
         cell_deallocate_clusters(cell);
         cell.nclusters = nclusters;
         cell.clusters = allocate(nclusters * sizeof[Cluster]());
@@ -145,6 +149,9 @@ fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, in
         let new_capacity = new_size + extension;
 
         cell.neighbor_total_capacity += extension;
+
+        add_neighbor_list_allocation(extension * sizeof[&Cell]());
+        add_neighbor_list_allocation(extension * sizeof[i32]());
 
         let neighbor_cells = allocate(cell.neighbor_total_capacity * sizeof[&Cell]());
         let neighbor_indices = allocate(cell.neighbor_total_capacity * sizeof[i32]());

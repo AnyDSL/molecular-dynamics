@@ -170,3 +170,8 @@ extern
 fn md_get_number_of_particles() -> i32 {
   grid_.nparticles
 }
+
+extern
+fn md_report_memory_allocation() -> () {
+  report_memory_allocation();
+}

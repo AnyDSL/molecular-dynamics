@@ -31,6 +31,7 @@ extern "C" {
     int md_get_world_rank();
     int md_get_number_of_particles();
     void md_get_node_bounding_box(double, double const *, double const *, double (*)[3], double (*)[3]);
+    void md_report_memory_allocation();
 }
 #endif // ANYDSL_INCLUDES
 

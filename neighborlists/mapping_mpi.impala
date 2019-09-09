@@ -62,6 +62,9 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   mpih.comm_size(mpih.comms.world, world_size);
   mpih.comm_rank(mpih.comms.world, world_rank);
 
+  /* Add allocation amount */
+  add_mpi_allocation(sizeof[i32]() * *world_size * 2);
+
   /* Allocate buffer for storing number of send and receive particles */
   rank_send_particles = alloc_cpu(sizeof[i32]() * *world_size);
   rank_recv_particles = alloc_cpu(sizeof[i32]() * *world_size);
@@ -95,8 +98,12 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
   if(send_size > comm_send_buffer_size) {
     /* Release communication send buffer */
     if(comm_send_buffer_size > 0) {
+      add_mpi_allocation(-(sizeof[real_t]() * comm_send_buffer_size));
       release(comm_send_buffer);
     }
+
+    /* Add allocation amount */
+    add_mpi_allocation(sizeof[real_t]() * send_size);
 
     /* Allocate new buffer with new size and update size */
     comm_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
@@ -107,8 +114,12 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
   if(recv_size > comm_recv_buffer_size) {
     /* Release communication receive buffer */
     if(comm_recv_buffer_size > 0) {
+      add_mpi_allocation(-(sizeof[real_t]() * comm_recv_buffer_size));
       release(comm_recv_buffer);
     }
+
+    /* Add allocation amount */
+    add_mpi_allocation(sizeof[real_t]() * recv_size);
 
     /* Allocate new buffer with new size and update size */
     comm_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);

@@ -46,6 +46,13 @@ struct SimulationData {
 
 fn allocate_accelerator_grid(nx: i32, ny: i32, nz: i32, capacity_neighbors_per_cluster: i32, @cluster_size: i32, neighbor_lists_capacity: i32) -> AcceleratorGrid {
     let capacity_particles = capacity_neighbors_per_cluster * cluster_size;
+
+    add_accelerator_grid_allocation(nx * ny * nz * sizeof[i32]());
+    add_accelerator_grid_allocation(capacity_particles * 10 * sizeof[real_t]());
+    add_accelerator_grid_allocation(capacity_particles * sizeof[i8]());
+    add_accelerator_grid_allocation(capacity_neighbors_per_cluster * sizeof[i32]() * 2);
+    add_accelerator_grid_allocation(neighbor_lists_capacity * sizeof[i32]());
+
    AcceleratorGrid {
         cluster_size: cluster_size,
         total_number_of_clusters: 0,

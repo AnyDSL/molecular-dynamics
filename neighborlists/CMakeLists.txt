@@ -23,7 +23,7 @@ endif()
 option(USE_MPI "USE_MPI" ON)
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
 option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" ON)
-option(BODY_COLLISION_TEST "BODY_COLLISION_TEST" ON)
+option(BODY_COLLISION_TEST "BODY_COLLISION_TEST" OFF)
 
 set(CLANG_FLAGS -march=native -O3)
 set(IMPALA_FLAGS --log-level warn -O3)
@@ -43,7 +43,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     NAME md
     FILES
-    ${BACKEND_FILE} ${MAPPING_FILE} ${MPI_FILES} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala)
+    ${BACKEND_FILE} ${MAPPING_FILE} ${MPI_FILES} definitions.impala utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala redistribution.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala memory.impala)
 
 add_executable(md main.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
