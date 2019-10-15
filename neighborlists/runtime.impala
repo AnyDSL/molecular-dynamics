@@ -47,7 +47,7 @@ fn md_initialize_grid(
     */
 
     grid_ = allocate_grid(
-      rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
+      rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_unaligned_cpu);
 
     /*
     print_i32(world_rank);
@@ -61,7 +61,7 @@ fn md_initialize_grid(
     */
 
     initialize_grid(
-      masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
+      masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
 
     initialize_grid_comm(grid_, world_size, world_rank);
 
@@ -110,17 +110,17 @@ fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D]
 
 extern
 fn md_redistribute_particles() -> () {
-    redistribute_particles(&mut grid_, world_size, world_rank, alloc_cpu);
+    redistribute_particles(&mut grid_, world_size, world_rank, alloc_unaligned_cpu);
 }
 
 extern 
 fn md_initialize_clusters(neighbor_list_capacity: i32) -> () {
-   grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
+    grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
 }
 
 extern
 fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
+    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
 }
 
 extern

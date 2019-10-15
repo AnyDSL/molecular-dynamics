@@ -66,8 +66,8 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
   add_mpi_allocation(sizeof[i32]() * *world_size * 2);
 
   /* Allocate buffer for storing number of send and receive particles */
-  rank_send_particles = alloc_cpu(sizeof[i32]() * *world_size);
-  rank_recv_particles = alloc_cpu(sizeof[i32]() * *world_size);
+  rank_send_particles = alloc_unaligned_cpu(sizeof[i32]() * *world_size);
+  rank_recv_particles = alloc_unaligned_cpu(sizeof[i32]() * *world_size);
 }
 
 /* Finalize MPI and free data structures for communication */
@@ -106,7 +106,7 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     add_mpi_allocation(sizeof[real_t]() * send_size);
 
     /* Allocate new buffer with new size and update size */
-    comm_send_buffer = alloc_cpu(sizeof[real_t]() * send_size);
+    comm_send_buffer = alloc_unaligned_cpu(sizeof[real_t]() * send_size);
     comm_send_buffer_size = send_size;
   }
 
@@ -122,7 +122,7 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     add_mpi_allocation(sizeof[real_t]() * recv_size);
 
     /* Allocate new buffer with new size and update size */
-    comm_recv_buffer = alloc_cpu(sizeof[real_t]() * recv_size);
+    comm_recv_buffer = alloc_unaligned_cpu(sizeof[real_t]() * recv_size);
     comm_recv_buffer_size = recv_size;
   }
 }
@@ -465,6 +465,16 @@ fn get_node_config(
       }
     }
   }
+
+  /*
+  print_string("Node config: ");
+  print_i32(gx);
+  print_string(", ");
+  print_i32(gy);
+  print_string(", ");
+  print_i32(gz);
+  print_string("\n");
+  */
 
   [gx, gy, gz]
 }
@@ -883,7 +893,7 @@ fn unpack_ghost_layer_particles(
       buffer_ptr += 3;
 
       if(cell.size >= cell.capacity) {
-        reallocate_cell(cell.size, cell, alloc_cpu);
+        reallocate_cell(cell.size, cell, alloc_unaligned_cpu);
       }
 
       let nparticles = cell.size + cell.padding;

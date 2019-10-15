@@ -62,6 +62,7 @@ int main(int argc, char **argv) {
     double const epsilon = 1.0;
     double const sigma = 1.0;
     double const maximum_velocity = 1.0;
+    double const spacing_div_factor[3] = {2.0, 2.0, 1.0};
     double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
     AABB aabb, aabb1, aabb2;
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
         aabb.max[i] = gridsize[i] * potential_minimum;
-        spacing[i] = potential_minimum;
+        spacing[i] = potential_minimum / spacing_div_factor[i];
     }
 
     // Body Collision Test
@@ -126,12 +127,10 @@ int main(int argc, char **argv) {
             std::cout << "Number of particles: " << size << std::endl;
         }
         std::cout << "Starting run " << i+1 << std::endl;
-        /*
         if(size == 0) {
             std::cout << "Zero particles created. Aborting." << std::endl;
             return EXIT_FAILURE;
         }
-        */
 
         begin = measure_time();
         md_initialize_clusters(32);
@@ -158,6 +157,7 @@ int main(int argc, char **argv) {
               masses.data(), positions.data(), velocities.data(), forces.data());
             write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities, forces);
         }
+
         for(int j = 0; j < steps; ++j) {
             std::cout << "Time step: " << j+1 << "\r" << std::flush;
 
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
                 begin = measure_time();
                 md_copy_data_from_accelerator();
                 end = measure_time();
-                copy_data_from_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
                 md_redistribute_particles();
@@ -205,9 +205,8 @@ int main(int argc, char **argv) {
                 begin = measure_time();
                 md_copy_data_to_accelerator();
                 end = measure_time();
-                copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                copy_data_to_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             }
-
 
             if(vtk && i == 0) {
                 int nparticles = md_get_number_of_particles();

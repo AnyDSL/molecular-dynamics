@@ -25,11 +25,15 @@ struct StructOfArrays3D {
     z: Buffer
 }
 
+fn alloc_unaligned_cpu(size: i32) -> Buffer {
+    alloc_host(0, size)
+}
+
 fn allocate_struct_of_arrays(N: i32) -> StructOfArrays3D {
     let struct_of_arrays = StructOfArrays3D {
-        x: alloc_cpu(N * sizeof[real_t]()),
-        y: alloc_cpu(N * sizeof[real_t]()),
-        z: alloc_cpu(N * sizeof[real_t]())
+        x: alloc_unaligned_cpu(N * sizeof[real_t]()),
+        y: alloc_unaligned_cpu(N * sizeof[real_t]()),
+        z: alloc_unaligned_cpu(N * sizeof[real_t]())
     };
     struct_of_arrays
 }
