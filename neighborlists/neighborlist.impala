@@ -46,9 +46,9 @@ fn cell_allocate_clusters(cell: &mut Cell, neighbor_list_capacity: i32, allocate
 fn cell_deallocate_clusters(cell: &mut Cell) -> () {
     let clusters = get_array_of_clusters(cell.clusters);
     if(cell.nclusters > 0) {
-        release(cell.neighbor_cells);
-        release(cell.neighbor_indices);
-        release(cell.clusters);
+        release_host(cell.neighbor_cells);
+        release_host(cell.neighbor_indices);
+        release_host(cell.clusters);
         cell.nclusters = 0;
     }
 }
@@ -177,8 +177,8 @@ fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, in
             buffer_offset += clusters(i).neighbor_list.capacity;
         }
 
-        release(cell.neighbor_cells);
-        release(cell.neighbor_indices);
+        release_host(cell.neighbor_cells);
+        release_host(cell.neighbor_indices);
 
         cell.neighbor_cells = neighbor_cells;
         cell.neighbor_indices = neighbor_indices;

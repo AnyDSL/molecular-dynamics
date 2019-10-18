@@ -76,17 +76,17 @@ fn mpi_finalize() -> () {
 
   /* Release communication send buffer */
   if(comm_send_buffer_size > 0) {
-    release(comm_send_buffer);
+    release_host(comm_send_buffer);
   }
 
   /* Release communication receive buffer */
   if(comm_recv_buffer_size > 0) {
-    release(comm_recv_buffer);
+    release_host(comm_recv_buffer);
   }
 
   /* Release buffer for storing number of send and receive particles */
-  release(rank_send_particles);
-  release(rank_recv_particles);
+  release_host(rank_send_particles);
+  release_host(rank_recv_particles);
 
   /* Finalize MPI */
   mpih.finalize();
@@ -99,7 +99,7 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     /* Release communication send buffer */
     if(comm_send_buffer_size > 0) {
       add_mpi_allocation(-(sizeof[real_t]() * comm_send_buffer_size));
-      release(comm_send_buffer);
+      release_host(comm_send_buffer);
     }
 
     /* Add allocation amount */
@@ -115,7 +115,7 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     /* Release communication receive buffer */
     if(comm_recv_buffer_size > 0) {
       add_mpi_allocation(-(sizeof[real_t]() * comm_recv_buffer_size));
-      release(comm_recv_buffer);
+      release_host(comm_recv_buffer);
     }
 
     /* Add allocation amount */

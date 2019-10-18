@@ -29,6 +29,10 @@ fn alloc_unaligned_cpu(size: i32) -> Buffer {
     alloc_host(0, size)
 }
 
+fn @release_host(buf: Buffer) -> () {
+    runtime_release_host(buf.device, buf.data)
+}
+
 fn allocate_struct_of_arrays(N: i32) -> StructOfArrays3D {
     let struct_of_arrays = StructOfArrays3D {
         x: alloc_unaligned_cpu(N * sizeof[real_t]()),
@@ -39,9 +43,9 @@ fn allocate_struct_of_arrays(N: i32) -> StructOfArrays3D {
 }
 
 fn deallocate_struct_of_arrays(struct_of_arrays: StructOfArrays3D) -> () {
-    release(struct_of_arrays.x);
-    release(struct_of_arrays.y);
-    release(struct_of_arrays.z);
+    release_host(struct_of_arrays.x);
+    release_host(struct_of_arrays.y);
+    release_host(struct_of_arrays.z);
 }
 
 
