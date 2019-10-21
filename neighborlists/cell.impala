@@ -48,8 +48,7 @@ struct Cell {
 }
 
 fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
-    //let N = if(size + 4 > capacity) {size + 4} else {capacity};
-    let N = capacity * 2;
+    let N = if(size + 4 > capacity) {size + 4} else {capacity};
 
     add_cell_allocation(N * 10 * sizeof[real_t]());
 
@@ -153,6 +152,16 @@ fn move_particle(i: i32, src: &mut Cell, dest: &mut Cell, allocate: fn(i32) -> B
     /*if(src as u64 == dest as u64) {
         print_string("Source and destinatin are identical!\n");
     }*/
+    /*
+    print_string("index: ");
+    print_i32(dest.index);
+    print_string("\nsize: ");
+    print_i32(dest.size);
+    print_string("\ncapacity: ");
+    print_i32(dest.capacity);
+    print_string("\n");
+    */
+
     if(dest.size + 1 > dest.capacity) {
         reallocate_cell(dest.size + 1, dest, allocate);
     }
@@ -161,7 +170,9 @@ fn move_particle(i: i32, src: &mut Cell, dest: &mut Cell, allocate: fn(i32) -> B
     }
     let src_last = src.size - 1;
     let dest_last = dest.size - 1;
+
     copy_particle(i, dest_last, src, dest); 
+
     if(i < src_last) {
         swap_particles(i, src_last, src);
     }

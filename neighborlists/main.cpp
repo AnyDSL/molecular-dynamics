@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
     std::vector<double> force_computation_time(runs, 0);
     std::vector<double> deallocation_time(runs, 0);
     std::vector<double> synchronization_time(runs, 0);
+    std::vector<double> exchange_time(runs, 0);
     double const factor = 1e-6;
     md_set_thread_count(nthreads);
     double const verlet_buffer = 0.3;
@@ -193,6 +194,11 @@ int main(int argc, char **argv) {
                 redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
+                md_exchange_ghost_layer();
+                end = measure_time();
+                exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+                begin = measure_time();
                 md_initialize_clusters(32);
                 end = measure_time();
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -241,7 +247,7 @@ int main(int argc, char **argv) {
 
     md_mpi_finalize();
 
-    std::vector<std::pair<double,double>> time_results(10);
+    std::vector<std::pair<double,double>> time_results(11);
     std::cout << "Code Region\tAverage\tStandard Deviation" << std::endl;
     time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
     time_results[1] = print_time_statistics(integration_time, "integration");
@@ -253,6 +259,7 @@ int main(int argc, char **argv) {
     time_results[7] = print_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
     time_results[8] = print_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
     time_results[9] = print_time_statistics(synchronization_time, "synchronization");
+    time_results[10] = print_time_statistics(exchange_time, "exchange");
     double mean_sum = 0, stdev_sum = 0;
     for(size_t i = 0; i < time_results.size(); ++i) {
         mean_sum += time_results[i].first;
@@ -262,7 +269,7 @@ int main(int argc, char **argv) {
 
     std::cout << "Counted number of FLOPS within the force computation: " << get_number_of_flops() << std::endl;
 
-    md_report_memory_allocation();
+    //md_report_memory_allocation();
 
     return EXIT_SUCCESS;
 }

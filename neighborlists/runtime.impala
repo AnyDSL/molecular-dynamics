@@ -59,7 +59,6 @@ fn md_initialize_grid(
     print_i32(grid_.nz);
     print_string("\n");
     */
-
     initialize_grid(
       masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
 
@@ -111,6 +110,11 @@ fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D]
 extern
 fn md_redistribute_particles() -> () {
     redistribute_particles(&mut grid_, world_size, world_rank, alloc_unaligned_cpu);
+}
+
+extern
+fn md_exchange_ghost_layer() -> () {
+    exchange_ghost_layer_particles(&mut grid_, world_size, world_rank);
 }
 
 extern 

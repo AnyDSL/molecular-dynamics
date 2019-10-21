@@ -30,6 +30,27 @@ fn redistribute_particles(grid: &mut Grid, world_size: i32, world_rank: i32, all
                     /*if(flatten_index(new_cell_index, grid) == flatten_index(cell_index, grid)) {
                         print_string("flattened indices are identical!\n");
                     }*/
+
+                    /*
+                    print_string("move_particle from ");
+                    print_string("<");
+                    print_i32(cell_index(0));
+                    print_string(", ");
+                    print_i32(cell_index(1));
+                    print_string(", ");
+                    print_i32(cell_index(2));
+                    print_string("> to <");
+                    print_i32(new_cell_index(0));
+                    print_string(", ");
+                    print_i32(new_cell_index(1));
+                    print_string(", ");
+                    print_i32(new_cell_index(2));
+                    print_string(">\nflatten_index = ");
+                    print_i32(flatten_index(new_cell_index, grid));
+                    print_string("\n");
+                    print_flush();
+                    */
+
                     move_particle(i, cell, &mut cells(flatten_index(new_cell_index, grid)), allocate);
                 }
                 else {
@@ -53,6 +74,4 @@ fn redistribute_particles(grid: &mut Grid, world_size: i32, world_rank: i32, all
             print_string("\n");*/
         }
     }
-
-    exchange_ghost_layer_particles(grid, world_size, world_rank);
 }

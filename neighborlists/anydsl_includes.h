@@ -28,6 +28,7 @@ extern "C" {
     void md_mpi_finalize();
     int md_get_sync_timesteps();
     void md_synchronize_ghost_layer();
+    void md_exchange_ghost_layer();
     int md_get_world_rank();
     int md_get_number_of_particles();
     void md_get_node_bounding_box(double, double const *, double const *, double (*)[3], double (*)[3]);

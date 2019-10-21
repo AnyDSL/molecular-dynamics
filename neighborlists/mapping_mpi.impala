@@ -338,6 +338,21 @@ fn communication_nodes_generic(
   }
 }
 
+/* Is this the last node in the dimension? */
+fn last_dimension_node(dim: i32) -> bool {
+  let mpih = mpi();
+  let mut rank: i32;
+
+  /* Get rank for current node */
+  mpih.comm_rank(mpih.comms.world, &mut rank);
+
+  /* Get rank cartesian index */
+  let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+
+  /* Check if this is the last one in the dimension */
+  rank_index(dim) == node_dims(dim) - 1
+}
+
 /* Default communication pattern (do not include diagonals) */
 fn communication_nodes(
   world_size: i32,
