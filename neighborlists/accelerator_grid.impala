@@ -226,13 +226,11 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
                 let clusters_in_cell = get_array_of_clusters(cell.clusters); 
                 for i in range(0, cell.nclusters) {
                     let neighborlist = clusters_in_cell(i).neighbor_list;
-                    let neighboring_cells = get_array_of_cell_pointers(cell.neighbor_cells);
-                    let neighboring_indices = get_array_of_i32(cell.neighbor_indices);
+                    let neighboring_cells = get_array_of_cell_pointers(neighborlist.cells);
+                    let neighboring_indices = get_array_of_i32(neighborlist.indices);
                     for j in range(0, neighborlist.size) {
-                        let neighboring_cell = neighboring_cells(neighborlist.buffer_offset + j);
-                        neighborlists_cpu(offset_neighbors + j) =
-                            cell_offsets(neighboring_cell.index) +
-                            neighboring_indices(neighborlist.buffer_offset + j) * accelerator_grid.cluster_size;
+                        let neighboring_cell = neighboring_cells(j);
+                        neighborlists_cpu(offset_neighbors + j) = cell_offsets(neighboring_cell.index) + neighboring_indices(j) * accelerator_grid.cluster_size;
                         /*print_string("index: ");
                         print_i32(offset_neighbors + j);
                         print_string("\nneighbor: ");
