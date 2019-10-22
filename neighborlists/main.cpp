@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     double const epsilon = 1.0;
     double const sigma = 1.0;
     double const maximum_velocity = 1.0;
-    double const spacing_div_factor[3] = {2.0, 2.0, 1.0};
+    double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
     double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
     AABB aabb, aabb1, aabb2;

@@ -13,12 +13,6 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
     let lasty = last_dimension_node(1);
     let lastz = last_dimension_node(2);
 
-/*
-    let mut nx = real_floor((aabb.max(0) - aabb.min(0)) / cell_spacing) as i32;
-    let mut ny = real_floor((aabb.max(1) - aabb.min(1)) / cell_spacing) as i32;
-    let mut nz = real_floor((aabb.max(2) - aabb.min(2)) / cell_spacing) as i32;
-*/
-
     let mut nx = real_floor(((aabb.max(0) - aabb.min(0) + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
     let mut ny = real_floor(((aabb.max(1) - aabb.min(1) + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
     let mut nz = real_floor(((aabb.max(2) - aabb.min(2) + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;

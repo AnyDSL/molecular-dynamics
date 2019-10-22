@@ -25,23 +25,25 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
     for(int i = 0; i < nvertices[0]; ++i) {
         for(int j = 0; j < nvertices[1]; ++j) {
             for(int k = 0; k < nvertices[2]; ++k) {
-                Vector3D pos;
+                if((i + j + k) % 2 == 0) {
+                    Vector3D pos;
 
-                pos.x = aabb.min[0] + i * spacing[0];
-                pos.y = aabb.min[1] + j * spacing[1];
-                pos.z = aabb.min[2] + k * spacing[2];
+                    pos.x = aabb.min[0] + i * spacing[0];
+                    pos.y = aabb.min[1] + j * spacing[1];
+                    pos.z = aabb.min[2] + k * spacing[2];
 
-                if(
-                    pos.x >= rank_aabb.min[0] && pos.x <= rank_aabb.max[0] &&
-                    pos.y >= rank_aabb.min[1] && pos.y <= rank_aabb.max[1] &&
-                    pos.z >= rank_aabb.min[2] && pos.z <= rank_aabb.max[2]
-                ) {
-                  positions.push_back(pos);
-                  size++;
+                    if(
+                        pos.x >= rank_aabb.min[0] && pos.x <= rank_aabb.max[0] &&
+                        pos.y >= rank_aabb.min[1] && pos.y <= rank_aabb.max[1] &&
+                        pos.z >= rank_aabb.min[2] && pos.z <= rank_aabb.max[2]
+                    ) {
+                      positions.push_back(pos);
+                      size++;
+                    }
+
+                    //std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
+                    //++index;
                 }
-
-                //std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
-                //++index;
             }
         }
     }
