@@ -101,7 +101,7 @@ fn @insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: 
     print_i32(cell_index(0));
     print_string(" ");
     print_i32(cell_index(1));
-    print_string("\n");
+    print_string(" ");
     print_i32(cell_index(2));
     print_string("\n");*/
 
