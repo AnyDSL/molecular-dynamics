@@ -14,53 +14,139 @@ struct AABB {
 		double max[3];
 };
 
+/* Random function from miniMD (used to validate our results) */
+#define IA 16807
+#define IM 2147483647
+#define AM (1.0/IM)
+#define IQ 127773
+#define IR 2836
+#define MASK 123459876
+
+double random(int* idum) {
+    int k;
+    double ans;
+
+    k = (*idum) / IQ;
+    *idum = IA * (*idum - k * IQ) - IR * k;
+
+    if(*idum < 0) *idum += IM;
+
+    ans = AM * (*idum);
+    return ans;
+}
+
 std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> generate_rectangular_grid(AABB aabb, AABB rank_aabb, double spacing[3], double const mass, double velocity[3]) {
     int nvertices[3];
+    int nxyz[3];
     int size = 0;
+    int i, j, k, m, n;
+    int sx = 0;
+    int sy = 0;
+    int sz = 0;
+    int ox = 0;
+    int oy = 0;
+    int oz = 0;
+    int subboxdim = 8;
+
+    std::vector<Vector3D> positions;
+    std::vector<Vector3D> velocities;
+
     for(int i = 0; i < 3; ++i) {
         nvertices[i] = (aabb.max[i] - aabb.min[i]) / spacing[i];
+        nxyz[i] = nvertices[i] / 2;
     }
-    std::vector<Vector3D> positions;
 
-    for(int i = 0; i < nvertices[0]; ++i) {
-        for(int j = 0; j < nvertices[1]; ++j) {
-            for(int k = 0; k < nvertices[2]; ++k) {
-                if((i + j + k) % 2 == 0) {
-                    Vector3D pos;
+    int ilo = static_cast<int>(aabb.min[0] / spacing[0] - 1);
+    int ihi = static_cast<int>(aabb.max[0] / spacing[0] + 1);
+    int jlo = static_cast<int>(aabb.min[1] / spacing[1] - 1);
+    int jhi = static_cast<int>(aabb.max[1] / spacing[1] + 1);
+    int klo = static_cast<int>(aabb.min[2] / spacing[2] - 1);
+    int khi = static_cast<int>(aabb.max[2] / spacing[2] + 1);
 
-                    pos.x = aabb.min[0] + i * spacing[0];
-                    pos.y = aabb.min[1] + j * spacing[1];
-                    pos.z = aabb.min[2] + k * spacing[2];
+    ilo = std::max(ilo, 0);
+    ihi = std::min(ihi, nvertices[0] - 1);
+    jlo = std::max(jlo, 0);
+    jhi = std::min(jhi, nvertices[1] - 1);
+    klo = std::max(klo, 0);
+    khi = std::min(khi, nvertices[2] - 1);
 
-                    if(
-                        pos.x >= rank_aabb.min[0] && pos.x <= rank_aabb.max[0] &&
-                        pos.y >= rank_aabb.min[1] && pos.y <= rank_aabb.max[1] &&
-                        pos.z >= rank_aabb.min[2] && pos.z <= rank_aabb.max[2]
-                    ) {
-                      positions.push_back(pos);
-                      size++;
-                    }
+    std::cout << "ilo: " << ilo << ", ihi: " << ihi << std::endl;
+    std::cout << "jlo: " << jlo << ", jhi: " << jhi << std::endl;
+    std::cout << "klo: " << klo << ", khi: " << khi << std::endl;
 
-                    //std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
-                    //++index;
-                }
+    while(oz * subboxdim <= khi) {
+        k = oz * subboxdim + sz;
+        j = oy * subboxdim + sy;
+        i = ox * subboxdim + sx;
+
+        if((i + j + k) % 2 == 0 &&
+           (i >= ilo) && (i <= ihi) &&
+           (j >= jlo) && (j <= jhi) &&
+           (k >= klo) && (k <= khi)) {
+            Vector3D pos, vel;
+
+            pos.x = aabb.min[0] + i * spacing[0];
+            pos.y = aabb.min[1] + j * spacing[1];
+            pos.z = aabb.min[2] + k * spacing[2];
+
+            if(
+                pos.x >= rank_aabb.min[0] && pos.x < rank_aabb.max[0] &&
+                pos.y >= rank_aabb.min[1] && pos.y < rank_aabb.max[1] &&
+                pos.z >= rank_aabb.min[2] && pos.z < rank_aabb.max[2]
+            ) {
+              n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
+
+              for(m = 0; m < 5; m++) random(&n);
+
+              vel.x = random(&n);
+
+              for(m = 0; m < 5; m++) random(&n);
+
+              vel.y = random(&n);
+
+              for(m = 0; m < 5; m++) random(&n);
+
+              vel.z = random(&n);
+
+              //std::cout << pos.x << " " << pos.y << " " << pos.z << " --- " << vel.x << " " << vel.y << " " << vel.z << "\n";
+              positions.push_back(pos);
+              velocities.push_back(vel);
+              size++;
             }
+
+            //std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
+            //++index;
+        }
+
+        sx++;
+
+        if(sx == subboxdim) {
+          sx = 0;
+          sy++;
+        }
+
+        if(sy == subboxdim) {
+          sy = 0;
+          sz++;
+        }
+
+        if(sz == subboxdim) {
+          sz = 0;
+          ox++;
+        }
+
+        if(ox * subboxdim > ihi) {
+          ox = 0;
+          oy++;
+        }
+
+        if(oy * subboxdim > jhi) {
+          oy = 0;
+          oz++;
         }
     }
 
-    Vector3D velocity_vector;
-    velocity_vector.x = velocity[0];
-    velocity_vector.y = velocity[1];
-    velocity_vector.z = velocity[2];
     std::vector<double> masses(size, mass);
-    std::vector<Vector3D> velocities(size, velocity_vector);
-
-    //if(index != size) {
-    //    std::cout << "Count: " << index << "Size: " << size << std::endl;
-    //}
-    /*for(int i = 0; i < size; i++) {
-                std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
-        }*/
     return std::make_tuple(masses, positions, velocities);
 }
 
@@ -82,12 +168,6 @@ int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double ma
       cell_spacing, ext_aabb.min, ext_aabb.max, &rank_aabb.min, &rank_aabb.max);
 
     auto tuple = generate_rectangular_grid(aabb, rank_aabb, spacing, 1.0, velocity);
-    auto& velocities = std::get<2>(tuple);
-    for(size_t i = 0; i < velocities.size(); ++i) {
-        velocities[i].x = distribution(random_engine);
-        velocities[i].y = distribution(random_engine);
-        velocities[i].z = distribution(random_engine);
-    }
 
     /*for(int i = 0; i < size; i++) {
                 std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";

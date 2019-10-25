@@ -25,7 +25,6 @@ fn md_initialize_grid(
     //let rank_aabb = get_node_bounding_box(
     //  world_size, world_rank, cell_spacing, aabb);
 
-
     /*
     print_i32(world_rank);
     print_string("> aabb.min = {");
@@ -110,7 +109,7 @@ fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D]
 
 extern
 fn md_redistribute_particles() -> () {
-    redistribute_particles(&mut grid_, world_size, world_rank, alloc_unaligned_cpu);
+    redistribute_particles(&mut grid_, alloc_unaligned_cpu);
 }
 
 extern
