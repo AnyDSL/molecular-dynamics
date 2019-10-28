@@ -10,7 +10,8 @@ extern
 fn md_initialize_grid(
   masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
   nparticles: i32, min: &[real_t], max: &[real_t], rank_min: &[real_t],
-  rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32) -> i32 {
+  rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32,
+  neighbor_list_capacity: i32) -> i32 {
     let aabb = AABB {
         min: [min(0), min(1), min(2)],
         max: [max(0), max(1), max(2)],
@@ -46,7 +47,7 @@ fn md_initialize_grid(
     */
 
     grid_ = allocate_grid(
-      rank_aabb, cell_spacing, cell_capacity, cluster_size, alloc_unaligned_cpu);
+      rank_aabb, cell_spacing, cell_capacity, neighbor_list_capacity, cluster_size, alloc_unaligned_cpu);
 
     /*
     print_i32(world_rank);
@@ -118,8 +119,8 @@ fn md_exchange_ghost_layer() -> () {
 }
 
 extern 
-fn md_initialize_clusters(neighbor_list_capacity: i32) -> () {
-    grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
+fn md_initialize_clusters() -> () {
+    grid_initialize_clusters(grid_, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
 }
 
 extern

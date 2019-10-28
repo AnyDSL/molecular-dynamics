@@ -9,43 +9,23 @@ fn cell_sort(cell: &Cell) -> () {
     }
 }
 
-fn cell_allocate_clusters(cell: &mut Cell, neighbor_list_capacity: i32, allocate: fn(i32) -> Buffer) -> () {
+fn cell_arrange_clusters(cell: &mut Cell) -> () {
     let mut nclusters = cell.size / cell.cluster_size;
-    let rest = cell.size % cell.cluster_size;
-    if(rest > 0) {
+
+    if(cell.size % cell.cluster_size > 0) {
         nclusters += 1;
     }
-    let padding = nclusters * cell.cluster_size - cell.size;
-    cell.padding = padding;
-    if(nclusters != cell.nclusters) {
-        cell_deallocate_clusters(cell);
-        cell.nclusters = nclusters;
-        cell.clusters = allocate(nclusters * sizeof[Cluster]());
-        cell.neighbor_total_capacity = neighbor_list_capacity * nclusters;
-        cell.neighbor_cells = allocate(cell.neighbor_total_capacity * sizeof[&Cell]());
-        cell.neighbor_indices = allocate(cell.neighbor_total_capacity * sizeof[i32]());
 
+    cell.padding = nclusters * cell.cluster_size - cell.size;
+
+    if(nclusters != cell.nclusters) {
         let clusters = get_array_of_clusters(cell.clusters);
 
         for i in range(0, nclusters) {
-            let buffer_offset = neighbor_list_capacity * i;
-
-            clusters(i).neighbor_list = NeighborList {
-                size: 0,
-                capacity: neighbor_list_capacity,
-                buffer_offset: buffer_offset
-            }
+            clusters(i).nb_list_size = 0;
         }
-    }
-}
 
-fn cell_deallocate_clusters(cell: &mut Cell) -> () {
-    let clusters = get_array_of_clusters(cell.clusters);
-    if(cell.nclusters > 0) {
-        release(cell.neighbor_cells);
-        release(cell.neighbor_indices);
-        release_host(cell.clusters);
-        cell.nclusters = 0;
+        cell.nclusters = nclusters;
     }
 }
 
@@ -86,85 +66,67 @@ fn cell_compute_bounding_boxes(cell: &Cell) -> () {
     let nclusters = cell.nclusters;
     let cluster_size = cell.cluster_size;
     let clusters = get_array_of_clusters(cell.clusters);
+
     for i in range(0, nclusters - 1) {
         clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size);
     }
+
     let i = nclusters - 1;
     clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size - cell.padding);  
 }
 
-fn grid_initialize_clusters(grid: &Grid, neighbor_list_capacity: i32, allocate: fn(i32) -> Buffer, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), middle_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
-    for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
-        if(cell.size > 0) {
-            cell_sort(cell);
-            cell_allocate_clusters(cell, neighbor_list_capacity, allocate);
-            cell_compute_bounding_boxes(cell);
-        } else {
-            cell_deallocate_clusters(cell);
+fn grid_initialize_clusters(grid: &Grid, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), middle_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
+    if(get_cluster_size() == 1) {
+        for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
+            if(cell.size > 0) {
+                cell_arrange_clusters(cell);
+            }
+        }
+    } else {
+        for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
+            if(cell.size > 0) {
+                cell_sort(cell);
+                cell_arrange_clusters(cell);
+                cell_compute_bounding_boxes(cell);
+            }
         }
     }
 }
 
-struct NeighborList {
-    size: i32,
-    capacity: i32,
-    buffer_offset: i32
-}
-
-fn print_neighbor_list(neighbor_list: &NeighborList) -> () {
-    print_string("Size: ");
-    print_i32(neighbor_list.size);
-    print_string("\nCapacity: ");
-    print_i32(neighbor_list.capacity);
-    print_string("\nOffset: ");
-    print_i32(neighbor_list.buffer_offset);
-    print_string("\n");
-    /*
-    let cells = get_array_of_cell_pointers(neighbor_list.cells);
-    let indices = get_array_of_i32(neighbor_list.indices);
-    for i in range(0, neighbor_list.size) {
-        print_string("Cell address: ");
-        print_i64(cells(i) as i64);
-        print_string(" Index: ");
-        print_i32(indices(i));
-        print_string("\n");
-    }
-    */
-}
-
 fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, index: i32, allocate: fn(i32) -> Buffer) -> () {
     let clusters = get_array_of_clusters(cell.clusters);
-    let neighbor_list = clusters(cluster_index).neighbor_list;
+    let nb_list_size = clusters(cluster_index).nb_list_size;
 
-    if(neighbor_list.size == neighbor_list.capacity) {
-        let adding = neighbor_list.size / 10 + 1;
+    if(nb_list_size == cell.neighbor_list_capacity) {
+        let adding = nb_list_size / 10 + 1;
         let extension = if(adding < 4) {4} else {adding};
-        let new_capacity = neighbor_list.size + extension;
+        let old_capacity = cell.neighbor_list_capacity;
 
-        cell.neighbor_total_capacity += extension;
+        cell.neighbor_list_capacity += extension;
+        cell.neighbor_total_capacity = cell.neighbor_list_capacity * cell.cluster_capacity;
 
         let neighbor_cells = allocate(cell.neighbor_total_capacity * sizeof[&Cell]());
         let neighbor_indices = allocate(cell.neighbor_total_capacity * sizeof[i32]());
         let mut buffer_offset = 0;
+        let mut old_buffer_offset = 0;
 
         for i in range(0, cell.nclusters) {
-            for j in range(0, clusters(i).neighbor_list.size) {
+            for j in range(0, clusters(i).nb_list_size) {
                 set_cell_pointer(buffer_offset + j, neighbor_cells,
-                    get_cell_pointer(neighbor_list.buffer_offset + j, cell.neighbor_cells));
+                    get_cell_pointer(old_buffer_offset + j, cell.neighbor_cells));
 
-                set_i32(buffer_offset + j, neighbor_indices, get_i32(neighbor_list.buffer_offset + j, cell.neighbor_indices));
+                set_i32(buffer_offset + j, neighbor_indices, get_i32(old_buffer_offset + j, cell.neighbor_indices));
             }
 
             if(i == cluster_index) {
-                set_cell_pointer(buffer_offset + neighbor_list.size, neighbor_cells, neighbor_cell);
-                set_i32(buffer_offset + neighbor_list.size, neighbor_indices, index);
+                set_cell_pointer(buffer_offset + nb_list_size, neighbor_cells, neighbor_cell);
+                set_i32(buffer_offset + nb_list_size, neighbor_indices, index);
 
-                clusters(i).neighbor_list.size += 1;
-                clusters(i).neighbor_list.capacity = new_capacity;
+                clusters(i).nb_list_size += 1;
             }
 
-            clusters(i).neighbor_list.buffer_offset = buffer_offset;
-            buffer_offset += clusters(i).neighbor_list.capacity;
+            buffer_offset += cell.neighbor_list_capacity;
+            old_buffer_offset += old_capacity;
         }
 
         release(cell.neighbor_cells);
@@ -173,10 +135,10 @@ fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, in
         cell.neighbor_cells = neighbor_cells;
         cell.neighbor_indices = neighbor_indices;
     } else {
-        let buf_idx = neighbor_list.buffer_offset + neighbor_list.size;
+        let buf_idx = (cluster_index * cell.neighbor_list_capacity) + nb_list_size;
         set_cell_pointer(buf_idx, cell.neighbor_cells, neighbor_cell);
         set_i32(buf_idx, cell.neighbor_indices, index);
-        clusters(cluster_index).neighbor_list.size += 1;
+        clusters(cluster_index).nb_list_size += 1;
     }
 }
 
@@ -193,16 +155,20 @@ fn @compute_distance(a: AABB, b: AABB, dimension: i32) -> real_t {
 }
 
 fn assemble_half_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &mut Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
-    cluster.neighbor_list.size = 0;
     let mut begin : [i32 * 3];
     let mut end : [i32 * 3];
     let nxyz = [grid.nx, grid.ny, grid.nz];
+
     for i in unroll(0, 3) {
         begin(i) = cell_index(i);
         end(i) = if(cell_index(i) < nxyz(i) - 1) { cell_index(i) + 2} else { nxyz(i) };
     }
+
     let squared_cutoff_distance = cutoff_distance * cutoff_distance;
     let cells = get_array_of_cells(grid.cells);
+
+    cluster.nb_list_size = 0;
+
     for i in range(begin(0), end(0)) {
         for j in range(begin(1), end(1)) {
             for k in range(begin(2), end(2)) {
@@ -241,17 +207,21 @@ fn assemble_half_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: 
 
 // redundant computation to get rid of atomics
 fn assemble_clusters_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &mut Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
-    cluster.neighbor_list.size = 0;
     let mut begin : [i32 * 3];
     let mut end : [i32 * 3];
     let nxyz = [grid.nx, grid.ny, grid.nz];
+
     for i in unroll(0, 3) {
         begin(i) = if(cell_index(i) > 0) {cell_index(i) - 1} else { 0 };
         end(i) = if(cell_index(i) < nxyz(i) - 1) { cell_index(i) + 2} else { nxyz(i) };
     }
+
     let squared_cutoff_distance = cutoff_distance * cutoff_distance;
     let cells = get_array_of_cells(grid.cells);
     let flat_cell_index = flatten_index(cell_index, grid);
+
+    cluster.nb_list_size = 0;
+
     for i in range(begin(0), end(0)) {
         for j in range(begin(1), end(1)) {
             for k in range(begin(2), end(2)) {
@@ -277,7 +247,6 @@ fn assemble_clusters_full_neighbor_list(cluster: &mut Cluster, cluster_index: i3
                             }
                         }
                         ++z;
-                        /* TODO: should be neighboring_cell.nclusters here instead? */
                         if(z < neighboring_cell.nclusters) {
                             z_distance = compute_distance(cluster.aabb, clusters(z).aabb, 2); 
                         }
@@ -290,20 +259,24 @@ fn assemble_clusters_full_neighbor_list(cluster: &mut Cluster, cluster_index: i3
 
 // redundant computation to get rid of atomics (only works when cluster_size = 1)
 fn assemble_particles_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &mut Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
-    cluster.neighbor_list.size = 0;
     let mut begin : [i32 * 3];
     let mut end : [i32 * 3];
     let nxyz = [grid.nx, grid.ny, grid.nz];
+
     for i in unroll(0, 3) {
         begin(i) = if(cell_index(i) > 0) {cell_index(i) - 1} else { 0 };
         end(i) = if(cell_index(i) < nxyz(i) - 1) { cell_index(i) + 2} else { nxyz(i) };
     }
+
     let squared_cutoff_distance = cutoff_distance * cutoff_distance;
     let cells = get_array_of_cells(grid.cells);
     let flat_cell_index = flatten_index(cell_index, grid);
     let mx = get_x_component(cluster_index, cell.positions);
     let my = get_y_component(cluster_index, cell.positions);
     let mz = get_z_component(cluster_index, cell.positions);
+
+    cluster.nb_list_size = 0;
+
     for i in range(begin(0), end(0)) {
         for j in range(begin(1), end(1)) {
             for k in range(begin(2), end(2)) {
@@ -375,28 +348,6 @@ fn individual_particles_are_in_distance(squared_cutoff_distance: real_t, cluster
     retval
 }
 
-fn cell_assemble_neighbor_lists(
-    cell: &mut Cell,
-    cell_index: [i32 * 3],
-    grid: &Grid,
-    cutoff_distance: real_t,
-    allocate: fn(i32) -> Buffer,
-    assemble: fn(&mut Cluster, i32, &mut Cell, [i32 * 3], &Grid, real_t, fn(i32) -> Buffer)-> ()) -> () {
-
-    let clusters = get_array_of_clusters(cell.clusters);
-    for i in range(0, cell.nclusters) {
-        assemble(&mut clusters(i), i, cell, cell_index, grid, cutoff_distance, allocate);
-
-        /*
-        if(get_cluster_size() == 1) {
-            assemble_particles_full_neighbor_list(&mut clusters(i), i, cell, cell_index, grid, cutoff_distance, allocate);
-        } else {
-            assemble_full_neighbor_list(&mut clusters(i), i, cell, cell_index, grid, cutoff_distance, allocate);
-        }
-        */
-    }
-}
-
 fn grid_assemble_neighbor_lists(
     grid: &Grid,
     cutoff_distance: real_t,
@@ -408,7 +359,11 @@ fn grid_assemble_neighbor_lists(
 
     for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
         if(cell.size > 0) {
-            cell_assemble_neighbor_lists(cell, cell_index, grid, cutoff_distance, allocate, assemble);
+            let clusters = get_array_of_clusters(cell.clusters);
+
+            for i in range(0, cell.nclusters) {
+                assemble(&mut clusters(i), i, cell, cell_index, grid, cutoff_distance, allocate);
+            }
         }
     }
 }

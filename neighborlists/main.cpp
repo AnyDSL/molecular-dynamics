@@ -63,7 +63,8 @@ int main(int argc, char **argv) {
     double const sigma = 1.0;
     double const maximum_velocity = 1.0;
     double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
-    double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
+    //double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
+    double potential_minimum = 1.6796;
     std::cout << "Potential minimum at: " << potential_minimum << std::endl;
     AABB aabb, aabb1, aabb2;
     double spacing[3];
@@ -117,9 +118,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 64);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 64, 128);
 #else
-        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 64);
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 64, 128);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -134,7 +135,7 @@ int main(int argc, char **argv) {
         }
 
         begin = measure_time();
-        md_initialize_clusters(32);
+        md_initialize_clusters();
         end = measure_time();
         cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -199,7 +200,7 @@ int main(int argc, char **argv) {
                 exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_initialize_clusters(32);
+                md_initialize_clusters();
                 end = measure_time();
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -239,7 +240,9 @@ int main(int argc, char **argv) {
         begin = measure_time();
         md_deallocate_grid();
         end = measure_time();
+
         deallocation_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
         std::cout << std::flush << std::endl;
     }
     std::cout << std::flush << std::endl;

@@ -8,7 +8,7 @@ struct Grid {
     nparticles: i32
 }
 
-fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {
+fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, initial_neighbor_list_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Grid {
     let lastx = last_dimension_node(0);
     let lasty = last_dimension_node(1);
     let lastz = last_dimension_node(2);
@@ -42,7 +42,7 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, @
     }; 
 
     for cell, cell_index in map_over_grid(grid, range, range, range) {
-        *cell = allocate_cell(flatten_index(cell_index, grid), 0, initial_cell_capacity, cluster_size, allocate);
+        *cell = allocate_cell(flatten_index(cell_index, grid), 0, initial_cell_capacity, initial_neighbor_list_capacity, cluster_size, allocate);
     }
 
     grid 
@@ -55,8 +55,7 @@ fn grid_count_clusters_and_neighbors(grid: &Grid) -> [i32 * 2] {
         cluster_count += cell.nclusters;
         let clusters = get_array_of_clusters(cell.clusters);
         for i in range(0, cell.nclusters) {
-           let neighborlist = clusters(i).neighbor_list;
-           neighbor_count += neighborlist.size;
+           neighbor_count += clusters(i).nb_list_size;
         }
     }
     [cluster_count, neighbor_count]

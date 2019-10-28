@@ -22,15 +22,8 @@ fn print_AABB(aabb: AABB) -> () {
 }
 
 struct Cluster {
-    neighbor_list: NeighborList,
+    nb_list_size: i32,
     aabb: AABB
-}
-
-fn print_cluster(cluster: &Cluster) -> () {
-    print_string("AABB:\n");
-    print_AABB(cluster.aabb);
-    print_string("Neighbor list:\n");
-    print_neighbor_list(cluster.neighbor_list);
 }
 
 struct Cell {
@@ -45,13 +38,22 @@ struct Cell {
     nclusters: i32,
     clusters: Buffer,
     cluster_size: i32,
+    cluster_capacity: i32,
     neighbor_cells: Buffer,
     neighbor_indices: Buffer,
+    neighbor_list_capacity: i32,
     neighbor_total_capacity: i32
 }
 
-fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
+fn allocate_cell(index: i32, size: i32, capacity: i32, neighbor_list_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
     let N = if(size + 4 > capacity) {size + 4} else {capacity};
+    let mut cluster_capacity = N / cluster_size;
+
+    if(N % cluster_size > 0) {
+        cluster_capacity += 1;
+    }
+
+    let neighbor_total_capacity = neighbor_list_capacity * cluster_capacity;
 
     add_cell_allocation(N * 10 * sizeof[real_t]());
 
@@ -65,11 +67,13 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, @cluster_size: i32, alloc
         padding: 0,
         size: size,
         nclusters: 0,
-        clusters: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
+        clusters: allocate(cluster_capacity * sizeof[Cluster]()),
         cluster_size: cluster_size,
-        neighbor_cells: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
-        neighbor_indices: Buffer {device: 0, data: 0 as &[i8], size: 0 as i64},
-        neighbor_total_capacity: 0
+        cluster_capacity: cluster_capacity,
+        neighbor_cells: allocate(neighbor_total_capacity * sizeof[&Cell]()),
+        neighbor_indices: allocate(neighbor_total_capacity * sizeof[i32]()),
+        neighbor_list_capacity: neighbor_list_capacity,
+        neighbor_total_capacity: neighbor_total_capacity
     }
 }
 
@@ -126,9 +130,12 @@ fn deallocate_cell(cell: &mut Cell) -> () {
     deallocate_struct_of_arrays(cell.positions);
     deallocate_struct_of_arrays(cell.velocities);
     deallocate_struct_of_arrays(cell.forces);
+    release_host(cell.neighbor_cells);
+    release_host(cell.neighbor_indices);
+    release_host(cell.clusters);
     cell.size = 0;
     cell.capacity = 0;
-    cell_deallocate_clusters(cell);
+    cell.nclusters = 0;
 }
 
 fn copy_cell(src: &Cell, dest: &mut Cell) -> () {
@@ -170,8 +177,7 @@ fn move_particle(i: i32, src: &mut Cell, dest: &mut Cell, allocate: fn(i32) -> B
 
     if(dest.size + 1 > dest.capacity) {
         reallocate_cell(dest.size + 1, dest, allocate);
-    }
-    else {
+    } else {
         dest.size += 1;
     }
     let src_last = src.size - 1;
@@ -187,7 +193,7 @@ fn move_particle(i: i32, src: &mut Cell, dest: &mut Cell, allocate: fn(i32) -> B
 
 fn reallocate_cell(new_size: i32, dest: &mut Cell, allocate: fn(i32) -> Buffer) -> () {
     let new_capacity = dest.capacity + (dest.nclusters / 10 + 1) * dest.cluster_size;  
-    let mut new_cell = allocate_cell(dest.index, new_size, new_capacity, dest.cluster_size, allocate);
+    let mut new_cell = allocate_cell(dest.index, new_size, new_capacity, dest.neighbor_list_capacity, dest.cluster_size, allocate);
     copy_cell(dest, &mut new_cell);
     deallocate_cell(dest);
     *dest = new_cell;
@@ -204,10 +210,10 @@ fn append_particle(mass: real_t, position: Vector3D, velocity: Vector3D, dest: &
 
     let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let new_size = dest.size + 1;
+
     if(dest.size == dest.capacity) {
         reallocate_cell(new_size, dest, allocate);
-    }
-    else {
+    } else {
         dest.size = new_size;
     }
 

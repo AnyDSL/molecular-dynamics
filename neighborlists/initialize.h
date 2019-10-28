@@ -150,7 +150,7 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
     return std::make_tuple(masses, positions, velocities);
 }
 
-int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity) {
+int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double maximum_velocity, double cell_spacing, int cell_capacity, int neighbor_list_capacity) {
     AABB ext_aabb, rank_aabb;
     //seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937_64 random_engine(seed);
@@ -173,11 +173,11 @@ int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double ma
                 std::cout << "Position: " << positions[i].x << " " << positions[i].y << " " << positions[i].z << "\n";
         }*/
     auto size = std::get<0>(tuple).size();
-    return md_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, ext_aabb.min, ext_aabb.max, rank_aabb.min, rank_aabb.max, cell_spacing, cell_capacity);
+    return md_initialize_grid(std::get<0>(tuple).data(), std::get<1>(tuple).data(), std::get<2>(tuple).data(), size, ext_aabb.min, ext_aabb.max, rank_aabb.min, rank_aabb.max, cell_spacing, cell_capacity, neighbor_list_capacity);
 }
 
 
-int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spacing1[3], double spacing2[3], double mass1, double mass2, double velocity, double cell_spacing, int cell_capacity) {
+int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spacing1[3], double spacing2[3], double mass1, double mass2, double velocity, double cell_spacing, int cell_capacity, int neighbor_list_capacity) {
     if(aabb1.min[1] < aabb2.max[1]) {
         std::cerr << "The first bounding box must be located on top of the second!" << std::endl;
         std::cerr << "aabb1: " << aabb1.min[1] << " aabb2: " << aabb2.max[1] << std::endl;
@@ -209,7 +209,7 @@ int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spac
     std::get<2>(tuple1).insert(std::get<2>(tuple1).end(), std::get<2>(tuple2).begin(), std::get<2>(tuple2).end());
 
     auto size = std::get<0>(tuple1).size();
-    return md_initialize_grid(std::get<0>(tuple1).data(), std::get<1>(tuple1).data(), std::get<2>(tuple1).data(), size, aabb.min, aabb.max, rank_aabb.min, rank_aabb.max, cell_spacing, cell_capacity);
+    return md_initialize_grid(std::get<0>(tuple1).data(), std::get<1>(tuple1).data(), std::get<2>(tuple1).data(), size, aabb.min, aabb.max, rank_aabb.min, rank_aabb.max, cell_spacing, cell_capacity, neighbor_list_capacity);
 }
 
 #endif // INITIALIZE_H
