@@ -70,10 +70,6 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
     klo = std::max(klo, 0);
     khi = std::min(khi, nvertices[2] - 1);
 
-    std::cout << "ilo: " << ilo << ", ihi: " << ihi << std::endl;
-    std::cout << "jlo: " << jlo << ", jhi: " << jhi << std::endl;
-    std::cout << "klo: " << klo << ", khi: " << khi << std::endl;
-
     while(oz * subboxdim <= khi) {
         k = oz * subboxdim + sz;
         j = oy * subboxdim + sy;
@@ -113,9 +109,6 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
               velocities.push_back(vel);
               size++;
             }
-
-            //std::cout << "Position: " << positions[index].x << " " << positions[index].y << " " << positions[index].z << "\n";
-            //++index;
         }
 
         sx++;
