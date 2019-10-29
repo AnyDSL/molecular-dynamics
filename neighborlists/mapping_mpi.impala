@@ -611,70 +611,6 @@ fn initialize_grid_comm(
   initialize_grid_transfer_ranges(grid);
 }
 
-fn pack_ghost_layer_cells(
-  comm_buffer: Buffer,
-  grid: &mut Grid,
-  accelerator_grid: AcceleratorGrid,
-  begin: [i32 * 3],
-  end: [i32 * 3]) -> () {
-
-  let mut buffer_ptr = 0;
-
-  for cell, index in
-      map_over_grid_subdomain(grid, begin, end, range, range, range) {
-    let flat_index = flatten_index(index, grid);
-    let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-    let offset = cell_offsets(flat_index);
-    let nparticles = cell.size;
-
-    if(nparticles > 0) {
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
-        accelerator_grid.positions_cpu, offset,
-        comm_buffer, buffer_ptr, nparticles);
-
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
-        accelerator_grid.velocities_cpu, offset,
-        comm_buffer, buffer_ptr, nparticles);
-
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
-        accelerator_grid.forces_cpu, offset,
-        comm_buffer, buffer_ptr, nparticles);
-    }
-  }
-}
-
-fn unpack_ghost_layer_cells(
-  comm_buffer: Buffer,
-  grid: &mut Grid,
-  accelerator_grid: AcceleratorGrid,
-  begin: [i32 * 3],
-  end: [i32 * 3]) -> () {
-
-  let mut buffer_ptr = 0;
-
-  for cell, index in
-      map_over_grid_subdomain(grid, begin, end, range, range, range) {
-    let flat_index = flatten_index(index, grid);
-    let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-    let offset = cell_offsets(flat_index);
-    let nparticles = cell.size;
-
-    if(nparticles > 0) {
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
-        comm_buffer, buffer_ptr,
-        accelerator_grid.positions_cpu, offset, nparticles);
-
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
-        comm_buffer, buffer_ptr,
-        accelerator_grid.velocities_cpu, offset, nparticles);
-
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
-        comm_buffer, buffer_ptr,
-        accelerator_grid.forces_cpu, offset, nparticles);
-    }
-  }
-}
-
 fn copy_struct_of_arrays_to_buffer(
   source: StructOfArrays3D,
   offset_source: i32,
@@ -725,6 +661,75 @@ fn copy_buffer_to_struct_of_arrays(
   size * 3
 }
 
+fn pack_ghost_layer_cells(
+  comm_buffer: Buffer,
+  grid: &mut Grid,
+  accelerator_grid: AcceleratorGrid,
+  begin: [i32 * 3],
+  end: [i32 * 3]) -> () {
+
+  let mut buffer_ptr = 0;
+
+  for cell, index in
+      map_over_grid_subdomain(grid, begin, end, range, range, range) {
+    let flat_index = flatten_index(index, grid);
+    let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
+    let offset = cell_offsets(flat_index);
+    let nparticles = cell.size;
+
+    if(nparticles > 0) {
+      buffer_ptr += copy_struct_of_arrays_to_buffer(
+        accelerator_grid.positions_cpu, offset,
+        comm_buffer, buffer_ptr, nparticles);
+
+      /*
+      buffer_ptr += copy_struct_of_arrays_to_buffer(
+        accelerator_grid.velocities_cpu, offset,
+        comm_buffer, buffer_ptr, nparticles);
+
+      buffer_ptr += copy_struct_of_arrays_to_buffer(
+        accelerator_grid.forces_cpu, offset,
+        comm_buffer, buffer_ptr, nparticles);
+      */
+    }
+  }
+}
+
+fn unpack_ghost_layer_cells(
+  comm_buffer: Buffer,
+  grid: &mut Grid,
+  accelerator_grid: AcceleratorGrid,
+  begin: [i32 * 3],
+  end: [i32 * 3]) -> () {
+
+  let mut buffer_ptr = 0;
+
+  for cell, index in
+      map_over_grid_subdomain(grid, begin, end, range, range, range) {
+    let flat_index = flatten_index(index, grid);
+    let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
+    let offset = cell_offsets(flat_index);
+    let nparticles = cell.size;
+
+    if(nparticles > 0) {
+      buffer_ptr += copy_buffer_to_struct_of_arrays(
+        comm_buffer, buffer_ptr,
+        accelerator_grid.positions_cpu, offset, nparticles);
+
+      /*
+      buffer_ptr += copy_buffer_to_struct_of_arrays(
+        comm_buffer, buffer_ptr,
+        accelerator_grid.velocities_cpu, offset, nparticles);
+
+      buffer_ptr += copy_buffer_to_struct_of_arrays(
+        comm_buffer, buffer_ptr,
+        accelerator_grid.forces_cpu, offset, nparticles);
+      */
+    }
+  }
+}
+
+
 fn synchronize_ghost_layer_cells(
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
@@ -742,7 +747,7 @@ fn synchronize_ghost_layer_cells(
     accelerator_grid.total_number_of_clusters *
     accelerator_grid.cluster_size;
 
-  resize_comm_buffers(max_send_particles * 3 * 3, max_recv_particles * 3 * 3);
+  resize_comm_buffers(max_send_particles * 3, max_recv_particles * 3);
 
   transfer_struct_of_arrays_between_devices(
     accelerator_grid.positions_accelerator,
@@ -770,14 +775,14 @@ fn synchronize_ghost_layer_cells(
     if(rank_recv_ptr(exchange_rank) > 0) {
       mpih.irecv(
         bitcast[&mut[real_t]](comm_recv_buffer.data) as MPI_MutBuf,
-        rank_recv_ptr(exchange_rank) * 3 * 3,
+        rank_recv_ptr(exchange_rank) * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
     }
 
     if(rank_send_ptr(exchange_rank) > 0) {
       mpih.send(
         bitcast[&mut[real_t]](comm_send_buffer.data) as MPI_MutBuf,
-        rank_send_ptr(exchange_rank) * 3 * 3,
+        rank_send_ptr(exchange_rank) * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world);
     }
 
