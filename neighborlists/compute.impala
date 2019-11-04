@@ -1,19 +1,35 @@
 fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-        let force_x = get_forces_x(accelerator_grid);
-        let force_y = get_forces_y(accelerator_grid); 
-        let force_z = get_forces_z(accelerator_grid); 
-        let pos_x = get_positions_x(accelerator_grid);
-        let pos_y = get_positions_y(accelerator_grid);
-        let pos_z = get_positions_z(accelerator_grid);
+    let force_x = get_forces_x(accelerator_grid);
+    let force_y = get_forces_y(accelerator_grid);
+    let force_z = get_forces_z(accelerator_grid);
+    let pos_x = get_positions_x(accelerator_grid);
+    let pos_y = get_positions_y(accelerator_grid);
+    let pos_z = get_positions_z(accelerator_grid);
 
-        let mut force = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
-        let pos = Vector3D { x: pos_x(begin + j), y: pos_y(begin + j), z: pos_z(begin + j) };
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
+        loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
+
+        let mut force = Vector3D {
+            x: 0.0 as real_t,
+            y: 0.0 as real_t,
+            z: 0.0 as real_t
+        };
+
+        let pos = Vector3D {
+            x: pos_x(begin + j),
+            y: pos_y(begin + j),
+            z: pos_z(begin + j)
+        };
 
         //let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
         for k in unroll(1, get_cluster_size()) {
             let srcLane = (j + k) % get_cluster_size();
-            let pos_neighbor = Vector3D { x: shuffle(pos.x, srcLane, k), y: shuffle(pos.y, srcLane, k), z: shuffle(pos.z, srcLane, k) };
+            let pos_neighbor = Vector3D {
+                x: shuffle(pos.x, srcLane, k),
+                y: shuffle(pos.y, srcLane, k),
+                z: shuffle(pos.z, srcLane, k)
+            };
+
             let diff = vector_sub(pos_neighbor, pos);
             let len2 = vector_len2(diff);
             //if bitcast[i64](shuffle(bitcast[f64](mask), srcLane, k)) != 0i64 && len2 < squared_cutoff_distance {
@@ -22,6 +38,28 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
                 force = vector_add(force, vector_scale(potential(len2), diff));
             }
         }
+
+        for n in range(0, number_of_neighbors) {
+            let begin_neighbor = neighborlists(neighborlist_offset + n);
+
+            let del = Vector3D {
+                x: pos_x(begin_neighbor) - pos.x,
+                y: pos_y(begin_neighbor) - pos.y,
+                z: pos_z(begin_neighbor) - pos.z
+            };
+
+            let rsq = vector_len2(del);
+
+            if(rsq < squared_cutoff_distance) {
+                let sr2 = 1.0 / rsq;
+                let sr6 = sr2 * sr2 * sr2;
+                let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
+
+                force = vector_add(force, vector_scale(f, del));
+            }
+        }
+
+        /*
         for n in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlists(neighborlist_offset + n);
             for k in range(0, get_cluster_size()) {
@@ -39,10 +77,11 @@ fn accelerator_compute_forces(accelerator_grid: AcceleratorGrid, squared_cutoff_
                 }
             }
         }
+        */
 
-        force_x(begin + j) = force.x; 
-        force_y(begin + j) = force.y; 
-        force_z(begin + j) = force.z; 
+        force_x(begin + j) = force.x;
+        force_y(begin + j) = force.y;
+        force_z(begin + j) = force.z;
     }
 }
 
