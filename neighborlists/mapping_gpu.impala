@@ -70,7 +70,7 @@ fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> 
 }
 
 fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N: i32) -> () {
-    _transfer_3d_arrays_between_devices(source, destination);
+    _transfer_3d_arrays_between_devices(source, destination, N);
 }
 
 fn @get_cluster_size() -> i32 {32}
