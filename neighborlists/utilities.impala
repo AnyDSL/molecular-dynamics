@@ -19,84 +19,12 @@ fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     range(lower, upper, body)
 }
 
-struct StructOfArrays3D {
-    x: Buffer,
-    y: Buffer,
-    z: Buffer
-}
-
 fn alloc_unaligned_cpu(size: i32) -> Buffer {
     alloc_host(0, size)
 }
 
 fn @release_host(buf: Buffer) -> () {
     runtime_release_host(buf.device, buf.data)
-}
-
-fn allocate_struct_of_arrays(N: i32) -> StructOfArrays3D {
-    let struct_of_arrays = StructOfArrays3D {
-        x: alloc_unaligned_cpu(N * sizeof[real_t]()),
-        y: alloc_unaligned_cpu(N * sizeof[real_t]()),
-        z: alloc_unaligned_cpu(N * sizeof[real_t]())
-    };
-    struct_of_arrays
-}
-
-fn deallocate_struct_of_arrays(struct_of_arrays: StructOfArrays3D) -> () {
-    release_host(struct_of_arrays.x);
-    release_host(struct_of_arrays.y);
-    release_host(struct_of_arrays.z);
-}
-
-
-fn @copy_offset_struct_of_arrays(src: StructOfArrays3D, offset_src: i32, dest: StructOfArrays3D, offset_dest: i32, N: i32) -> () { 
-    copy_offset(src.x, offset_src * sizeof[real_t](), dest.x, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
-    copy_offset(src.y, offset_src * sizeof[real_t](), dest.y, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
-    copy_offset(src.z, offset_src * sizeof[real_t](), dest.z, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
-}
-
-fn set_struct_of_arrays(i: i32, struct_of_arrays: StructOfArrays3D, vector: Vector3D) -> () {
-    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i) = vector.x;
-    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i) = vector.y;
-    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) = vector.z;
-}
-
-fn get_vector_from_struct_of_arrays(i: i32, struct_of_arrays: StructOfArrays3D) -> Vector3D {
-    Vector3D {
-        x: bitcast[&mut[real_t]](struct_of_arrays.x.data)(i), 
-        y: bitcast[&mut[real_t]](struct_of_arrays.y.data)(i), 
-        z: bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) 
-    }
-}
-
-fn get_x_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
-    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i)
-}
-
-fn get_y_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
-    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i)
-}
-
-fn get_z_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
-    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i)
-}
-
-fn copy_struct_of_arrays(i: i32, j: i32, src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
-   bitcast[&mut[real_t]](dest.x.data)(j) = bitcast[&[real_t]](src.x.data)(i);  
-   bitcast[&mut[real_t]](dest.y.data)(j) = bitcast[&[real_t]](src.y.data)(i);  
-   bitcast[&mut[real_t]](dest.z.data)(j) = bitcast[&[real_t]](src.z.data)(i);  
-}
-
-fn swap_struct_of_arrays(i: i32, j: i32, struct_of_arrays: StructOfArrays3D) -> () {
-   let tmp_x = bitcast[&[real_t]](struct_of_arrays.x.data)(i);  
-   let tmp_y = bitcast[&[real_t]](struct_of_arrays.y.data)(i);  
-   let tmp_z = bitcast[&[real_t]](struct_of_arrays.z.data)(i);  
-   bitcast[&mut[real_t]](struct_of_arrays.x.data)(i) = bitcast[&[real_t]](struct_of_arrays.x.data)(j);  
-   bitcast[&mut[real_t]](struct_of_arrays.y.data)(i) = bitcast[&[real_t]](struct_of_arrays.y.data)(j);  
-   bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) = bitcast[&[real_t]](struct_of_arrays.z.data)(j);  
-   bitcast[&mut[real_t]](struct_of_arrays.x.data)(j) = tmp_x;  
-   bitcast[&mut[real_t]](struct_of_arrays.y.data)(j) = tmp_y;  
-   bitcast[&mut[real_t]](struct_of_arrays.z.data)(j) = tmp_z;  
 }
 
 struct Vector3D {

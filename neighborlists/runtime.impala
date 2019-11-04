@@ -2,12 +2,11 @@ static mut grid_ : Grid;
 static mut accelerator_grid_ : AcceleratorGrid;
 static mut world_size : i32;
 static mut world_rank : i32;
-extern 
-fn md_set_thread_count(thread_count: i32) -> () {
+
+extern fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
 }
-extern 
-fn md_initialize_grid(
+extern fn md_initialize_grid(
   masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
   nparticles: i32, min: &[real_t], max: &[real_t], rank_min: &[real_t],
   rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32,
@@ -93,38 +92,31 @@ extern fn md_copy_data_to_accelerator() -> () {
 extern fn md_copy_data_from_accelerator() -> () {
     copy_from_accelerator(accelerator_grid_, grid_);
 }
-extern
-fn md_deallocate_grid() -> () {
+extern fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
     deallocate_accelerator_grid(accelerator_grid_);
 }
-extern 
-fn md_integration(dt: real_t) -> () {
+extern fn md_integration(dt: real_t) -> () {
     accelerator_integration(accelerator_grid_, dt);
 }
 
-extern
-fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
+extern fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
     write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
-extern
-fn md_redistribute_particles() -> () {
+extern fn md_redistribute_particles() -> () {
     redistribute_particles(&mut grid_, alloc_unaligned_cpu);
 }
 
-extern
-fn md_exchange_ghost_layer() -> () {
+extern fn md_exchange_ghost_layer() -> () {
     exchange_ghost_layer_particles(&mut grid_, world_size, world_rank);
 }
 
-extern 
-fn md_initialize_clusters() -> () {
+extern fn md_initialize_clusters() -> () {
     grid_initialize_clusters(grid_, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
 }
 
-extern
-fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
+extern fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
     if(get_cluster_size() == 1) {
         grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu, assemble_particles_full_neighbor_list);
     } else {
@@ -132,55 +124,50 @@ fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
     }
 }
 
-extern
-fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
+extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
-    accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+
+    if(get_cluster_size() == 1) {
+        accelerator_compute_particle_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+    } else {
+        accelerator_compute_cluster_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+    }
 }
 
-extern
-fn md_compute_total_kinetic_energy() -> real_t {
+extern fn md_compute_total_kinetic_energy() -> real_t {
     // TODO fix this function
    //compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
    0.0 as real_t
 }
 
-extern
-fn md_print_grid() -> () {
+extern fn md_print_grid() -> () {
     print_grid(grid_);
 }
 
-extern
-fn md_mpi_initialize() -> () {
+extern fn md_mpi_initialize() -> () {
   mpi_initialize(&mut world_size, &mut world_rank);
 }
 
-extern
-fn md_mpi_finalize() -> () {
+extern fn md_mpi_finalize() -> () {
   mpi_finalize();
 }
 
-extern
-fn md_get_sync_timesteps() -> i32 {
+extern fn md_get_sync_timesteps() -> i32 {
   get_sync_timesteps()
 }
 
-extern
-fn md_synchronize_ghost_layer() -> () {
+extern fn md_synchronize_ghost_layer() -> () {
   synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, world_size, world_rank);
 }
 
-extern
-fn md_get_world_rank() -> i32 {
+extern fn md_get_world_rank() -> i32 {
   world_rank
 }
 
-extern
-fn md_get_number_of_particles() -> i32 {
+extern fn md_get_number_of_particles() -> i32 {
   grid_.nparticles
 }
 
-extern
-fn md_report_memory_allocation() -> () {
+extern fn md_report_memory_allocation() -> () {
   report_memory_allocation();
 }

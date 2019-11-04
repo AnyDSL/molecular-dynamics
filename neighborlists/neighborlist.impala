@@ -29,7 +29,7 @@ fn cell_arrange_clusters(cell: &mut Cell) -> () {
     }
 }
 
-fn @compute_bounding_box(positions: StructOfArrays3D, base_index: i32, @cluster_size: i32) -> AABB {
+fn @compute_bounding_box(positions: Array3D, base_index: i32, @cluster_size: i32) -> AABB {
     let mut aabb : AABB;
     aabb.min(0) = get_x_component(base_index, positions);
     aabb.min(1) = get_y_component(base_index, positions);

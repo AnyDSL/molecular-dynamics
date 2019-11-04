@@ -611,56 +611,6 @@ fn initialize_grid_comm(
   initialize_grid_transfer_ranges(grid);
 }
 
-fn copy_struct_of_arrays_to_buffer(
-  source: StructOfArrays3D,
-  offset_source: i32,
-  dest: Buffer,
-  offset_dest: i32,
-  size: i32) -> i32 {
-
-  let offset_ptr = offset_dest * sizeof[real_t]();
-  let nbytes = size * sizeof[real_t]();
-
-  copy_offset(
-    source.x, offset_source * sizeof[real_t](),
-    dest, offset_ptr, nbytes);
-
-  copy_offset(
-    source.y, offset_source * sizeof[real_t](),
-    dest, offset_ptr + nbytes, nbytes);
-
-  copy_offset(
-    source.z, offset_source * sizeof[real_t](),
-    dest, offset_ptr + nbytes * 2, nbytes);
-
-  size * 3
-}
-
-fn copy_buffer_to_struct_of_arrays(
-  source: Buffer,
-  offset_source: i32,
-  dest: StructOfArrays3D,
-  offset_dest: i32,
-  size: i32) -> i32 {
-
-  let offset_ptr = offset_source * sizeof[real_t]();
-  let nbytes = size * sizeof[real_t]();
-
-  copy_offset(
-    source, offset_ptr,
-    dest.x, offset_dest * sizeof[real_t](), nbytes);
-
-  copy_offset(
-    source, offset_ptr + nbytes,
-    dest.y, offset_dest * sizeof[real_t](), nbytes);
-
-  copy_offset(
-    source, offset_ptr + nbytes * 2,
-    dest.z, offset_dest * sizeof[real_t](), nbytes);
-
-  size * 3
-}
-
 fn pack_ghost_layer_cells(
   comm_buffer: Buffer,
   grid: &mut Grid,
@@ -678,16 +628,16 @@ fn pack_ghost_layer_cells(
     let nparticles = cell.size;
 
     if(nparticles > 0) {
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
+      buffer_ptr += copy_3d_arrays_to_buffer(
         accelerator_grid.positions_cpu, offset,
         comm_buffer, buffer_ptr, nparticles);
 
       /*
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
+      buffer_ptr += copy_3d_arrays_to_buffer(
         accelerator_grid.velocities_cpu, offset,
         comm_buffer, buffer_ptr, nparticles);
 
-      buffer_ptr += copy_struct_of_arrays_to_buffer(
+      buffer_ptr += copy_3d_arrays_to_buffer(
         accelerator_grid.forces_cpu, offset,
         comm_buffer, buffer_ptr, nparticles);
       */
@@ -712,16 +662,16 @@ fn unpack_ghost_layer_cells(
     let nparticles = cell.size;
 
     if(nparticles > 0) {
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
+      buffer_ptr += copy_buffer_to_3d_arrays(
         comm_buffer, buffer_ptr,
         accelerator_grid.positions_cpu, offset, nparticles);
 
       /*
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
+      buffer_ptr += copy_buffer_to_3d_arrays(
         comm_buffer, buffer_ptr,
         accelerator_grid.velocities_cpu, offset, nparticles);
 
-      buffer_ptr += copy_buffer_to_struct_of_arrays(
+      buffer_ptr += copy_buffer_to_3d_arrays(
         comm_buffer, buffer_ptr,
         accelerator_grid.forces_cpu, offset, nparticles);
       */
@@ -749,17 +699,17 @@ fn synchronize_ghost_layer_cells(
 
   resize_comm_buffers(max_send_particles * 3, max_recv_particles * 3);
 
-  transfer_struct_of_arrays_between_devices(
+  transfer_3d_arrays_between_devices(
     accelerator_grid.positions_accelerator,
     accelerator_grid.positions_cpu,
     total_number_of_particles);
 
-  transfer_struct_of_arrays_between_devices(
+  transfer_3d_arrays_between_devices(
     accelerator_grid.velocities_accelerator,
     accelerator_grid.velocities_cpu,
     total_number_of_particles);
 
-  transfer_struct_of_arrays_between_devices(
+  transfer_3d_arrays_between_devices(
     accelerator_grid.forces_accelerator,
     accelerator_grid.forces_cpu,
     total_number_of_particles);
@@ -794,17 +744,17 @@ fn synchronize_ghost_layer_cells(
     }
   }
 
-  transfer_struct_of_arrays_between_devices(
+  transfer_3d_arrays_between_devices(
     accelerator_grid.positions_cpu,
     accelerator_grid.positions_accelerator,
     total_number_of_particles);
 
-  transfer_struct_of_arrays_between_devices(
+  transfer_3d_arrays_between_devices(
     accelerator_grid.velocities_cpu,
     accelerator_grid.velocities_accelerator,
     total_number_of_particles);
 
-  transfer_struct_of_arrays_between_devices(
+  transfer_3d_arrays_between_devices(
     accelerator_grid.forces_cpu,
     accelerator_grid.forces_accelerator,
     total_number_of_particles);
@@ -854,15 +804,15 @@ fn pack_ghost_layer_particles(
 
           buffer_ptr += nparticles;
 
-          buffer_ptr += copy_struct_of_arrays_to_buffer(
+          buffer_ptr += copy_3d_arrays_to_buffer(
             cell.positions, 0,
             comm_buffer, buffer_ptr, nparticles);
 
-          buffer_ptr += copy_struct_of_arrays_to_buffer(
+          buffer_ptr += copy_3d_arrays_to_buffer(
             cell.velocities, 0,
             comm_buffer, buffer_ptr, nparticles);
 
-          buffer_ptr += copy_struct_of_arrays_to_buffer(
+          buffer_ptr += copy_3d_arrays_to_buffer(
             cell.forces, 0,
             comm_buffer, buffer_ptr, nparticles);
 
@@ -927,15 +877,15 @@ fn unpack_ghost_layer_particles(
 
         buffer_ptr += nparticles;
 
-        buffer_ptr += copy_buffer_to_struct_of_arrays(
+        buffer_ptr += copy_buffer_to_3d_arrays(
           comm_buffer, buffer_ptr,
           cell.positions, 0, nparticles);
 
-        buffer_ptr += copy_buffer_to_struct_of_arrays(
+        buffer_ptr += copy_buffer_to_3d_arrays(
           comm_buffer, buffer_ptr,
           cell.velocities, 0, nparticles);
 
-        buffer_ptr += copy_buffer_to_struct_of_arrays(
+        buffer_ptr += copy_buffer_to_3d_arrays(
           comm_buffer, buffer_ptr,
           cell.forces, 0, nparticles);
 

@@ -162,9 +162,9 @@ fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], v
             print_vector(get_vector(k, (*cell).velocities));
             */
             masses(array_index) = get_real(k, (*cell).masses);
-            positions(array_index) = get_vector_from_struct_of_arrays(k, (*cell).positions);
-            velocities(array_index) = get_vector_from_struct_of_arrays(k, (*cell).velocities);
-            forces(array_index) = get_vector_from_struct_of_arrays(k, (*cell).forces);
+            positions(array_index) = get_vector_from_3d_arrays(k, (*cell).positions);
+            velocities(array_index) = get_vector_from_3d_arrays(k, (*cell).velocities);
+            forces(array_index) = get_vector_from_3d_arrays(k, (*cell).forces);
 
             ++array_index;
         }

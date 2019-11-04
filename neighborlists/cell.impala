@@ -29,9 +29,9 @@ struct Cluster {
 struct Cell {
     index: i32,
     masses: Buffer,
-    positions: StructOfArrays3D,
-    velocities: StructOfArrays3D,
-    forces: StructOfArrays3D,
+    positions: Array3D,
+    velocities: Array3D,
+    forces: Array3D,
     size: i32,
     padding: i32,
     capacity: i32,
@@ -60,9 +60,9 @@ fn allocate_cell(index: i32, size: i32, capacity: i32, neighbor_list_capacity: i
     Cell {
         index: index,
         masses: allocate(N * sizeof[real_t]()),
-        positions: allocate_struct_of_arrays(N),
-        velocities: allocate_struct_of_arrays(N),
-        forces: allocate_struct_of_arrays(N),
+        positions: allocate_3d_arrays(N, allocate),
+        velocities: allocate_3d_arrays(N, allocate),
+        forces: allocate_3d_arrays(N, allocate),
         capacity: N,
         padding: 0,
         size: size,
@@ -100,17 +100,17 @@ fn print_cell(cell: &Cell, index: [i32 * 3]) -> () {
     print_string("\n");
     print_string("Positions:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector_from_struct_of_arrays(i, cell.positions));
+        print_vector(get_vector_from_3d_arrays(i, cell.positions));
         print_string("\n");
     }
     print_string("Forces:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector_from_struct_of_arrays(i, cell.forces));
+        print_vector(get_vector_from_3d_arrays(i, cell.forces));
         print_string("\n");
     }
     print_string("Velocities:\n");
     for i in range(0, cell.size) {
-        print_vector(get_vector_from_struct_of_arrays(i, cell.velocities));
+        print_vector(get_vector_from_3d_arrays(i, cell.velocities));
         print_string("\n");
     }
 
@@ -127,9 +127,9 @@ fn print_cell(cell: &Cell, index: [i32 * 3]) -> () {
 
 fn deallocate_cell(cell: &mut Cell) -> () {
     release_host(cell.masses);
-    deallocate_struct_of_arrays(cell.positions);
-    deallocate_struct_of_arrays(cell.velocities);
-    deallocate_struct_of_arrays(cell.forces);
+    deallocate_3d_arrays(cell.positions);
+    deallocate_3d_arrays(cell.velocities);
+    deallocate_3d_arrays(cell.forces);
     release_host(cell.neighbor_cells);
     release_host(cell.neighbor_indices);
     release_host(cell.clusters);
@@ -146,14 +146,14 @@ fn copy_cell(src: &Cell, dest: &mut Cell) -> () {
 
 fn @swap_particles(i: i32, j: i32, cell: &Cell) -> () {
     swap_real(i, j, (*cell).masses);
-    swap_struct_of_arrays(i, j, (*cell).positions);
-    swap_struct_of_arrays(i, j, (*cell).velocities);
+    swap_3d_arrays(i, j, (*cell).positions);
+    swap_3d_arrays(i, j, (*cell).velocities);
 }
 
 fn @copy_particle(i: i32, j: i32, src: &Cell, dest: &Cell) -> () {
     set_real(j, dest.masses, get_real(i, src.masses));
-    copy_struct_of_arrays(i, j, src.positions, dest.positions);
-    copy_struct_of_arrays(i, j, src.velocities, dest.velocities);
+    copy_3d_arrays(i, j, src.positions, dest.positions);
+    copy_3d_arrays(i, j, src.velocities, dest.velocities);
 }
 
 fn @remove_particle(i: i32, cell: &mut Cell) -> () {
@@ -221,8 +221,8 @@ fn append_particle(mass: real_t, position: Vector3D, velocity: Vector3D, dest: &
     print_i32(new_size);
     print_string("\n");*/
     set_real(new_size-1, dest.masses, mass);
-    set_struct_of_arrays(new_size-1, dest.positions, position);
-    set_struct_of_arrays(new_size-1, dest.velocities, velocity);
-    set_struct_of_arrays(new_size-1, dest.forces, null_vec);
+    set_3d_arrays(new_size-1, dest.positions, position);
+    set_3d_arrays(new_size-1, dest.velocities, velocity);
+    set_3d_arrays(new_size-1, dest.forces, null_vec);
 }
 
