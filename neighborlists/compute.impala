@@ -1,13 +1,6 @@
 fn accelerator_compute_particle_forces(
     accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
 
-    let force_x = get_forces_x(accelerator_grid);
-    let force_y = get_forces_y(accelerator_grid);
-    let force_z = get_forces_z(accelerator_grid);
-    let pos_x = get_positions_x(accelerator_grid);
-    let pos_y = get_positions_y(accelerator_grid);
-    let pos_z = get_positions_z(accelerator_grid);
-
     for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
         loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
 
@@ -17,21 +10,11 @@ fn accelerator_compute_particle_forces(
             z: 0.0 as real_t
         };
 
-        let pos = Vector3D {
-            x: pos_x(begin + j),
-            y: pos_y(begin + j),
-            z: pos_z(begin + j)
-        };
+        let pos = get_position(begin + j, accelerator_grid);
 
         for n in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlists(neighborlist_offset + n);
-
-            let pos_neighbor = Vector3D {
-                x: pos_x(begin_neighbor),
-                y: pos_y(begin_neighbor),
-                z: pos_z(begin_neighbor)
-            };
-
+            let pos_neighbor = get_position(begin_neighbor, accelerator_grid);
             let del = vector_sub(pos_neighbor, pos);
             let rsq = vector_len2(del);
 
@@ -45,21 +28,12 @@ fn accelerator_compute_particle_forces(
             }
         }
 
-        force_x(begin + j) = force.x;
-        force_y(begin + j) = force.y;
-        force_z(begin + j) = force.z;
+        set_force(begin + j, accelerator_grid, force);
     }
 }
 
 fn accelerator_compute_cluster_forces(
     accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
-
-    let force_x = get_forces_x(accelerator_grid);
-    let force_y = get_forces_y(accelerator_grid);
-    let force_z = get_forces_z(accelerator_grid);
-    let pos_x = get_positions_x(accelerator_grid);
-    let pos_y = get_positions_y(accelerator_grid);
-    let pos_z = get_positions_z(accelerator_grid);
 
     for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
         loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
@@ -70,11 +44,7 @@ fn accelerator_compute_cluster_forces(
             z: 0.0 as real_t
         };
 
-        let pos = Vector3D {
-            x: pos_x(begin + j),
-            y: pos_y(begin + j),
-            z: pos_z(begin + j)
-        };
+        let pos = get_position(begin + j, accelerator_grid);
 
         //let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
         for k in unroll(1, get_cluster_size()) {
@@ -97,11 +67,7 @@ fn accelerator_compute_cluster_forces(
         for n in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlists(neighborlist_offset + n);
             for k in range(0, get_cluster_size()) {
-                let pos_neighbor = Vector3D {
-                    x: pos_x(begin_neighbor + k),
-                    y: pos_y(begin_neighbor + k),
-                    z: pos_z(begin_neighbor + k)
-                };
+                let pos_neighbor = get_position(begin_neighbor + k, accelerator_grid);
                 let diff = vector_sub(pos_neighbor, pos);
                 let len2 = vector_len2(diff);
                 //if get_mask_value(begin_neighbor + k, accelerator_grid) && len2 < squared_cutoff_distance {
@@ -112,9 +78,7 @@ fn accelerator_compute_cluster_forces(
             }
         }
 
-        force_x(begin + j) = force.x;
-        force_y(begin + j) = force.y;
-        force_z(begin + j) = force.z;
+        set_force(begin + j, accelerator_grid, force);
     }
 }
 

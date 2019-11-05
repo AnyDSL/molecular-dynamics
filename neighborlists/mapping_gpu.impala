@@ -159,23 +159,3 @@ fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: 
 fn @get_mask_value(i: i32, accelerator_grid: AcceleratorGrid) -> bool {
     get_bool_accelerator(i, accelerator_grid.interaction_mask_accelerator)
 }
-
-fn @get_forces_x(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.x.data, get_alignment()))
-}
-fn @get_forces_y(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.y.data, get_alignment()))
-}
-fn @get_forces_z(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    bitcast[&mut[1][real_t]](align(accelerator_grid.forces_accelerator.z.data, get_alignment()))
-}
-fn @get_positions_x(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    bitcast[&mut[1][real_t]](align(accelerator_grid.positions_accelerator.x.data, get_alignment()))
-}
-fn @get_positions_y(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    bitcast[&mut[1][real_t]](align(accelerator_grid.positions_accelerator.y.data, get_alignment()))
-}
-fn @get_positions_z(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    bitcast[&mut[1][real_t]](align(accelerator_grid.positions_accelerator.z.data, get_alignment()))
-}
-

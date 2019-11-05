@@ -36,7 +36,6 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
     for i in outer_loop_cpu(0, accelerator_grid.total_number_of_clusters) { 
         let cluster_size = get_cluster_size();
         let begin = i * cluster_size;
-        let alignment = get_alignment();
         let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
         let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
         let neighborlists = get_neighborlists(accelerator_grid);
@@ -102,32 +101,3 @@ fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: 
 fn @get_mask_value(i: i32, accelerator_grid: AcceleratorGrid) -> bool {
     get_bool(i, accelerator_grid.interaction_mask_cpu)
 }
-
-fn @get_forces_x(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.x.data, get_alignment()))
-}
-fn @get_forces_y(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.y.data, get_alignment()))
-}
-fn @get_forces_z(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.forces_cpu.z.data, get_alignment()))
-}
-fn @get_positions_x(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.x.data, get_alignment()))
-}
-fn @get_positions_y(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.y.data, get_alignment()))
-}
-fn @get_positions_z(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.positions_cpu.z.data, get_alignment()))
-}
-fn @get_velocities_x(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.velocities_cpu.x.data, get_alignment()))
-}
-fn @get_velocities_y(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.velocities_cpu.y.data, get_alignment()))
-}
-fn @get_velocities_z(accelerator_grid: AcceleratorGrid) -> &mut[real_t] {
-    bitcast[&mut[real_t]](align(accelerator_grid.velocities_cpu.z.data, get_alignment()))
-}
-
