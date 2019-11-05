@@ -178,8 +178,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
     for cell, index in map_over_grid(grid, range, range, range) {
         if(cell.cluster_size != accelerator_grid.cluster_size) {
             print_string("Cluster sizes on CPU and accelerator are not equal!\n");
-        }
-        else {
+        } else {
             // first compute the offset for each cell within the accelerator arrays
             // the offset for the next cell is obtained by adding the size of the last cell to the old offset value
             let total_cell_size = cell.size + cell.padding;
