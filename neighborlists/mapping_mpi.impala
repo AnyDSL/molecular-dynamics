@@ -1,5 +1,7 @@
 /* Number of nodes in each dimension */
-static mut node_dims: [i32 * 3];
+static mut gx: i32;
+static mut gy: i32;
+static mut gz: i32;
 
 /* Lookup table for ghost layer ranges */
 static mut grid_transfer_ranges: [[i32 * 4] * 9];
@@ -32,8 +34,10 @@ fn @flat_index(index: [i32 * 3], nx: i32, ny: i32) -> i32 {
 }
 
 /* Unflatten index for ranks (3D cartesian mapping) */
-fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32) -> [i32 * 3] {
-  [index % nx, (index / nx) % ny, index / (nx * ny)]
+fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32, rx: &mut i32, ry: &mut i32, rz: &mut i32) -> () {
+  *rx = index % nx;
+  *ry = (index / nx) % ny;
+  *rz = index / (nx * ny);
 }
 
 /* Mirrored communication (avoid deadlocks) */
@@ -132,17 +136,17 @@ fn communication_nodes_1d(
   world_size: i32,
   rank: i32,
   grid: Grid,
-  body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
+  body: fn(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()) -> () {
 
   /* If rank is not the last one */
   if(rank < world_size - 1) {
     /* Communicate with next rank */
     @@body(
       rank + 1,
-      [0, 0, grid.nz - get_sync_timesteps() * 2],
-      [grid.nx, grid.ny, grid.nz - get_sync_timesteps()],
-      [0, 0, grid.nz - get_sync_timesteps()],
-      [grid.nx, grid.ny, grid.nz]
+      0, 0, grid.nz - get_sync_timesteps() * 2,
+      grid.nx, grid.ny, grid.nz - get_sync_timesteps(),
+      0, 0, grid.nz - get_sync_timesteps(),
+      grid.nx, grid.ny, grid.nz
     );
   }
 
@@ -151,10 +155,10 @@ fn communication_nodes_1d(
     /* Communicate with previous rank */
     @@body(
       rank - 1,
-      [0, 0, get_sync_timesteps()],
-      [grid.nx, grid.ny, get_sync_timesteps() * 2],
-      [0, 0, 0],
-      [grid.nx, grid.ny, get_sync_timesteps()]
+      0, 0, get_sync_timesteps(),
+      grid.nx, grid.ny, get_sync_timesteps() * 2,
+      0, 0, 0,
+      grid.nx, grid.ny, get_sync_timesteps()
     );
   }
 }
@@ -174,15 +178,15 @@ fn @get_node_bounding_box_1d(
   if(world_size > 1) {
     /* Number of cells in z axis */
     let zcells = real_floor(
-      (grid_aabb.max(2) - grid_aabb.min(2)) / cell_spacing
+      (grid_aabb.zmax - grid_aabb.zmin) / cell_spacing
     ) as i32;
 
     /* Total length for cells in z axis */
     let zlength = (zcells / world_size) as real_t * cell_spacing;
 
     /* Calculate zmin and zmax based on rank value */
-    zmin = grid_aabb.min(2) + zlength * (rank as real_t);
-    zmax = grid_aabb.min(2) + zlength * ((rank + 1) as real_t);
+    zmin = grid_aabb.zmin + zlength * (rank as real_t);
+    zmax = grid_aabb.zmin + zlength * ((rank + 1) as real_t);
 
     /* If this is not the first node, include ghost layer for lower z ranks */
     if(rank > 0) {
@@ -199,18 +203,22 @@ fn @get_node_bounding_box_1d(
     }
   /* Otherwise, just use original bounding box */
   } else {
-    zmin = grid_aabb.min(2);
-    zmax = grid_aabb.max(2);
+    zmin = grid_aabb.zmin;
+    zmax = grid_aabb.zmax;
   }
 
   AABB {
-    min: [grid_aabb.min(0), grid_aabb.min(1), zmin],
-    max: [grid_aabb.max(0), grid_aabb.max(1), zmax]
+    xmin: grid_aabb.xmin,
+    xmax: grid_aabb.xmax,
+    ymin: grid_aabb.ymin,
+    ymax: grid_aabb.ymax,
+    zmin: grid_aabb.zmin,
+    zmax: grid_aabb.zmax
   }
 }
 
 /* Get send and receive transfer ranges for communications */
-fn transfer_ranges(offset: i32, ncells: i32) -> [i32 * 4] {
+fn transfer_ranges(offset: i32, ncells: i32, body: fn(i32, i32, i32, i32) -> ()) -> () {
   let mut send_begin: i32;
   let mut send_end: i32;
   let mut recv_begin: i32;
@@ -239,27 +247,33 @@ fn transfer_ranges(offset: i32, ncells: i32) -> [i32 * 4] {
     recv_end = get_sync_timesteps();
   }
 
-  [send_begin, send_end, recv_begin, recv_end]
+  @@body(send_begin, send_end, recv_begin, recv_end)
 }
 
 /* Build lookup table for transfer ranges in all dimensions */
 fn initialize_grid_transfer_ranges(grid: Grid) -> () {
   /* Go through all offsets (-1, 0, +1) */
   for i in range(-1, 2) {
-    /* Get transfer ranges for x axis */
-    let xranges = transfer_ranges(i, grid.nx);
-    /* Get transfer ranges for y axis */
-    let yranges = transfer_ranges(i, grid.ny);
-    /* Get transfer ranges for z axis */
-    let zranges = transfer_ranges(i, grid.nz);
+    transfer_ranges(i, grid.nx, |send_begin, send_end, recv_begin, recv_end| {
+      grid_transfer_ranges(i + 1)(0) = send_begin;
+      grid_transfer_ranges(i + 1)(1) = send_end;
+      grid_transfer_ranges(i + 1)(2) = recv_begin;
+      grid_transfer_ranges(i + 1)(3) = recv_end;
+    });
 
-    /* Go through ranges (send begin, send end, recv begin and recv end) */
-    for j in range(0, 4) {
-      /* Copy ranges to the table */
-      grid_transfer_ranges(i + 1)(j) = xranges(j);
-      grid_transfer_ranges(i + 4)(j) = yranges(j);
-      grid_transfer_ranges(i + 7)(j) = zranges(j);
-    }
+    transfer_ranges(i, grid.ny, |send_begin, send_end, recv_begin, recv_end| {
+      grid_transfer_ranges(i + 4)(0) = send_begin;
+      grid_transfer_ranges(i + 4)(1) = send_end;
+      grid_transfer_ranges(i + 4)(2) = recv_begin;
+      grid_transfer_ranges(i + 4)(3) = recv_end;
+    });
+
+    transfer_ranges(i, grid.nz, |send_begin, send_end, recv_begin, recv_end| {
+      grid_transfer_ranges(i + 7)(0) = send_begin;
+      grid_transfer_ranges(i + 7)(1) = send_end;
+      grid_transfer_ranges(i + 7)(2) = recv_begin;
+      grid_transfer_ranges(i + 7)(3) = recv_end;
+    });
   }
 }
 
@@ -268,23 +282,27 @@ fn communication_nodes_generic(
   world_size: i32,
   rank: i32,
   grid: Grid,
-  body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
+  body: fn(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()) -> () {
+
+  let mut rx: i32;
+  let mut ry: i32;
+  let mut rz: i32;
 
   /* Index of rank in the 3D cartesian grid */
-  let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+  unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
   /* Has previous node in x axis */
-  let xprev = rank_index(0) > 0;
+  let xprev = rx > 0;
   /* Has successor node in x axis */
-  let xnext = rank_index(0) < node_dims(0) - 1;
+  let xnext = rx < gx - 1;
   /* Has previous node in y axis */
-  let yprev = rank_index(1) > 0;
+  let yprev = ry > 0;
   /* Has successor node in y axis */
-  let ynext = rank_index(1) < node_dims(1) - 1;
+  let ynext = ry < gy - 1;
   /* Has previous node in z axis */
-  let zprev = rank_index(2) > 0;
+  let zprev = rz > 0;
   /* Has successor node in z axis */
-  let znext = rank_index(2) < node_dims(2) - 1;
+  let znext = rz < gz - 1;
 
   /* Go through x possible offsets */
   for xoffset in range(-1, 1) {
@@ -311,8 +329,7 @@ fn communication_nodes_generic(
             ) {
               /* Exchange rank based on offsets */
               let exchange_rank = flat_index(
-                [rank_index(0) + xoff, rank_index(1) + yoff, rank_index(2) + zoff],
-                node_dims(0), node_dims(1)
+                [rx + xoff, ry + yoff, rz + zoff], gx, gy
               );
 
               /* Get x ranges on lookup table */
@@ -329,7 +346,11 @@ fn communication_nodes_generic(
               let recv_end   = [xranges(3), yranges(3), zranges(3)];
 
               /* Performs communication with rank using the obtained ranges */
-              @@body(exchange_rank, send_begin, send_end, recv_begin, recv_end);
+              @@body( exchange_rank,
+                      xranges(0), yranges(0), zranges(0),
+                      xranges(1), yranges(1), zranges(1),
+                      xranges(2), yranges(2), zranges(2),
+                      xranges(3), yranges(3), zranges(3)  );
             }
           }
         }
@@ -339,18 +360,28 @@ fn communication_nodes_generic(
 }
 
 /* Is this the last node in the dimension? */
-fn last_dimension_node(dim: i32) -> bool {
+fn last_dimension_node(@dim: i32) -> bool {
   let mpih = mpi();
   let mut rank: i32;
+  let mut rx: i32;
+  let mut ry: i32;
+  let mut rz: i32;
 
   /* Get rank for current node */
   mpih.comm_rank(mpih.comms.world, &mut rank);
 
   /* Get rank cartesian index */
-  let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+  unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
-  /* Check if this is the last one in the dimension */
-  rank_index(dim) == node_dims(dim) - 1
+  if dim == 0 {
+    rx == gx - 1
+  } else if dim == 1 {
+    ry == gy - 1
+  } else if dim == 2 {
+    rz == gz - 1
+  } else {
+    false
+  }
 }
 
 /* Default communication pattern (do not include diagonals) */
@@ -358,93 +389,85 @@ fn communication_nodes(
   world_size: i32,
   rank: i32,
   grid: Grid,
-  body: fn(i32, [i32 * 3], [i32 * 3], [i32 * 3], [i32 * 3]) -> ()) -> () {
+  body: fn(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()) -> () {
+
+  let mut rx: i32;
+  let mut ry: i32;
+  let mut rz: i32;
 
   /* Index of rank in the 3D cartesian grid */
-  let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+  unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
   /* Has previous node in x axis */
-  let xprev = rank_index(0) > 0;
+  let xprev = rx > 0;
   /* Has successor node in x axis */
-  let xnext = rank_index(0) < node_dims(0) - 1;
+  let xnext = rx < gx - 1;
   /* Has previous node in y axis */
-  let yprev = rank_index(1) > 0;
+  let yprev = ry > 0;
   /* Has successor node in y axis */
-  let ynext = rank_index(1) < node_dims(1) - 1;
+  let ynext = ry < gy - 1;
   /* Has previous node in z axis */
-  let zprev = rank_index(2) > 0;
+  let zprev = rz > 0;
   /* Has successor node in z axis */
-  let znext = rank_index(2) < node_dims(2) - 1;
+  let znext = rz < gz - 1;
 
   if(xnext) {
     @@body(
-      flat_index(
-        [rank_index(0) + 1, rank_index(1), rank_index(2)],
-        node_dims(0), node_dims(1)),
-      [grid.nx - get_sync_timesteps() * 2, 0, 0],
-      [grid.nx - get_sync_timesteps(), grid.ny, grid.nz],
-      [grid.nx - get_sync_timesteps(), 0, 0],
-      [grid.nx, grid.ny, grid.nz]
+      flat_index([rx + 1, ry, rz], gx, gy),
+      grid.nx - get_sync_timesteps() * 2, 0, 0,
+      grid.nx - get_sync_timesteps(), grid.ny, grid.nz,
+      grid.nx - get_sync_timesteps(), 0, 0,
+      grid.nx, grid.ny, grid.nz
     );
   }
 
   if(xprev) {
     @@body(
-      flat_index(
-        [rank_index(0) - 1, rank_index(1), rank_index(2)],
-        node_dims(0), node_dims(1)),
-      [get_sync_timesteps(), 0, 0],
-      [get_sync_timesteps() * 2, grid.ny, grid.nz],
-      [0, 0, 0],
-      [get_sync_timesteps(), grid.ny, grid.nz]
+      flat_index([rx - 1, ry, rz], gx, gy),
+      get_sync_timesteps(), 0, 0,
+      get_sync_timesteps() * 2, grid.ny, grid.nz,
+      0, 0, 0,
+      get_sync_timesteps(), grid.ny, grid.nz
     );
   }
 
   if(ynext) {
     @@body(
-      flat_index(
-        [rank_index(0), rank_index(1) + 1, rank_index(2)],
-        node_dims(0), node_dims(1)),
-      [0, grid.ny - get_sync_timesteps() * 2, 0],
-      [grid.nx, grid.ny - get_sync_timesteps(), grid.nz],
-      [0, grid.ny - get_sync_timesteps(), 0],
-      [grid.nx, grid.ny, grid.nz]
+      flat_index([rx, ry + 1, rz], gx, gy),
+      0, grid.ny - get_sync_timesteps() * 2, 0,
+      grid.nx, grid.ny - get_sync_timesteps(), grid.nz,
+      0, grid.ny - get_sync_timesteps(), 0,
+      grid.nx, grid.ny, grid.nz
     );
   }
 
   if(yprev) {
     @@body(
-      flat_index(
-        [rank_index(0), rank_index(1) - 1, rank_index(2)],
-        node_dims(0), node_dims(1)),
-      [0, get_sync_timesteps(), 0],
-      [grid.nx, get_sync_timesteps() * 2, grid.nz],
-      [0, 0, 0],
-      [grid.nx, get_sync_timesteps(), grid.nz]
+      flat_index([rx, ry - 1, rz], gx, gy),
+      0, get_sync_timesteps(), 0,
+      grid.nx, get_sync_timesteps() * 2, grid.nz,
+      0, 0, 0,
+      grid.nx, get_sync_timesteps(), grid.nz
     );
   }
 
   if(znext) {
     @@body(
-      flat_index(
-        [rank_index(0), rank_index(1), rank_index(2) + 1],
-        node_dims(0), node_dims(1)),
-      [0, 0, grid.nz - get_sync_timesteps() * 2],
-      [grid.nx, grid.ny, grid.nz - get_sync_timesteps()],
-      [0, 0, grid.nz - get_sync_timesteps()],
-      [grid.nx, grid.ny, grid.nz]
+      flat_index([rx, ry, rz + 1], gx, gy),
+      0, 0, grid.nz - get_sync_timesteps() * 2,
+      grid.nx, grid.ny, grid.nz - get_sync_timesteps(),
+      0, 0, grid.nz - get_sync_timesteps(),
+      grid.nx, grid.ny, grid.nz
     );
   }
 
   if(zprev) {
     @@body(
-      flat_index(
-        [rank_index(0), rank_index(1), rank_index(2) - 1],
-        node_dims(0), node_dims(1)),
-      [0, 0, get_sync_timesteps()],
-      [grid.nx, grid.ny, get_sync_timesteps() * 2],
-      [0, 0, 0],
-      [grid.nx, grid.ny, get_sync_timesteps()]
+      flat_index([rx, ry, rz - 1], gx, gy),
+      0, 0, get_sync_timesteps(),
+      grid.nx, grid.ny, get_sync_timesteps() * 2,
+      0, 0, 0,
+      grid.nx, grid.ny, get_sync_timesteps()
     );
   }
 }
@@ -454,12 +477,16 @@ fn get_node_config(
   rank: i32,
   xcells: i32,
   ycells: i32,
-  zcells: i32) -> [i32 * 3] {
+  zcells: i32,
+  destx: &mut i32,
+  desty: &mut i32,
+  destz: &mut i32) -> () {
 
-  let mut gx = 1;
-  let mut gy = 1;
-  let mut gz = 1;
   let mut min_missing_factor = xcells * ycells * zcells;
+
+  *destx = 1;
+  *desty = 1;
+  *destz = 1;
 
   for i in range(1, world_size) {
     if(world_size % i == 0) {
@@ -471,27 +498,15 @@ fn get_node_config(
           let missing_factor = xcells % i + ycells % j + zcells % k;
 
           if(min_missing_factor > missing_factor) {
-            gx = i;
-            gy = j;
-            gz = k;
+            *destx = i;
+            *desty = j;
+            *destz = k;
             min_missing_factor = missing_factor;
           }
         }
       }
     }
   }
-
-  /*
-  print_string("Node config: ");
-  print_i32(gx);
-  print_string(", ");
-  print_i32(gy);
-  print_string(", ");
-  print_i32(gz);
-  print_string("\n");
-  */
-
-  [gx, gy, gz]
 }
 
 fn @get_node_bounding_box(
@@ -508,67 +523,78 @@ fn @get_node_bounding_box(
   let mut zmax: real_t;
 
   if(world_size > 1) {
-    let xcells = real_floor((aabb.max(0) - aabb.min(0)) / cell_spacing) as i32;
-    let ycells = real_floor((aabb.max(1) - aabb.min(1)) / cell_spacing) as i32;
-    let zcells = real_floor((aabb.max(2) - aabb.min(2)) / cell_spacing) as i32;
+    let mut rx: i32;
+    let mut ry: i32;
+    let mut rz: i32;
 
-    node_dims = get_node_config(world_size, rank, xcells, ycells, zcells);
+    let xcells = real_floor((aabb.xmax - aabb.xmin) / cell_spacing) as i32;
+    let ycells = real_floor((aabb.ymax - aabb.ymin) / cell_spacing) as i32;
+    let zcells = real_floor((aabb.zmax - aabb.zmin) / cell_spacing) as i32;
 
-    let xlength = (xcells / node_dims(0)) as real_t * cell_spacing;
-    let ylength = (ycells / node_dims(1)) as real_t * cell_spacing;
-    let zlength = (zcells / node_dims(2)) as real_t * cell_spacing;
-    let rank_index = unflat_index(rank, node_dims(0), node_dims(1), node_dims(2));
+    get_node_config(world_size, rank, xcells, ycells, zcells, &mut gx, &mut gy, &mut gz);
 
-    xmin = aabb.min(0) + xlength * (rank_index(0) as real_t);
-    xmax = aabb.min(0) + xlength * ((rank_index(0) + 1) as real_t);
-    ymin = aabb.min(1) + ylength * (rank_index(1) as real_t);
-    ymax = aabb.min(1) + ylength * ((rank_index(1) + 1) as real_t);
-    zmin = aabb.min(2) + zlength * (rank_index(2) as real_t);
-    zmax = aabb.min(2) + zlength * ((rank_index(2) + 1) as real_t);
+    let xlength = (xcells / gx) as real_t * cell_spacing;
+    let ylength = (ycells / gy) as real_t * cell_spacing;
+    let zlength = (zcells / gz) as real_t * cell_spacing;
 
-    if(rank_index(0) > 0) {
+    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
+
+    xmin = aabb.xmin + xlength * (rx as real_t);
+    xmax = aabb.xmin + xlength * ((rx + 1) as real_t);
+    ymin = aabb.ymin + ylength * (ry as real_t);
+    ymax = aabb.ymin + ylength * ((ry + 1) as real_t);
+    zmin = aabb.zmin + zlength * (rz as real_t);
+    zmax = aabb.zmin + zlength * ((rz + 1) as real_t);
+
+    if(rx > 0) {
       xmin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
-    if(rank_index(0) < node_dims(0) - 1) {
+    if(rx < gx - 1) {
       xmax += (get_sync_timesteps() as real_t) * cell_spacing;
     } else {
       xmax += cell_spacing;
     }
 
-    if(rank_index(1) > 0) {
+    if(ry > 0) {
       ymin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
-    if(rank_index(1) < node_dims(1) - 1) {
+    if(ry < gy - 1) {
       ymax += (get_sync_timesteps() as real_t) * cell_spacing;
     } else {
       ymax += cell_spacing;
     }
 
-    if(rank_index(2) > 0) {
+    if(rz > 0) {
       zmin -= (get_sync_timesteps() as real_t) * cell_spacing;
     }
 
-    if(rank_index(2) < node_dims(2) - 1) {
+    if(rz < gz - 1) {
       zmax += (get_sync_timesteps() as real_t) * cell_spacing;
     } else {
       zmax += cell_spacing;
     }
   } else {
-    node_dims = [1, 1, 1];
+    gx = 1;
+    gy = 1;
+    gz = 1;
 
-    xmin = aabb.min(0);
-    xmax = aabb.max(0);
-    ymin = aabb.min(1);
-    ymax = aabb.max(1);
-    zmin = aabb.min(2);
-    zmax = aabb.max(2);
+    xmin = aabb.xmin;
+    xmax = aabb.xmax;
+    ymin = aabb.ymin;
+    ymax = aabb.ymax;
+    zmin = aabb.zmin;
+    zmax = aabb.zmax;
   }
 
   AABB {
-    min: [xmin, ymin, zmin],
-    max: [xmax, ymax, zmax]
+    xmin: xmin,
+    xmax: xmax,
+    ymin: ymin,
+    ymax: ymax,
+    zmin: zmin,
+    zmax: zmax
   }
 }
 
@@ -583,19 +609,33 @@ fn initialize_grid_comm(
   max_send_particles = 0;
   max_recv_particles = 0;
 
-  for exchange_rank, send_begin, send_end, recv_begin, recv_end in
+  for exchange_rank,
+      send_begin_x, send_begin_y, send_begin_z,
+      send_end_x, send_end_y, send_end_z,
+      recv_begin_x, recv_begin_y, recv_begin_z,
+      recv_end_x, recv_end_y, recv_end_z in
       communication_nodes(world_size, world_rank, grid) {
 
     rank_send_ptr(exchange_rank) = 0;
     rank_recv_ptr(exchange_rank) = 0;
 
     for cell, index in
-        map_over_grid_subdomain(grid, send_begin, send_end, range, range, range) {
+        map_over_grid_subdomain(
+          grid,
+          send_begin_x, send_begin_y, send_begin_z,
+          send_end_x, send_end_y, send_end_z,
+          range, range, range) {
+
       rank_send_ptr(exchange_rank) += cell.size + cell.padding;
     }
 
     for cell, index in
-        map_over_grid_subdomain(grid, recv_begin, recv_end, range, range, range) {
+        map_over_grid_subdomain(
+          grid,
+          recv_begin_x, recv_begin_y, recv_begin_z,
+          recv_end_x, recv_end_y, recv_end_z,
+          range, range, range) {
+
       rank_recv_ptr(exchange_rank) += cell.size + cell.padding;
     }
 
@@ -615,13 +655,22 @@ fn pack_ghost_layer_cells(
   comm_buffer: Buffer,
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
-  begin: [i32 * 3],
-  end: [i32 * 3]) -> () {
+  begin_x: i32,
+  begin_y: i32,
+  begin_z: i32,
+  end_x: i32,
+  end_y: i32,
+  end_z: i32) -> () {
 
   let mut buffer_ptr = 0;
 
   for cell, index in
-      map_over_grid_subdomain(grid, begin, end, range, range, range) {
+      map_over_grid_subdomain(
+        grid,
+        begin_x, begin_y, begin_z,
+        end_x, end_y, end_z,
+        range, range, range) {
+
     let flat_index = flatten_index(index, grid);
     let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
     let offset = cell_offsets(flat_index);
@@ -649,13 +698,22 @@ fn unpack_ghost_layer_cells(
   comm_buffer: Buffer,
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
-  begin: [i32 * 3],
-  end: [i32 * 3]) -> () {
+  begin_x: i32,
+  begin_y: i32,
+  begin_z: i32,
+  end_x: i32,
+  end_y: i32,
+  end_z: i32) -> () {
 
   let mut buffer_ptr = 0;
 
   for cell, index in
-      map_over_grid_subdomain(grid, begin, end, range, range, range) {
+      map_over_grid_subdomain(
+        grid,
+        begin_x, begin_y, begin_z,
+        end_x, end_y, end_z,
+        range, range, range) {
+
     let flat_index = flatten_index(index, grid);
     let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
     let offset = cell_offsets(flat_index);
@@ -714,12 +772,18 @@ fn synchronize_ghost_layer_cells(
     accelerator_grid.forces_cpu,
     total_number_of_particles);
 
-  for exchange_rank, send_begin, send_end, recv_begin, recv_end in
+  for exchange_rank,
+      send_begin_x, send_begin_y, send_begin_z,
+      send_end_x, send_end_y, send_end_z,
+      recv_begin_x, recv_begin_y, recv_begin_z,
+      recv_end_x, recv_end_y, recv_end_z in
       communication_nodes(world_size, world_rank, *grid) {
 
     if(rank_send_ptr(exchange_rank) > 0) {
       pack_ghost_layer_cells(
-        comm_send_buffer, grid, accelerator_grid, send_begin, send_end);
+        comm_send_buffer, grid, accelerator_grid,
+        send_begin_x, send_begin_y, send_begin_z,
+        send_end_x, send_end_y, send_end_z);
     }
 
     if(rank_recv_ptr(exchange_rank) > 0) {
@@ -740,7 +804,9 @@ fn synchronize_ghost_layer_cells(
       mpih.wait(&mut request, &mut status);
 
       unpack_ghost_layer_cells(
-        comm_recv_buffer, grid, accelerator_grid, recv_begin, recv_end);
+        comm_recv_buffer, grid, accelerator_grid,
+        recv_begin_x, recv_begin_y, recv_begin_z,
+        recv_end_x, recv_end_y, recv_end_z);
     }
   }
 
@@ -763,8 +829,12 @@ fn synchronize_ghost_layer_cells(
 fn pack_ghost_layer_particles(
   comm_buffer: Buffer,
   grid: &mut Grid,
-  begin: [i32 * 3],
-  end: [i32 * 3],
+  begin_x: i32,
+  begin_y: i32,
+  begin_z: i32,
+  end_x: i32,
+  end_y: i32,
+  end_z: i32,
   start_iteration: i32,
   max_particles: i32,
   packed_iterations: &mut i32,
@@ -782,7 +852,11 @@ fn pack_ghost_layer_particles(
   buffer_ptr += 2;
 
   for cell, index in
-      map_over_grid_subdomain(grid, begin, end, range, range, range) {
+      map_over_grid_subdomain(
+        grid,
+        begin_x, begin_y, begin_z,
+        end_x, end_y, end_z,
+        range, range, range) {
 
     let nparticles = cell.size + cell.padding;
 
@@ -835,8 +909,12 @@ fn pack_ghost_layer_particles(
 fn unpack_ghost_layer_particles(
   comm_buffer: Buffer,
   grid: &mut Grid,
-  begin: [i32 * 3],
-  end: [i32 * 3],
+  begin_x: i32,
+  begin_y: i32,
+  begin_z: i32,
+  end_x: i32,
+  end_y: i32,
+  end_z: i32,
   start_iter: i32,
   unpacked_iterations: &mut i32,
   rmng_particles: &mut i32) -> i32 {
@@ -851,7 +929,11 @@ fn unpack_ghost_layer_particles(
   buffer_ptr += 2;
 
   for cell, index in
-      map_over_grid_subdomain(grid, begin, end, range, range, range) {
+      map_over_grid_subdomain(
+        grid,
+        begin_x, begin_y, begin_z,
+        end_x, end_y, end_z,
+        range, range, range) {
 
     if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
       let old_nparticles = cell.size + cell.padding;
@@ -919,7 +1001,11 @@ fn exchange_ghost_layer_particles(
   max_send_particles = 0;
   max_recv_particles = 0;
 
-  for exchange_rank, send_begin, send_end, recv_begin, recv_end in
+  for exchange_rank,
+      send_begin_x, send_begin_y, send_begin_z,
+      send_end_x, send_end_y, send_end_z,
+      recv_begin_x, recv_begin_y, recv_begin_z,
+      recv_end_x, recv_end_y, recv_end_z in
       communication_nodes(world_size, world_rank, *grid) {
 
     let mut rmng_send_ptcs: i32;
@@ -927,9 +1013,9 @@ fn exchange_ghost_layer_particles(
     let mut packed_iterations: i32;
     let mut unpacked_iterations: i32;
 
-    let dims_length = 3 * (send_end(0) - send_begin(0)) *
-                          (send_end(1) - send_begin(1)) *
-                          (send_end(2) - send_begin(2));
+    let dims_length = 3 * (send_end_x - send_begin_x) *
+                          (send_end_y - send_begin_y) *
+                          (send_end_z - send_begin_z);
 
     let rank_send_ptcs =
       rank_send_ptr(exchange_rank) + rank_send_ptr(exchange_rank) / 2;
@@ -939,7 +1025,8 @@ fn exchange_ghost_layer_particles(
     resize_comm_buffers(dims_length + send_length, dims_length + recv_length);
 
     rank_send_ptr(exchange_rank) = pack_ghost_layer_particles(
-      comm_send_buffer, grid, send_begin, send_end,
+      comm_send_buffer, grid,
+      send_begin_x, send_begin_y, send_begin_z, send_end_x, send_end_y, send_end_z,
       0, rank_send_ptcs, &mut packed_iterations, &mut rmng_send_ptcs);
 
     mpih.irecv(
@@ -955,7 +1042,8 @@ fn exchange_ghost_layer_particles(
     mpih.wait(&mut request, &mut status);
 
     rank_recv_ptr(exchange_rank) = unpack_ghost_layer_particles(
-      comm_recv_buffer, grid, recv_begin, recv_end,
+      comm_recv_buffer, grid,
+      recv_begin_x, recv_begin_y, recv_begin_z, recv_end_x, recv_end_y, recv_end_z,
       0, &mut unpacked_iterations, &mut rmng_recv_ptcs);
 
     if(rmng_recv_ptcs > 0) {
@@ -975,7 +1063,8 @@ fn exchange_ghost_layer_particles(
       resize_comm_buffers(dims_length + rmng_send_length, 0);
 
       rank_send_ptr(exchange_rank) += pack_ghost_layer_particles(
-        comm_send_buffer, grid, send_begin, send_end,
+        comm_send_buffer, grid,
+        send_begin_x, send_begin_y, send_begin_z, send_end_x, send_end_y, send_end_z,
         packed_iterations, rmng_send_ptcs,
         &mut packed_iterations, &mut rmng_send_ptcs);
 
@@ -989,7 +1078,8 @@ fn exchange_ghost_layer_particles(
       mpih.wait(&mut request, &mut status);
 
       rank_recv_ptr(exchange_rank) += unpack_ghost_layer_particles(
-        comm_recv_buffer, grid, recv_begin, recv_end,
+        comm_recv_buffer, grid,
+        recv_begin_x, recv_begin_y, recv_begin_z, recv_end_x, recv_end_y, recv_end_z,
         unpacked_iterations, &mut unpacked_iterations, &mut rmng_recv_ptcs);
     }
 

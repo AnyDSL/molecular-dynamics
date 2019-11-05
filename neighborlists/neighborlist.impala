@@ -31,31 +31,31 @@ fn cell_arrange_clusters(cell: &mut Cell) -> () {
 
 fn @compute_bounding_box(positions: Array3D, base_index: i32, @cluster_size: i32) -> AABB {
     let mut aabb : AABB;
-    aabb.min(0) = get_x_component(base_index, positions);
-    aabb.min(1) = get_y_component(base_index, positions);
-    aabb.min(2) = get_z_component(base_index, positions);
-    aabb.max(0) = get_x_component(base_index, positions);
-    aabb.max(1) = get_y_component(base_index, positions);
-    aabb.max(2) = get_z_component(base_index, positions);
+    aabb.xmin = get_x_component(base_index, positions);
+    aabb.ymin = get_y_component(base_index, positions);
+    aabb.zmin = get_z_component(base_index, positions);
+    aabb.xmax = get_x_component(base_index, positions);
+    aabb.ymax = get_y_component(base_index, positions);
+    aabb.zmax = get_z_component(base_index, positions);
     for j in range(1, cluster_size) {
         let index = base_index + j;
-        if(get_x_component(index, positions) < aabb.min(0)) {
-            aabb.min(0) = get_x_component(index, positions);
+        if(get_x_component(index, positions) < aabb.xmin) {
+            aabb.xmin = get_x_component(index, positions);
         }
-        else if(get_x_component(index, positions) > aabb.max(0)) {
-            aabb.max(0) = get_x_component(index, positions);
+        else if(get_x_component(index, positions) > aabb.xmax) {
+            aabb.xmax = get_x_component(index, positions);
         }
-        if(get_y_component(index, positions) < aabb.min(1)) {
-            aabb.min(1) = get_y_component(index, positions);
+        if(get_y_component(index, positions) < aabb.ymin) {
+            aabb.ymin = get_y_component(index, positions);
         }
-        else if(get_y_component(index, positions) > aabb.max(1)) {
-            aabb.max(1) = get_y_component(index, positions);
+        else if(get_y_component(index, positions) > aabb.ymax) {
+            aabb.ymax = get_y_component(index, positions);
         }
-        if(get_z_component(index, positions) < aabb.min(2)) {
-            aabb.min(2) = get_z_component(index, positions);
+        if(get_z_component(index, positions) < aabb.zmin) {
+            aabb.zmin = get_z_component(index, positions);
         }
-        else if(get_z_component(index, positions) > aabb.max(2)) {
-            aabb.max(2) = get_z_component(index, positions);
+        else if(get_z_component(index, positions) > aabb.zmax) {
+            aabb.zmax = get_z_component(index, positions);
         }
     }
     //print_AABB(aabb);
@@ -142,14 +142,24 @@ fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, in
     }
 }
 
-fn @compute_distance(a: AABB, b: AABB, dimension: i32) -> real_t {
-    if(a.min(dimension) > b.max(dimension)) {
-        a.min(dimension) - b.max(dimension)
+fn @interval_distance(amin: real_t, amax: real_t, bmin: real_t, bmax: real_t) -> real_t {
+    if amin > bmax {
+        amin - bmax
+    } else if bmin > amax {
+        bmin - amax
+    } else {
+        0.0 as real_t
     }
-    else if(b.min(dimension) > a.max(dimension)) {
-        b.min(dimension) - a.max(dimension)
-    }
-    else {
+}
+
+fn @compute_distance(a: AABB, b: AABB, @dimension: i32) -> real_t {
+    if dimension == 0 {
+        interval_distance(a.xmin, a.xmax, b.xmin, b.xmax)
+    } else if dimension == 1 {
+        interval_distance(a.ymin, a.ymax, b.ymin, b.ymax)
+    } else if dimension == 2 {
+        interval_distance(a.zmin, a.zmax, b.zmin, b.zmax)
+    } else {
         0.0 as real_t
     }
 }

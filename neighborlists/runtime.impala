@@ -6,19 +6,28 @@ static mut world_rank : i32;
 extern fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
 }
+
 extern fn md_initialize_grid(
   masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
   nparticles: i32, min: &[real_t], max: &[real_t], rank_min: &[real_t],
   rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32,
   neighbor_list_capacity: i32) -> i32 {
     let aabb = AABB {
-        min: [min(0), min(1), min(2)],
-        max: [max(0), max(1), max(2)],
+        xmin: min(0),
+        xmax: max(0),
+        ymin: min(1),
+        ymax: max(1),
+        zmin: min(2),
+        zmax: max(2)
     };
 
     let rank_aabb = AABB {
-        min: [rank_min(0), rank_min(1), rank_min(2)],
-        max: [rank_max(0), rank_max(1), rank_max(2)],
+        xmin: rank_min(0),
+        xmax: rank_max(0),
+        ymin: rank_min(1),
+        ymax: rank_max(1),
+        zmin: rank_min(2),
+        zmax: rank_max(2)
     };
 
     let cluster_size = get_cluster_size();
@@ -28,20 +37,20 @@ extern fn md_initialize_grid(
     /*
     print_i32(world_rank);
     print_string("> aabb.min = {");
-    print_f64(rank_aabb.min(0));
+    print_f64(rank_aabb.xmin);
     print_string(", ");
-    print_f64(rank_aabb.min(1));
+    print_f64(rank_aabb.ymin);
     print_string(", ");
-    print_f64(rank_aabb.min(2));
+    print_f64(rank_aabb.zmin);
     print_string("}\n");
 
     print_i32(world_rank);
     print_string("> aabb.max = {");
-    print_f64(rank_aabb.max(0));
+    print_f64(rank_aabb.xmax);
     print_string(", ");
-    print_f64(rank_aabb.max(1));
+    print_f64(rank_aabb.ymax);
     print_string(", ");
-    print_f64(rank_aabb.max(2));
+    print_f64(rank_aabb.zmax);
     print_string("}\n");
     */
 
@@ -69,33 +78,42 @@ extern fn md_initialize_grid(
 
     grid_.nparticles
 }
+
 extern fn md_get_node_bounding_box(cell_spacing: real_t, min: &[real_t], max: &[real_t], rank_min: &mut[real_t * 3], rank_max: &mut[real_t * 3]) -> () {
     let aabb = AABB {
-        min: [min(0), min(1), min(2)],
-        max: [max(0), max(1), max(2)],
+        xmin: min(0),
+        xmax: max(0),
+        ymin: min(1),
+        ymax: max(1),
+        zmin: min(2),
+        zmax: max(2)
     };
 
     let rank_aabb = get_node_bounding_box(
       world_size, world_rank, cell_spacing, aabb);
 
-    rank_min(0) = rank_aabb.min(0);
-    rank_min(1) = rank_aabb.min(1);
-    rank_min(2) = rank_aabb.min(2);
+    rank_min(0) = rank_aabb.xmin;
+    rank_min(1) = rank_aabb.ymin;
+    rank_min(2) = rank_aabb.zmin;
 
-    rank_max(0) = rank_aabb.max(0);
-    rank_max(1) = rank_aabb.max(1);
-    rank_max(2) = rank_aabb.max(2);
+    rank_max(0) = rank_aabb.xmax;
+    rank_max(1) = rank_aabb.ymax;
+    rank_max(2) = rank_aabb.zmax;
 }
+
 extern fn md_copy_data_to_accelerator() -> () {
     copy_to_accelerator(grid_, &mut accelerator_grid_);
 }
+
 extern fn md_copy_data_from_accelerator() -> () {
     copy_from_accelerator(accelerator_grid_, grid_);
 }
+
 extern fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
     deallocate_accelerator_grid(accelerator_grid_);
 }
+
 extern fn md_integration(dt: real_t) -> () {
     accelerator_integration(accelerator_grid_, dt);
 }

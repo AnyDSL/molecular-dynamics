@@ -1,23 +1,27 @@
 struct AABB {
-    min: [real_t * 3],
-    max: [real_t * 3]
+    xmin: real_t,
+    xmax: real_t,
+    ymin: real_t,
+    ymax: real_t,
+    zmin: real_t,
+    zmax: real_t
 }
 
 fn print_AABB(aabb: AABB) -> () {
     print_string("x: (");
-    print_f64(aabb.min(0) as f64);
+    print_f64(aabb.xmin as f64);
     print_string(", ");
-    print_f64(aabb.max(0) as f64);
+    print_f64(aabb.xmax as f64);
     print_string(")\n");
     print_string("y: (");
-    print_f64(aabb.min(1) as f64);
+    print_f64(aabb.ymin as f64);
     print_string(", ");
-    print_f64(aabb.max(1) as f64);
+    print_f64(aabb.ymax as f64);
     print_string(")\n");
     print_string("z: (");
-    print_f64(aabb.min(2) as f64);
+    print_f64(aabb.zmin as f64);
     print_string(", ");
-    print_f64(aabb.max(2) as f64);
+    print_f64(aabb.zmax as f64);
     print_string(")\n");
 }
 
