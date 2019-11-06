@@ -893,7 +893,7 @@ fn pack_ghost_layer_particles(
           packed_particles += nparticles;
         }
 
-        *packed_iterations = *packed_iterations + 1;
+        *packed_iterations += 1;
       }
     }
 
