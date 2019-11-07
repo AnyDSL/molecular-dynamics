@@ -40,6 +40,52 @@ fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32, rx: &mut i32, ry: &mut i
   *rz = index / (nx * ny);
 }
 
+fn print_string_with_rank(string: &[u8]) -> () {
+  let mpih = mpi();
+  let mut rank: i32;
+
+  /* Get rank for current node */
+  mpih.comm_rank(mpih.comms.world, &mut rank);
+
+  print_i32(rank);
+  print_string("> ");
+  print_string(string);
+  print_string("\n");
+  print_flush();
+}
+
+fn print_i32_with_rank(field: &[u8], value: i32) -> () {
+  let mpih = mpi();
+  let mut rank: i32;
+
+  /* Get rank for current node */
+  mpih.comm_rank(mpih.comms.world, &mut rank);
+
+  print_i32(rank);
+  print_string("> ");
+  print_string(field);
+  print_string(": ");
+  print_i32(value);
+  print_string("\n");
+  print_flush();
+}
+
+fn print_real_with_rank(field: &[u8], value: real_t) -> () {
+  let mpih = mpi();
+  let mut rank: i32;
+
+  /* Get rank for current node */
+  mpih.comm_rank(mpih.comms.world, &mut rank);
+
+  print_i32(rank);
+  print_string("> ");
+  print_string(field);
+  print_string(": ");
+  print_f64(value);
+  print_string("\n");
+  print_flush();
+}
+
 /* Mirrored communication (avoid deadlocks) */
 fn @mirror_comm(
   xoffset: i32,
