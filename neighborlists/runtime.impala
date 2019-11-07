@@ -12,6 +12,7 @@ extern fn md_initialize_grid(
   nparticles: i32, min: &[real_t], max: &[real_t], rank_min: &[real_t],
   rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32,
   neighbor_list_capacity: i32) -> i32 {
+
     let aabb = AABB {
         xmin: min(0),
         xmax: max(0),
@@ -79,7 +80,9 @@ extern fn md_initialize_grid(
     grid_.nparticles
 }
 
-extern fn md_get_node_bounding_box(cell_spacing: real_t, min: &[real_t], max: &[real_t], rank_min: &mut[real_t * 3], rank_max: &mut[real_t * 3]) -> () {
+extern fn md_get_node_bounding_box(
+    cell_spacing: real_t, min: &[real_t], max: &[real_t], rank_min: &mut[real_t * 3], rank_max: &mut[real_t * 3]) -> () {
+
     let aabb = AABB {
         xmin: min(0),
         xmax: max(0),
@@ -118,7 +121,9 @@ extern fn md_integration(dt: real_t) -> () {
     accelerator_integration(accelerator_grid_, dt);
 }
 
-extern fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
+extern fn md_write_grid_data_to_arrays(
+    masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
+
     write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
@@ -136,9 +141,13 @@ extern fn md_initialize_clusters() -> () {
 
 extern fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
     if(get_cluster_size() == 1) {
-        grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu, assemble_particles_full_neighbor_list);
+        grid_assemble_neighbor_lists(
+            &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
+            assemble_particles_full_neighbor_list);
     } else {
-        grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu, assemble_clusters_full_neighbor_list);
+        grid_assemble_neighbor_lists(
+            &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
+            assemble_clusters_full_neighbor_list);
     }
 }
 
@@ -163,29 +172,29 @@ extern fn md_print_grid() -> () {
 }
 
 extern fn md_mpi_initialize() -> () {
-  mpi_initialize(&mut world_size, &mut world_rank);
+    mpi_initialize(&mut world_size, &mut world_rank);
 }
 
 extern fn md_mpi_finalize() -> () {
-  mpi_finalize();
+    mpi_finalize();
 }
 
 extern fn md_get_sync_timesteps() -> i32 {
-  get_sync_timesteps()
+    get_sync_timesteps()
 }
 
 extern fn md_synchronize_ghost_layer() -> () {
-  synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, world_size, world_rank);
+    synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, world_size, world_rank);
 }
 
 extern fn md_get_world_rank() -> i32 {
-  world_rank
+    world_rank
 }
 
 extern fn md_get_number_of_particles() -> i32 {
-  grid_.nparticles
+    grid_.nparticles
 }
 
 extern fn md_report_memory_allocation() -> () {
-  report_memory_allocation();
+    report_memory_allocation();
 }

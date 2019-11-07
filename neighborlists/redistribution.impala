@@ -29,9 +29,7 @@ fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
                     //print_string("move particle\n");
                     /*if(flatten_index(new_cell_index, grid) == flatten_index(cell_index, grid)) {
                         print_string("flattened indices are identical!\n");
-                    }*/
-
-                    /*
+                    }
                     print_string("move_particle from ");
                     print_string("<");
                     print_i32(cell_index(0));
@@ -50,7 +48,6 @@ fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
                     print_string("\n");
                     print_flush();
                     */
-
                     move_particle(i, cell, &mut cells(flatten_index(new_cell_index, grid)), allocate);
                 }
                 else {

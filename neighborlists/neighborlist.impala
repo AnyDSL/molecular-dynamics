@@ -136,8 +136,10 @@ fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, in
         cell.neighbor_indices = neighbor_indices;
     } else {
         let buf_idx = (cluster_index * cell.neighbor_list_capacity) + nb_list_size;
+
         set_cell_pointer(buf_idx, cell.neighbor_cells, neighbor_cell);
         set_i32(buf_idx, cell.neighbor_indices, index);
+
         clusters(cluster_index).nb_list_size += 1;
     }
 }
