@@ -4,8 +4,8 @@
 #PBS -q normal
 #PBS -M az16ahoq@fau.de -m abe
 #PBS -N testmd /etc/profile.d/modules.sh
-#PBS -o /scratch/az16ahoq/$PBS_JOBID.md.e
-#PBS -e /scratch/az16ahoq/$PBS_JOBID.md.o
+#PBS -o /scratch/az16ahoq/$PBS_JOBID.md.o
+#PBS -e /scratch/az16ahoq/$PBS_JOBID.md.e
 
 module load openmpi/4.0.0-gnu
 #module load openmpi/3.1.3-gcc7.3
