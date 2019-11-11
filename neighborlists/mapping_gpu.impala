@@ -28,7 +28,7 @@ fn @nvvm_shfl_i32(var: i32, srcLane: i32, width: i32) -> i32 {
     let mut res: i32;
     let warp_size = 32; 
     let c = ((warp_size - width) << 8) | 0x1f;
-	asm("shfl.idx.b32 $0, $1, $2, $3;" : "=r"(res) : "r"(var), "r"(srcLane as u32), "r"(c));
+	  asm("shfl.idx.b32 $0, $1, $2, $3;" : "=r"(res) : "r"(var), "r"(srcLane as u32), "r"(c));
     res 
 }
 
@@ -45,7 +45,7 @@ fn @nvvm_shfl_f64(var: f64, srcLane: i32, width: i32) -> f64 {
 
 
 fn @shuffle(x: real_t, srcLane: i32, laneOffset: i32) -> real_t {
-	nvvm_shfl_f64(x, srcLane, get_cluster_size()) 
+	  nvvm_shfl_f64(x, srcLane, get_cluster_size()) 
 }
 
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
@@ -78,15 +78,22 @@ fn @get_cluster_size() -> i32 {32}
 fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
-    let grid = (size*cluster_size, 1, 1);
+    let grid = (size * cluster_size, 1, 1);
     let block = (cluster_size, 1, 1);
-	/*print_string("Grid size: ");
-	print_i32(size * cluster_size);
-	print_string("\nBlock size: ");
-	print_i32(cluster_size);
-	print_string("\n");
-*/
-    
+
+    for work_item in acc.exec(grid, block) {
+        let i = work_item.tidx();
+        let j = work_item.bidx();
+        let cluster_size = work_item.bdimx();
+        let begin = i * cluster_size;
+        let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
+        let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
+        let neighborlists = get_neighborlists(accelerator_grid);
+
+        @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
+    }
+
+    /*
     for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
         let (tidx, _, _) = tid;
         let j = tidx();
@@ -100,6 +107,8 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
         let neighborlists = get_neighborlists(accelerator_grid);
         @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
     }
+    */
+
     acc.sync();
 }
 
@@ -153,7 +162,6 @@ fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: 
     force.y += dF_y;
     force.z += dF_z;
     set_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator, force);
-
 }
 
 fn @get_mask_value(i: i32, accelerator_grid: AcceleratorGrid) -> bool {
