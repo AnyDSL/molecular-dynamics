@@ -108,15 +108,11 @@ fn copy_3d_arrays_to_buffer(
     offset_source: i32,
     dest: Buffer,
     offset_dest: i32,
-    size: i32) -> i32 {
+    length: i32) -> i32 {
 
-    let elem_size = 3 * sizeof[real_t]();
+    copy_offset(source, offset_source, dest, offset_dest, length * 3);
 
-    copy_offset(
-        source, offset_source * elem_size,
-        dest, offset_dest * sizeof[real_t](), size * elem_size);
-
-    size * 3
+    length * 3
 }
 
 fn copy_buffer_to_3d_arrays(
@@ -124,14 +120,10 @@ fn copy_buffer_to_3d_arrays(
     offset_source: i32,
     dest: Buffer,
     offset_dest: i32,
-    size: i32) -> i32 {
+    length: i32) -> i32 {
 
-    let elem_size = 3 * sizeof[real_t]();
+    copy_offset(source, offset_source, dest, offset_dest, length * 3);
 
-    copy_offset(
-        source, offset_source * sizeof[real_t](),
-        dest, offset_dest * elem_size, size * elem_size);
-
-    size * 3
+    length * 3
 }
 

@@ -116,24 +116,13 @@ fn copy_3d_arrays_to_buffer(
     offset_source: i32,
     dest: Buffer,
     offset_dest: i32,
-    size: i32) -> i32 {
+    length: i32) -> i32 {
 
-    let offset_ptr = offset_dest * sizeof[real_t]();
-    let nbytes = size * sizeof[real_t]();
+    copy_offset(source.x, offset_source, dest, offset_dest, length);
+    copy_offset(source.y, offset_source, dest, offset_dest + length, length);
+    copy_offset(source.z, offset_source, dest, offset_dest + length * 2, length);
 
-    copy_offset(
-        source.x, offset_source * sizeof[real_t](),
-        dest, offset_ptr, nbytes);
-
-    copy_offset(
-        source.y, offset_source * sizeof[real_t](),
-        dest, offset_ptr + nbytes, nbytes);
-
-    copy_offset(
-        source.z, offset_source * sizeof[real_t](),
-        dest, offset_ptr + nbytes * 2, nbytes);
-
-    size * 3
+    length * 3
 }
 
 fn copy_buffer_to_3d_arrays(
@@ -141,23 +130,12 @@ fn copy_buffer_to_3d_arrays(
     offset_source: i32,
     dest: StructOfArrays3D,
     offset_dest: i32,
-    size: i32) -> i32 {
+    length: i32) -> i32 {
 
-    let offset_ptr = offset_source * sizeof[real_t]();
-    let nbytes = size * sizeof[real_t]();
+    copy_offset(source, offset_source, dest.x, offset_dest, length);
+    copy_offset(source, offset_source + length, dest.y, offset_dest, length);
+    copy_offset(source, offset_source + length * 2, dest.z, offset_dest, length);
 
-    copy_offset(
-        source, offset_ptr,
-        dest.x, offset_dest * sizeof[real_t](), nbytes);
-
-    copy_offset(
-        source, offset_ptr + nbytes,
-        dest.y, offset_dest * sizeof[real_t](), nbytes);
-
-    copy_offset(
-        source, offset_ptr + nbytes * 2,
-        dest.z, offset_dest * sizeof[real_t](), nbytes);
-
-    size * 3
+    length * 3
 }
 

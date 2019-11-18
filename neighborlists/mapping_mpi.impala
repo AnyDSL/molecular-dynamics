@@ -724,18 +724,9 @@ fn pack_ghost_layer_cells(
 
     if(nparticles > 0) {
       buffer_ptr += copy_3d_arrays_to_buffer(
-        accelerator_grid.positions_cpu, offset,
-        comm_buffer, buffer_ptr, nparticles);
-
-      /*
-      buffer_ptr += copy_3d_arrays_to_buffer(
-        accelerator_grid.velocities_cpu, offset,
-        comm_buffer, buffer_ptr, nparticles);
-
-      buffer_ptr += copy_3d_arrays_to_buffer(
-        accelerator_grid.forces_cpu, offset,
-        comm_buffer, buffer_ptr, nparticles);
-      */
+        accelerator_grid.positions_cpu, offset * sizeof[real_t](),
+        comm_buffer, buffer_ptr,
+        nparticles * sizeof[real_t]());
     }
   }
 }
@@ -768,17 +759,8 @@ fn unpack_ghost_layer_cells(
     if(nparticles > 0) {
       buffer_ptr += copy_buffer_to_3d_arrays(
         comm_buffer, buffer_ptr,
-        accelerator_grid.positions_cpu, offset, nparticles);
-
-      /*
-      buffer_ptr += copy_buffer_to_3d_arrays(
-        comm_buffer, buffer_ptr,
-        accelerator_grid.velocities_cpu, offset, nparticles);
-
-      buffer_ptr += copy_buffer_to_3d_arrays(
-        comm_buffer, buffer_ptr,
-        accelerator_grid.forces_cpu, offset, nparticles);
-      */
+        accelerator_grid.positions_cpu, offset * sizeof[real_t](),
+        nparticles * sizeof[real_t]());
     }
   }
 }
@@ -806,16 +788,6 @@ fn synchronize_ghost_layer_cells(
   transfer_3d_arrays_between_devices(
     accelerator_grid.positions_accelerator,
     accelerator_grid.positions_cpu,
-    total_number_of_particles);
-
-  transfer_3d_arrays_between_devices(
-    accelerator_grid.velocities_accelerator,
-    accelerator_grid.velocities_cpu,
-    total_number_of_particles);
-
-  transfer_3d_arrays_between_devices(
-    accelerator_grid.forces_accelerator,
-    accelerator_grid.forces_cpu,
     total_number_of_particles);
 
   for exchange_rank,
@@ -860,16 +832,6 @@ fn synchronize_ghost_layer_cells(
     accelerator_grid.positions_cpu,
     accelerator_grid.positions_accelerator,
     total_number_of_particles);
-
-  transfer_3d_arrays_between_devices(
-    accelerator_grid.velocities_cpu,
-    accelerator_grid.velocities_accelerator,
-    total_number_of_particles);
-
-  transfer_3d_arrays_between_devices(
-    accelerator_grid.forces_cpu,
-    accelerator_grid.forces_accelerator,
-    total_number_of_particles);
 }
 
 fn pack_ghost_layer_particles(
@@ -887,7 +849,7 @@ fn pack_ghost_layer_particles(
   rmng_particles: &mut i32) -> i32 {
 
   let buffer_data = get_array_of_reals(comm_buffer);
-  let mut buffer_ptr = 0;
+  let mut buffer_index = 0;
   let mut iterations = 0;
   let mut packed_particles = 0;
   let mut keep_packing = true;
@@ -895,7 +857,7 @@ fn pack_ghost_layer_particles(
   *rmng_particles = 0;
   *packed_iterations = 0;
 
-  buffer_ptr += 2;
+  buffer_index += 2;
 
   for cell, index in
       map_over_grid_subdomain(
@@ -911,30 +873,24 @@ fn pack_ghost_layer_particles(
         *rmng_particles += nparticles;
         keep_packing = false;
       } else {
-        buffer_data(buffer_ptr) = cell.size as real_t;
-        buffer_data(buffer_ptr + 1) = cell.padding as real_t;
-        buffer_data(buffer_ptr + 2) = cell.cluster_size as real_t;
+        buffer_data(buffer_index) = cell.size as real_t;
+        buffer_data(buffer_index + 1) = cell.padding as real_t;
+        buffer_data(buffer_index + 2) = cell.cluster_size as real_t;
 
-        buffer_ptr += 3;
+        buffer_index += 3;
 
         if(nparticles > 0) {
-          copy_offset(
-            cell.masses, 0,
-            comm_buffer, buffer_ptr * sizeof[real_t](), nparticles);
+          copy_offset(cell.masses, 0, comm_buffer, buffer_index * sizeof[real_t](), nparticles * sizeof[real_t]());
+          buffer_index += nparticles;
 
-          buffer_ptr += nparticles;
+          copy_3d_arrays_to_buffer(cell.positions, 0, comm_buffer, buffer_index * sizeof[real_t](), nparticles * sizeof[real_t]());
+          buffer_index += nparticles * 3;
 
-          buffer_ptr += copy_3d_arrays_to_buffer(
-            cell.positions, 0,
-            comm_buffer, buffer_ptr, nparticles);
+          copy_3d_arrays_to_buffer(cell.velocities, 0, comm_buffer, buffer_index * sizeof[real_t](), nparticles * sizeof[real_t]());
+          buffer_index += nparticles * 3;
 
-          buffer_ptr += copy_3d_arrays_to_buffer(
-            cell.velocities, 0,
-            comm_buffer, buffer_ptr, nparticles);
-
-          buffer_ptr += copy_3d_arrays_to_buffer(
-            cell.forces, 0,
-            comm_buffer, buffer_ptr, nparticles);
+          copy_3d_arrays_to_buffer(cell.forces, 0, comm_buffer, buffer_index * sizeof[real_t](), nparticles * sizeof[real_t]());
+          buffer_index += nparticles * 3;
 
           packed_particles += nparticles;
         }
@@ -966,13 +922,13 @@ fn unpack_ghost_layer_particles(
   rmng_particles: &mut i32) -> i32 {
 
   let buffer_data = get_array_of_reals(comm_buffer);
-  let mut buffer_ptr = 0;
+  let mut buffer_index = 0;
   let mut iterations = 0;
   let mut unpacked_particles = 0;
 
   *rmng_particles = buffer_data(0) as i32;
   *unpacked_iterations = buffer_data(1) as i32;
-  buffer_ptr += 2;
+  buffer_index += 2;
 
   for cell, index in
       map_over_grid_subdomain(
@@ -984,11 +940,11 @@ fn unpack_ghost_layer_particles(
     if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
       let old_nparticles = cell.size + cell.padding;
 
-      cell.size = buffer_data(buffer_ptr) as i32;
-      cell.padding = buffer_data(buffer_ptr + 1) as i32;
-      cell.cluster_size = buffer_data(buffer_ptr + 2) as i32;
+      cell.size = buffer_data(buffer_index) as i32;
+      cell.padding = buffer_data(buffer_index + 1) as i32;
+      cell.cluster_size = buffer_data(buffer_index + 2) as i32;
 
-      buffer_ptr += 3;
+      buffer_index += 3;
 
       if(cell.size >= cell.capacity) {
         reallocate_cell(cell.size, cell, alloc_unaligned_cpu);
@@ -999,23 +955,17 @@ fn unpack_ghost_layer_particles(
       grid.nparticles += nparticles - old_nparticles;
 
       if(nparticles > 0) {
-        copy_offset(
-          comm_buffer, buffer_ptr * sizeof[real_t](),
-          cell.masses, 0, nparticles);
+        copy_offset(comm_buffer, buffer_index * sizeof[real_t](), cell.masses, 0, nparticles * sizeof[real_t]());
+        buffer_index += nparticles;
 
-        buffer_ptr += nparticles;
+        copy_buffer_to_3d_arrays(comm_buffer, buffer_index * sizeof[real_t](), cell.positions, 0, nparticles * sizeof[real_t]());
+        buffer_index += nparticles * 3;
 
-        buffer_ptr += copy_buffer_to_3d_arrays(
-          comm_buffer, buffer_ptr,
-          cell.positions, 0, nparticles);
+        copy_buffer_to_3d_arrays(comm_buffer, buffer_index * sizeof[real_t](), cell.velocities, 0, nparticles * sizeof[real_t]());
+        buffer_index += nparticles * 3;
 
-        buffer_ptr += copy_buffer_to_3d_arrays(
-          comm_buffer, buffer_ptr,
-          cell.velocities, 0, nparticles);
-
-        buffer_ptr += copy_buffer_to_3d_arrays(
-          comm_buffer, buffer_ptr,
-          cell.forces, 0, nparticles);
+        copy_buffer_to_3d_arrays(comm_buffer, buffer_index * sizeof[real_t](), cell.forces, 0, nparticles * sizeof[real_t]());
+        buffer_index += nparticles * 3;
 
         unpacked_particles += nparticles;
       }
