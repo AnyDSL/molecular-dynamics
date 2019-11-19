@@ -273,6 +273,9 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
         accelerator_grid.neighborlists_cpu, accelerator_grid.neighborlists_accelerator, offset_neighbors * sizeof[i32]());
 
     accelerator_grid.total_number_of_neighbors = offset_neighbors;
+
+    // Build communication offsets (GPU only)
+    build_comm_offsets_accelerator(grid, accelerator_grid);
 }
 
 fn copy_from_accelerator(accelerator_grid: &AcceleratorGrid, grid: &Grid) -> () { 
