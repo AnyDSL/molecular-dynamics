@@ -812,7 +812,9 @@ fn initialize_grid_comm(
   }
 
   // Allocate communication offsets for GPU data transfer
-  *comm_offsets = alloc_comm_offsets(world_size, neighs, max_send_cells, max_recv_cells);
+  if world_size > 0 && max_send_cells > 0 && max_recv_cells > 0 {
+      *comm_offsets = alloc_comm_offsets(world_size, neighs, max_send_cells, max_recv_cells);
+  }
 
   initialize_grid_transfer_ranges(grid);
 }
