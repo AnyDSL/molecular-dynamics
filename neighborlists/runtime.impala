@@ -1,5 +1,6 @@
 static mut grid_ : Grid;
 static mut accelerator_grid_ : AcceleratorGrid;
+static mut comm_offsets_ : CommOffsets;
 static mut world_size : i32;
 static mut world_rank : i32;
 
@@ -72,7 +73,7 @@ extern fn md_initialize_grid(
     initialize_grid(
       masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
 
-    initialize_grid_comm(grid_, world_size, world_rank);
+    initialize_grid_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
     let capacity = nparticles / 4 + 128;
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, capacity, cluster_size, capacity * 64); 
@@ -105,7 +106,7 @@ extern fn md_get_node_bounding_box(
 }
 
 extern fn md_copy_data_to_accelerator() -> () {
-    copy_to_accelerator(grid_, &mut accelerator_grid_);
+    copy_to_accelerator(grid_, &mut accelerator_grid_, &mut comm_offsets_);
 }
 
 extern fn md_copy_data_from_accelerator() -> () {
@@ -184,7 +185,7 @@ extern fn md_get_sync_timesteps() -> i32 {
 }
 
 extern fn md_synchronize_ghost_layer() -> () {
-    synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, world_size, world_rank);
+    synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, comm_offsets_, world_size, world_rank);
 }
 
 extern fn md_get_world_rank() -> i32 {

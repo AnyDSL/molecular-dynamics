@@ -176,7 +176,7 @@ fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_cap
     }
 }
 
-fn alloc_comm_offset_buffers(world_size: i32, capacity: i32) -> CommOffsetsBuffers {
+fn alloc_comm_offset_buffers(world_size: i32, capacity: i32) -> CommOffsetBuffers {
     let null_buf = Buffer {
         device: 0,
         data: 0 as &[i8],
@@ -193,9 +193,8 @@ fn alloc_comm_offset_buffers(world_size: i32, capacity: i32) -> CommOffsetsBuffe
         start_buf_gpu: accelerator_allocate(capacity * sizeof[i32]()),
         sizes_gpu: accelerator_allocate(capacity * sizeof[i32]()),
         offsets_gpu: accelerator_allocate(capacity * sizeof[i32]()),
-        capacity: send_capacity,
-        noffsets: 0,
-        length: 0
+        capacity: capacity,
+        noffsets: 0
     }
 }
 
@@ -204,7 +203,7 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     release_comm_offset_buffers(comm_offsets.recv_buffers);
 }
 
-fn release_comm_offset_buffers(comm_offset_buf: CommOffsetsBuffers) -> () {
+fn release_comm_offset_buffers(comm_offset_buf: CommOffsetBuffers) -> () {
     if comm_offset_buf.capacity > 0 {
         release(comm_offset_buf.rank_offsets);
         release(comm_offset_buf.start_buf);
@@ -217,64 +216,74 @@ fn release_comm_offset_buffers(comm_offset_buf: CommOffsetsBuffers) -> () {
     }
 }
 
-fn build_comm_offsets_accelerator(grid: &Grid, accelerator_grid: &AcceleratorGrid) -> () {
-    build_comm_offsets(grid, accelerator_grid);
+fn build_comm_offsets_accelerator(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &CommOffsets) -> () {
+    build_comm_offsets(grid, accelerator_grid, comm_offsets);
 }
 
-fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets) -> () {
-    let send_buffers = comm_offsets.send_buffers;
-    let noffsets = send_buffers.noffsets;
-    let length = send_buffers.length;
-    let linear_buffer = get_array_of_reals_accelerator(send_buffers.send_buffer_gpu);
-    let rank_offsets = get_array_of_i32_accelerator(send_buffers.rank_offsets_gpu);
-    let start_buf = get_array_of_i32_accelerator(send_buffers.start_buf_gpu);
-    let offsets = get_array_of_i32_accelerator(send_buffers.offsets_gpu);
-    let sizes = get_array_of_i32_accelerator(send_buffers.sizes_gpu);
+fn @get_comm_start_accelerator(index: i32, comm_offset_buffers: CommOffsetBuffers) -> i32 {
+    get_i32_accelerator(index, comm_offset_buffers.start_buf_gpu)
+}
 
+fn @get_comm_offsets_accelerator(index: i32, comm_offset_buffers: CommOffsetBuffers) -> i32 {
+    get_i32_accelerator(index, comm_offset_buffers.offsets_gpu)
+}
+
+fn @get_comm_sizes_accelerator(index: i32, comm_offset_buffers: CommOffsetBuffers) -> i32 {
+    get_i32_accelerator(index, comm_offset_buffers.sizes_gpu)
+}
+
+fn gather_ghost_layer_cells(comm_buffer: Buffer, send_buffers: CommOffsetBuffers, accelerator_grid: AcceleratorGrid) -> () {
     let acc = accelerator(device_id);
-    let grid = (noffsets, 1, 1);
+    let grid = (send_buffers.noffsets, 1, 1);
     let block = (64, 1, 1);
 
     for work_item in acc.exec(grid, block) {
         let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
-        if th_idx < noffsets {
-            let start = start_buf(th_idx);
-            let offset = offsets(th_idx);
-            let size = sizes(th_idx);
+        if th_idx < send_buffers.noffsets {
+            let start = get_comm_start_accelerator(th_idx, send_buffers);
+            let offset = get_comm_offsets_accelerator(th_idx, send_buffers);
+            let size = get_comm_sizes_accelerator(th_idx, send_buffers);
 
-            copy_3d_arrays_to_buffer(accelerator_grid.positions_gpu, offset, linear_buffer, start, size);
+            for i in range(0, size) {
+                let linear_idx = i * 3;
+                let pos = get_position(offset + i, accelerator_grid);
+
+                set_real_accelerator(start + linear_idx, send_buffers.buffer_gpu, pos.x);
+                set_real_accelerator(start + linear_idx + 1, send_buffers.buffer_gpu, pos.y);
+                set_real_accelerator(start + linear_idx + 2, send_buffers.buffer_gpu, pos.z);
+            }
         }
     }
 
-    copy(send_buffers.buffer_gpu, comm_buffer, length);
+    copy(send_buffers.buffer_gpu, comm_buffer);
 }
 
-fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets) -> () {
-    let recv_buffers = comm_offsets.recv_buffers;
-    let noffsets = recv_buffers.noffsets;
-    let length = recv_buffers.length;
-    let linear_buffer = get_array_of_reals_accelerator(recv_buffers.recv_buffer_gpu);
-    let rank_offsets = get_array_of_i32_accelerator(recv_buffers.rank_offsets_gpu);
-    let start_buf = get_array_of_i32_accelerator(recv_buffers.start_buf_gpu);
-    let offsets = get_array_of_i32_accelerator(recv_buffers.offsets_gpu);
-    let sizes = get_array_of_i32_accelerator(recv_buffers.sizes_gpu);
-
+fn scatter_ghost_layer_cells(comm_buffer: Buffer, recv_buffers: CommOffsetBuffers, accelerator_grid: AcceleratorGrid) -> () {
     let acc = accelerator(device_id);
-    let grid = (noffsets, 1, 1);
+    let grid = (recv_buffers.noffsets, 1, 1);
     let block = (64, 1, 1);
 
-    copy(comm_buffer, recv_buffers.buffer_gpu, length);
+    copy(comm_buffer, recv_buffers.buffer_gpu);
 
     for work_item in acc.exec(grid, block) {
         let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
-        if th_idx < noffsets {
-            let start = start_buf(th_idx);
-            let offset = offsets(th_idx);
-            let size = sizes(th_idx);
+        if th_idx < recv_buffers.noffsets {
+            let start = get_comm_start_accelerator(th_idx, recv_buffers);
+            let offset = get_comm_offsets_accelerator(th_idx, recv_buffers);
+            let size = get_comm_sizes_accelerator(th_idx, recv_buffers);
 
-            copy_buffer_to_3d_arrays(linear_buffer, start, accelerator_grid.positions_gpu, offset, size);
+            for i in range(0, size) {
+                let linear_idx = i * 3;
+                let pos = Vector3D {
+                    x: get_real_accelerator(start + linear_idx, recv_buffers.buffer_gpu),
+                    y: get_real_accelerator(start + linear_idx + 1, recv_buffers.buffer_gpu),
+                    z: get_real_accelerator(start + linear_idx + 2, recv_buffers.buffer_gpu),
+                };
+
+                set_position(offset + i, accelerator_grid, pos);
+            }
         }
     }
 }
@@ -283,6 +292,7 @@ fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets) -> 
 fn synchronize_ghost_layer_cells(
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
+  comm_offsets: &CommOffsets,
   world_size: i32,
   world_rank: i32) -> () {
 
@@ -301,7 +311,8 @@ fn synchronize_ghost_layer_cells(
   let recv_start_buf = get_array_of_i32(recv_buffers.start_buf);
 
   resize_comm_buffers(comm_offsets.neighs * max_send_particles * 3, comm_offsets.neighs * max_recv_particles * 3);
-  gather_ghost_layer_cells(comm_send_buffer, comm_offsets);
+
+  gather_ghost_layer_cells(comm_send_buffer, send_buffers, accelerator_grid);
 
   for exchange_rank,
       send_begin_x, send_begin_y, send_begin_z,
@@ -315,7 +326,7 @@ fn synchronize_ghost_layer_cells(
       let start_buf = recv_start_buf(recv_offset);
 
       mpih.irecv(
-        bitcast[&mut[real_t]](comm_recv_buffer.data + start_buf) as MPI_MutBuf,
+        bitcast[&mut[real_t]](&comm_recv_buffer.data(start_buf)) as MPI_MutBuf,
         rank_recv_ptr(exchange_rank) * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
     }
@@ -325,7 +336,7 @@ fn synchronize_ghost_layer_cells(
       let start_buf = send_start_buf(send_offset);
 
       mpih.send(
-        bitcast[&mut[real_t]](comm_send_buffer.data + start_buf) as MPI_MutBuf,
+        bitcast[&mut[real_t]](&comm_send_buffer.data(start_buf)) as MPI_MutBuf,
         rank_send_ptr(exchange_rank) * 3,
         mpih.double_t, exchange_rank, 0, mpih.comms.world);
     }
@@ -335,5 +346,5 @@ fn synchronize_ghost_layer_cells(
     }
   }
 
-  scatter_ghost_layer_cells(comm_recv_buffer, comm_offsets);
+  scatter_ghost_layer_cells(comm_recv_buffer, recv_buffers, accelerator_grid);
 }

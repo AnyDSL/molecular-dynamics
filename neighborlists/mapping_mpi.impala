@@ -18,7 +18,6 @@ struct CommOffsetBuffers {
   offsets_gpu: Buffer,
   capacity: i32,
   noffsets: i32,
-  length: i32
 };
 
 // Number of nodes in each dimension
@@ -44,9 +43,6 @@ static mut comm_recv_buffer: Buffer;
 // Sizes for communication buffers
 static mut comm_send_buffer_size: i32;
 static mut comm_recv_buffer_size: i32;
-
-// Communication offsets (for GPU data transfers)
-static mut comm_offsets: CommOffsets;
 
 // Timesteps to perform cell synchronization (ghost layer width)
 fn @get_sync_timesteps() -> i32 { 1 }
@@ -155,7 +151,7 @@ fn mpi_finalize() -> () {
 
   release_host(rank_send_particles);
   release_host(rank_recv_particles);
-  release_comm_offsets(comm_offsets);
+  release_comm_offsets(comm_offsets_);
 
   mpih.finalize();
 }
@@ -336,7 +332,7 @@ fn initialize_grid_transfer_ranges(grid: &Grid) -> () {
 }
 
 // Build offsets used by scatter and gather kernels (GPU only)
-fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid) -> () {
+fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &CommOffsets) -> () {
   let mpih = mpi();
   let mut world_size: i32;
   let mut rank: i32;
@@ -409,14 +405,12 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid) -> () {
   }
 
   send_buffers.noffsets = isend;
-  send_buffers.length = ptr_send;
   copy(send_buffers.rank_offsets, send_buffers.rank_offsets_gpu);
   copy(send_buffers.start_buf, send_buffers.start_buf_gpu);
   copy(send_buffers.sizes, send_buffers.sizes_gpu);
   copy(send_buffers.offsets, send_buffers.offsets_gpu);
 
   recv_buffers.noffsets = irecv;
-  recv_buffers.length = ptr_recv;
   copy(recv_buffers.rank_offsets, recv_buffers.rank_offsets_gpu);
   copy(recv_buffers.start_buf, recv_buffers.start_buf_gpu);
   copy(recv_buffers.sizes, recv_buffers.sizes_gpu);
@@ -761,6 +755,7 @@ fn @get_node_bounding_box(
 // Initialize grid communication
 fn initialize_grid_comm(
   grid: &Grid,
+  comm_offsets: &mut CommOffsets,
   world_size: i32,
   world_rank: i32) -> () {
 
@@ -817,7 +812,7 @@ fn initialize_grid_comm(
   }
 
   // Allocate communication offsets for GPU data transfer
-  comm_offsets = alloc_comm_offsets(world_size, neighs, max_send_cells, max_recv_cells);
+  *comm_offsets = alloc_comm_offsets(world_size, neighs, max_send_cells, max_recv_cells);
 
   initialize_grid_transfer_ranges(grid);
 }

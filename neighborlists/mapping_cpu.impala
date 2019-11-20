@@ -121,7 +121,6 @@ fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_cap
         offsets_gpu: null_buf,
         capacity: 0,
         noffsets: 0,
-        length: 0
     };
 
     CommOffsets {
@@ -133,7 +132,7 @@ fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_cap
 
 fn release_comm_offsets(comm_offsets: CommOffsets) -> () {}
 
-fn build_comm_offsets_accelerator(grid: &Grid, accelerator_grid: &AcceleratorGrid) -> () {}
+fn build_comm_offsets_accelerator(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &CommOffsets) -> () {}
 
 // Pack ghost layer cells in the CPU
 fn pack_ghost_layer_cells(

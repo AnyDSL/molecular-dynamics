@@ -104,7 +104,7 @@ fn deallocate_accelerator_grid(accelerator_grid: AcceleratorGrid) -> () {
     release(accelerator_grid.neighborlists_accelerator);
 }
 
-fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> () {
+fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid, comm_offsets: &mut CommOffsets) -> () {
     // count the total number of clusters and neighbors within all cells
     let counts = grid_count_clusters_and_neighbors(grid);
     let number_of_clusters = counts(0);
@@ -275,7 +275,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
     accelerator_grid.total_number_of_neighbors = offset_neighbors;
 
     // Build communication offsets (GPU only)
-    build_comm_offsets_accelerator(grid, accelerator_grid);
+    build_comm_offsets_accelerator(grid, accelerator_grid, comm_offsets);
 }
 
 fn copy_from_accelerator(accelerator_grid: &AcceleratorGrid, grid: &Grid) -> () { 
