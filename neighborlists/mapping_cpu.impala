@@ -208,6 +208,7 @@ fn unpack_ghost_layer_cells(
 fn synchronize_ghost_layer_cells(
   grid: &mut Grid,
   accelerator_grid: AcceleratorGrid,
+  comm_offsets: CommOffsets,
   world_size: i32,
   world_rank: i32) -> () {
 
