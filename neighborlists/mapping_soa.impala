@@ -33,9 +33,9 @@ fn allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> StructOfArrays3D {
 }
 
 fn deallocate_3d_arrays(struct_of_arrays: StructOfArrays3D) -> () {
-    release_host(struct_of_arrays.x);
-    release_host(struct_of_arrays.y);
-    release_host(struct_of_arrays.z);
+    release(struct_of_arrays.x);
+    release(struct_of_arrays.y);
+    release(struct_of_arrays.z);
 }
 
 
