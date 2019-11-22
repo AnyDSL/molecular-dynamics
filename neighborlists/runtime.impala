@@ -106,7 +106,10 @@ extern fn md_get_node_bounding_box(
 }
 
 extern fn md_copy_data_to_accelerator() -> () {
-    copy_to_accelerator(grid_, &mut accelerator_grid_, &mut comm_offsets_);
+    copy_to_accelerator(grid_, &mut accelerator_grid_);
+
+    // Build communication offsets (GPU only)
+    build_comm_offsets_accelerator(grid_, accelerator_grid_, &mut comm_offsets_);
 }
 
 extern fn md_copy_data_from_accelerator() -> () {

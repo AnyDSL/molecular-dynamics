@@ -1,23 +1,37 @@
 // Communication offsets (for GPU gather and scatter kernels)
 struct CommOffsets {
-  send_buffers: CommOffsetBuffers,
-  recv_buffers: CommOffsetBuffers,
-  neighs: i32
-};
+  // Host send data
+  send_rank_offsets: Buffer,
+  send_starts: Buffer,
+  send_sizes: Buffer,
+  send_offsets: Buffer,
+  send_capacity: i32,
+  send_noffsets: i32,
 
-// Buffers required to create linear buffer in GPU
-struct CommOffsetBuffers {
-  buffer_gpu: Buffer,
-  rank_offsets: Buffer,
-  start_buf: Buffer,
-  sizes: Buffer,
-  offsets: Buffer,
-  rank_offsets_gpu: Buffer,
-  start_buf_gpu: Buffer,
-  sizes_gpu: Buffer,
-  offsets_gpu: Buffer,
-  capacity: i32,
-  noffsets: i32,
+  // Host receive data
+  recv_rank_offsets: Buffer,
+  recv_starts: Buffer,
+  recv_sizes: Buffer,
+  recv_offsets: Buffer,
+  recv_capacity: i32,
+  recv_noffsets: i32,
+
+  // Accelerator send data
+  send_buffer_accelerator: Buffer,
+  send_rank_offsets_accelerator: Buffer,
+  send_starts_accelerator: Buffer,
+  send_sizes_accelerator: Buffer,
+  send_offsets_accelerator: Buffer,
+
+  // Accelerator receive data
+  recv_buffer_accelerator: Buffer,
+  recv_rank_offsets_accelerator: Buffer,
+  recv_starts_accelerator: Buffer,
+  recv_sizes_accelerator: Buffer,
+  recv_offsets_accelerator: Buffer,
+
+  // Number of neighbor ranks
+  neighs: i32
 };
 
 // Number of nodes in each dimension
@@ -156,19 +170,21 @@ fn mpi_finalize() -> () {
   mpih.finalize();
 }
 
-// Resize communication buffers
+// Resize communication buffers (data is not preserved)
 fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
   // If new send buffer size is higher than current one
   if(send_size > comm_send_buffer_size) {
     if(comm_send_buffer_size > 0) {
       add_mpi_allocation(-(sizeof[real_t]() * comm_send_buffer_size));
       release_host(comm_send_buffer);
+      release(comm_offsets_.send_buffer_accelerator);
     }
 
     add_mpi_allocation(sizeof[real_t]() * send_size);
 
     // Allocate new buffer with new size and update size
     comm_send_buffer = alloc_unaligned_cpu(sizeof[real_t]() * send_size);
+    comm_offsets_.send_buffer_accelerator = accelerator_allocate(sizeof[real_t]() * send_size);
     comm_send_buffer_size = send_size;
   }
 
@@ -177,12 +193,14 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     if(comm_recv_buffer_size > 0) {
       add_mpi_allocation(-(sizeof[real_t]() * comm_recv_buffer_size));
       release_host(comm_recv_buffer);
+      release(comm_offsets_.recv_buffer_accelerator);
     }
 
     add_mpi_allocation(sizeof[real_t]() * recv_size);
 
     // Allocate new buffer with new size and update size
     comm_recv_buffer = alloc_unaligned_cpu(sizeof[real_t]() * recv_size);
+    comm_offsets_.recv_buffer_accelerator = accelerator_allocate(sizeof[real_t]() * recv_size);
     comm_recv_buffer_size = recv_size;
   }
 }
@@ -332,7 +350,7 @@ fn initialize_grid_transfer_ranges(grid: &Grid) -> () {
 }
 
 // Build offsets used by scatter and gather kernels (GPU only)
-fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &CommOffsets) -> () {
+fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &mut CommOffsets) -> () {
   let mpih = mpi();
   let mut world_size: i32;
   let mut rank: i32;
@@ -340,16 +358,14 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
   let mut irecv = 0;
   let mut ptr_send = 0;
   let mut ptr_recv = 0;
-  let mut send_buffers = comm_offsets.send_buffers;
-  let mut recv_buffers = comm_offsets.recv_buffers;
-  let send_rank_offsets = get_array_of_i32(send_buffers.rank_offsets);
-  let recv_rank_offsets = get_array_of_i32(recv_buffers.rank_offsets);
-  let send_offsets = get_array_of_i32(send_buffers.offsets);
-  let recv_offsets = get_array_of_i32(recv_buffers.offsets);
-  let send_sizes = get_array_of_i32(send_buffers.sizes);
-  let recv_sizes = get_array_of_i32(recv_buffers.sizes);
-  let send_start_buf = get_array_of_i32(send_buffers.start_buf);
-  let recv_start_buf = get_array_of_i32(recv_buffers.start_buf);
+  let send_rank_offsets = get_array_of_i32(comm_offsets.send_rank_offsets);
+  let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
+  let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
+  let recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
+  let send_sizes = get_array_of_i32(comm_offsets.send_sizes);
+  let recv_sizes = get_array_of_i32(comm_offsets.recv_sizes);
+  let send_starts = get_array_of_i32(comm_offsets.send_starts);
+  let recv_starts = get_array_of_i32(comm_offsets.recv_starts);
 
   mpih.comm_size(mpih.comms.world, &mut world_size);
   mpih.comm_rank(mpih.comms.world, &mut rank);
@@ -378,7 +394,7 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
 
       send_offsets(isend) = cell_offsets(flat_index);
       send_sizes(isend) = total_size * sizeof[real_t]();
-      send_start_buf(isend) = ptr_send;
+      send_starts(isend) = ptr_send;
 
       isend += 1;
       ptr_send += 3 * total_size * sizeof[real_t]();
@@ -397,24 +413,24 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
 
       recv_offsets(irecv) = cell_offsets(flat_index);
       recv_sizes(irecv) = total_size * sizeof[real_t]();
-      recv_start_buf(irecv) = ptr_recv;
+      recv_starts(irecv) = ptr_recv;
 
       irecv += 1;
       ptr_recv += 3 * total_size * sizeof[real_t]();
     }
   }
 
-  send_buffers.noffsets = isend;
-  copy(send_buffers.rank_offsets, send_buffers.rank_offsets_gpu);
-  copy(send_buffers.start_buf, send_buffers.start_buf_gpu);
-  copy(send_buffers.sizes, send_buffers.sizes_gpu);
-  copy(send_buffers.offsets, send_buffers.offsets_gpu);
+  comm_offsets.send_noffsets = isend;
+  copy(comm_offsets.send_rank_offsets, comm_offsets.send_rank_offsets_accelerator);
+  copy(comm_offsets.send_starts, comm_offsets.send_starts_accelerator);
+  copy(comm_offsets.send_sizes, comm_offsets.send_sizes_accelerator);
+  copy(comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
 
-  recv_buffers.noffsets = irecv;
-  copy(recv_buffers.rank_offsets, recv_buffers.rank_offsets_gpu);
-  copy(recv_buffers.start_buf, recv_buffers.start_buf_gpu);
-  copy(recv_buffers.sizes, recv_buffers.sizes_gpu);
-  copy(recv_buffers.offsets, recv_buffers.offsets_gpu);
+  comm_offsets.recv_noffsets = irecv;
+  copy(comm_offsets.recv_rank_offsets, comm_offsets.recv_rank_offsets_accelerator);
+  copy(comm_offsets.recv_starts, comm_offsets.recv_starts_accelerator);
+  copy(comm_offsets.recv_sizes, comm_offsets.recv_sizes_accelerator);
+  copy(comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
 }
 
 // Generic communication pattern (including diagonals)

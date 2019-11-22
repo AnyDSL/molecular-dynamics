@@ -104,23 +104,38 @@ fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_cap
         size: 0 as i64
     };
 
-    let null_offset_buffers = CommOffsetBuffers {
-        buffer_gpu: null_buf,
-        rank_offsets: null_buf,
-        start_buf: null_buf,
-        sizes: null_buf,
-        offsets: null_buf,
-        rank_offsets_gpu: null_buf,
-        start_buf_gpu: null_buf,
-        sizes_gpu: null_buf,
-        offsets_gpu: null_buf,
-        capacity: 0,
-        noffsets: 0,
-    };
-
     CommOffsets {
-        send_buffers: null_offset_buffers,
-        recv_buffers: null_offset_buffers,
+        // Host send data
+        send_rank_offsets: null_buf,
+        send_starts: null_buf,
+        send_sizes: null_buf,
+        send_offsets: null_buf,
+        send_capacity: 0,
+        send_noffsets: 0,
+
+        // Host receive data
+        recv_rank_offsets: null_buf,
+        recv_starts: null_buf,
+        recv_sizes: null_buf,
+        recv_offsets: null_buf,
+        recv_capacity: 0,
+        recv_noffsets: 0,
+
+        // Accelerator send data
+        send_buffer_accelerator: null_buf,
+        send_rank_offsets_accelerator: null_buf,
+        send_starts_accelerator: null_buf,
+        send_sizes_accelerator: null_buf,
+        send_offsets_accelerator: null_buf,
+
+        // Accelerator receive data
+        recv_buffer_accelerator: null_buf,
+        recv_rank_offsets_accelerator: null_buf,
+        recv_starts_accelerator: null_buf,
+        recv_sizes_accelerator: null_buf,
+        recv_offsets_accelerator: null_buf,
+
+        // Number of neighbor ranks
         neighs: 0
     }
 }
