@@ -1,9 +1,7 @@
 fn accelerator_compute_particle_forces(
     accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid) {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
@@ -35,9 +33,7 @@ fn accelerator_compute_particle_forces(
 fn accelerator_compute_cluster_forces(
     accelerator_grid: AcceleratorGrid, squared_cutoff_distance: real_t, @potential: fn(real_t) -> real_t) -> () {
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid) {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
@@ -83,10 +79,9 @@ fn accelerator_compute_cluster_forces(
 }
 
 fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AABB) -> () {
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid) {
         let mut position = get_position(begin + j, accelerator_grid); 
+
         if(position.x < aabb.xmin) {
             position.x = aabb.xmin + EPSILON;
         }
@@ -110,9 +105,7 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
 }
 
 fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () {
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(accelerator_grid, accelerator_grid.total_number_of_clusters) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(accelerator_grid) {
         let masses = get_masses(accelerator_grid);
         let inverse_mass = 1.0 as real_t / masses(begin + j);
         let mut position = get_position(begin + j, accelerator_grid);

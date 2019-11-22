@@ -57,10 +57,8 @@ fn @accelerator_allocate(size: i32) -> Buffer {
     acc.alloc(size)
 }
 
-fn @accelerator_allocate_3d_arrays(N: i32) -> Array3D {
+fn @accelerator_allocate_3d_arrays(size: i32) -> Array3D {
     let acc = accelerator(device_id);
-    let size = N * sizeof[real_t]();
-
     allocate_3d_arrays(size, acc.alloc)
 }
 
@@ -75,15 +73,15 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N:
 
 fn @get_cluster_size() -> i32 {32}
 
-fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
-    let grid = (size * cluster_size, 1, 1);
+    let grid = (accelerator_grid.total_number_of_clusters, 1, 1);
     let block = (cluster_size, 1, 1);
 
     for work_item in acc.exec(grid, block) {
-        let i = work_item.tidx();
-        let j = work_item.bidx();
+        let i = work_item.bidx();
+        let j = work_item.tidx();
         let cluster_size = work_item.bdimx();
         let begin = i * cluster_size;
         let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
@@ -92,22 +90,6 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, 
 
         @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
     }
-
-    /*
-    for tid, bid, bdim, gdim, gid in acc.exec(grid, block) {
-        let (tidx, _, _) = tid;
-        let j = tidx();
-        let (bidx, _, _) = bid;
-        let i = bidx();
-        let (bdimx, _, _) = bdim;
-        let cluster_size = bdimx();
-        let begin = i * cluster_size;
-        let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
-        let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
-        let neighborlists = get_neighborlists(accelerator_grid);
-        @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
-    }
-    */
 
     acc.sync();
 }
@@ -290,61 +272,60 @@ fn scatter_ghost_layer_cells(comm_buffer: Buffer, recv_buffers: CommOffsetBuffer
 
 // Synchronize ghost layer cells with neighbor ranks
 fn synchronize_ghost_layer_cells(
-  grid: &mut Grid,
-  accelerator_grid: AcceleratorGrid,
-  comm_offsets: &CommOffsets,
-  world_size: i32,
-  world_rank: i32) -> () {
+    grid: &mut Grid,
+    accelerator_grid: AcceleratorGrid,
+    comm_offsets: &CommOffsets,
+    world_size: i32,
+    world_rank: i32) -> () {
 
-  let mpih = mpi();
-  let mut request: MPI_Request;
-  let mut status: MPIStatus;
+    let mpih = mpi();
+    let mut request: MPI_Request;
+    let mut status: MPIStatus;
 
-  let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
-  let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
+    let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
+    let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
 
-  let send_buffers = comm_offsets.send_buffers;
-  let recv_buffers = comm_offsets.recv_buffers;
-  let send_rank_offsets = get_array_of_i32(send_buffers.rank_offsets);
-  let recv_rank_offsets = get_array_of_i32(recv_buffers.rank_offsets);
-  let send_start_buf = get_array_of_i32(send_buffers.start_buf);
-  let recv_start_buf = get_array_of_i32(recv_buffers.start_buf);
+    let send_buffers = comm_offsets.send_buffers;
+    let recv_buffers = comm_offsets.recv_buffers;
+    let send_rank_offsets = get_array_of_i32(send_buffers.rank_offsets);
+    let recv_rank_offsets = get_array_of_i32(recv_buffers.rank_offsets);
+    let send_start_buf = get_array_of_i32(send_buffers.start_buf);
+    let recv_start_buf = get_array_of_i32(recv_buffers.start_buf);
 
-  resize_comm_buffers(comm_offsets.neighs * max_send_particles * 3, comm_offsets.neighs * max_recv_particles * 3);
+    resize_comm_buffers(comm_offsets.neighs * max_send_particles * 3, comm_offsets.neighs * max_recv_particles * 3);
+    gather_ghost_layer_cells(comm_send_buffer, send_buffers, accelerator_grid);
 
-  gather_ghost_layer_cells(comm_send_buffer, send_buffers, accelerator_grid);
+    for exchange_rank,
+        send_begin_x, send_begin_y, send_begin_z,
+        send_end_x, send_end_y, send_end_z,
+        recv_begin_x, recv_begin_y, recv_begin_z,
+        recv_end_x, recv_end_y, recv_end_z in
+        communication_nodes(world_size, world_rank, grid) {
 
-  for exchange_rank,
-      send_begin_x, send_begin_y, send_begin_z,
-      send_end_x, send_end_y, send_end_z,
-      recv_begin_x, recv_begin_y, recv_begin_z,
-      recv_end_x, recv_end_y, recv_end_z in
-      communication_nodes(world_size, world_rank, grid) {
+        if(rank_recv_ptr(exchange_rank) > 0) {
+            let recv_offset = recv_rank_offsets(exchange_rank);
+            let start_buf = recv_start_buf(recv_offset);
 
-    if(rank_recv_ptr(exchange_rank) > 0) {
-      let recv_offset = recv_rank_offsets(exchange_rank);
-      let start_buf = recv_start_buf(recv_offset);
+            mpih.irecv(
+                bitcast[&mut[real_t]](&comm_recv_buffer.data(start_buf)) as MPI_MutBuf,
+                rank_recv_ptr(exchange_rank) * 3,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+        }
 
-      mpih.irecv(
-        bitcast[&mut[real_t]](&comm_recv_buffer.data(start_buf)) as MPI_MutBuf,
-        rank_recv_ptr(exchange_rank) * 3,
-        mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+        if(rank_send_ptr(exchange_rank) > 0) {
+            let send_offset = send_rank_offsets(exchange_rank);
+            let start_buf = send_start_buf(send_offset);
+
+            mpih.send(
+                bitcast[&mut[real_t]](&comm_send_buffer.data(start_buf)) as MPI_MutBuf,
+                rank_send_ptr(exchange_rank) * 3,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world);
+        }
+
+        if(rank_recv_ptr(exchange_rank) > 0) {
+            mpih.wait(&mut request, &mut status);
+        }
     }
 
-    if(rank_send_ptr(exchange_rank) > 0) {
-      let send_offset = send_rank_offsets(exchange_rank);
-      let start_buf = send_start_buf(send_offset);
-
-      mpih.send(
-        bitcast[&mut[real_t]](&comm_send_buffer.data(start_buf)) as MPI_MutBuf,
-        rank_send_ptr(exchange_rank) * 3,
-        mpih.double_t, exchange_rank, 0, mpih.comms.world);
-    }
-
-    if(rank_recv_ptr(exchange_rank) > 0) {
-      mpih.wait(&mut request, &mut status);
-    }
-  }
-
-  scatter_ghost_layer_cells(comm_recv_buffer, recv_buffers, accelerator_grid);
+    scatter_ghost_layer_cells(comm_recv_buffer, recv_buffers, accelerator_grid);
 }

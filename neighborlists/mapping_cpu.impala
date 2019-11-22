@@ -4,17 +4,12 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
-extern "C" {
-    fn rv_align(&[i8], i32) -> &[i8];
-    fn rv_shuffle(real_t, i32) -> real_t;
-}
-
 fn @shuffle(x: real_t, srcLane: i32, laneOffset: i32) -> real_t {
-    rv_shuffle(x, laneOffset)
+    rv_shuffle(x as f32, laneOffset) as real_t
 }
 
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
-    rv_align(ptr, alignment)
+    rv_align(ptr as &i8, alignment) as &[i8]
 }
 
 fn @accelerator_allocate(size: i32) -> Buffer {
@@ -32,7 +27,7 @@ fn @accelerator_allocate_3d_arrays(N: i32) -> Array3D {
 fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
 fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N: i32) -> () {}
 
-fn loop_accelerator(accelerator_grid: AcceleratorGrid, size: i32, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> ()) -> () {
+fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> ()) -> () {
     for i in outer_loop_cpu(0, accelerator_grid.total_number_of_clusters) { 
         let cluster_size = get_cluster_size();
         let begin = i * cluster_size;

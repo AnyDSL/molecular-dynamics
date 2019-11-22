@@ -270,6 +270,8 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid, comm
     transfer_between_devices(
         accelerator_grid.neighbors_per_cluster_cpu, accelerator_grid.neighbors_per_cluster_accelerator, neighbors_per_cluster_bytes);
     transfer_between_devices(
+        accelerator_grid.neighborlist_offsets_cpu, accelerator_grid.neighborlist_offsets_accelerator, neighbors_per_cluster_bytes);
+    transfer_between_devices(
         accelerator_grid.neighborlists_cpu, accelerator_grid.neighborlists_accelerator, offset_neighbors * sizeof[i32]());
 
     accelerator_grid.total_number_of_neighbors = offset_neighbors;
