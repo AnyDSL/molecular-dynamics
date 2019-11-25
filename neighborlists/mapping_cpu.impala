@@ -35,8 +35,7 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i
         let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
         let neighborlists = get_neighborlists(accelerator_grid);
 
-        //for j in vectorize(cluster_size) {
-        for j in range(0, cluster_size) {
+        for j in vectorize(cluster_size) {
             body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
         }
     }
@@ -225,4 +224,4 @@ fn get_comm_buffer_sizes(neighs: i32, max_send_particles: i32, max_recv_particle
 }
 
 // Start positions for communication buffer
-fn get_comm_buffer_starts(exchange_rank: i32, comm_offsets: CommOffsets) -> (i32, i32) { (0, 0) }
+fn get_comm_buffer_starts(exchange_rank: i32, comm_offsets: &CommOffsets) -> (i32, i32) { (0, 0) }
