@@ -831,6 +831,60 @@ fn initialize_grid_comm(
     initialize_grid_transfer_ranges(grid);
 }
 
+// Synchronize ghost layer cells with neighbor ranks
+fn synchronize_ghost_layer_cells(
+    grid: &mut Grid,
+    accelerator_grid: AcceleratorGrid,
+    comm_offsets: &CommOffsets,
+    world_size: i32,
+    world_rank: i32) -> () {
+
+    let mpih = mpi();
+    let mut request: MPI_Request;
+    let mut status: MPIStatus;
+
+    let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
+    let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
+    let (resize_send, resize_recv) = get_comm_buffer_sizes(comm_offsets.neighs, max_send_particles, max_recv_particles);
+
+    resize_comm_buffers(resize_send, resize_recv);
+    gather_ghost_layer_cells(comm_send_buffer, comm_offsets, accelerator_grid);
+
+    for exchange_rank,
+        send_begin_x, send_begin_y, send_begin_z,
+        send_end_x, send_end_y, send_end_z,
+        recv_begin_x, recv_begin_y, recv_begin_z,
+        recv_end_x, recv_end_y, recv_end_z in
+        communication_nodes(world_size, world_rank, grid) {
+
+        let (send_start, recv_start) = get_comm_buffer_starts(exchange_rank, comm_offsets);
+
+        pack_ghost_layer_cells(
+            comm_send_buffer, grid, accelerator_grid,
+            send_begin_x, send_begin_y, send_begin_z,
+            send_end_x, send_end_y, send_end_z);
+
+        mpih.irecv(
+            bitcast[&mut[real_t]](&comm_recv_buffer.data(recv_start)) as MPI_MutBuf,
+            rank_recv_ptr(exchange_rank) * 3,
+            mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+
+        mpih.send(
+            bitcast[&mut[real_t]](&comm_send_buffer.data(send_start)) as MPI_MutBuf,
+            rank_send_ptr(exchange_rank) * 3,
+            mpih.double_t, exchange_rank, 0, mpih.comms.world);
+
+        mpih.wait(&mut request, &mut status);
+
+        unpack_ghost_layer_cells(
+            comm_recv_buffer, grid, accelerator_grid,
+            recv_begin_x, recv_begin_y, recv_begin_z,
+            recv_end_x, recv_end_y, recv_end_z);
+    }
+
+    scatter_ghost_layer_cells(comm_recv_buffer, comm_offsets, accelerator_grid);
+}
+
 // Pack ghost layer particles (exchange communication) in the CPU
 fn pack_ghost_layer_particles(
     comm_buffer: Buffer,
