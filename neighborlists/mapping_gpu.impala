@@ -71,12 +71,12 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N:
     _transfer_3d_arrays_between_devices(source, destination, N);
 }
 
-fn @get_cluster_size() -> i32 {1}
+fn @get_cluster_size() -> i32 {32}
 
 fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
-    let grid = (accelerator_grid.total_number_of_clusters, 1, 1);
+    let grid = (accelerator_grid.total_number_of_clusters * cluster_size, 1, 1);
     let block = (cluster_size, 1, 1);
 
     for work_item in acc.exec(grid, block) {
@@ -88,7 +88,9 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i
         let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
         let neighborlists = get_neighborlists(accelerator_grid);
 
-        @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
+        if i < accelerator_grid.total_number_of_clusters {
+            @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
+        }
     }
 
     acc.sync();
