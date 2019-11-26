@@ -153,10 +153,10 @@ int main(int argc, char **argv) {
         std::vector<Vector3D> positions(size);
         std::vector<Vector3D> velocities(size);
         std::vector<Vector3D> forces(size);
+
         if(vtk) {
             output_directory = std::string(argv[8]) + std::to_string(md_get_world_rank()) + "/";
-            md_write_grid_data_to_arrays(
-              masses.data(), positions.data(), velocities.data(), forces.data());
+            md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
             write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities, forces);
         }
 

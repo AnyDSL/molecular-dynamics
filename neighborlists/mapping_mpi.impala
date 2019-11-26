@@ -386,14 +386,13 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
 
             let flat_index = flatten_index(index, grid);
             let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-            let total_size = cell.size + cell.padding;
 
             send_offsets(isend) = cell_offsets(flat_index);
-            send_sizes(isend) = total_size * sizeof[real_t]();
+            send_sizes(isend) = cell.size * sizeof[real_t]();
             send_starts(isend) = ptr_send;
 
             isend += 1;
-            ptr_send += 3 * total_size * sizeof[real_t]();
+            ptr_send += 3 * cell.size * sizeof[real_t]();
         }
 
         for cell, index in
@@ -405,14 +404,13 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
 
             let flat_index = flatten_index(index, grid);
             let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-            let total_size = cell.size + cell.padding;
 
             recv_offsets(irecv) = cell_offsets(flat_index);
-            recv_sizes(irecv) = total_size * sizeof[real_t]();
+            recv_sizes(irecv) = cell.size * sizeof[real_t]();
             recv_starts(irecv) = ptr_recv;
 
             irecv += 1;
-            ptr_recv += 3 * total_size * sizeof[real_t]();
+            ptr_recv += 3 * cell.size * sizeof[real_t]();
         }
     }
 
@@ -801,7 +799,7 @@ fn initialize_grid_comm(
                 send_end_x, send_end_y, send_end_z,
                 range, range, range) {
 
-            rank_send_ptr(exchange_rank) += cell.size + cell.padding;
+            rank_send_ptr(exchange_rank) += cell.size;
             send_cells += 1;
         }
 
@@ -812,7 +810,7 @@ fn initialize_grid_comm(
                 recv_end_x, recv_end_y, recv_end_z,
                 range, range, range) {
 
-            rank_recv_ptr(exchange_rank) += cell.size + cell.padding;
+            rank_recv_ptr(exchange_rank) += cell.size;
             recv_cells += 1;
         }
 
@@ -918,7 +916,7 @@ fn pack_ghost_layer_particles(
             end_x, end_y, end_z,
             range, range, range) {
 
-        let nparticles = cell.size + cell.padding;
+        let nparticles = cell.size;
 
         if(iterations >= start_iteration) {
             if(!keep_packing || packed_particles + nparticles > max_particles) {
@@ -994,7 +992,7 @@ fn unpack_ghost_layer_particles(
             range, range, range) {
 
         if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
-            let old_nparticles = cell.size + cell.padding;
+            let old_nparticles = cell.size;
 
             cell.size = buffer_data(buffer_index) as i32;
             cell.padding = buffer_data(buffer_index + 1) as i32;
@@ -1006,7 +1004,7 @@ fn unpack_ghost_layer_particles(
                 reallocate_cell(cell.size, cell, alloc_unaligned_cpu);
             }
 
-            let nparticles = cell.size + cell.padding;
+            let nparticles = cell.size;
 
             grid.nparticles += nparticles - old_nparticles;
 
