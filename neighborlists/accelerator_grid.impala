@@ -187,7 +187,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
             if(cell.size > 0) {
                 let clusters_in_cell = get_array_of_clusters(cell.clusters);
 
-                copy_offset(cell.masses, 0, accelerator_grid.masses_cpu, offset_cells, cell.size * sizeof[real_t]());
+                copy_offset(cell.masses, 0, accelerator_grid.masses_cpu, offset_cells * sizeof[real_t](), cell.size * sizeof[real_t]());
                 copy_offset_3d_arrays(cell.positions, 0, accelerator_grid.positions_cpu, offset_cells, cell.size);
                 copy_offset_3d_arrays(cell.velocities, 0, accelerator_grid.velocities_cpu, offset_cells, cell.size);
 
