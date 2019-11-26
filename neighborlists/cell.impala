@@ -230,3 +230,26 @@ fn append_particle(mass: real_t, position: Vector3D, velocity: Vector3D, dest: &
     set_3d_arrays(new_size-1, dest.forces, null_vec);
 }
 
+fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
+    let cells = get_array_of_cells(grid.cells);
+
+    for cell, cell_index in map_over_grid(grid, range, range, range) {
+        let mut i = 0;
+
+        while(i < cell.size) {
+            let position = get_vector_from_3d_arrays(i, cell.positions);
+
+            if(is_within_domain(position, grid)) {
+                let new_cell_index = compute_cell_position(position, grid);
+
+                if(new_cell_index(0) != cell_index(0) || new_cell_index(1) != cell_index(1) || new_cell_index(2) != cell_index(2)) {
+                    move_particle(i, cell, &mut cells(flatten_index(new_cell_index, grid)), allocate);
+                } else {
+                    ++i;
+                }
+            } else {
+                ++i;
+            }
+        }
+    }
+}
