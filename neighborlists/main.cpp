@@ -224,9 +224,7 @@ int main(int argc, char **argv) {
                     velocities.resize(nparticles);
                     forces.resize(nparticles);
 
-                    md_write_grid_data_to_arrays(
-                      masses.data(), positions.data(), velocities.data(), forces.data()
-                    );
+                    md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
 
                     std::string filename(output_directory + "particles_");
                     filename += std::to_string(j+1);
