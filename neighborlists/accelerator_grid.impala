@@ -192,18 +192,11 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
                 copy_offset_3d_arrays(cell.velocities, 0, accelerator_grid.velocities_cpu, offset_cells, cell.size);
 
                 for i in range(0, cell.size) {
-                    set_bool(offset_cells + i, accelerator_grid.interaction_mask_cpu, true);
+                    set_real(offset_cells + i, accelerator_grid.interaction_mask_cpu, 1.0 as real_t);
                 }
 
                 for i in range(cell.size, total_cell_size) { 
-                    let infinity_vector = Vector3D {
-                        x: -INFINITY,
-                        y: -INFINITY,
-                        z: -INFINITY
-                    };
-
-                    set_3d_arrays(offset_cells + i, accelerator_grid.positions_cpu, infinity_vector);
-                    set_bool(offset_cells + i, accelerator_grid.interaction_mask_cpu, false);
+                    set_real(offset_cells + i, accelerator_grid.interaction_mask_cpu, 0.0 as real_t);
                 }
 
                 for i in range(0, cell.nclusters) {
@@ -250,7 +243,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
 
     let total_number_of_particles = accelerator_grid.total_number_of_clusters * accelerator_grid.cluster_size;
     let masses_bytes = total_number_of_particles * sizeof[real_t]();
-    let interaction_mask_bytes = total_number_of_particles * sizeof[i8]();
+    let interaction_mask_bytes = total_number_of_particles * sizeof[real_t]();
     let neighbors_per_cluster_bytes = accelerator_grid.total_number_of_clusters * sizeof[i32]();
 
     transfer_between_devices(

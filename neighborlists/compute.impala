@@ -42,7 +42,6 @@ fn accelerator_compute_cluster_forces(
 
         let pos = get_position(begin + j, accelerator_grid);
 
-        //let mask = select(get_mask_value(begin + i, accelerator_grid), -1i64, 0i64);
         for k in unroll(1, get_cluster_size()) {
             let srcLane = (j + k) % get_cluster_size();
             let pos_neighbor = Vector3D {
@@ -53,23 +52,26 @@ fn accelerator_compute_cluster_forces(
 
             let diff = vector_sub(pos_neighbor, pos);
             let len2 = vector_len2(diff);
-            //if bitcast[i64](shuffle(bitcast[f64](mask), srcLane, k)) != 0i64 && len2 < squared_cutoff_distance {
+            let mask = get_mask(begin + j + k, accelerator_grid);
+
             if len2 < squared_cutoff_distance {
                 increase_flops(1);
-                force = vector_add(force, vector_scale(potential(len2), diff));
+                force = vector_add(force, vector_scale(potential(len2) * mask, diff));
             }
         }
 
         for n in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlists(neighborlist_offset + n);
+
             for k in range(0, get_cluster_size()) {
                 let pos_neighbor = get_position(begin_neighbor + k, accelerator_grid);
+                let mask = get_mask(begin_neighbor + k, accelerator_grid);
                 let diff = vector_sub(pos_neighbor, pos);
                 let len2 = vector_len2(diff);
-                //if get_mask_value(begin_neighbor + k, accelerator_grid) && len2 < squared_cutoff_distance {
+
                 if len2 < squared_cutoff_distance {
                     increase_flops(1);
-                    force = vector_add(force, vector_scale(potential(len2), diff));
+                    force = vector_add(force, vector_scale(potential(len2) * mask, diff));
                 }
             }
         }

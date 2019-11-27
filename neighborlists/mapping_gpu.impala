@@ -3,8 +3,6 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
-fn @get_alignment() -> i32 {4}
-
 fn @nvvm_shfldown_i32(var: i32, delta: i32, width: i32) -> i32 {
     let mut res: i32;
     let warp_size = 32; 
@@ -71,8 +69,6 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N:
     _transfer_3d_arrays_between_devices(source, destination, N);
 }
 
-fn @get_cluster_size() -> i32 {32}
-
 fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
@@ -82,7 +78,6 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i
     for work_item in acc.exec(grid, block) {
         let i = work_item.bidx();
         let j = work_item.tidx();
-        let cluster_size = work_item.bdimx();
         let begin = i * cluster_size;
         let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
         let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
@@ -148,8 +143,8 @@ fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: 
     set_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator, force);
 }
 
-fn @get_mask_value(i: i32, accelerator_grid: AcceleratorGrid) -> bool {
-    get_bool_accelerator(i, accelerator_grid.interaction_mask_accelerator)
+fn @get_mask(i: i32, accelerator_grid: AcceleratorGrid) -> real_t {
+    get_real_accelerator(i, accelerator_grid.interaction_mask_accelerator)
 }
 
 fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> CommOffsets {
