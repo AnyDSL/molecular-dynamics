@@ -1072,10 +1072,14 @@ fn exchange_ghost_layer_particles(
                               (send_end_y - send_begin_y) *
                               (send_end_z - send_begin_z);
 
-        let rank_send_ptcs =
-            rank_send_ptr(exchange_rank) + rank_send_ptr(exchange_rank) / 2;
-        let rank_recv_ptcs =
-            rank_recv_ptr(exchange_rank) + rank_recv_ptr(exchange_rank) / 2;
+        // We insert some extra space to try performing just one-step communication,
+        // if the buffer sizes for both the sender and receptor are not enough
+        // to comprise the new particle sizes, we must then send the remaining particles
+        // in another communication step (receptor just know the exactly size after
+        // receiving the first message)
+
+        let rank_send_ptcs = rank_send_ptr(exchange_rank) * 2;
+        let rank_recv_ptcs = rank_recv_ptr(exchange_rank) * 2;
 
         resize_comm_buffers(dims_length + send_length, dims_length + recv_length);
 
@@ -1138,12 +1142,7 @@ fn exchange_ghost_layer_particles(
                 unpacked_iterations, &mut unpacked_iterations, &mut rmng_recv_ptcs);
         }
 
-        if(max_send_particles < rank_send_ptr(exchange_rank)) {
-            max_send_particles = rank_send_ptr(exchange_rank);
-        }
-
-        if(max_recv_particles < rank_recv_ptr(exchange_rank)) {
-            max_recv_particles = rank_recv_ptr(exchange_rank);
-        }
+        max_send_particles = math.max(max_send_particles, rank_send_ptr(exchange_rank));
+        max_recv_particles = math.max(max_recv_particles, rank_recv_ptr(exchange_rank));
     }
 }
