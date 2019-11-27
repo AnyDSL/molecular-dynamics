@@ -1,2 +1,2 @@
-fn @get_cluster_size() -> i32 {32}
+fn @get_cluster_size() -> i32 {1}
 fn @get_alignment() -> i32 { 4 }
