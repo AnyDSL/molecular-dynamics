@@ -67,7 +67,7 @@ fn allocate_accelerator_grid(
         positions_cpu: allocate_3d_arrays(capacity_particles, alloc_cpu),
         velocities_cpu: allocate_3d_arrays(capacity_particles, alloc_cpu),
         forces_cpu: allocate_3d_arrays(capacity_particles, alloc_cpu),
-        interaction_mask_cpu: alloc_cpu(capacity_particles * sizeof[i8]()),
+        interaction_mask_cpu: alloc_cpu(capacity_particles * sizeof[real_t]()),
         neighbors_per_cluster_cpu: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlist_offsets_cpu: alloc_cpu(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlists_cpu: alloc_cpu(neighbor_lists_capacity * sizeof[i32]()),
@@ -76,7 +76,7 @@ fn allocate_accelerator_grid(
         positions_accelerator: accelerator_allocate_3d_arrays(capacity_particles),
         velocities_accelerator: accelerator_allocate_3d_arrays(capacity_particles),
         forces_accelerator: accelerator_allocate_3d_arrays(capacity_particles),
-        interaction_mask_accelerator: accelerator_allocate(capacity_particles * sizeof[i8]()),
+        interaction_mask_accelerator: accelerator_allocate(capacity_particles * sizeof[real_t]()),
         neighbors_per_cluster_accelerator: accelerator_allocate(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlist_offsets_accelerator: accelerator_allocate(capacity_neighbors_per_cluster * sizeof[i32]()),
         neighborlists_accelerator: accelerator_allocate(neighbor_lists_capacity * sizeof[i32]())
