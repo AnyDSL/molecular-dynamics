@@ -136,7 +136,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
         accelerator_grid.positions_cpu = allocate_3d_arrays(new_capacity * accelerator_grid.cluster_size, alloc_cpu);
         accelerator_grid.velocities_cpu = allocate_3d_arrays(new_capacity * accelerator_grid.cluster_size, alloc_cpu);
         accelerator_grid.forces_cpu = allocate_3d_arrays(new_capacity * accelerator_grid.cluster_size, alloc_cpu);
-        accelerator_grid.interaction_mask_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[i8]());
+        accelerator_grid.interaction_mask_cpu = alloc_cpu(new_capacity * accelerator_grid.cluster_size * sizeof[real_t]());
         accelerator_grid.neighbors_per_cluster_cpu = alloc_cpu(new_capacity * sizeof[i32]());
         accelerator_grid.neighborlist_offsets_cpu = alloc_cpu(new_capacity * sizeof[i32]());
 
@@ -144,7 +144,7 @@ fn copy_to_accelerator(grid: &Grid, accelerator_grid: &mut AcceleratorGrid) -> (
         accelerator_grid.positions_accelerator = accelerator_allocate_3d_arrays(new_capacity * accelerator_grid.cluster_size);
         accelerator_grid.velocities_accelerator = accelerator_allocate_3d_arrays(new_capacity * accelerator_grid.cluster_size);
         accelerator_grid.forces_accelerator = accelerator_allocate_3d_arrays(new_capacity * accelerator_grid.cluster_size);
-        accelerator_grid.interaction_mask_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[i8]());
+        accelerator_grid.interaction_mask_accelerator = accelerator_allocate(new_capacity * accelerator_grid.cluster_size * sizeof[real_t]());
         accelerator_grid.neighbors_per_cluster_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
         accelerator_grid.neighborlist_offsets_accelerator = accelerator_allocate(new_capacity * sizeof[i32]());
     }
