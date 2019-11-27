@@ -6,8 +6,12 @@ static atomic_add_global = cuda_atomic_add_global;
 static atomic_add_shared = cuda_atomic_add_shared;
 static atomic_min_global = cuda_atomic_min_global;
 static atomic_min_shared = cuda_atomic_min_shared;
+
 fn @is_nvvm() -> bool { false }
 fn @is_cuda() -> bool { true }
 fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { true }
+
+fn @get_cluster_size() -> i32 {32}
+fn @get_alignment() -> i32 {4}
