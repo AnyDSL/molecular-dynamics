@@ -1048,8 +1048,8 @@ fn exchange_ghost_layer_particles(
     let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
     let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
 
-    let send_particles = max_send_particles + max_send_particles / 2;
-    let recv_particles = max_recv_particles + max_recv_particles / 2;
+    let send_particles = max_send_particles * 2;
+    let recv_particles = max_recv_particles * 2;
     let send_length = send_particles + send_particles * 3 * 3;
     let recv_length = recv_particles + recv_particles * 3 * 3;
 
