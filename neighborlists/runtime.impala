@@ -56,8 +56,7 @@ extern fn md_initialize_grid(
     print_string("}\n");
     */
 
-    grid_ = allocate_grid(
-      rank_aabb, cell_spacing, cell_capacity, neighbor_list_capacity, cluster_size, alloc_unaligned_cpu);
+    grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, neighbor_list_capacity, cluster_size, alloc_unaligned_cpu);
 
     /*
     print_i32(world_rank);
@@ -70,9 +69,7 @@ extern fn md_initialize_grid(
     print_string("\n");
     */
 
-    initialize_grid(
-      masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
-
+    initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
     initialize_grid_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
     let capacity = nparticles / 4 + 128;
@@ -93,8 +90,7 @@ extern fn md_get_node_bounding_box(
         zmax: max(2)
     };
 
-    let rank_aabb = get_node_bounding_box(
-      world_size, world_rank, cell_spacing, aabb);
+    let rank_aabb = get_node_bounding_box(world_size, world_rank, cell_spacing, aabb);
 
     rank_min(0) = rank_aabb.xmin;
     rank_min(1) = rank_aabb.ymin;
