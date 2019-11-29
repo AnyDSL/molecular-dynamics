@@ -43,11 +43,11 @@ fn accelerator_compute_cluster_forces(
         let pos = get_position(begin + j, accelerator_grid);
 
         for k in unroll(1, get_cluster_size()) {
-            let srcLane = (j + k) % get_cluster_size();
+            let src_lane = (j + k) % get_cluster_size();
             let pos_neighbor = Vector3D {
-                x: shuffle(pos.x, srcLane, k),
-                y: shuffle(pos.y, srcLane, k),
-                z: shuffle(pos.z, srcLane, k)
+                x: shuffle(pos.x, src_lane, k),
+                y: shuffle(pos.y, src_lane, k),
+                z: shuffle(pos.z, src_lane, k)
             };
 
             let diff = vector_sub(pos_neighbor, pos);
@@ -86,22 +86,22 @@ fn accelerator_restrict_to_boundary(accelerator_grid: AcceleratorGrid, aabb: AAB
 
         if(position.x < aabb.xmin) {
             position.x = aabb.xmin + EPSILON;
-        }
-        else if(position.x > aabb.xmax) {
+        } else if(position.x > aabb.xmax) {
             position.x = aabb.xmax - EPSILON;
         }
+
         if(position.y < aabb.ymin) {
             position.y = aabb.ymin + EPSILON;
-        }
-        else if(position.y > aabb.ymax) {
+        } else if(position.y > aabb.ymax) {
             position.y = aabb.ymax - EPSILON;
         }
+
         if(position.z < aabb.zmin) {
             position.z = aabb.zmin + EPSILON;
-        }
-        else if(position.z > aabb.zmax) {
+        } else if(position.z > aabb.zmax) {
             position.z = aabb.zmax - EPSILON;
-        } 
+        }
+
         set_position(begin + j, accelerator_grid, position);
     }
 }
@@ -113,12 +113,15 @@ fn accelerator_integration(accelerator_grid: AcceleratorGrid, dt: real_t) -> () 
         let mut position = get_position(begin + j, accelerator_grid);
         let mut velocity = get_velocity(begin + j, accelerator_grid);
         let force = get_force(begin + j, accelerator_grid);
+
         velocity.x += dt * force.x * inverse_mass;
         velocity.y += dt * force.y * inverse_mass;
         velocity.z += dt * force.z * inverse_mass;
+
         position.x += dt * velocity.x;
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
+
         set_velocity(begin + j, accelerator_grid, velocity);
         set_position(begin + j, accelerator_grid, position);
     }

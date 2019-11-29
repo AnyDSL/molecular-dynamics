@@ -4,7 +4,7 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
-fn @shuffle(x: real_t, srcLane: i32, laneOffset: i32) -> real_t {
+fn @shuffle(x: real_t, src_lane: i32, laneOffset: i32) -> real_t {
     rv_shuffle(x as f32, laneOffset) as real_t
 }
 

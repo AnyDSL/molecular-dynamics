@@ -22,28 +22,28 @@ fn @nvvm_shfldown_f64(var: f64, delta: i32, width: i32) -> f64 {
     res 
 }
 
-fn @nvvm_shfl_i32(var: i32, srcLane: i32, width: i32) -> i32 {
+fn @nvvm_shfl_i32(var: i32, src_lane: i32, width: i32) -> i32 {
     let mut res: i32;
     let warp_size = 32; 
     let c = ((warp_size - width) << 8) | 0x1f;
-	  asm("shfl.idx.b32 $0, $1, $2, $3;" : "=r"(res) : "r"(var), "r"(srcLane as u32), "r"(c));
+    asm("shfl.idx.b32 $0, $1, $2, $3;" : "=r"(res) : "r"(var), "r"(src_lane as u32), "r"(c));
     res 
 }
 
-fn @nvvm_shfl_f64(var: f64, srcLane: i32, width: i32) -> f64 {
+fn @nvvm_shfl_f64(var: f64, src_lane: i32, width: i32) -> f64 {
     let mut res = var;
     let mut lo: u32;
     let mut hi: u32;
     asm("mov.b64 { $0, $1 }, $2;" : "=r"(lo), "=r"(hi) : "d"(res));
-    hi = nvvm_shfl_i32(hi as i32, srcLane, width) as u32;
-    lo = nvvm_shfl_i32(lo as i32, srcLane, width) as u32;
+    hi = nvvm_shfl_i32(hi as i32, src_lane, width) as u32;
+    lo = nvvm_shfl_i32(lo as i32, src_lane, width) as u32;
     asm("mov.b64 $0, { $1, $2 };" : "=d"(res) : "r"(lo), "r"(hi));
     res 
 }
 
 
-fn @shuffle(x: real_t, srcLane: i32, laneOffset: i32) -> real_t {
-	  nvvm_shfl_f64(x, srcLane, get_cluster_size()) 
+fn @shuffle(x: real_t, src_lane: i32, laneOffset: i32) -> real_t {
+    nvvm_shfl_f64(x, src_lane, get_cluster_size())
 }
 
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
