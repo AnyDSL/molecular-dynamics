@@ -56,7 +56,9 @@ fn accelerator_compute_cluster_forces(
 
             if len2 < squared_cutoff_distance {
                 increase_flops(1);
-                force = vector_add(force, vector_scale(potential(len2) * mask, diff));
+                if mask > 0.5 {
+                    force = vector_add(force, vector_scale(potential(len2), diff));
+                }
             }
         }
 
@@ -71,7 +73,9 @@ fn accelerator_compute_cluster_forces(
 
                 if len2 < squared_cutoff_distance {
                     increase_flops(1);
-                    force = vector_add(force, vector_scale(potential(len2) * mask, diff));
+                    if mask > 0.5 {
+                        force = vector_add(force, vector_scale(potential(len2), diff));
+                    }
                 }
             }
         }
