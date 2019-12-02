@@ -2,8 +2,12 @@ static math = cpu_intrinsics;
 static mut THREAD_COUNT = 1;
 static DIMENSION = 3;
 type real_t = f64;
+type mask_t = f64;
+static MASK_TRUE = 1.0 as mask_t;
+static MASK_FALSE = 0.0 as mask_t;
 static EPSILON = 1e-9 as real_t;
 static PRUNING_THRESHOLD = 0.1 as real_t;
 static INFINITY = 1e100 as real_t;
 static real_floor = math.floor;
 static atomic_op_real = atomic_op_f64;
+fn @is_mask_true(mask: mask_t) -> bool { mask > 0.5 }

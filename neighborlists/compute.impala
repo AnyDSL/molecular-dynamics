@@ -50,13 +50,15 @@ fn accelerator_compute_cluster_forces(
                 z: shuffle(pos.z, src_lane, k)
             };
 
+            let mask = get_mask(begin + j + k, accelerator_grid);
             let diff = vector_sub(pos_neighbor, pos);
             let len2 = vector_len2(diff);
-            let mask = get_mask(begin + j + k, accelerator_grid);
 
-            if mask == 1 as u8 && len2 < squared_cutoff_distance {
+            if len2 < squared_cutoff_distance {
                 increase_flops(1);
-                force = vector_add(force, vector_scale(potential(len2), diff));
+                if is_mask_true(mask) {
+                    force = vector_add(force, vector_scale(potential(len2), diff));
+                }
             }
         }
 
@@ -69,9 +71,11 @@ fn accelerator_compute_cluster_forces(
                 let diff = vector_sub(pos_neighbor, pos);
                 let len2 = vector_len2(diff);
 
-                if mask == 1 as u8 && len2 < squared_cutoff_distance {
+                if len2 < squared_cutoff_distance {
                     increase_flops(1);
-                    force = vector_add(force, vector_scale(potential(len2), diff));
+                    if is_mask_true(mask) {
+                        force = vector_add(force, vector_scale(potential(len2), diff));
+                    }
                 }
             }
         }

@@ -10,6 +10,14 @@ fn @get_array_of_reals_accelerator(buf: Buffer) -> &mut[1][real_t] {
     bitcast[&mut[1][real_t]](buf.data)
 }
 
+fn @get_mask_t_accelerator(i: i32, buf: Buffer) -> mask_t {
+    bitcast[&[1][mask_t]](buf.data)(i)
+}
+
+fn @set_mask_t_accelerator(i: i32, buf: Buffer, value: mask_t) -> () {
+    bitcast[&mut[1][mask_t]](buf.data)(i) = value;
+}
+
 fn @get_u8_accelerator(i: i32, buf: Buffer) -> u8 {
     bitcast[&[1][u8]](buf.data)(i)
 }
