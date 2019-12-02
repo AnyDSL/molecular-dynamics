@@ -66,6 +66,14 @@ fn @get_array_of_reals(buf: Buffer) -> &mut[real_t] {
     bitcast[&mut[real_t]](buf.data)
 }
 
+fn @get_u8(i: i32, buf: Buffer) -> u8 {
+    bitcast[&[u8]](buf.data)(i)
+}
+
+fn @set_u8(i: i32, buf: Buffer, value: u8) -> () {
+    bitcast[&mut[u8]](buf.data)(i) = value;
+}
+
 fn @get_i32(i: i32, buf: Buffer) -> i32 {
     bitcast[&[i32]](buf.data)(i)
 }

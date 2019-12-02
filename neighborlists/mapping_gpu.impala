@@ -143,8 +143,8 @@ fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: 
     set_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator, force);
 }
 
-fn @get_mask(i: i32, accelerator_grid: AcceleratorGrid) -> real_t {
-    get_real_accelerator(i, accelerator_grid.interaction_mask_accelerator)
+fn @get_mask(i: i32, accelerator_grid: AcceleratorGrid) -> u8 {
+    get_u8_accelerator(i, accelerator_grid.interaction_mask_accelerator)
 }
 
 fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> CommOffsets {
