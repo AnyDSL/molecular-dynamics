@@ -947,6 +947,9 @@ fn pack_ghost_layer_particles(
                 buffer_index += 1;
 
                 if(nparticles > 0) {
+                    copy_offset(cell.masses, 0, comm_buffer, buffer_index * sizeof[real_t](), nparticles * sizeof[real_t]());
+                    buffer_index += nparticles;
+
                     copy_3d_arrays_to_buffer(
                         cell.positions, 0, comm_buffer, buffer_index * sizeof[real_t](), nparticles * sizeof[real_t]());
                     buffer_index += nparticles * 3;
@@ -1016,6 +1019,9 @@ fn unpack_ghost_layer_particles(
             grid.nparticles += nparticles - old_nparticles;
 
             if(nparticles > 0) {
+                copy_offset(comm_buffer, buffer_index * sizeof[real_t](), cell.masses, 0, nparticles * sizeof[real_t]());
+                buffer_index += nparticles;
+
                 copy_buffer_to_3d_arrays(
                     comm_buffer, buffer_index * sizeof[real_t](), cell.positions, 0, nparticles * sizeof[real_t]());
                 buffer_index += nparticles * 3;
@@ -1050,8 +1056,8 @@ fn exchange_ghost_layer_particles(
 
     let send_particles = max_send_particles * 2;
     let recv_particles = max_recv_particles * 2;
-    let send_length = send_particles * 2 * 3;
-    let recv_length = recv_particles * 2 * 3;
+    let send_length = send_particles + send_particles * 2 * 3;
+    let recv_length = recv_particles + recv_particles * 2 * 3;
 
     max_send_particles = 0;
     max_recv_particles = 0;
@@ -1090,12 +1096,12 @@ fn exchange_ghost_layer_particles(
 
         mpih.irecv(
             bitcast[&mut[real_t]](comm_recv_buffer.data) as MPI_MutBuf,
-            dims_length + rank_recv_ptcs * 2 * 3,
+            dims_length + rank_recv_ptcs + rank_recv_ptcs * 2 * 3,
             mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
         mpih.send(
             bitcast[&mut[real_t]](comm_send_buffer.data) as MPI_MutBuf,
-            dims_length + rank_send_ptcs * 2 * 3,
+            dims_length + rank_send_ptcs + rank_send_ptcs * 2 * 3,
             mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
         mpih.wait(&mut request, &mut status);
@@ -1106,7 +1112,7 @@ fn exchange_ghost_layer_particles(
             0, &mut unpacked_iterations, &mut rmng_recv_ptcs);
 
         if(rmng_recv_ptcs > 0) {
-            let rmng_recv_length = rmng_recv_ptcs * 2 * 3;
+            let rmng_recv_length = rmng_recv_ptcs + rmng_recv_ptcs * 2 * 3;
 
             resize_comm_buffers(0, dims_length + rmng_recv_length);
 
@@ -1117,7 +1123,7 @@ fn exchange_ghost_layer_particles(
         }
 
         if(rmng_send_ptcs > 0) {
-            let rmng_send_length = rmng_send_ptcs * 2 * 3;
+            let rmng_send_length = rmng_send_ptcs + rmng_send_ptcs * 2 * 3;
 
             resize_comm_buffers(dims_length + rmng_send_length, 0);
 
