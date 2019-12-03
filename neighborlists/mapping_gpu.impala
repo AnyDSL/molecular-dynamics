@@ -220,41 +220,42 @@ fn build_comm_offsets_accelerator(grid: &Grid, accelerator_grid: &AcceleratorGri
     build_comm_offsets(grid, accelerator_grid, comm_offsets);
 }
 
-fn @get_comm_send_starts_accelerator(index: i32, comm_offsets: &CommOffsets) -> i32 {
+fn @get_comm_send_starts_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.send_starts_accelerator)
 }
 
-fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: &CommOffsets) -> i32 {
+fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.send_offsets_accelerator)
 }
 
-fn @get_comm_send_sizes_accelerator(index: i32, comm_offsets: &CommOffsets) -> i32 {
+fn @get_comm_send_sizes_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.send_sizes_accelerator)
 }
 
-fn @get_comm_recv_starts_accelerator(index: i32, comm_offsets: &CommOffsets) -> i32 {
+fn @get_comm_recv_starts_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.recv_starts_accelerator)
 }
 
-fn @get_comm_recv_offsets_accelerator(index: i32, comm_offsets: &CommOffsets) -> i32 {
+fn @get_comm_recv_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.recv_offsets_accelerator)
 }
 
-fn @get_comm_recv_sizes_accelerator(index: i32, comm_offsets: &CommOffsets) -> i32 {
+fn @get_comm_recv_sizes_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.recv_sizes_accelerator)
 }
 
-fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, accelerator_grid: AcceleratorGrid) -> () {
+fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, accelerator_grid: AcceleratorGrid) -> () {
     let acc = accelerator(device_id);
     let grid = (comm_offsets.send_noffsets * 64, 1, 1);
     let block = (64, 1, 1);
     let buffer_gpu = comm_offsets.send_buffer_accelerator;
+    let noffsets = comm_offsets.send_noffsets;
 
-    if comm_offsets.send_noffsets > 0 {
+    if noffsets > 0 {
         for work_item in acc.exec(grid, block) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
-            if th_idx < comm_offsets.send_noffsets {
+            if th_idx < noffsets {
                 let start = get_comm_send_starts_accelerator(th_idx, comm_offsets);
                 let offset = get_comm_send_offsets_accelerator(th_idx, comm_offsets);
                 let size = get_comm_send_sizes_accelerator(th_idx, comm_offsets);
@@ -275,19 +276,20 @@ fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, acc
     }
 }
 
-fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, accelerator_grid: AcceleratorGrid) -> () {
+fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, accelerator_grid: AcceleratorGrid) -> () {
     let acc = accelerator(device_id);
     let grid = (comm_offsets.recv_noffsets * 64, 1, 1);
     let block = (64, 1, 1);
     let buffer_gpu = comm_offsets.recv_buffer_accelerator;
+    let noffsets = comm_offsets.recv_noffsets;
 
-    if comm_offsets.recv_noffsets > 0 {
+    if noffsets > 0 {
         copy(comm_buffer, buffer_gpu);
 
         for work_item in acc.exec(grid, block) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
-            if th_idx < comm_offsets.recv_noffsets {
+            if th_idx < noffsets {
                 let start = get_comm_recv_starts_accelerator(th_idx, comm_offsets);
                 let offset = get_comm_recv_offsets_accelerator(th_idx, comm_offsets);
                 let size = get_comm_recv_sizes_accelerator(th_idx, comm_offsets);

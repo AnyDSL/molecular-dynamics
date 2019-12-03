@@ -120,8 +120,8 @@ fn print_real_with_rank(field: &[u8], value: real_t) -> () {
     print_flush();
 }
 
-// Print buffer with rank
-fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, length: i32) -> () {
+// Print real buffer with rank
+fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length: i32) -> () {
     let mpih = mpi();
     let mut rank: i32;
 
@@ -133,7 +133,27 @@ fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, length: i32) -> () 
     print_string(": ");
 
     range(0, length, |i| {
-        print_f64(get_real(i, buffer));
+        print_f64(get_real(i + offset, buffer));
+        print_string(", ");
+    });
+
+    print_string("\n");
+}
+
+// Print i32 buffer with rank
+fn print_i32_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length: i32) -> () {
+    let mpih = mpi();
+    let mut rank: i32;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+
+    print_i32(rank);
+    print_string("> ");
+    print_string(field);
+    print_string(": ");
+
+    range(0, length, |i| {
+        print_i32(get_i32(i + offset, buffer));
         print_string(", ");
     });
 
@@ -174,11 +194,11 @@ fn mpi_finalize() -> () {
     let mpih = mpi();
 
     if(comm_send_buffer_size > 0) {
-      release_host(comm_send_buffer);
+        release_host(comm_send_buffer);
     }
 
     if(comm_recv_buffer_size > 0) {
-      release_host(comm_recv_buffer);
+        release_host(comm_recv_buffer);
     }
 
     release_host(rank_send_particles);
@@ -234,11 +254,11 @@ fn communication_nodes_1d(
     if(rank < world_size - 1) {
         // Communicate with next rank
         @@body(
-          rank + 1,
-          0, 0, grid.nz - get_sync_timesteps() * 2,
-          grid.nx, grid.ny, grid.nz - get_sync_timesteps(),
-          0, 0, grid.nz - get_sync_timesteps(),
-          grid.nx, grid.ny, grid.nz
+            rank + 1,
+            0, 0, grid.nz - get_sync_timesteps() * 2,
+            grid.nx, grid.ny, grid.nz - get_sync_timesteps(),
+            0, 0, grid.nz - get_sync_timesteps(),
+            grid.nx, grid.ny, grid.nz
         );
     }
 
@@ -246,11 +266,11 @@ fn communication_nodes_1d(
     if(rank > 0) {
         // Communicate with previous rank
         @@body(
-          rank - 1,
-          0, 0, get_sync_timesteps(),
-          grid.nx, grid.ny, get_sync_timesteps() * 2,
-          0, 0, 0,
-          grid.nx, grid.ny, get_sync_timesteps()
+            rank - 1,
+            0, 0, get_sync_timesteps(),
+            grid.nx, grid.ny, get_sync_timesteps() * 2,
+            0, 0, 0,
+            grid.nx, grid.ny, get_sync_timesteps()
         );
     }
 }
@@ -385,6 +405,11 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
 
     mpih.comm_size(mpih.comms.world, &mut world_size);
     mpih.comm_rank(mpih.comms.world, &mut rank);
+
+    range(0, world_size, |r| {
+        send_rank_offsets(r) = -1;
+        recv_rank_offsets(r) = -1;
+    });
 
     for exchange_rank,
         send_begin_x, send_begin_y, send_begin_z,
@@ -866,7 +891,7 @@ fn synchronize_ghost_layer_cells(
     let (resize_send, resize_recv) = get_comm_buffer_sizes(comm_offsets.neighs, max_send_particles, max_recv_particles);
 
     resize_comm_buffers(resize_send, resize_recv);
-    gather_ghost_layer_cells(comm_send_buffer, comm_offsets, accelerator_grid);
+    gather_ghost_layer_cells(comm_send_buffer, *comm_offsets, accelerator_grid);
 
     for exchange_rank,
         send_begin_x, send_begin_y, send_begin_z,
@@ -875,7 +900,7 @@ fn synchronize_ghost_layer_cells(
         recv_end_x, recv_end_y, recv_end_z in
         communication_nodes(world_size, world_rank, grid) {
 
-        let (send_start, recv_start) = get_comm_buffer_starts(exchange_rank, comm_offsets);
+        let (send_start, recv_start) = get_comm_buffer_starts(exchange_rank, *comm_offsets);
 
         pack_ghost_layer_cells(
             comm_send_buffer, grid, accelerator_grid,
@@ -900,7 +925,7 @@ fn synchronize_ghost_layer_cells(
             recv_end_x, recv_end_y, recv_end_z);
     }
 
-    scatter_ghost_layer_cells(comm_recv_buffer, comm_offsets, accelerator_grid);
+    scatter_ghost_layer_cells(comm_recv_buffer, *comm_offsets, accelerator_grid);
 }
 
 // Pack ghost layer particles (exchange communication) in the CPU
