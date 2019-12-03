@@ -433,11 +433,11 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
             let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
 
             send_offsets(isend) = cell_offsets(flat_index);
-            send_sizes(isend) = cell.size * sizeof[real_t]();
+            send_sizes(isend) = cell.size;
             send_starts(isend) = ptr_send;
 
             isend += 1;
-            ptr_send += 3 * cell.size * sizeof[real_t]();
+            ptr_send += 3 * cell.size;
         }
 
         for cell, index in
@@ -451,11 +451,11 @@ fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offs
             let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
 
             recv_offsets(irecv) = cell_offsets(flat_index);
-            recv_sizes(irecv) = cell.size * sizeof[real_t]();
+            recv_sizes(irecv) = cell.size;
             recv_starts(irecv) = ptr_recv;
 
             irecv += 1;
-            ptr_recv += 3 * cell.size * sizeof[real_t]();
+            ptr_recv += 3 * cell.size;
         }
     }
 
