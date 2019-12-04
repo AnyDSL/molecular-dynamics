@@ -13,14 +13,13 @@ fn accelerator_compute_particle_forces(
         for n in range(0, number_of_neighbors) {
             let begin_neighbor = neighborlists(neighborlist_offset + n);
             let pos_neighbor = get_position(begin_neighbor, accelerator_grid);
-            let del = vector_sub(pos_neighbor, pos);
+            let del = vector_sub(pos, pos_neighbor);
             let rsq = vector_len2(del);
 
             if(rsq < squared_cutoff_distance) {
                 let sr2 = 1.0 / rsq;
                 let sr6 = sr2 * sr2 * sr2;
-                //let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
-                let f = 24.0 * sr6 * (1.0 - sr6 * 2.0) * sr2;
+                let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
 
                 force = vector_add(force, vector_scale(f, del));
             }
