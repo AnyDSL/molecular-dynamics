@@ -97,14 +97,14 @@ fn @get_mask(i: i32, accelerator_grid: AcceleratorGrid) -> mask_t {
     get_mask_t(i, accelerator_grid.interaction_mask_cpu)
 }
 
-fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> CommOffsets {
+fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> () {
     let null_buf = Buffer {
         device: 0,
         data: 0 as &[i8],
         size: 0 as i64
     };
 
-    CommOffsets {
+    *comm_offsets = CommOffsets {
         // Host send data
         send_rank_offsets: null_buf,
         send_starts: null_buf,
@@ -137,12 +137,18 @@ fn alloc_comm_offsets(world_size: i32, neighs: i32, send_capacity: i32, recv_cap
 
         // Number of neighbor ranks
         neighs: 0
-    }
+    };
 }
 
-fn release_comm_offsets(comm_offsets: CommOffsets) -> () {}
+// Build offsets used by scatter and gather kernels on GPU
+fn build_comm_offsets(
+    world_size: i32,
+    rank: i32,
+    grid: &Grid,
+    accelerator_grid: &AcceleratorGrid,
+    comm_offsets: &mut CommOffsets) -> () {}
 
-fn build_comm_offsets_accelerator(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &CommOffsets) -> () {}
+fn release_comm_offsets(comm_offsets: CommOffsets) -> () {}
 
 fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, accelerator_grid: AcceleratorGrid) -> () {}
 

@@ -385,93 +385,6 @@ fn initialize_grid_transfer_ranges(grid: &Grid) -> () {
     }
 }
 
-// Build offsets used by scatter and gather kernels (GPU only)
-fn build_comm_offsets(grid: &Grid, accelerator_grid: &AcceleratorGrid, comm_offsets: &mut CommOffsets) -> () {
-    let mpih = mpi();
-    let mut world_size: i32;
-    let mut rank: i32;
-    let mut isend = 0;
-    let mut irecv = 0;
-    let mut ptr_send = 0;
-    let mut ptr_recv = 0;
-    let send_rank_offsets = get_array_of_i32(comm_offsets.send_rank_offsets);
-    let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
-    let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
-    let recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
-    let send_sizes = get_array_of_i32(comm_offsets.send_sizes);
-    let recv_sizes = get_array_of_i32(comm_offsets.recv_sizes);
-    let send_starts = get_array_of_i32(comm_offsets.send_starts);
-    let recv_starts = get_array_of_i32(comm_offsets.recv_starts);
-
-    mpih.comm_size(mpih.comms.world, &mut world_size);
-    mpih.comm_rank(mpih.comms.world, &mut rank);
-
-    range(0, world_size, |r| {
-        send_rank_offsets(r) = -1;
-        recv_rank_offsets(r) = -1;
-    });
-
-    for exchange_rank,
-        send_begin_x, send_begin_y, send_begin_z,
-        send_end_x, send_end_y, send_end_z,
-        recv_begin_x, recv_begin_y, recv_begin_z,
-        recv_end_x, recv_end_y, recv_end_z in
-        communication_nodes(world_size, rank, grid) {
-
-        // Start of communication offsets for exchange rank
-        send_rank_offsets(exchange_rank) = isend;
-        recv_rank_offsets(exchange_rank) = irecv;
-
-        for cell, index in
-            map_over_grid_subdomain(
-                grid,
-                send_begin_x, send_begin_y, send_begin_z,
-                send_end_x, send_end_y, send_end_z,
-                range, range, range) {
-
-            let flat_index = flatten_index(index, grid);
-            let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-
-            send_offsets(isend) = cell_offsets(flat_index);
-            send_sizes(isend) = cell.size;
-            send_starts(isend) = ptr_send;
-
-            isend += 1;
-            ptr_send += 3 * cell.size;
-        }
-
-        for cell, index in
-            map_over_grid_subdomain(
-                grid,
-                recv_begin_x, recv_begin_y, recv_begin_z,
-                recv_end_x, recv_end_y, recv_end_z,
-                range, range, range) {
-
-            let flat_index = flatten_index(index, grid);
-            let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-
-            recv_offsets(irecv) = cell_offsets(flat_index);
-            recv_sizes(irecv) = cell.size;
-            recv_starts(irecv) = ptr_recv;
-
-            irecv += 1;
-            ptr_recv += 3 * cell.size;
-        }
-    }
-
-    comm_offsets.send_noffsets = isend;
-    copy(comm_offsets.send_rank_offsets, comm_offsets.send_rank_offsets_accelerator);
-    copy(comm_offsets.send_starts, comm_offsets.send_starts_accelerator);
-    copy(comm_offsets.send_sizes, comm_offsets.send_sizes_accelerator);
-    copy(comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
-
-    comm_offsets.recv_noffsets = irecv;
-    copy(comm_offsets.recv_rank_offsets, comm_offsets.recv_rank_offsets_accelerator);
-    copy(comm_offsets.recv_starts, comm_offsets.recv_starts_accelerator);
-    copy(comm_offsets.recv_sizes, comm_offsets.recv_sizes_accelerator);
-    copy(comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
-}
-
 // Generic communication pattern (including diagonals)
 fn communication_nodes_generic(
     world_size: i32,
@@ -867,9 +780,7 @@ fn initialize_grid_comm(
     }
 
     // Allocate communication offsets for GPU data transfer
-    if world_size > 0 && max_send_cells > 0 && max_recv_cells > 0 {
-        *comm_offsets = alloc_comm_offsets(world_size, neighs, neighs * max_send_cells, neighs * max_recv_cells);
-    }
+    alloc_comm_offsets(comm_offsets, world_size, neighs, neighs * max_send_cells, neighs * max_recv_cells);
 
     initialize_grid_transfer_ranges(grid);
 }
