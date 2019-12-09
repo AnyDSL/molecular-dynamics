@@ -90,52 +90,52 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
                 pos.y >= rank_aabb.min[1] && pos.y < rank_aabb.max[1] &&
                 pos.z >= rank_aabb.min[2] && pos.z < rank_aabb.max[2]
             ) {
-              n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
+                n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
 
-              for(m = 0; m < 5; m++) random(&n);
+                for(m = 0; m < 5; m++) random(&n);
 
-              vel.x = random(&n);
+                vel.x = random(&n);
 
-              for(m = 0; m < 5; m++) random(&n);
+                for(m = 0; m < 5; m++) random(&n);
 
-              vel.y = random(&n);
+                vel.y = random(&n);
 
-              for(m = 0; m < 5; m++) random(&n);
+                for(m = 0; m < 5; m++) random(&n);
 
-              vel.z = random(&n);
+                vel.z = random(&n);
 
-              //std::cout << pos.x << " " << pos.y << " " << pos.z << " --- " << vel.x << " " << vel.y << " " << vel.z << "\n";
-              positions.push_back(pos);
-              velocities.push_back(vel);
-              size++;
+                //std::cout << pos.x << " " << pos.y << " " << pos.z << " --- " << vel.x << " " << vel.y << " " << vel.z << "\n";
+                positions.push_back(pos);
+                velocities.push_back(vel);
+                size++;
             }
         }
 
         sx++;
 
         if(sx == subboxdim) {
-          sx = 0;
-          sy++;
+            sx = 0;
+            sy++;
         }
 
         if(sy == subboxdim) {
-          sy = 0;
-          sz++;
+            sy = 0;
+            sz++;
         }
 
         if(sz == subboxdim) {
-          sz = 0;
-          ox++;
+            sz = 0;
+            ox++;
         }
 
         if(ox * subboxdim > ihi) {
-          ox = 0;
-          oy++;
+            ox = 0;
+            oy++;
         }
 
         if(oy * subboxdim > jhi) {
-          oy = 0;
-          oz++;
+            oy = 0;
+            oz++;
         }
     }
 
@@ -158,7 +158,7 @@ int init_rectangular_grid(unsigned seed, AABB aabb, double spacing[3], double ma
     }
 
     md_get_node_bounding_box(
-      cell_spacing, ext_aabb.min, ext_aabb.max, &rank_aabb.min, &rank_aabb.max);
+        cell_spacing, ext_aabb.min, ext_aabb.max, &rank_aabb.min, &rank_aabb.max);
 
     auto tuple = generate_rectangular_grid(aabb, rank_aabb, spacing, 1.0, velocity);
 
@@ -193,7 +193,7 @@ int init_body_collision(unsigned const seed, AABB aabb1, AABB aabb2, double spac
     velocity2[2] = 0;
 
     md_get_node_bounding_box(
-      cell_spacing, aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
+        cell_spacing, aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
 
     auto tuple1 = generate_rectangular_grid(aabb1, rank_aabb, spacing1, mass1, velocity1);
     auto tuple2 = generate_rectangular_grid(aabb2, rank_aabb, spacing2, mass2, velocity2);

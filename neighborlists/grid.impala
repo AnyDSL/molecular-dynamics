@@ -120,10 +120,10 @@ fn initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vect
     let mut particles = 0;
 
     for i in range(0, nparticles) {
-      if(is_within_domain(positions(i), grid)) {
-        insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
-        particles++;
-      }
+        if(is_within_domain(positions(i), grid)) {
+            insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
+            particles++;
+        }
     }
 
     grid.nparticles = particles;
