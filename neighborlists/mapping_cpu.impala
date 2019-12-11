@@ -4,13 +4,30 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
+extern "C" {
+    fn rv_align(&[i8], i32) -> &[i8];
+    fn rv_shuffle(real_t, i32) -> real_t;
+}
+
 fn @shuffle(x: real_t, src_lane: i32, laneOffset: i32) -> real_t {
-    rv_shuffle(x as f32, laneOffset) as real_t
+    rv_shuffle(x, laneOffset)
 }
 
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
-    rv_align(ptr as &i8, alignment) as &[i8]
+    rv_align(ptr, alignment)
 }
+
+// Performs a horizontal reduction over vector lanes
+/*
+fn @(?n) cpu_reduce(value: f32, n: i32, op: fn (f32, f32) -> f32) -> f32 {
+    if n >= 2 {
+        let m = n / 2;
+        cpu_reduce(op(value, rv_shuffle(value, m)), m, op)
+    } else {
+        value
+    }
+}
+*/
 
 fn @accelerator_allocate(size: i32) -> Buffer {
     Buffer {
@@ -24,21 +41,27 @@ fn @accelerator_allocate_3d_arrays(N: i32) -> Array3D {
     null_3d_array()
 }
 
-fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {}
-fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N: i32) -> () {}
+fn @transfer_between_devices(source: Buffer, destination: Buffer) -> () {}
+fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) -> () {}
 
 fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> ()) -> () {
-    for i in outer_loop_cpu(0, accelerator_grid.total_number_of_clusters) { 
-        let cluster_size = get_cluster_size();
-        let begin = i * cluster_size;
-        let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
-        let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
-        let neighborlists = get_neighborlists(accelerator_grid);
+    let cell_sizes = get_array_of_i32(accelerator_grid.cell_sizes);
+    let neighbors_per_cluster = get_array_of_i32(accelerator_grid.neighbors_per_cluster_cpu);
+    let neighborlist_capacity = accelerator_grid.neighborlist_capacity;
+    let neighborlists = get_neighborlists(accelerator_grid);
 
-        for j in vectorize(cluster_size) {
-            body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
-        }
-    }
+    outer_loop_cpu(0, accelerator_grid.ncells, |cell_index| {
+        let cell_offset = get_accelerator_cell_offset(cell_index, accelerator_grid);
+        let cell_size = cell_sizes(cell_index);
+
+        range(0, cell_size, |cluster| {
+            let cluster_index = cell_offset + cluster;
+            let nb_list_offset = neighborlist_capacity * (cluster_index);
+            let nb_list_size = neighbors_per_cluster(cluster_index);
+
+            @@body(cluster, cluster_index, 0, nb_list_size, nb_list_offset, neighborlists);
+        });
+    });
 }
 
 fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
@@ -176,8 +199,7 @@ fn pack_ghost_layer_cells(
             range, range, range) {
 
         let flat_index = flatten_index(index, grid);
-        let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-        let offset = cell_offsets(flat_index);
+        let offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
         let nparticles = cell.size;
 
         if(nparticles > 0) {
@@ -211,8 +233,7 @@ fn unpack_ghost_layer_cells(
             range, range, range) {
 
         let flat_index = flatten_index(index, grid);
-        let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
-        let offset = cell_offsets(flat_index);
+        let offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
         let nparticles = cell.size;
 
         if(nparticles > 0) {

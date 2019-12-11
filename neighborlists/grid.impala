@@ -29,7 +29,11 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, i
         nz += 1;
     }
 
-    add_grid_allocation(nx * ny * nz * sizeof[Cell]());
+    let null_buf = Buffer {
+        device: 0,
+        data: 0 as &[i8],
+        size: 0 as i64
+    };
 
     let grid = Grid {
         aabb: aabb,
@@ -37,13 +41,15 @@ fn allocate_grid(aabb: AABB, cell_spacing: real_t, initial_cell_capacity: i32, i
         ny: ny,
         nz: nz,
         spacing: cell_spacing,
-        cells: allocate(nx * ny * nz * sizeof[Cell]()),
+        cells: null_buf,
         nparticles: 0
     }; 
 
+    /*
     for cell, cell_index in map_over_grid(grid, range, range, range) {
         *cell = allocate_cell(flatten_index(cell_index, grid), 0, initial_cell_capacity, initial_neighbor_list_capacity, cluster_size, allocate);
     }
+    */
 
     grid 
 }
@@ -68,11 +74,13 @@ fn grid_count_clusters_and_neighbors(grid: &Grid) -> [i32 * 2] {
 }
 
 fn deallocate_grid(grid: &Grid) -> () {
+    /*
     for cell, index in map_over_grid(grid, range, range, range) {
         deallocate_cell(cell);
     }
 
     release((*grid).cells);
+    */
 }
 
 fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
@@ -167,6 +175,10 @@ fn map_over_grid_subdomain(
 
 fn @flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
     (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
+}
+
+fn @unflatten_index(index: i32, grid: &Grid) -> [i32 * 3] {
+    [index % grid.nx, (index / grid.nx) % grid.ny, index / (grid.nx * grid.ny)]
 }
 
 fn write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], grid: &Grid) -> i32 {

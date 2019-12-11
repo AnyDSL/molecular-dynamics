@@ -56,7 +56,13 @@ extern fn md_initialize_grid(
     print_string("}\n");
     */
 
+    print_string("allocate_grid\n");
+    print_flush();
     grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, neighbor_list_capacity, cluster_size, alloc_unaligned_cpu);
+
+    print_string("allocate_accelerator_grid\n");
+    print_flush();
+    accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, cluster_size, cell_capacity, neighbor_list_capacity);
 
     /*
     print_i32(world_rank);
@@ -69,11 +75,19 @@ extern fn md_initialize_grid(
     print_string("\n");
     */
 
-    initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
-    initialize_grid_comm(grid_, &mut comm_offsets_, world_size, world_rank);
+    if store_particles_once() {
+        print_string("initialize_accelerator_grid\n");
+        print_flush();
+        initialize_accelerator_grid(masses, positions, velocities, nparticles, &mut grid_, &mut accelerator_grid_, alloc_cpu);
+    } else {
+        print_string("initialize_grid\n");
+        print_flush();
+        initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
+    }
 
-    let capacity = nparticles / 4 + 128;
-    accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, capacity, cluster_size, capacity * 64); 
+    print_string("initialize_grid_comm\n");
+    print_flush();
+    initialize_grid_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
     grid_.nparticles
 }
@@ -102,14 +116,22 @@ extern fn md_get_node_bounding_box(
 }
 
 extern fn md_copy_data_to_accelerator() -> () {
-    copy_to_accelerator(grid_, &mut accelerator_grid_);
+    if !store_particles_once() {
+        transfer_grid_to_accelerator_buffers(grid_, &mut accelerator_grid_);
+    }
+
+    copy_to_accelerator(accelerator_grid_);
 
     // Build communication offsets (GPU only)
     build_comm_offsets(world_size, world_rank, grid_, accelerator_grid_, &mut comm_offsets_);
 }
 
 extern fn md_copy_data_from_accelerator() -> () {
-    copy_from_accelerator(accelerator_grid_, grid_);
+    if !store_particles_once() {
+        transfer_accelerator_buffers_to_grid(accelerator_grid_, grid_);
+    }
+
+    copy_from_accelerator(accelerator_grid_);
 }
 
 extern fn md_deallocate_grid() -> () {
@@ -124,11 +146,15 @@ extern fn md_integration(dt: real_t) -> () {
 extern fn md_write_grid_data_to_arrays(
     masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
 
-    write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
+    write_accelerator_grid_data_to_arrays(masses, positions, velocities, forces, &accelerator_grid_)
 }
 
 extern fn md_redistribute_particles() -> () {
-    redistribute_particles(&mut grid_, alloc_unaligned_cpu);
+    if store_particles_once() {
+        redistribute_particles_accelerator(grid_, &mut accelerator_grid_, alloc_cpu);
+    } else {
+        redistribute_particles(&mut grid_, alloc_unaligned_cpu);
+    }
 }
 
 extern fn md_exchange_ghost_layer() -> () {
@@ -140,14 +166,19 @@ extern fn md_initialize_clusters() -> () {
 }
 
 extern fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    if(get_cluster_size() == 1) {
-        grid_assemble_neighbor_lists(
-            &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
-            assemble_particles_full_neighbor_list);
+    if store_particles_once() {
+        accelerator_grid_assemble_neighbor_lists(
+            grid_, &mut accelerator_grid_, cutoff_distance, alloc_cpu, assemble_particles_full_neighbor_list_accelerator);
     } else {
-        grid_assemble_neighbor_lists(
-            &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
-            assemble_clusters_full_neighbor_list);
+        if(get_cluster_size() == 1) {
+            grid_assemble_neighbor_lists(
+                &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
+                assemble_particles_full_neighbor_list);
+        } else {
+            grid_assemble_neighbor_lists(
+                &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
+                assemble_clusters_full_neighbor_list);
+        }
     }
 }
 

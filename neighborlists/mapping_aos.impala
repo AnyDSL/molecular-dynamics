@@ -99,7 +99,7 @@ fn swap_3d_arrays(i: i32, j: i32, arrays: Buffer) -> () {
     bitcast[&mut[real_t]](arrays.data)(second_idx + 2) = tmp_z;
 }
 
-fn @_transfer_3d_arrays_between_devices(src: Buffer, dest: Buffer, N: i32) -> () {
+fn @_transfer_3d_arrays_between_devices(src: Buffer, dest: Buffer) -> () {
     copy(src, dest);
 }
 

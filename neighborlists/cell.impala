@@ -49,6 +49,8 @@ struct Cell {
     neighbor_total_capacity: i32
 }
 
+fn store_particles_once() -> bool { true }
+
 fn allocate_cell(index: i32, size: i32, capacity: i32, neighbor_list_capacity: i32, @cluster_size: i32, allocate: fn(i32) -> Buffer) -> Cell {
     let N = if(size + 4 > capacity) {size + 4} else {capacity};
     let mut cluster_capacity = N / cluster_size;

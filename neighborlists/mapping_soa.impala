@@ -105,7 +105,7 @@ fn swap_3d_arrays(i: i32, j: i32, struct_of_arrays: StructOfArrays3D) -> () {
     bitcast[&mut[real_t]](struct_of_arrays.z.data)(j) = tmp_z;
 }
 
-fn @_transfer_3d_arrays_between_devices(src: StructOfArrays3D, dest: StructOfArrays3D, N: i32) -> () {
+fn @_transfer_3d_arrays_between_devices(src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
     copy(src.x, dest.x);
     copy(src.y, dest.y);
     copy(src.z, dest.z);

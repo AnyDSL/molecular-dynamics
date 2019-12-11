@@ -118,9 +118,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 16, 100);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 32, 100);
 #else
-        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 16, 100);
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 32, 100);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -134,16 +134,19 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
+        std::cout << "initialize_clusters" << std::endl << std::flush;
         begin = measure_time();
-        md_initialize_clusters();
+        //md_initialize_clusters();
         end = measure_time();
         cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
+        std::cout << "assemble_neighbors" << std::endl << std::flush;
         begin = measure_time();
         md_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
         end = measure_time();
         neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
+        std::cout << "copy_to_accelerator" << std::endl << std::flush;
         begin = measure_time();
         md_copy_data_to_accelerator();
         end = measure_time();
@@ -161,7 +164,8 @@ int main(int argc, char **argv) {
         }
 
         for(int j = 0; j < steps; ++j) {
-            std::cout << "Time step: " << j+1 << "\r" << std::flush;
+            //std::cout << "Time step: " << j+1 << "\r" << std::flush;
+            std::cout << "Time step: " << j+1 << std::endl << std::flush;
 
             LIKWID_MARKER_START("Force");
             begin = measure_time();
@@ -204,7 +208,7 @@ int main(int argc, char **argv) {
                 redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_initialize_clusters();
+                //md_initialize_clusters();
                 end = measure_time();
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -238,6 +242,15 @@ int main(int argc, char **argv) {
             }
             //std::cout << "Kinetic energy: " << md_compute_total_kinetic_energy() << std::endl;
         }
+
+        int nparticles = md_get_number_of_particles();
+        masses.resize(nparticles);
+        positions.resize(nparticles);
+        velocities.resize(nparticles);
+        forces.resize(nparticles);
+
+        md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
+        for(auto p: positions) { std::cout << p.x << ", " << p.y << ", " << p.z << std::endl; }
 
         begin = measure_time();
         md_deallocate_grid();

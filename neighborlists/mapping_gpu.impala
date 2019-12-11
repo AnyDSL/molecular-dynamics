@@ -65,12 +65,11 @@ fn @accelerator_allocate_3d_arrays(size: i32) -> Array3D {
     allocate_3d_arrays(size, acc.alloc)
 }
 
-fn @transfer_between_devices(source: Buffer, destination: Buffer, size: i32) -> () {
-    //copy(source, destination, size);
+fn @transfer_between_devices(source: Buffer, destination: Buffer) -> () {
     copy(source, destination);
 }
 
-fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D, N: i32) -> () {
+fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) -> () {
     _transfer_3d_arrays_between_devices(source, destination, N);
 }
 

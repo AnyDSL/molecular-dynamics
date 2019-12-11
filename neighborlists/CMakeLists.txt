@@ -52,7 +52,7 @@ anydsl_runtime_wrap(MD_PROGRAM
     IMPALA_FLAGS ${IMPALA_FLAGS}
     NAME md
     FILES
-    definitions.impala ${BACKEND_FILE} ${MAPPING_FILE} ${ARRAY_3D_FILES} ${MPI_FILES} utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala memory.impala)
+    definitions.impala ${BACKEND_FILE} ${MAPPING_FILE} ${ARRAY_3D_FILES} ${MPI_FILES} utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala cell.impala grid.impala neighborlist.impala neighborlist_accelerator.impala accelerator_grid.impala compute.impala lennard_jones.impala energy.impala runtime.impala memory.impala)
 
 add_executable(md main.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
