@@ -9,12 +9,9 @@ fn append_neighbor_accelerator(
     allocate: fn(i32) -> Buffer) -> () {
 
     let neighbors_per_cluster = get_array_of_i32(accelerator_grid.neighbors_per_cluster_cpu);
-    let neighborlist_offsets = get_array_of_i32(accelerator_grid.neighborlist_offsets_cpu);
-    let neighborlists = get_array_of_i32(accelerator_grid.neighborlists_cpu);
     let nb_list_size = neighbors_per_cluster(cell_offset + cluster);
-    let nb_list_capacity = accelerator_grid.neighborlist_capacity;
 
-    if(nb_list_size == nb_list_capacity) {
+    if(nb_list_size == accelerator_grid.neighborlist_capacity) {
         let adding = nb_list_size / 10 + 1;
         let extension = select(adding < 4, 4, adding);
         let capacity = accelerator_grid.neighborlist_capacity + extension;
@@ -22,7 +19,10 @@ fn append_neighbor_accelerator(
         reallocate_accelerator_neighborlist_capacity(accelerator_grid, capacity);
     }
 
-    let buffer_index = nb_list_capacity * (cell_offset + cluster) + nb_list_size;
+    let neighborlists = get_array_of_i32(accelerator_grid.neighborlists_cpu);
+    let neighborlist_offsets = get_array_of_i32(accelerator_grid.neighborlist_offsets_cpu);
+    let buffer_index = accelerator_grid.neighborlist_capacity * (cell_offset + cluster) + nb_list_size;
+
     neighborlists(buffer_index) = neighbor_offset + neighbor_cluster * accelerator_grid.cluster_size;
     neighbors_per_cluster(cell_offset + cluster) += 1;
 }
