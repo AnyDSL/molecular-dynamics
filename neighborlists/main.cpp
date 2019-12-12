@@ -164,8 +164,7 @@ int main(int argc, char **argv) {
         }
 
         for(int j = 0; j < steps; ++j) {
-            //std::cout << "Time step: " << j+1 << "\r" << std::flush;
-            std::cout << "Time step: " << j+1 << std::endl << std::flush;
+            std::cout << "Time step: " << j+1 << "\r" << std::flush;
 
             LIKWID_MARKER_START("Force");
             begin = measure_time();
@@ -251,6 +250,12 @@ int main(int argc, char **argv) {
 
         md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
         for(auto p: positions) { std::cout << p.x << ", " << p.y << ", " << p.z << std::endl; }
+        /*
+        std::cout << "--------------" << std::endl;
+        for(auto v: velocities) { std::cout << v.x << ", " << v.y << ", " << v.z << std::endl; }
+        std::cout << "--------------" << std::endl;
+        for(auto f: forces) { std::cout << f.x << ", " << f.y << ", " << f.z << std::endl; }
+        */
 
         begin = measure_time();
         md_deallocate_grid();
