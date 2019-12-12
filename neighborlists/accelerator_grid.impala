@@ -113,16 +113,6 @@ fn accelerator_reallocate_cell_buffer(
         let cell_size = cell_sizes(cell_index);
         let new_offset = cell_index * cell_capacity;
 
-        print_string("cell_size = ");
-        print_i32(cell_size);
-        print_string("\n");
-        print_flush();
-
-        print_string("capacity = ");
-        print_i32(cell_capacity);
-        print_string("\n");
-        print_flush();
-
         copy_offset(*buffer, cell_offset * elem_size, new_buffer, new_offset * elem_size, cell_size * elem_size);
     });
 
@@ -155,7 +145,9 @@ fn accelerator_reallocate_cell_3d_arrays(
 fn reallocate_accelerator_cell_capacity(accelerator_grid: &mut AcceleratorGrid, capacity: i32) -> () {
     let mut adjusted_capacity = capacity;
 
-    print_string("begin reallocate_cell_capacity\n");
+    print_string("begin reallocate_cell_capacity(");
+    print_i32(capacity);
+    print_string(")\n");
     print_flush();
 
     if capacity % accelerator_grid.cluster_size != 0 {

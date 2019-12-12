@@ -5,7 +5,6 @@ fn append_neighbor_accelerator(
     neighbor_cluster: i32,
     neighbor_cell: i32,
     neighbor_offset: i32,
-    offset_neighbors: i32,
     accelerator_grid: &mut AcceleratorGrid,
     allocate: fn(i32) -> Buffer) -> () {
 
@@ -13,8 +12,9 @@ fn append_neighbor_accelerator(
     let neighborlist_offsets = get_array_of_i32(accelerator_grid.neighborlist_offsets_cpu);
     let neighborlists = get_array_of_i32(accelerator_grid.neighborlists_cpu);
     let nb_list_size = neighbors_per_cluster(cell_offset + cluster);
+    let nb_list_capacity = accelerator_grid.neighborlist_capacity;
 
-    if(nb_list_size == accelerator_grid.neighborlist_capacity) {
+    if(nb_list_size == nb_list_capacity) {
         let adding = nb_list_size / 10 + 1;
         let extension = select(adding < 4, 4, adding);
         let capacity = accelerator_grid.neighborlist_capacity + extension;
@@ -22,8 +22,8 @@ fn append_neighbor_accelerator(
         reallocate_accelerator_neighborlist_capacity(accelerator_grid, capacity);
     }
 
-    let buf_idx = offset_neighbors + nb_list_size;
-    neighborlists(buf_idx) = neighbor_offset + neighbor_cluster * accelerator_grid.cluster_size;
+    let buffer_index = nb_list_capacity * (cell_offset + cluster) + nb_list_size;
+    neighborlists(buffer_index) = neighbor_offset + neighbor_cluster * accelerator_grid.cluster_size;
     neighbors_per_cluster(cell_offset + cluster) += 1;
 }
 
@@ -33,7 +33,6 @@ fn assemble_particles_full_neighbor_list_accelerator(
     cell_index: i32,
     cell_offset: i32,
     cell_spatial_index: [i32 * 3],
-    offset_neighbors: i32,
     grid: &Grid,
     accelerator_grid: &mut AcceleratorGrid,
     cutoff_distance: real_t,
@@ -73,7 +72,7 @@ fn assemble_particles_full_neighbor_list_accelerator(
                         if(dx * dx + dy * dy + dz * dz <= squared_cutoff_distance) {
                             append_neighbor_accelerator(
                                 cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset,
-                                offset_neighbors, accelerator_grid, allocate);
+                                accelerator_grid, allocate);
                         }
                     }
                 } else {
@@ -87,7 +86,7 @@ fn assemble_particles_full_neighbor_list_accelerator(
                             if(dx * dx + dy * dy + dz * dz <= squared_cutoff_distance) {
                                 append_neighbor_accelerator(
                                     cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset,
-                                    offset_neighbors, accelerator_grid, allocate);
+                                    accelerator_grid, allocate);
                             }
                         }
                     }
@@ -102,12 +101,10 @@ fn accelerator_grid_assemble_neighbor_lists(
     accelerator_grid: &mut AcceleratorGrid,
     cutoff_distance: real_t,
     allocate: fn(i32) -> Buffer,
-    assemble: fn(i32, i32, i32, [i32 * 3], i32, &Grid, &mut AcceleratorGrid, real_t, fn(i32) -> Buffer)-> ()) -> () {
+    assemble: fn(i32, i32, i32, [i32 * 3], &Grid, &mut AcceleratorGrid, real_t, fn(i32) -> Buffer)-> ()) -> () {
 
     let cell_sizes = get_array_of_i32(accelerator_grid.cell_sizes);
     let neighbors_per_cluster = get_array_of_i32(accelerator_grid.neighbors_per_cluster_cpu);
-    let neighborlist_offsets = get_array_of_i32(accelerator_grid.neighborlist_offsets_cpu);
-    let mut offset_nbs = 0;
 
     range(0, accelerator_grid.ncells, |cell_index| {
         let cell_offset = get_accelerator_cell_offset(cell_index, accelerator_grid);
@@ -116,9 +113,7 @@ fn accelerator_grid_assemble_neighbor_lists(
 
         range(0, cell_size, |cluster| {
             neighbors_per_cluster(cell_offset + cluster) = 0;
-            assemble(cluster, cell_index, cell_offset, cell_spatial_index, offset_nbs, grid, accelerator_grid, cutoff_distance, allocate);
-            neighborlist_offsets(cell_offset + cluster) = offset_nbs;
-            offset_nbs += neighbors_per_cluster(cell_offset + cluster);
+            assemble(cluster, cell_index, cell_offset, cell_spatial_index, grid, accelerator_grid, cutoff_distance, allocate);
         });
     });
 }

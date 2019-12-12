@@ -56,7 +56,7 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i
 
         range(0, cell_size, |cluster| {
             let cluster_index = cell_offset + cluster;
-            let nb_list_offset = neighborlist_capacity * (cluster_index);
+            let nb_list_offset = neighborlist_capacity * cluster_index;
             let nb_list_size = neighbors_per_cluster(cluster_index);
 
             @@body(cluster, cluster_index, 0, nb_list_size, nb_list_offset, neighborlists);
