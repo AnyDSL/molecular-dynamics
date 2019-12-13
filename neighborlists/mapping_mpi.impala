@@ -838,6 +838,9 @@ fn synchronize_ghost_layer_cells(
 
         mpih.wait(&mut request, &mut status);
 
+        //print_real_buffer_with_rank("send sync", comm_send_buffer, send_start, rank_send_ptr(exchange_rank) * 3);
+        //print_real_buffer_with_rank("recv sync", comm_recv_buffer, recv_start, rank_recv_ptr(exchange_rank) * 3);
+
         unpack_ghost_layer_cells(
             comm_recv_buffer, grid, accelerator_grid,
             recv_begin_x, recv_begin_y, recv_begin_z,
@@ -967,8 +970,8 @@ fn unpack_ghost_layer_particles(
 
             buffer_index += 1;
 
-            if(cell_size >= accelerator_grid.cell_capacity) {
-                let new_capacity = cell_size + cell_size / 10;
+            if(new_cell_size >= accelerator_grid.cell_capacity) {
+                let new_capacity = new_cell_size + new_cell_size / 10;
                 reallocate_accelerator_cell_capacity(accelerator_grid, new_capacity);
             }
 
@@ -1070,6 +1073,9 @@ fn exchange_ghost_layer_particles(
             mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
         mpih.wait(&mut request, &mut status);
+
+        //print_real_buffer_with_rank("send exchg", comm_send_buffer, 0, dims_length + rank_send_ptcs + rank_send_ptcs * 2 * 3);
+        //print_real_buffer_with_rank("recv exchg", comm_recv_buffer, 0, dims_length + rank_recv_ptcs + rank_recv_ptcs * 2 * 3);
 
         rank_recv_ptr(exchange_rank) = unpack_ghost_layer_particles(
             comm_recv_buffer, grid, accelerator_grid,
