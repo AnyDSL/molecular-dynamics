@@ -273,7 +273,7 @@ fn build_comm_offsets(
                 send_starts(isend) = ptr_send;
 
                 isend += 1;
-                ptr_send += 3 * cell.size;
+                ptr_send += 3 * cell_size;
             }
 
             for cell, index in
@@ -292,7 +292,7 @@ fn build_comm_offsets(
                 recv_starts(irecv) = ptr_recv;
 
                 irecv += 1;
-                ptr_recv += 3 * cell.size;
+                ptr_recv += 3 * cell_size;
             }
         }
 
