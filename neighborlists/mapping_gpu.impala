@@ -238,6 +238,7 @@ fn build_comm_offsets(
     let recv_sizes = get_array_of_i32(comm_offsets.recv_sizes);
     let send_starts = get_array_of_i32(comm_offsets.send_starts);
     let recv_starts = get_array_of_i32(comm_offsets.recv_starts);
+    let cell_sizes = get_array_of_i32(accelerator_grid.cell_sizes);
 
     if world_size > 1 {
         range(0, world_size, |r| {
@@ -264,10 +265,11 @@ fn build_comm_offsets(
                     range, range, range) {
 
                 let flat_index = flatten_index(index, grid);
-                let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
+                let cell_offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
+                let cell_size = cell_sizes(flat_index);
 
-                send_offsets(isend) = cell_offsets(flat_index);
-                send_sizes(isend) = cell.size;
+                send_offsets(isend) = cell_offset;
+                send_sizes(isend) = cell_size;
                 send_starts(isend) = ptr_send;
 
                 isend += 1;
@@ -282,10 +284,11 @@ fn build_comm_offsets(
                     range, range, range) {
 
                 let flat_index = flatten_index(index, grid);
-                let cell_offsets = get_array_of_i32(accelerator_grid.cell_offsets);
+                let cell_offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
+                let cell_size = cell_sizes(flat_index);
 
-                recv_offsets(irecv) = cell_offsets(flat_index);
-                recv_sizes(irecv) = cell.size;
+                recv_offsets(irecv) = cell_offset;
+                recv_sizes(irecv) = cell_size;
                 recv_starts(irecv) = ptr_recv;
 
                 irecv += 1;

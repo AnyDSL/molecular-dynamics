@@ -87,7 +87,7 @@ extern fn md_initialize_grid(
 
     print_string("initialize_grid_comm\n");
     print_flush();
-    initialize_grid_comm(grid_, &mut comm_offsets_, world_size, world_rank);
+    initialize_grid_comm(grid_, accelerator_grid_, &mut comm_offsets_, world_size, world_rank);
 
     grid_.nparticles
 }
@@ -158,7 +158,7 @@ extern fn md_redistribute_particles() -> () {
 }
 
 extern fn md_exchange_ghost_layer() -> () {
-    exchange_ghost_layer_particles(&mut grid_, world_size, world_rank);
+    exchange_ghost_layer_particles(&mut grid_, &mut accelerator_grid_, world_size, world_rank);
 }
 
 extern fn md_initialize_clusters() -> () {
