@@ -838,9 +838,6 @@ fn synchronize_ghost_layer_cells(
 
         mpih.wait(&mut request, &mut status);
 
-        //print_real_buffer_with_rank("send sync", comm_send_buffer, send_start, rank_send_ptr(exchange_rank) * 3);
-        //print_real_buffer_with_rank("recv sync", comm_recv_buffer, recv_start, rank_recv_ptr(exchange_rank) * 3);
-
         unpack_ghost_layer_cells(
             comm_recv_buffer, grid, accelerator_grid,
             recv_begin_x, recv_begin_y, recv_begin_z,
@@ -878,13 +875,7 @@ fn pack_ghost_layer_particles(
 
     buffer_index += 2;
 
-    for cell, index in
-        map_over_grid_subdomain(
-            grid,
-            begin_x, begin_y, begin_z,
-            end_x, end_y, end_z,
-            range, range, range) {
-
+    map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |cell, index| {
         let flat_index = flatten_index(index, grid);
         let cell_size = cell_sizes(flat_index);
         let cell_offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
@@ -923,7 +914,7 @@ fn pack_ghost_layer_particles(
         }
 
         iterations++;
-    }
+    });
 
     buffer_data(0) = *rmng_particles as real_t;
     buffer_data(1) = *packed_iterations as real_t;
@@ -956,13 +947,7 @@ fn unpack_ghost_layer_particles(
     *unpacked_iterations = buffer_data(1) as i32;
     buffer_index += 2;
 
-    for cell, index in
-        map_over_grid_subdomain(
-            grid,
-            begin_x, begin_y, begin_z,
-            end_x, end_y, end_z,
-            range, range, range) {
-
+    map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |cell, index| {
         if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
             let flat_index = flatten_index(index, grid);
             let cell_size = cell_sizes(flat_index);
@@ -976,8 +961,6 @@ fn unpack_ghost_layer_particles(
             }
 
             let cell_offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
-
-            grid.nparticles += new_cell_size - cell_size;
 
             if(new_cell_size > 0) {
                 copy_offset(
@@ -999,10 +982,13 @@ fn unpack_ghost_layer_particles(
                 buffer_index += new_cell_size * 3;
                 unpacked_particles += new_cell_size;
             }
+
+            cell_sizes(flat_index) = new_cell_size;
+            grid.nparticles += new_cell_size - cell_size;
         }
 
         iterations++;
-    }
+    });
 
     unpacked_particles
 }
@@ -1073,9 +1059,6 @@ fn exchange_ghost_layer_particles(
             mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
         mpih.wait(&mut request, &mut status);
-
-        //print_real_buffer_with_rank("send exchg", comm_send_buffer, 0, dims_length + rank_send_ptcs + rank_send_ptcs * 2 * 3);
-        //print_real_buffer_with_rank("recv exchg", comm_recv_buffer, 0, dims_length + rank_recv_ptcs + rank_recv_ptcs * 2 * 3);
 
         rank_recv_ptr(exchange_rank) = unpack_ghost_layer_particles(
             comm_recv_buffer, grid, accelerator_grid,
