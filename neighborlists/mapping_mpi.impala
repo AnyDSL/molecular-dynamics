@@ -74,6 +74,14 @@ fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32, rx: &mut i32, ry: &mut i
     *rz = index / (nx * ny);
 }
 
+// MPI barrier
+fn barrier() -> () {
+    let mpih = mpi();
+    let mut request: MPI_Request;
+
+    mpih.barrier(mpih.comms.world, &mut request);
+}
+
 // Print string with rank
 fn print_string_with_rank(string: &[u8]) -> () {
     let mpih = mpi();

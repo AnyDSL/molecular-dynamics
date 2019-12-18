@@ -235,6 +235,7 @@ extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_av
     let mut res: f64;
     let is_root = world_rank == 0;
 
+    barrier();
     print_string_cond(is_root, "Total Force Neigh Comm Other\n");
 
     reduce_time(total_avg, &mut res);
