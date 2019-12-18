@@ -56,12 +56,7 @@ extern fn md_initialize_grid(
     print_string("}\n");
     */
 
-    print_string("allocate_grid\n");
-    print_flush();
     grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, neighbor_list_capacity, cluster_size, alloc_unaligned_cpu);
-
-    print_string("allocate_accelerator_grid\n");
-    print_flush();
     accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, cluster_size, cell_capacity, neighbor_list_capacity);
 
     /*
@@ -76,17 +71,11 @@ extern fn md_initialize_grid(
     */
 
     if store_particles_once() {
-        print_string("initialize_accelerator_grid\n");
-        print_flush();
         initialize_accelerator_grid(masses, positions, velocities, nparticles, &mut grid_, &mut accelerator_grid_, alloc_cpu);
     } else {
-        print_string("initialize_grid\n");
-        print_flush();
         initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
     }
 
-    print_string("initialize_grid_comm\n");
-    print_flush();
     initialize_grid_comm(grid_, accelerator_grid_, &mut comm_offsets_, world_size, world_rank);
 
     grid_.nparticles
@@ -228,4 +217,44 @@ extern fn md_get_number_of_particles() -> i32 {
 
 extern fn md_report_memory_allocation() -> () {
     report_memory_allocation();
+}
+
+extern fn md_report_particles() -> () {
+    let (nparticles, nghost) = get_node_particles_amount(grid_, accelerator_grid_, world_size, world_rank);
+
+    print_i32(nparticles);
+    print_string(" ");
+    print_i32(nghost);
+    print_string(" # nparticles / nghost (rank = ");
+    print_i32(world_rank);
+    print_string(")\n");
+    print_flush();
+}
+
+extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64, other_avg: f64) -> () {
+    let mut res: f64;
+    let is_root = world_rank == 0;
+
+    print_string_cond(is_root, "Total Force Neigh Comm Other\n");
+
+    reduce_time(total_avg, &mut res);
+    print_f64_cond(is_root, res);
+
+    reduce_time(force_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(neigh_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(comm_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(other_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    print_string_cond(is_root, "\n");
 }

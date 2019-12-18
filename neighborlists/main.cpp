@@ -24,10 +24,9 @@ void print_usage(char *name) {
     std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
 }
 
-std::pair<double,double> print_time_statistics(std::vector<double> time, std::string name) {
+std::pair<double,double> get_time_statistics(std::vector<double> time, std::string name) {
     double const mean = compute_mean(time);
     double const stdev = compute_standard_deviation(time, mean);
-    std::cout << name << "\t" << mean << "\tms " << stdev << " ms" << std::endl;
     return std::make_pair(mean, stdev);
 }
 
@@ -36,19 +35,20 @@ int main(int argc, char **argv) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
+
     bool vtk = false;
+
     if(argc == 9) {
         std::string argument(argv[7]);
+
         if(argument != "-vtk") {
             print_usage(argv[0]);
             return EXIT_FAILURE;
-        }
-        else {
+        } else {
             vtk = true;
         }
     }
-    
-    
+
     int gridsize[3];
     gridsize[0] = atoi(argv[1]);
     gridsize[1] = atoi(argv[2]);
@@ -65,7 +65,6 @@ int main(int argc, char **argv) {
     double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
     //double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     double potential_minimum = 1.6796;
-    std::cout << "Potential minimum at: " << potential_minimum << std::endl;
     AABB aabb, aabb1, aabb2;
     double spacing[3];
     double spacing1[3];
@@ -118,35 +117,28 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 32, 100);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 40, 100);
 #else
-        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 32, 100);
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 40, 100);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-        if(i == 0) {
-            std::cout << "Number of particles: " << size << std::endl;
-        }
-        std::cout << "Starting run " << i+1 << std::endl;
         if(size == 0) {
             std::cout << "Zero particles created. Aborting." << std::endl;
             return EXIT_FAILURE;
         }
 
-        std::cout << "initialize_clusters" << std::endl << std::flush;
         begin = measure_time();
         //md_initialize_clusters();
         end = measure_time();
         cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-        std::cout << "assemble_neighbors" << std::endl << std::flush;
         begin = measure_time();
         md_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
         end = measure_time();
         neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-        std::cout << "copy_to_accelerator" << std::endl << std::flush;
         begin = measure_time();
         md_copy_data_to_accelerator();
         end = measure_time();
@@ -164,8 +156,6 @@ int main(int argc, char **argv) {
         }
 
         for(int j = 0; j < steps; ++j) {
-            std::cout << "Time step: " << j+1 << "\r" << std::flush;
-
             LIKWID_MARKER_START("Force");
             begin = measure_time();
             md_compute_forces(cutoff_radius, epsilon, sigma);
@@ -239,60 +229,51 @@ int main(int argc, char **argv) {
                     write_vtk_to_file(filename, masses, positions, velocities, forces);
                 }
             }
-            //std::cout << "Kinetic energy: " << md_compute_total_kinetic_energy() << std::endl;
         }
 
-        int nparticles = md_get_number_of_particles();
-        masses.resize(nparticles);
-        positions.resize(nparticles);
-        velocities.resize(nparticles);
-        forces.resize(nparticles);
-
-        md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
-        for(auto p: positions) { std::cout << p.x << ", " << p.y << ", " << p.z << std::endl; }
-        /*
-        std::cout << "--------------" << std::endl;
-        for(auto v: velocities) { std::cout << v.x << ", " << v.y << ", " << v.z << std::endl; }
-        std::cout << "--------------" << std::endl;
-        for(auto f: forces) { std::cout << f.x << ", " << f.y << ", " << f.z << std::endl; }
-        */
+        md_report_particles();
 
         begin = measure_time();
         md_deallocate_grid();
         end = measure_time();
 
         deallocation_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-        std::cout << std::flush << std::endl;
     }
-    std::cout << std::flush << std::endl;
+
     LIKWID_MARKER_CLOSE;
 
-    md_mpi_finalize();
-
     std::vector<std::pair<double,double>> time_results(11);
-    std::cout << "Code Region\tAverage\tStandard Deviation" << std::endl;
-    time_results[0] = print_time_statistics(grid_initialization_time, "grid_initialization ");
-    time_results[1] = print_time_statistics(integration_time, "integration");
-    time_results[2] = print_time_statistics(redistribution_time, "redistribution");
-    time_results[3] = print_time_statistics(cluster_initialization_time, "cluster_initialization");
-    time_results[4] = print_time_statistics(neighborlist_creation_time, "neighborlist_creation");
-    time_results[5] = print_time_statistics(force_computation_time, "force_computation");
-    time_results[6] = print_time_statistics(deallocation_time, "deallocation");
-    time_results[7] = print_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
-    time_results[8] = print_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
-    time_results[9] = print_time_statistics(synchronization_time, "synchronization");
-    time_results[10] = print_time_statistics(exchange_time, "exchange");
+
+    time_results[0] = get_time_statistics(grid_initialization_time, "grid_initialization ");
+    time_results[1] = get_time_statistics(integration_time, "integration");
+    time_results[2] = get_time_statistics(redistribution_time, "redistribution");
+    time_results[3] = get_time_statistics(cluster_initialization_time, "cluster_initialization");
+    time_results[4] = get_time_statistics(neighborlist_creation_time, "neighborlist_creation");
+    time_results[5] = get_time_statistics(force_computation_time, "force_computation");
+    time_results[6] = get_time_statistics(deallocation_time, "deallocation");
+    time_results[7] = get_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
+    time_results[8] = get_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
+    time_results[9] = get_time_statistics(synchronization_time, "synchronization");
+    time_results[10] = get_time_statistics(exchange_time, "exchange");
+
     double mean_sum = 0, stdev_sum = 0;
-    for(size_t i = 0; i < time_results.size(); ++i) {
+
+    for(size_t i = 1; i < time_results.size(); ++i) {
         mean_sum += time_results[i].first;
         stdev_sum += time_results[i].second;
     }
-    std::cout << "Total" << "\t" << mean_sum << "\tms " << stdev_sum << " ms" << std::endl;
 
-    std::cout << "Counted number of FLOPS within the force computation: " << get_number_of_flops() << std::endl;
+    md_report_time(
+        mean_sum,
+        time_results[1].first + time_results[5].first,
+        time_results[3].first + time_results[4].first,
+        time_results[9].first + time_results[10].first,
+        time_results[2].first + time_results[6].first + time_results[7].first + time_results[8].first
+    );
 
     //md_report_memory_allocation();
+
+    md_mpi_finalize();
 
     return EXIT_SUCCESS;
 }

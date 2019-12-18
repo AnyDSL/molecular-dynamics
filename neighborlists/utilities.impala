@@ -53,7 +53,6 @@ fn @swap_real(i: i32, j: i32, buf: Buffer) -> () {
     set_real(j, buf, tmp);
 }
 
-
 fn @get_real(i: i32, buf: Buffer) -> real_t {
     bitcast[&[real_t]](buf.data)(i)
 }
@@ -145,4 +144,14 @@ fn @vector_dot(a: Vector3D, b: Vector3D) -> real_t { a.x * b.x + a.y * b.y + a.z
 fn @vector_len2(a: Vector3D) -> real_t { vector_dot(a, a) }
 fn @vector_scale(a: real_t, b: Vector3D) -> Vector3D { vector_map(b, @ |x| x * a) }
 
+fn print_f64_cond(condition: bool, value: f64) -> () {
+    if(condition) {
+        print_f64(value);
+    }
+}
 
+fn print_string_cond(condition: bool, string: &[u8]) -> () {
+    if(condition) {
+        print_string(string);
+    }
+}
