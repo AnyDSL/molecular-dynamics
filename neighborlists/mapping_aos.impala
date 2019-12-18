@@ -110,7 +110,7 @@ fn copy_3d_arrays_to_buffer(
     offset_dest: i32,
     length: i32) -> i32 {
 
-    copy_offset(source, offset_source, dest, offset_dest, length * 3);
+    copy_offset(source, offset_source * 3, dest, offset_dest, length * 3);
 
     length * 3
 }
@@ -122,7 +122,7 @@ fn copy_buffer_to_3d_arrays(
     offset_dest: i32,
     length: i32) -> i32 {
 
-    copy_offset(source, offset_source, dest, offset_dest, length * 3);
+    copy_offset(source, offset_source, dest, offset_dest * 3, length * 3);
 
     length * 3
 }
