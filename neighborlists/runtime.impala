@@ -8,10 +8,17 @@ extern fn md_set_thread_count(thread_count: i32) -> () {
 }
 
 extern fn md_initialize_grid(
-  masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
-  nparticles: i32, min: &[real_t], max: &[real_t], rank_min: &[real_t],
-  rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32,
-  neighborlist_capacity: i32) -> i32 {
+    masses: &[real_t],
+    positions: &[Vector3D],
+    velocities: &[Vector3D],
+    nparticles: i32,
+    min: &[real_t],
+    max: &[real_t],
+    rank_min: &[real_t],
+    rank_max: &[real_t],
+    cell_spacing: real_t,
+    cell_capacity: i32,
+    neighborlist_capacity: i32) -> i32 {
 
     let aabb = AABB {
         xmin: min(0),
@@ -41,7 +48,11 @@ extern fn md_initialize_grid(
 }
 
 extern fn md_get_node_bounding_box(
-    cell_spacing: real_t, min: &[real_t], max: &[real_t], rank_min: &mut[real_t * 3], rank_max: &mut[real_t * 3]) -> () {
+    cell_spacing: real_t,
+    min: &[real_t],
+    max: &[real_t],
+    rank_min: &mut[real_t * 3],
+    rank_max: &mut[real_t * 3]) -> () {
 
     let aabb = AABB {
         xmin: min(0),
@@ -83,7 +94,10 @@ extern fn md_integration(dt: real_t) -> () {
 }
 
 extern fn md_write_grid_data_to_arrays(
-    masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
+    masses: &mut[real_t],
+    positions: &mut [Vector3D],
+    velocities: &mut [Vector3D],
+    forces: &mut [Vector3D]) -> i32 {
 
     write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
