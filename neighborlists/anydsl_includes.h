@@ -7,11 +7,12 @@ extern "C" {
         double y;
         double z;
     };
-    int md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double const *, double const *, double, int, int);
+    int md_initialize_grid(
+        double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double const *, double const *,
+        double, int, int
+    );
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
-    void md_integrate_position(double);
-    void md_integrate_velocity(double);
     void md_integration(double);
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_redistribute_particles();
@@ -19,7 +20,6 @@ extern "C" {
     void md_assemble_neighborlists(double);
     void md_deallocate_grid();
     void md_print_grid();
-    void md_reset_forces();
     void md_compute_forces(double, double, double);
     double md_compute_total_kinetic_energy();
     uint64_t get_number_of_flops();
