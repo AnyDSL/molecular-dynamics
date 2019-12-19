@@ -106,9 +106,11 @@ fn @reset_force(i: i32, grid: Grid) -> () {
 
 fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
     let mut force = get_vector_from_3d_arrays(i, grid.forces_cpu);
+
     force.x += dF_x;
     force.y += dF_y;
     force.z += dF_z;
+
     set_3d_arrays(i, grid.forces_cpu, force);
 }
 

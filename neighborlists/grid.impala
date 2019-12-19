@@ -60,15 +60,15 @@ fn allocate_grid(
     let mut ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
     let mut nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
 
-    if(lastx) {
+    if lastx {
         nx += 1;
     }
 
-    if(lasty) {
+    if lasty {
         ny += 1;
     }
 
-    if(lastz) {
+    if lastz {
         nz += 1;
     }
 
@@ -446,13 +446,13 @@ fn map_over_grid(
     iterate_outer: fn(i32, i32, fn(i32) -> ()) -> (),
     iterate_middle: fn(i32, i32, fn(i32) -> ()) -> (),
     iterate_inner: fn(i32, i32, fn(i32) -> ()) -> (),
-    f: fn(i32, [i32 * 3]) -> ()) -> () {
+    body: fn(i32, [i32 * 3]) -> ()) -> () {
 
     for i in iterate_outer(0, grid.nx) {
         for j in iterate_middle(0, grid.ny) {
             for k in iterate_inner(0, grid.nz) {
                 let cell_index = [i, j, k];
-                f(flatten_index(cell_index, grid), cell_index, continue)
+                body(flatten_index(cell_index, grid), cell_index, continue)
             }
         }
     }
