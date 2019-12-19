@@ -1,321 +1,91 @@
-/* Insertion sort */
-fn cell_sort(cell: &Cell) -> () {
-    for i in range(1, cell.size) {
-        let mut j = i;
-        while (j > 0 && get_z_component(j - 1, cell.positions) > get_z_component(j, cell.positions)) { 
-            swap_particles(j, j - 1, cell);
-            --j;
-        }
-    }
-}
+fn append_neighbor_accelerator(
+    cluster: i32,
+    cell_index: i32,
+    cell_offset: i32,
+    neighbor_cluster: i32,
+    neighbor_cell: i32,
+    neighbor_offset: i32,
+    grid: &mut Grid,
+    allocate: fn(i32) -> Buffer) -> () {
 
-fn cell_arrange_clusters(cell: &mut Cell) -> () {
-    let mut nclusters = cell.size / cell.cluster_size;
+    let neighbors_per_cluster = get_array_of_i32(grid.neighbors_per_cluster_cpu);
+    let nb_list_size = neighbors_per_cluster(cell_offset + cluster);
 
-    if(cell.size % cell.cluster_size > 0) {
-        nclusters += 1;
-    }
-
-    cell.padding = nclusters * cell.cluster_size - cell.size;
-
-    if(nclusters != cell.nclusters) {
-        let clusters = get_array_of_clusters(cell.clusters);
-
-        for i in range(0, nclusters) {
-            clusters(i).nb_list_size = 0;
-        }
-
-        cell.nclusters = nclusters;
-    }
-}
-
-fn @compute_bounding_box(positions: Array3D, base_index: i32, @cluster_size: i32) -> AABB {
-    let mut aabb : AABB;
-    aabb.xmin = get_x_component(base_index, positions);
-    aabb.ymin = get_y_component(base_index, positions);
-    aabb.zmin = get_z_component(base_index, positions);
-    aabb.xmax = get_x_component(base_index, positions);
-    aabb.ymax = get_y_component(base_index, positions);
-    aabb.zmax = get_z_component(base_index, positions);
-    for j in range(1, cluster_size) {
-        let index = base_index + j;
-        if(get_x_component(index, positions) < aabb.xmin) {
-            aabb.xmin = get_x_component(index, positions);
-        }
-        else if(get_x_component(index, positions) > aabb.xmax) {
-            aabb.xmax = get_x_component(index, positions);
-        }
-        if(get_y_component(index, positions) < aabb.ymin) {
-            aabb.ymin = get_y_component(index, positions);
-        }
-        else if(get_y_component(index, positions) > aabb.ymax) {
-            aabb.ymax = get_y_component(index, positions);
-        }
-        if(get_z_component(index, positions) < aabb.zmin) {
-            aabb.zmin = get_z_component(index, positions);
-        }
-        else if(get_z_component(index, positions) > aabb.zmax) {
-            aabb.zmax = get_z_component(index, positions);
-        }
-    }
-    //print_AABB(aabb);
-    aabb
-}
-
-fn cell_compute_bounding_boxes(cell: &Cell) -> () {
-    let nclusters = cell.nclusters;
-    let cluster_size = cell.cluster_size;
-    let clusters = get_array_of_clusters(cell.clusters);
-
-    for i in range(0, nclusters - 1) {
-        clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size);
-    }
-
-    let i = nclusters - 1;
-    clusters(i).aabb = compute_bounding_box(cell.positions, i * cluster_size, cluster_size - cell.padding);  
-}
-
-fn grid_initialize_clusters(grid: &Grid, outer_loop: fn(i32, i32, fn(i32) -> ()) -> (), middle_loop: fn(i32, i32, fn(i32) -> ()) -> (), inner_loop: fn(i32, i32, fn(i32) -> ()) -> ()) -> () {
-    if(get_cluster_size() == 1) {
-        for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
-            if(cell.size > 0) {
-                cell_arrange_clusters(cell);
-            }
-        }
-    } else {
-        for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
-            if(cell.size > 0) {
-                cell_sort(cell);
-                cell_arrange_clusters(cell);
-                cell_compute_bounding_boxes(cell);
-            }
-        }
-    }
-}
-
-fn append_neighbor(cell: &mut Cell, cluster_index: i32, neighbor_cell: &Cell, index: i32, allocate: fn(i32) -> Buffer) -> () {
-    let clusters = get_array_of_clusters(cell.clusters);
-    let nb_list_size = clusters(cluster_index).nb_list_size;
-
-    if(nb_list_size == cell.neighbor_list_capacity) {
+    if(nb_list_size == grid.neighborlist_capacity) {
         let adding = nb_list_size / 10 + 1;
-        let extension = if(adding < 4) {4} else {adding};
-        let old_capacity = cell.neighbor_list_capacity;
+        let extension = select(adding < 4, 4, adding);
+        let capacity = grid.neighborlist_capacity + extension;
 
-        cell.neighbor_list_capacity += extension;
-        cell.neighbor_total_capacity = cell.neighbor_list_capacity * cell.cluster_capacity;
-
-        let neighbor_cells = allocate(cell.neighbor_total_capacity * sizeof[&Cell]());
-        let neighbor_indices = allocate(cell.neighbor_total_capacity * sizeof[i32]());
-        let mut buffer_offset = 0;
-        let mut old_buffer_offset = 0;
-
-        for i in range(0, cell.nclusters) {
-            for j in range(0, clusters(i).nb_list_size) {
-                set_cell_pointer(buffer_offset + j, neighbor_cells,
-                    get_cell_pointer(old_buffer_offset + j, cell.neighbor_cells));
-
-                set_i32(buffer_offset + j, neighbor_indices, get_i32(old_buffer_offset + j, cell.neighbor_indices));
-            }
-
-            if(i == cluster_index) {
-                set_cell_pointer(buffer_offset + nb_list_size, neighbor_cells, neighbor_cell);
-                set_i32(buffer_offset + nb_list_size, neighbor_indices, index);
-
-                clusters(i).nb_list_size += 1;
-            }
-
-            buffer_offset += cell.neighbor_list_capacity;
-            old_buffer_offset += old_capacity;
-        }
-
-        release(cell.neighbor_cells);
-        release(cell.neighbor_indices);
-
-        cell.neighbor_cells = neighbor_cells;
-        cell.neighbor_indices = neighbor_indices;
-    } else {
-        let buf_idx = (cluster_index * cell.neighbor_list_capacity) + nb_list_size;
-
-        set_cell_pointer(buf_idx, cell.neighbor_cells, neighbor_cell);
-        set_i32(buf_idx, cell.neighbor_indices, index);
-
-        clusters(cluster_index).nb_list_size += 1;
+        reallocate_accelerator_neighborlist_capacity(grid, capacity);
     }
+
+    let neighborlists = get_array_of_i32(grid.neighborlists_cpu);
+    let neighborlist_offsets = get_array_of_i32(grid.neighborlist_offsets_cpu);
+    let buffer_index = grid.neighborlist_capacity * (cell_offset + cluster) + nb_list_size;
+
+    neighborlists(buffer_index) = neighbor_offset + neighbor_cluster * grid.cluster_size;
+    neighbors_per_cluster(cell_offset + cluster) += 1;
 }
 
-fn @interval_distance(amin: real_t, amax: real_t, bmin: real_t, bmax: real_t) -> real_t {
-    if amin > bmax {
-        amin - bmax
-    } else if bmin > amax {
-        bmin - amax
-    } else {
-        0.0 as real_t
-    }
-}
+// Redundant computation to get rid of atomics (only works when cluster_size = 1)
+fn assemble_particles_full_neighbor_list_accelerator(
+    cluster: i32,
+    cell_index: i32,
+    cell_offset: i32,
+    cell_spatial_index: [i32 * 3],
+    grid: &mut Grid,
+    cutoff_distance: real_t,
+    allocate: fn(i32) -> Buffer) -> () {
 
-fn @compute_distance(a: AABB, b: AABB, @dimension: i32) -> real_t {
-    if dimension == 0 {
-        interval_distance(a.xmin, a.xmax, b.xmin, b.xmax)
-    } else if dimension == 1 {
-        interval_distance(a.ymin, a.ymax, b.ymin, b.ymax)
-    } else if dimension == 2 {
-        interval_distance(a.zmin, a.zmax, b.zmin, b.zmax)
-    } else {
-        0.0 as real_t
-    }
-}
-
-fn assemble_half_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &mut Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
     let mut begin : [i32 * 3];
     let mut end : [i32 * 3];
     let nxyz = [grid.nx, grid.ny, grid.nz];
 
     for i in unroll(0, 3) {
-        begin(i) = cell_index(i);
-        end(i) = if(cell_index(i) < nxyz(i) - 1) { cell_index(i) + 2} else { nxyz(i) };
+        begin(i) = select(cell_spatial_index(i) > 0, cell_spatial_index(i) - 1, 0);
+        end(i) = select(cell_spatial_index(i) < nxyz(i) - 1, cell_spatial_index(i) + 2, nxyz(i));
     }
 
+    let cell_sizes = get_array_of_i32(grid.cell_sizes);
     let squared_cutoff_distance = cutoff_distance * cutoff_distance;
-    let cells = get_array_of_cells(grid.cells);
-
-    cluster.nb_list_size = 0;
+    let cluster_index = cell_offset + cluster;
+    let mx = get_x_component(cluster_index, grid.positions_cpu);
+    let my = get_y_component(cluster_index, grid.positions_cpu);
+    let mz = get_z_component(cluster_index, grid.positions_cpu);
 
     for i in range(begin(0), end(0)) {
         for j in range(begin(1), end(1)) {
             for k in range(begin(2), end(2)) {
-                let neighboring_cell_index = [i,j,k];
-                let neighboring_cell = &cells(flatten_index(neighboring_cell_index, grid));
-                if(neighboring_cell.nclusters > 0) {
-                    let mut z = 0;
-                    if(flatten_index(neighboring_cell_index, grid) == flatten_index(cell_index, grid)) {
-                        while(z <= cluster_index){ ++z; }
-                    }
-                    let clusters = get_array_of_clusters(cell.clusters);
-                    let mut z_distance = compute_distance(cluster.aabb, clusters(0).aabb, 2);
-                    while(z < neighboring_cell.nclusters - 1 && z_distance > cutoff_distance) {
-                        ++z;
-                        z_distance = compute_distance(cluster.aabb, clusters(z).aabb, 2);
-                    }
-                    while(z < neighboring_cell.nclusters && z_distance < cutoff_distance) {
-                        let x_distance = compute_distance(cluster.aabb, clusters(z).aabb, 0); 
-                        let y_distance = compute_distance(cluster.aabb, clusters(z).aabb, 1); 
-                        let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
-                        let difference = squared_cutoff_distance - squared_distance;
-                        if(difference > 0.0 as real_t) {
-                            // TODO check distance to individual particles if the distance is below a certain threshold
-                            append_neighbor(cell, cluster_index, neighboring_cell, z, allocate);
-                        }
-                        ++z;
-                        if(z < cell.nclusters) {
-                            z_distance = compute_distance(cluster.aabb, clusters(z).aabb, 2); 
-                        }
-                    }
-                }
-            }
-        } 
-    }
-}
-
-// redundant computation to get rid of atomics
-fn assemble_clusters_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &mut Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
-    let mut begin : [i32 * 3];
-    let mut end : [i32 * 3];
-    let nxyz = [grid.nx, grid.ny, grid.nz];
-
-    for i in unroll(0, 3) {
-        begin(i) = if(cell_index(i) > 0) {cell_index(i) - 1} else { 0 };
-        end(i) = if(cell_index(i) < nxyz(i) - 1) { cell_index(i) + 2} else { nxyz(i) };
-    }
-
-    let squared_cutoff_distance = cutoff_distance * cutoff_distance;
-    let cells = get_array_of_cells(grid.cells);
-    let flat_cell_index = flatten_index(cell_index, grid);
-
-    cluster.nb_list_size = 0;
-
-    for i in range(begin(0), end(0)) {
-        for j in range(begin(1), end(1)) {
-            for k in range(begin(2), end(2)) {
-                let neighboring_cell_index = [i,j,k];
-                let flat_neighboring_cell_index = flatten_index(neighboring_cell_index, grid);
-                let same_cell = flat_cell_index == flat_neighboring_cell_index;
-                let neighboring_cell = &cells(flat_neighboring_cell_index);
-                if(neighboring_cell.nclusters > 0) {
-                    let mut z = 0;
-                    let clusters = get_array_of_clusters(neighboring_cell.clusters);
-                    let mut z_distance = compute_distance(cluster.aabb, clusters(0).aabb, 2);
-                    while(z < neighboring_cell.nclusters - 1 && z_distance > cutoff_distance) {
-                        ++z;
-                        z_distance = compute_distance(cluster.aabb, clusters(z).aabb, 2);
-                    }
-                    while(z < neighboring_cell.nclusters && z_distance < cutoff_distance) {
-                        if(same_cell == false || cluster_index != z) {
-                            let x_distance = compute_distance(cluster.aabb, clusters(z).aabb, 0); 
-                            let y_distance = compute_distance(cluster.aabb, clusters(z).aabb, 1); 
-                            let squared_distance = x_distance*x_distance + y_distance*y_distance + z_distance*z_distance;
-                            if(squared_distance < squared_cutoff_distance) {
-                                append_neighbor(cell, cluster_index, neighboring_cell, z, allocate);
-                            }
-                        }
-                        ++z;
-                        if(z < neighboring_cell.nclusters) {
-                            z_distance = compute_distance(cluster.aabb, clusters(z).aabb, 2); 
-                        }
-                    }
-                }
-            }
-        } 
-    }
-}
-
-// redundant computation to get rid of atomics (only works when cluster_size = 1)
-fn assemble_particles_full_neighbor_list(cluster: &mut Cluster, cluster_index: i32, cell: &mut Cell, cell_index: [i32 * 3], grid: &Grid, cutoff_distance: real_t, allocate: fn(i32) -> Buffer)-> () {
-    let mut begin : [i32 * 3];
-    let mut end : [i32 * 3];
-    let nxyz = [grid.nx, grid.ny, grid.nz];
-
-    for i in unroll(0, 3) {
-        begin(i) = if(cell_index(i) > 0) {cell_index(i) - 1} else { 0 };
-        end(i) = if(cell_index(i) < nxyz(i) - 1) { cell_index(i) + 2} else { nxyz(i) };
-    }
-
-    let squared_cutoff_distance = cutoff_distance * cutoff_distance;
-    let cells = get_array_of_cells(grid.cells);
-    let flat_cell_index = flatten_index(cell_index, grid);
-    let mx = get_x_component(cluster_index, cell.positions);
-    let my = get_y_component(cluster_index, cell.positions);
-    let mz = get_z_component(cluster_index, cell.positions);
-
-    cluster.nb_list_size = 0;
-
-    for i in range(begin(0), end(0)) {
-        for j in range(begin(1), end(1)) {
-            for k in range(begin(2), end(2)) {
-                let neighboring_cell_index = [i,j,k];
-                let flat_neighboring_cell_index = flatten_index(neighboring_cell_index, grid);
-                let same_cell = flat_cell_index == flat_neighboring_cell_index;
-                let neighboring_cell = &cells(flat_neighboring_cell_index);
+                let neighboring_cell_index = flatten_index([i, j, k], grid);
+                let same_cell = cell_index == neighboring_cell_index;
+                let neighbor_cell_offset = get_accelerator_cell_offset(neighboring_cell_index, grid);
+                let neighbor_cell_size = cell_sizes(neighboring_cell_index);
 
                 if(same_cell == false) {
-                    for z in range(0, neighboring_cell.nclusters) {
-                        let dx = mx - get_x_component(z, neighboring_cell.positions);
-                        let dy = my - get_y_component(z, neighboring_cell.positions);
-                        let dz = mz - get_z_component(z, neighboring_cell.positions);
+                    for z in range(0, neighbor_cell_size) {
+                        let neighbor_cluster_index = neighbor_cell_offset + z;
+                        let dx = mx - get_x_component(neighbor_cluster_index, grid.positions_cpu);
+                        let dy = my - get_y_component(neighbor_cluster_index, grid.positions_cpu);
+                        let dz = mz - get_z_component(neighbor_cluster_index, grid.positions_cpu);
 
                         if(dx * dx + dy * dy + dz * dz <= squared_cutoff_distance) {
-                            append_neighbor(cell, cluster_index, neighboring_cell, z, allocate);
+                            append_neighbor_accelerator(
+                                cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset,
+                                grid, allocate);
                         }
                     }
                 } else {
-                    for z in range(0, neighboring_cell.nclusters) {
-                        if(cluster_index != z) {
-                            let dx = mx - get_x_component(z, neighboring_cell.positions);
-                            let dy = my - get_y_component(z, neighboring_cell.positions);
-                            let dz = mz - get_z_component(z, neighboring_cell.positions);
+                    for z in range(0, neighbor_cell_size) {
+                        if(cluster != z) {
+                            let neighbor_cluster_index = neighbor_cell_offset + z;
+                            let dx = mx - get_x_component(neighbor_cluster_index, grid.positions_cpu);
+                            let dy = my - get_y_component(neighbor_cluster_index, grid.positions_cpu);
+                            let dz = mz - get_z_component(neighbor_cluster_index, grid.positions_cpu);
 
                             if(dx * dx + dy * dy + dz * dz <= squared_cutoff_distance) {
-                                append_neighbor(cell, cluster_index, neighboring_cell, z, allocate);
+                                append_neighbor_accelerator(
+                                    cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset,
+                                    grid, allocate);
                             }
                         }
                     }
@@ -325,57 +95,23 @@ fn assemble_particles_full_neighbor_list(cluster: &mut Cluster, cluster_index: i
     }
 }
 
-fn individual_particles_are_in_distance(squared_cutoff_distance: real_t, cluster_index1: i32, cell1: &Cell, cluster_index2: i32, cell2: &Cell) -> bool {
-    let cluster_size1 = cell1.cluster_size;
-    let cluster_size2 = cell2.cluster_size;
-    let begin1 = cluster_index1 * cluster_size1;
-    let end1 = begin1 + cluster_size1;
-    let begin2 = cluster_index2 * cluster_size2;
-    let end2 = begin2 + cluster_size2;
-    let mut retval = false;
-    let mut count = 0;
-    for i in unroll(begin1, end1) {
-        for j in unroll(begin2, end2) {
-            let dx = get_x_component(j, cell2.positions) - get_x_component(i, cell1.positions);
-            let dy = get_y_component(j, cell2.positions) - get_y_component(i, cell1.positions);
-            let dz = get_z_component(j, cell2.positions) - get_z_component(i, cell1.positions);
-            let squared_distance = (dx*dx + dy*dy + dz*dz) as real_t;
-
-            if(squared_distance < squared_cutoff_distance) {
-                if(squared_distance < (0.9 as real_t) * squared_cutoff_distance) {
-                    retval = true;
-                    break()
-                }
-                ++count;
-            }
-            if(count > (PRUNING_THRESHOLD * ((cell1.cluster_size * cell2.cluster_size) as real_t)) as i32)  {
-                retval = true;
-                break()
-            }
-        }
-        if(retval == false) {
-            break()
-        }
-    }
-    retval
-}
-
 fn grid_assemble_neighbor_lists(
-    grid: &Grid,
+    grid: &mut Grid,
     cutoff_distance: real_t,
     allocate: fn(i32) -> Buffer,
-    outer_loop: fn(i32, i32, fn(i32) -> ()) -> (),
-    middle_loop: fn(i32, i32, fn(i32) -> ()) -> (),
-    inner_loop: fn(i32, i32, fn(i32) -> ()) -> (),
-    assemble: fn(&mut Cluster, i32, &mut Cell, [i32 * 3], &Grid, real_t, fn(i32) -> Buffer)-> ()) -> () {
+    assemble: fn(i32, i32, i32, [i32 * 3], &mut Grid, real_t, fn(i32) -> Buffer)-> ()) -> () {
 
-    for cell, cell_index in map_over_grid(grid, outer_loop, middle_loop, inner_loop) {
-        if(cell.size > 0) {
-            let clusters = get_array_of_clusters(cell.clusters);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+    let neighbors_per_cluster = get_array_of_i32(grid.neighbors_per_cluster_cpu);
 
-            for i in range(0, cell.nclusters) {
-                assemble(&mut clusters(i), i, cell, cell_index, grid, cutoff_distance, allocate);
-            }
-        }
-    }
+    range(0, grid.ncells, |cell_index| {
+        let cell_offset = get_accelerator_cell_offset(cell_index, grid);
+        let cell_size = cell_sizes(cell_index);
+        let cell_spatial_index = unflatten_index(cell_index, grid);
+
+        range(0, cell_size, |cluster| {
+            neighbors_per_cluster(cell_offset + cluster) = 0;
+            assemble(cluster, cell_index, cell_offset, cell_spatial_index, grid, cutoff_distance, allocate);
+        });
+    });
 }

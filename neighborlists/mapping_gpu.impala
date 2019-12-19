@@ -73,39 +73,39 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) ->
     _transfer_3d_arrays_between_devices(source, destination, N);
 }
 
-fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cluster_size = get_cluster_size();
     let acc = accelerator(device_id);
 
     if accelerator_split_clusters() {
-        let grid = (accelerator_grid.total_number_of_clusters * cluster_size, 1, 1);
+        let grid = (grid.total_number_of_clusters * cluster_size, 1, 1);
         let block = (cluster_size, 1, 1);
 
         for work_item in acc.exec(grid, block) {
             let i = work_item.bidx();
-            let neighborlists = get_neighborlists(accelerator_grid);
+            let neighborlists = get_neighborlists(grid);
 
-            if i < accelerator_grid.total_number_of_clusters {
+            if i < grid.total_number_of_clusters {
                 let j = work_item.tidx();
                 let begin = i * cluster_size;
-                let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
-                let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
+                let number_of_neighbors = get_number_of_neighbors(i, grid);
+                let neighborlist_offset = get_neighborlist_offset(i, grid);
 
                 @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
             }
         }
     } else {
-        let grid = (accelerator_grid.total_number_of_clusters * 128, 1, 1);
+        let grid = (grid.total_number_of_clusters * 128, 1, 1);
         let block = (128, 1, 1);
 
         for work_item in acc.exec(grid, block) {
             let i = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            let neighborlists = get_neighborlists(accelerator_grid);
+            let neighborlists = get_neighborlists(grid);
 
-            if i < accelerator_grid.total_number_of_clusters {
+            if i < grid.total_number_of_clusters {
                 let begin = i * cluster_size;
-                let number_of_neighbors = get_number_of_neighbors(i, accelerator_grid);
-                let neighborlist_offset = get_neighborlist_offset(i, accelerator_grid);
+                let number_of_neighbors = get_number_of_neighbors(i, grid);
+                let neighborlist_offset = get_neighborlist_offset(i, grid);
 
                 range(0, cluster_size, |j| {
                     @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
@@ -117,60 +117,60 @@ fn loop_accelerator(accelerator_grid: AcceleratorGrid, body: fn(i32, i32, i32, i
     acc.sync();
 }
 
-fn @get_number_of_neighbors(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
-    get_i32_accelerator(cluster_index, accelerator_grid.neighbors_per_cluster_accelerator)
+fn @get_number_of_neighbors(cluster_index: i32, grid: Grid) -> i32 {
+    get_i32_accelerator(cluster_index, grid.neighbors_per_cluster_accelerator)
 }
 
-fn @get_neighborlist_offset(cluster_index: i32, accelerator_grid: AcceleratorGrid) -> i32 {
-    get_i32_accelerator(cluster_index, accelerator_grid.neighborlist_offsets_accelerator)
+fn @get_neighborlist_offset(cluster_index: i32, grid: Grid) -> i32 {
+    get_i32_accelerator(cluster_index, grid.neighborlist_offsets_accelerator)
 }
 
-fn @get_neighborlists(accelerator_grid: AcceleratorGrid) -> &mut[1][i32] {
-    get_array_of_i32_accelerator(accelerator_grid.neighborlists_accelerator)
+fn @get_neighborlists(grid: Grid) -> &mut[1][i32] {
+    get_array_of_i32_accelerator(grid.neighborlists_accelerator)
 }
 
-fn @get_masses(accelerator_grid: AcceleratorGrid) -> &mut[1][real_t] {
-    get_array_of_reals_accelerator(accelerator_grid.masses_accelerator)
+fn @get_masses(grid: Grid) -> &mut[1][real_t] {
+    get_array_of_reals_accelerator(grid.masses_accelerator)
 }
 
-fn @get_position(i: i32, accelerator_grid: AcceleratorGrid) -> Vector3D {
-    get_vector_from_3d_arrays_accelerator(i, accelerator_grid.positions_accelerator)
+fn @get_position(i: i32, grid: Grid) -> Vector3D {
+    get_vector_from_3d_arrays_accelerator(i, grid.positions_accelerator)
 }
 
-fn @set_position(i: i32, accelerator_grid: AcceleratorGrid, position: Vector3D) -> () {
-    set_3d_arrays_accelerator(i, accelerator_grid.positions_accelerator, position)
+fn @set_position(i: i32, grid: Grid, position: Vector3D) -> () {
+    set_3d_arrays_accelerator(i, grid.positions_accelerator, position)
 }
 
-fn @get_velocity(i: i32, accelerator_grid: AcceleratorGrid) -> Vector3D {
-    get_vector_from_3d_arrays_accelerator(i, accelerator_grid.velocities_accelerator)
+fn @get_velocity(i: i32, grid: Grid) -> Vector3D {
+    get_vector_from_3d_arrays_accelerator(i, grid.velocities_accelerator)
 }
 
-fn @set_velocity(i: i32, accelerator_grid: AcceleratorGrid, velocity: Vector3D) -> () {
-    set_3d_arrays_accelerator(i, accelerator_grid.velocities_accelerator, velocity)
+fn @set_velocity(i: i32, grid: Grid, velocity: Vector3D) -> () {
+    set_3d_arrays_accelerator(i, grid.velocities_accelerator, velocity)
 }
 
-fn @get_force(i: i32, accelerator_grid: AcceleratorGrid) -> Vector3D {
-    get_vector_from_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator)
+fn @get_force(i: i32, grid: Grid) -> Vector3D {
+    get_vector_from_3d_arrays_accelerator(i, grid.forces_accelerator)
 }
 
-fn @set_force(i: i32, accelerator_grid: AcceleratorGrid, force: Vector3D) -> () {
-    set_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator, force)
+fn @set_force(i: i32, grid: Grid, force: Vector3D) -> () {
+    set_3d_arrays_accelerator(i, grid.forces_accelerator, force)
 }
 
-fn @reset_force(i: i32, accelerator_grid: AcceleratorGrid) -> () {
-    set_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator, Vector3D {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
+fn @reset_force(i: i32, grid: Grid) -> () {
+    set_3d_arrays_accelerator(i, grid.forces_accelerator, Vector3D {x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t});
 }
 
-fn @add_to_force(i: i32, accelerator_grid: AcceleratorGrid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
-    let mut force = get_vector_from_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator);
+fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -> () {
+    let mut force = get_vector_from_3d_arrays_accelerator(i, grid.forces_accelerator);
     force.x += dF_x;
     force.y += dF_y;
     force.z += dF_z;
-    set_3d_arrays_accelerator(i, accelerator_grid.forces_accelerator, force);
+    set_3d_arrays_accelerator(i, grid.forces_accelerator, force);
 }
 
-fn @get_mask(i: i32, accelerator_grid: AcceleratorGrid) -> mask_t {
-    get_mask_t_accelerator(i, accelerator_grid.interaction_mask_accelerator)
+fn @get_mask(i: i32, grid: Grid) -> mask_t {
+    get_mask_t_accelerator(i, grid.interaction_mask_accelerator)
 }
 
 fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> () {
@@ -223,7 +223,7 @@ fn build_comm_offsets(
     world_size: i32,
     rank: i32,
     grid: &Grid,
-    accelerator_grid: &AcceleratorGrid,
+    grid: &Grid,
     comm_offsets: &mut CommOffsets) -> () {
 
     let mut isend = 0;
@@ -238,7 +238,7 @@ fn build_comm_offsets(
     let recv_sizes = get_array_of_i32(comm_offsets.recv_sizes);
     let send_starts = get_array_of_i32(comm_offsets.send_starts);
     let recv_starts = get_array_of_i32(comm_offsets.recv_starts);
-    let cell_sizes = get_array_of_i32(accelerator_grid.cell_sizes);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes);
 
     if world_size > 1 {
         range(0, world_size, |r| {
@@ -257,15 +257,14 @@ fn build_comm_offsets(
             send_rank_offsets(exchange_rank) = isend;
             recv_rank_offsets(exchange_rank) = irecv;
 
-            for cell, index in
+            for flat_index, index in
                 map_over_grid_subdomain(
                     grid,
                     send_begin_x, send_begin_y, send_begin_z,
                     send_end_x, send_end_y, send_end_z,
                     range, range, range) {
 
-                let flat_index = flatten_index(index, grid);
-                let cell_offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
+                let cell_offset = get_accelerator_cell_offset(flat_index, grid);
                 let cell_size = cell_sizes(flat_index);
 
                 send_offsets(isend) = cell_offset;
@@ -276,15 +275,14 @@ fn build_comm_offsets(
                 ptr_send += 3 * cell_size;
             }
 
-            for cell, index in
+            for flat_index, index in
                 map_over_grid_subdomain(
                     grid,
                     recv_begin_x, recv_begin_y, recv_begin_z,
                     recv_end_x, recv_end_y, recv_end_z,
                     range, range, range) {
 
-                let flat_index = flatten_index(index, grid);
-                let cell_offset = get_accelerator_cell_offset(flat_index, accelerator_grid);
+                let cell_offset = get_accelerator_cell_offset(flat_index, grid);
                 let cell_size = cell_sizes(flat_index);
 
                 recv_offsets(irecv) = cell_offset;
@@ -360,7 +358,7 @@ fn @get_comm_recv_sizes_accelerator(index: i32, comm_offsets: CommOffsets) -> i3
     get_i32_accelerator(index, comm_offsets.recv_sizes_accelerator)
 }
 
-fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, accelerator_grid: AcceleratorGrid) -> () {
+fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, grid: Grid) -> () {
     let acc = accelerator(device_id);
     let grid = (comm_offsets.send_noffsets * 64, 1, 1);
     let block = (64, 1, 1);
@@ -378,7 +376,7 @@ fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, acce
 
                 for i in range(0, size) {
                     let linear_idx = i * 3;
-                    let pos = get_position(offset + i, accelerator_grid);
+                    let pos = get_position(offset + i, grid);
 
                     set_real_accelerator(start + linear_idx,     buffer_gpu, pos.x);
                     set_real_accelerator(start + linear_idx + 1, buffer_gpu, pos.y);
@@ -392,7 +390,7 @@ fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, acce
     }
 }
 
-fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, accelerator_grid: AcceleratorGrid) -> () {
+fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, grid: Grid) -> () {
     let acc = accelerator(device_id);
     let grid = (comm_offsets.recv_noffsets * 64, 1, 1);
     let block = (64, 1, 1);
@@ -418,7 +416,7 @@ fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, acc
                         z: get_real_accelerator(start + linear_idx + 2, buffer_gpu),
                     };
 
-                    set_position(offset + i, accelerator_grid, pos);
+                    set_position(offset + i, grid, pos);
                 }
             }
         }
@@ -431,7 +429,6 @@ fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, acc
 fn pack_ghost_layer_cells(
     comm_buffer: Buffer,
     grid: &mut Grid,
-    accelerator_grid: AcceleratorGrid,
     begin_x: i32,
     begin_y: i32,
     begin_z: i32,
@@ -443,7 +440,6 @@ fn pack_ghost_layer_cells(
 fn unpack_ghost_layer_cells(
     comm_buffer: Buffer,
     grid: &mut Grid,
-    accelerator_grid: AcceleratorGrid,
     begin_x: i32,
     begin_y: i32,
     begin_z: i32,

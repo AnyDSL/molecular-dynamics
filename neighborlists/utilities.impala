@@ -109,27 +109,6 @@ fn @set_bool(i: i32, buf: Buffer, value: bool) -> () {
     bitcast[&mut[bool]](buf.data)(i) = value;
 }
 
-fn @get_cell_pointer(i: i32, buf: Buffer) -> &Cell {
-    bitcast[&[&Cell]](buf.data)(i)
-}
-
-fn @set_cell_pointer(i: i32, buf: Buffer, value: &Cell) -> () { 
-    bitcast[&mut[&Cell]](buf.data)(i) = value;
-}
-
-fn @get_array_of_cell_pointers(buf: Buffer) -> &mut[&Cell] {
-    bitcast[&mut[&Cell]](buf.data)
-}
-
-
-fn @get_array_of_cells(buf: Buffer) -> &mut[Cell] {
-    bitcast[&mut[Cell]](buf.data)
-}
-
-fn @get_array_of_clusters(buf: Buffer) -> &mut[Cluster] {
-    bitcast[&mut[Cluster]](buf.data)
-}
-
 fn @min_i32(a: i32, b: i32) -> i32 {
     if(a < b) {a} else {b}
 }

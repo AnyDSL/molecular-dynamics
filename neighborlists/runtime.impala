@@ -1,5 +1,4 @@
 static mut grid_ : Grid;
-static mut accelerator_grid_ : AcceleratorGrid;
 static mut comm_offsets_ : CommOffsets;
 static mut world_size : i32;
 static mut world_rank : i32;
@@ -33,50 +32,10 @@ extern fn md_initialize_grid(
     };
 
     let cluster_size = get_cluster_size();
-    //let rank_aabb = get_node_bounding_box(
-    //  world_size, world_rank, cell_spacing, aabb);
 
-    /*
-    print_i32(world_rank);
-    print_string("> aabb.min = {");
-    print_f64(rank_aabb.xmin);
-    print_string(", ");
-    print_f64(rank_aabb.ymin);
-    print_string(", ");
-    print_f64(rank_aabb.zmin);
-    print_string("}\n");
-
-    print_i32(world_rank);
-    print_string("> aabb.max = {");
-    print_f64(rank_aabb.xmax);
-    print_string(", ");
-    print_f64(rank_aabb.ymax);
-    print_string(", ");
-    print_f64(rank_aabb.zmax);
-    print_string("}\n");
-    */
-
-    grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, neighbor_list_capacity, cluster_size, alloc_unaligned_cpu);
-    accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, grid_.nz, cluster_size, cell_capacity, neighbor_list_capacity);
-
-    /*
-    print_i32(world_rank);
-    print_string("> nx, ny, nz = ");
-    print_i32(grid_.nx);
-    print_string(" ");
-    print_i32(grid_.ny);
-    print_string(" ");
-    print_i32(grid_.nz);
-    print_string("\n");
-    */
-
-    if store_particles_once() {
-        initialize_accelerator_grid(masses, positions, velocities, nparticles, &mut grid_, &mut accelerator_grid_, alloc_cpu);
-    } else {
-        initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_unaligned_cpu);
-    }
-
-    initialize_grid_comm(grid_, accelerator_grid_, &mut comm_offsets_, world_size, world_rank);
+    grid_ = allocate_grid(rank_aabb, cell_spacing, cluster_size, cell_capacity, neighbor_list_capacity);
+    initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
+    initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
     grid_.nparticles
 }
@@ -105,79 +64,74 @@ extern fn md_get_node_bounding_box(
 }
 
 extern fn md_copy_data_to_accelerator() -> () {
-    if !store_particles_once() {
-        transfer_grid_to_accelerator_buffers(grid_, &mut accelerator_grid_);
-    }
-
-    copy_to_accelerator(accelerator_grid_);
+    copy_to_accelerator(grid_);
 
     // Build communication offsets (GPU only)
-    build_comm_offsets(world_size, world_rank, grid_, accelerator_grid_, &mut comm_offsets_);
+    build_comm_offsets(world_size, world_rank, grid_, &mut comm_offsets_);
 }
 
 extern fn md_copy_data_from_accelerator() -> () {
-    if !store_particles_once() {
-        transfer_accelerator_buffers_to_grid(accelerator_grid_, grid_);
-    }
-
-    copy_from_accelerator(accelerator_grid_);
+    copy_from_accelerator(grid_);
 }
 
 extern fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
-    deallocate_accelerator_grid(accelerator_grid_);
 }
 
 extern fn md_integration(dt: real_t) -> () {
-    accelerator_integration(accelerator_grid_, dt);
+    accelerator_integration(grid_, dt);
 }
 
 extern fn md_write_grid_data_to_arrays(
     masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D]) -> i32 {
 
-    write_accelerator_grid_data_to_arrays(masses, positions, velocities, forces, &accelerator_grid_)
+    write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
 extern fn md_redistribute_particles() -> () {
-    if store_particles_once() {
-        redistribute_particles_accelerator(grid_, &mut accelerator_grid_, alloc_cpu);
-    } else {
-        redistribute_particles(&mut grid_, alloc_unaligned_cpu);
-    }
+    redistribute_particles(&mut grid_, alloc_cpu);
 }
 
 extern fn md_exchange_ghost_layer() -> () {
-    exchange_ghost_layer_particles(&mut grid_, &mut accelerator_grid_, world_size, world_rank);
+    exchange_ghost_layer_particles(&mut grid_, world_size, world_rank);
 }
 
 extern fn md_initialize_clusters() -> () {
-    grid_initialize_clusters(grid_, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
+    //grid_initialize_clusters(grid_, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
 }
 
 extern fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    if store_particles_once() {
-        accelerator_grid_assemble_neighbor_lists(
-            grid_, &mut accelerator_grid_, cutoff_distance, alloc_cpu, assemble_particles_full_neighbor_list_accelerator);
-    } else {
-        if(get_cluster_size() == 1) {
-            grid_assemble_neighbor_lists(
-                &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
-                assemble_particles_full_neighbor_list);
-        } else {
-            grid_assemble_neighbor_lists(
-                &grid_, cutoff_distance, alloc_unaligned_cpu, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu,
-                assemble_clusters_full_neighbor_list);
-        }
-    }
+    grid_assemble_neighbor_lists(&mut grid_, cutoff_distance, alloc_cpu, assemble_particles_full_neighbor_list_accelerator);
+}
+
+extern fn md_print_grid() -> () {
+    let cell_sizes = get_array_of_i32(grid_.cell_sizes);
+
+    map_over_grid(grid_, range, range, range, |flat_index, index| {
+        let cell_offset = get_accelerator_cell_offset(flat_index, grid_);
+        let cell_size = cell_sizes(flat_index);
+
+        range(0, cell_size, |particle| {
+            let pos = get_position(cell_offset + particle, grid_);
+
+            print_f64(pos.x);
+            print_string(", ");
+            print_f64(pos.y);
+            print_string(", ");
+            print_f64(pos.z);
+            print_string("\n");
+            print_flush();
+        });
+    });
 }
 
 extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
 
     if(get_cluster_size() == 1) {
-        accelerator_compute_particle_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+        accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
     } else {
-        accelerator_compute_cluster_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+        accelerator_compute_cluster_forces(grid_, cutoff_distance*cutoff_distance, potential);
     }
 }
 
@@ -185,10 +139,6 @@ extern fn md_compute_total_kinetic_energy() -> real_t {
     // TODO fix this function
    //compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
    0.0 as real_t
-}
-
-extern fn md_print_grid() -> () {
-    print_grid(grid_);
 }
 
 extern fn md_mpi_initialize() -> () {
@@ -204,7 +154,7 @@ extern fn md_get_sync_timesteps() -> i32 {
 }
 
 extern fn md_synchronize_ghost_layer() -> () {
-    synchronize_ghost_layer_cells(&mut grid_, accelerator_grid_, comm_offsets_, world_size, world_rank);
+    synchronize_ghost_layer_cells(grid_, comm_offsets_, world_size, world_rank);
 }
 
 extern fn md_get_world_rank() -> i32 {
@@ -220,7 +170,7 @@ extern fn md_report_memory_allocation() -> () {
 }
 
 extern fn md_report_particles() -> () {
-    let (nparticles, nghost) = get_node_particles_amount(grid_, accelerator_grid_, world_size, world_rank);
+    let (nparticles, nghost) = get_node_particles_amount(grid_, world_size, world_rank);
 
     print_i32(nparticles);
     print_string(" ");
