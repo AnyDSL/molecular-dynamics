@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
         cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
         begin = measure_time();
-        md_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
+        md_assemble_neighborlists(cutoff_radius+verlet_buffer);
         end = measure_time();
         neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
                 cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_assemble_neighbor_lists(cutoff_radius+verlet_buffer);
+                md_assemble_neighborlists(cutoff_radius+verlet_buffer);
                 end = measure_time();
                 neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 

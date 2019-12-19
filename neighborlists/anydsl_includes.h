@@ -16,7 +16,7 @@ extern "C" {
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_redistribute_particles();
     void md_initialize_clusters();
-    void md_assemble_neighbor_lists(double);
+    void md_assemble_neighborlists(double);
     void md_deallocate_grid();
     void md_print_grid();
     void md_reset_forces();

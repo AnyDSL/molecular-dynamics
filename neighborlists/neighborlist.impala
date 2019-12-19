@@ -1,4 +1,4 @@
-fn append_neighbor_accelerator(
+fn append_neighbor(
     cluster: i32,
     cell_index: i32,
     cell_offset: i32,
@@ -11,16 +11,15 @@ fn append_neighbor_accelerator(
     let neighbors_per_cluster = get_array_of_i32(grid.neighbors_per_cluster_cpu);
     let nb_list_size = neighbors_per_cluster(cell_offset + cluster);
 
-    if(nb_list_size == grid.neighborlist_capacity) {
+    if nb_list_size == grid.neighborlist_capacity {
         let adding = nb_list_size / 10 + 1;
         let extension = select(adding < 4, 4, adding);
         let capacity = grid.neighborlist_capacity + extension;
 
-        reallocate_accelerator_neighborlist_capacity(grid, capacity);
+        reallocate_neighborlist_capacity(grid, capacity);
     }
 
     let neighborlists = get_array_of_i32(grid.neighborlists_cpu);
-    let neighborlist_offsets = get_array_of_i32(grid.neighborlist_offsets_cpu);
     let buffer_index = grid.neighborlist_capacity * (cell_offset + cluster) + nb_list_size;
 
     neighborlists(buffer_index) = neighbor_offset + neighbor_cluster * grid.cluster_size;
@@ -28,7 +27,7 @@ fn append_neighbor_accelerator(
 }
 
 // Redundant computation to get rid of atomics (only works when cluster_size = 1)
-fn assemble_particles_full_neighbor_list_accelerator(
+fn assemble_particles_full_neighborlist(
     cluster: i32,
     cell_index: i32,
     cell_offset: i32,
@@ -58,32 +57,32 @@ fn assemble_particles_full_neighbor_list_accelerator(
             for k in range(begin(2), end(2)) {
                 let neighboring_cell_index = flatten_index([i, j, k], grid);
                 let same_cell = cell_index == neighboring_cell_index;
-                let neighbor_cell_offset = get_accelerator_cell_offset(neighboring_cell_index, grid);
+                let neighbor_cell_offset = get_cell_offset(neighboring_cell_index, grid);
                 let neighbor_cell_size = cell_sizes(neighboring_cell_index);
 
-                if(same_cell == false) {
+                if same_cell == false {
                     for z in range(0, neighbor_cell_size) {
                         let neighbor_cluster_index = neighbor_cell_offset + z;
                         let dx = mx - get_x_component(neighbor_cluster_index, grid.positions_cpu);
                         let dy = my - get_y_component(neighbor_cluster_index, grid.positions_cpu);
                         let dz = mz - get_z_component(neighbor_cluster_index, grid.positions_cpu);
 
-                        if(dx * dx + dy * dy + dz * dz <= squared_cutoff_distance) {
-                            append_neighbor_accelerator(
+                        if dx * dx + dy * dy + dz * dz <= squared_cutoff_distance {
+                            append_neighbor(
                                 cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset,
                                 grid, allocate);
                         }
                     }
                 } else {
                     for z in range(0, neighbor_cell_size) {
-                        if(cluster != z) {
+                        if cluster != z {
                             let neighbor_cluster_index = neighbor_cell_offset + z;
                             let dx = mx - get_x_component(neighbor_cluster_index, grid.positions_cpu);
                             let dy = my - get_y_component(neighbor_cluster_index, grid.positions_cpu);
                             let dz = mz - get_z_component(neighbor_cluster_index, grid.positions_cpu);
 
-                            if(dx * dx + dy * dy + dz * dz <= squared_cutoff_distance) {
-                                append_neighbor_accelerator(
+                            if dx * dx + dy * dy + dz * dz <= squared_cutoff_distance {
+                                append_neighbor(
                                     cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset,
                                     grid, allocate);
                             }
@@ -95,7 +94,7 @@ fn assemble_particles_full_neighbor_list_accelerator(
     }
 }
 
-fn grid_assemble_neighbor_lists(
+fn grid_assemble_neighborlists(
     grid: &mut Grid,
     cutoff_distance: real_t,
     allocate: fn(i32) -> Buffer,
@@ -105,7 +104,7 @@ fn grid_assemble_neighbor_lists(
     let neighbors_per_cluster = get_array_of_i32(grid.neighbors_per_cluster_cpu);
 
     range(0, grid.ncells, |cell_index| {
-        let cell_offset = get_accelerator_cell_offset(cell_index, grid);
+        let cell_offset = get_cell_offset(cell_index, grid);
         let cell_size = cell_sizes(cell_index);
         let cell_spatial_index = unflatten_index(cell_index, grid);
 

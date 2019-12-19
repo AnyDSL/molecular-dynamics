@@ -880,7 +880,7 @@ fn pack_ghost_layer_particles(
 
     map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
         let cell_size = cell_sizes(flat_index);
-        let cell_offset = get_accelerator_cell_offset(flat_index, grid);
+        let cell_offset = get_cell_offset(flat_index, grid);
 
         if(iterations >= start_iteration) {
             if(!keep_packing || packed_particles + cell_size > max_particles) {
@@ -957,10 +957,10 @@ fn unpack_ghost_layer_particles(
 
             if(new_cell_size >= grid.cell_capacity) {
                 let new_capacity = new_cell_size + new_cell_size / 10;
-                reallocate_accelerator_cell_capacity(grid, new_capacity);
+                reallocate_cell_capacity(grid, new_capacity);
             }
 
-            let cell_offset = get_accelerator_cell_offset(flat_index, grid);
+            let cell_offset = get_cell_offset(flat_index, grid);
 
             if(new_cell_size > 0) {
                 copy_offset(

@@ -264,7 +264,7 @@ fn build_comm_offsets(
                     send_end_x, send_end_y, send_end_z,
                     range, range, range) {
 
-                let cell_offset = get_accelerator_cell_offset(flat_index, grid);
+                let cell_offset = get_cell_offset(flat_index, grid);
                 let cell_size = cell_sizes(flat_index);
 
                 send_offsets(isend) = cell_offset;
@@ -282,7 +282,7 @@ fn build_comm_offsets(
                     recv_end_x, recv_end_y, recv_end_z,
                     range, range, range) {
 
-                let cell_offset = get_accelerator_cell_offset(flat_index, grid);
+                let cell_offset = get_cell_offset(flat_index, grid);
                 let cell_size = cell_sizes(flat_index);
 
                 recv_offsets(irecv) = cell_offset;

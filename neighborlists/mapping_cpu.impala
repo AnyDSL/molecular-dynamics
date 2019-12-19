@@ -51,7 +51,7 @@ fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> 
     let neighborlists = get_neighborlists(grid);
 
     outer_loop_cpu(0, grid.ncells, |cell_index| {
-        let cell_offset = get_accelerator_cell_offset(cell_index, grid);
+        let cell_offset = get_cell_offset(cell_index, grid);
         let cell_size = cell_sizes(cell_index);
 
         range(0, cell_size, |cluster| {
@@ -66,10 +66,6 @@ fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> 
 
 fn @get_number_of_neighbors(cluster_index: i32, grid: Grid) -> i32 {
     get_i32(cluster_index, grid.neighbors_per_cluster_cpu)
-}
-
-fn @get_neighborlist_offset(cluster_index: i32, grid: Grid) -> i32 {
-    get_i32(cluster_index, grid.neighborlist_offsets_cpu)
 }
 
 fn @get_neighborlists(grid: Grid) -> &mut[i32] {
@@ -191,7 +187,7 @@ fn pack_ghost_layer_cells(
     let mut buffer_ptr = 0;
 
     map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
-        let offset = get_accelerator_cell_offset(flat_index, grid);
+        let offset = get_cell_offset(flat_index, grid);
         let cell_size = cell_sizes(flat_index);
 
         if(cell_size > 0) {
@@ -218,7 +214,7 @@ fn unpack_ghost_layer_cells(
     let mut buffer_ptr = 0;
 
     map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
-        let offset = get_accelerator_cell_offset(flat_index, grid);
+        let offset = get_cell_offset(flat_index, grid);
         let cell_size = cell_sizes(flat_index);
 
         if(cell_size > 0) {

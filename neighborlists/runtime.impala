@@ -11,7 +11,7 @@ extern fn md_initialize_grid(
   masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
   nparticles: i32, min: &[real_t], max: &[real_t], rank_min: &[real_t],
   rank_max: &[real_t], cell_spacing: real_t, cell_capacity: i32,
-  neighbor_list_capacity: i32) -> i32 {
+  neighborlist_capacity: i32) -> i32 {
 
     let aabb = AABB {
         xmin: min(0),
@@ -33,7 +33,7 @@ extern fn md_initialize_grid(
 
     let cluster_size = get_cluster_size();
 
-    grid_ = allocate_grid(rank_aabb, cell_spacing, cluster_size, cell_capacity, neighbor_list_capacity);
+    grid_ = allocate_grid(rank_aabb, cell_spacing, cluster_size, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
@@ -100,15 +100,15 @@ extern fn md_initialize_clusters() -> () {
     //grid_initialize_clusters(grid_, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
 }
 
-extern fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighbor_lists(&mut grid_, cutoff_distance, alloc_cpu, assemble_particles_full_neighbor_list_accelerator);
+extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
+    grid_assemble_neighborlists(&mut grid_, cutoff_distance, alloc_cpu, assemble_particles_full_neighborlist);
 }
 
 extern fn md_print_grid() -> () {
     let cell_sizes = get_array_of_i32(grid_.cell_sizes);
 
     map_over_grid(grid_, range, range, range, |flat_index, index| {
-        let cell_offset = get_accelerator_cell_offset(flat_index, grid_);
+        let cell_offset = get_cell_offset(flat_index, grid_);
         let cell_size = cell_sizes(flat_index);
 
         range(0, cell_size, |particle| {
