@@ -166,8 +166,8 @@ int init_rectangular_grid(
     for(int i = 0; i < 3; ++i) {
         velocity[i] = 0.0;
 
-        ext_aabb.min[i] = aabb.min[i] - cell_spacing;
-        ext_aabb.max[i] = aabb.max[i] + cell_spacing;
+        ext_aabb.min[i] = aabb.min[i] - cell_spacing * 0.5;
+        ext_aabb.max[i] = aabb.max[i] + cell_spacing * 0.5;
     }
 
     md_get_node_bounding_box(cell_spacing, ext_aabb.min, ext_aabb.max, &rank_aabb.min, &rank_aabb.max);
