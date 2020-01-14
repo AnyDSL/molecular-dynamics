@@ -27,6 +27,7 @@ struct Grid {
     velocities_cpu: Array3D, // velocities of all particles on the CPU: [Vector3D]
     forces_cpu: Array3D, // forces of all particles on the CPU: [Vector3D]
     interaction_mask_cpu: Buffer, // interaction mask on the CPU: [bool]
+    ghost_mask_cpu: Buffer, // ghost mask on the CPU: [bool]
     neighbors_per_cluster_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
 
@@ -35,6 +36,7 @@ struct Grid {
     velocities_accelerator: Array3D, // velocities of all particles on the accelerator: [Vector3D]
     forces_accelerator: Array3D, // forces of all particles on the accelerator: [Vector3D]
     interaction_mask_accelerator: Buffer, // interaction mask on the accelerator: [bool]
+    ghost_mask_accelerator: Buffer, // ghost mask on the accelerator: [bool]
     neighbors_per_cluster_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
     neighborlists_accelerator: Buffer // neighborlists on the accelerator: [i32]
 }
@@ -97,6 +99,7 @@ fn allocate_grid(
         velocities_cpu: allocate_3d_arrays(capacity_particles, alloc_cpu),
         forces_cpu: allocate_3d_arrays(capacity_particles, alloc_cpu),
         interaction_mask_cpu: alloc_cpu(capacity_particles * sizeof[mask_t]()),
+        ghost_mask_cpu: alloc_cpu(capacity_clusters * sizeof[mask_t]()),
         neighbors_per_cluster_cpu: alloc_cpu(capacity_clusters * sizeof[i32]()),
         neighborlists_cpu: alloc_cpu(capacity_neighbors * sizeof[i32]()),
 
@@ -105,6 +108,7 @@ fn allocate_grid(
         velocities_accelerator: accelerator_allocate_3d_arrays(capacity_particles),
         forces_accelerator: accelerator_allocate_3d_arrays(capacity_particles),
         interaction_mask_accelerator: accelerator_allocate(capacity_particles * sizeof[mask_t]()),
+        ghost_mask_accelerator: accelerator_allocate(capacity_clusters * sizeof[mask_t]()),
         neighbors_per_cluster_accelerator: accelerator_allocate(capacity_clusters * sizeof[i32]()),
         neighborlists_accelerator: accelerator_allocate(capacity_neighbors * sizeof[i32]())
     }
@@ -118,6 +122,7 @@ fn deallocate_grid(grid: Grid) -> () {
     deallocate_3d_arrays(grid.velocities_cpu);
     deallocate_3d_arrays(grid.forces_cpu);
     release(grid.interaction_mask_cpu);
+    release(grid.ghost_mask_cpu);
     release(grid.neighbors_per_cluster_cpu);
     release(grid.neighborlists_cpu);
 
@@ -126,6 +131,7 @@ fn deallocate_grid(grid: Grid) -> () {
     deallocate_3d_arrays(grid.velocities_accelerator);
     deallocate_3d_arrays(grid.forces_accelerator);
     release(grid.interaction_mask_accelerator);
+    release(grid.ghost_mask_accelerator);
     release(grid.neighbors_per_cluster_accelerator);
     release(grid.neighborlists_accelerator);
 }
@@ -196,6 +202,7 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     reallocate_cell_3d_arrays(grid, &mut grid.velocities_cpu, size_particles, adjusted_capacity, alloc_cpu);
     reallocate_cell_3d_arrays(grid, &mut grid.forces_cpu, size_particles, adjusted_capacity, alloc_cpu);
     reallocate_cell_buffer(grid, &mut grid.interaction_mask_cpu, size_particles, adjusted_capacity, sizeof[mask_t](), alloc_cpu);
+    reallocate_cell_buffer(grid, &mut grid.ghost_mask_cpu, size_clusters, adjusted_capacity, sizeof[mask_t](), alloc_cpu);
     reallocate_cell_buffer(grid, &mut grid.neighbors_per_cluster_cpu, size_clusters, adjusted_capacity, sizeof[i32](), alloc_cpu);
 
     release(grid.masses_accelerator);
@@ -203,6 +210,7 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     deallocate_3d_arrays(grid.velocities_accelerator);
     deallocate_3d_arrays(grid.forces_accelerator);
     release(grid.interaction_mask_accelerator);
+    release(grid.ghost_mask_accelerator);
     release(grid.neighbors_per_cluster_accelerator);
     release(grid.neighborlists_cpu);
     release(grid.neighborlists_accelerator);
@@ -212,6 +220,7 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     grid.velocities_accelerator = accelerator_allocate_3d_arrays(size_particles);
     grid.forces_accelerator = accelerator_allocate_3d_arrays(size_particles);
     grid.interaction_mask_accelerator = accelerator_allocate(size_particles * sizeof[mask_t]());
+    grid.ghost_mask_accelerator = accelerator_allocate(size_clusters * sizeof[mask_t]());
     grid.neighbors_per_cluster_accelerator = accelerator_allocate(size_clusters * sizeof[i32]());
 
     grid.neighborlists_cpu = alloc_cpu(capacity_neighbors * sizeof[i32]());
@@ -297,8 +306,9 @@ fn insert_particle(
 
     let cell_index = compute_cell_position(position, grid);
     let flat_index = flatten_index(cell_index, grid);
+    let ghost_mask = select(is_local_cell(cell_index(0), cell_index(1), cell_index(2), grid), MASK_TRUE, MASK_FALSE);
 
-    append_particle(flat_index, mass, position, velocity, grid, allocate);
+    append_particle(flat_index, mass, position, velocity, ghost_mask, grid, allocate);
 }
 
 fn append_particle(
@@ -306,6 +316,7 @@ fn append_particle(
     mass: real_t,
     position: Vector3D,
     velocity: Vector3D,
+    ghost_mask: mask_t,
     grid: &mut Grid,
     allocate: fn(i32) -> Buffer) -> () {
 
@@ -329,6 +340,7 @@ fn append_particle(
     set_3d_arrays(particle_index, grid.velocities_cpu, velocity);
     set_3d_arrays(particle_index, grid.forces_cpu, null_vec);
     set_mask_t(particle_index, grid.interaction_mask_cpu, MASK_TRUE);
+    set_mask_t(particle_index, grid.ghost_mask_cpu, ghost_mask);
     set_i32(particle_index, grid.neighbors_per_cluster_cpu, 0);
 }
 
@@ -382,7 +394,7 @@ fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
                         let velocity = get_vector_from_3d_arrays(cell_offset + i, grid.velocities_cpu);
 
                         remove_particle(cell_index, cell_offset, i, grid);
-                        append_particle(cur_index, mass, position, velocity, grid, allocate);
+                        append_particle(cur_index, mass, position, velocity, MASK_TRUE, grid, allocate);
 
                         cell_offset = get_cell_offset(cell_index, grid);
                         cell_size -= 1;
@@ -404,6 +416,7 @@ fn copy_to_accelerator(grid: &Grid) -> () {
     transfer_3d_arrays_between_devices(grid.positions_cpu, grid.positions_accelerator);
     transfer_3d_arrays_between_devices(grid.velocities_cpu, grid.velocities_accelerator);
     transfer_between_devices(grid.interaction_mask_cpu, grid.interaction_mask_accelerator);
+    transfer_between_devices(grid.ghost_mask_cpu, grid.ghost_mask_accelerator);
     transfer_between_devices(grid.neighbors_per_cluster_cpu, grid.neighbors_per_cluster_accelerator);
     transfer_between_devices(grid.neighborlists_cpu, grid.neighborlists_accelerator);
 }

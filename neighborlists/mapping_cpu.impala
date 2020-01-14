@@ -53,14 +53,17 @@ fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[i32]) -> 
     outer_loop_cpu(0, grid.ncells, |cell_index| {
         let cell_offset = get_cell_offset(cell_index, grid);
         let cell_size = cell_sizes(cell_index);
+        let ghost_mask = get_ghost_mask(cell_offset, grid);
 
-        range(0, cell_size, |cluster| {
-            let cluster_index = cell_offset + cluster;
-            let nb_list_offset = neighborlist_capacity * cluster_index;
-            let nb_list_size = neighbors_per_cluster(cluster_index);
+        if is_mask_true(ghost_mask) {
+            range(0, cell_size, |cluster| {
+                let cluster_index = cell_offset + cluster;
+                let nb_list_offset = neighborlist_capacity * cluster_index;
+                let nb_list_size = neighbors_per_cluster(cluster_index);
 
-            @@body(cluster, cluster_index, 0, nb_list_size, nb_list_offset, neighborlists);
-        });
+                @@body(cluster, cluster_index, 0, nb_list_size, nb_list_offset, neighborlists);
+            });
+        }
     });
 }
 
@@ -116,6 +119,10 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
 
 fn @get_mask(i: i32, grid: Grid) -> mask_t {
     get_mask_t(i, grid.interaction_mask_cpu)
+}
+
+fn @get_ghost_mask(cluster_index: i32, grid: Grid) -> mask_t {
+    get_mask_t(cluster_index, grid.ghost_mask_cpu)
 }
 
 fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> () {

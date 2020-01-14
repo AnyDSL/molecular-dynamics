@@ -130,11 +130,6 @@ int main(int argc, char **argv) {
         }
 
         begin = measure_time();
-        //md_initialize_clusters();
-        end = measure_time();
-        cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-        begin = measure_time();
         md_assemble_neighborlists(cutoff_radius+verlet_buffer);
         end = measure_time();
         neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -195,16 +190,6 @@ int main(int argc, char **argv) {
                 md_exchange_ghost_layer();
                 end = measure_time();
                 exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-                begin = measure_time();
-                md_redistribute_particles();
-                end = measure_time();
-                redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-                begin = measure_time();
-                //md_initialize_clusters();
-                end = measure_time();
-                cluster_initialization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
                 md_assemble_neighborlists(cutoff_radius+verlet_buffer);
