@@ -168,6 +168,46 @@ fn print_i32_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length:
     print_string("\n");
 }
 
+// Print [i32 * 3] value with rank
+fn print_i32_vector_with_rank(field: &[u8], value: [i32 * 3]) -> () {
+    let mpih = mpi();
+    let mut rank: i32;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+
+    print_i32(rank);
+    print_string("> ");
+    print_string(field);
+    print_string(": ");
+    print_i32(value(0));
+    print_string(", ");
+    print_i32(value(1));
+    print_string(", ");
+    print_i32(value(2));
+    print_string("\n");
+    print_flush();
+}
+
+// Print Vector3D value with rank
+fn print_real_vector_with_rank(field: &[u8], value: Vector3D) -> () {
+    let mpih = mpi();
+    let mut rank: i32;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+
+    print_i32(rank);
+    print_string("> ");
+    print_string(field);
+    print_string(": ");
+    print_f64(value.x);
+    print_string(", ");
+    print_f64(value.y);
+    print_string(", ");
+    print_f64(value.z);
+    print_string("\n");
+    print_flush();
+}
+
 // Mirrored communication (avoid deadlocks)
 fn @mirror_comm(
     xoffset: i32,
@@ -471,6 +511,67 @@ fn communication_nodes_generic(
     }
 }
 
+// Is this a local cell?
+fn is_local_cell(cx: i32, cy: i32, cz: i32, grid: &Grid) -> bool {
+    let mpih = mpi();
+    let mut rank: i32;
+    let mut rx: i32;
+    let mut ry: i32;
+    let mut rz: i32;
+
+    let mut local_cond = true;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
+
+    local_cond =               (rx == 0      || cx > get_sync_timesteps() - 1);
+    local_cond = local_cond && (rx == gx - 1 || cx < grid.nx - get_sync_timesteps());
+    local_cond = local_cond && (ry == 0      || cy > get_sync_timesteps() - 1);
+    local_cond = local_cond && (ry == gy - 1 || cy < grid.ny - get_sync_timesteps());
+    local_cond = local_cond && (rz == 0      || cz > get_sync_timesteps() - 1);
+    local_cond = local_cond && (rz == gz - 1 || cz < grid.nz - get_sync_timesteps());
+
+    local_cond
+}
+
+// Adjust cell index to closest local one
+fn closest_local_cell(cx: i32, cy: i32, cz: i32, grid: &Grid) -> [i32 * 3] {
+    let mpih = mpi();
+    let mut rank: i32;
+    let mut rx: i32;
+    let mut ry: i32;
+    let mut rz: i32;
+    let mut resx = cx;
+    let mut resy = cy;
+    let mut resz = cz;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
+
+    resx = select(rx > 0      && resx < get_sync_timesteps(),            get_sync_timesteps(), resx);
+    resx = select(rx < gx - 1 && resx >= grid.nx - get_sync_timesteps(), grid.nx - get_sync_timesteps() - 1, resx);
+    resy = select(ry > 0      && resy < get_sync_timesteps(),            get_sync_timesteps(), resy);
+    resy = select(ry < gy - 1 && resy >= grid.ny - get_sync_timesteps(), grid.ny - get_sync_timesteps() - 1, resy);
+    resz = select(rz > 0      && resz < get_sync_timesteps(),            get_sync_timesteps(), resz);
+    resz = select(rz < gz - 1 && resz >= grid.nz - get_sync_timesteps(), grid.nz - get_sync_timesteps() - 1, resz);
+
+    [resx, resy, resz]
+}
+
+// Check if cells are inside the same ghost layer (rank region)
+fn inside_same_ghost_layer(c1x: i32, c1y: i32, c1z: i32, c2x: i32, c2y: i32, c2z: i32, grid: &Grid) -> bool {
+    let mut equal_cond = false;
+
+    equal_cond =               (c1x < get_sync_timesteps()            && c2x < get_sync_timesteps());
+    equal_cond = equal_cond || (c1x >= grid.nx - get_sync_timesteps() && c2x >= grid.nx - get_sync_timesteps());
+    equal_cond = equal_cond || (c1y < get_sync_timesteps()            && c2y < get_sync_timesteps());
+    equal_cond = equal_cond || (c1y >= grid.ny - get_sync_timesteps() && c2y >= grid.ny - get_sync_timesteps());
+    equal_cond = equal_cond || (c1z < get_sync_timesteps()            && c2z < get_sync_timesteps());
+    equal_cond = equal_cond || (c1z >= grid.nz - get_sync_timesteps() && c2z >= grid.nz - get_sync_timesteps());
+
+    equal_cond
+}
+
 // Is this the last node in the dimension?
 fn last_dimension_node(@dim: i32) -> bool {
     let mpih = mpi();
@@ -597,7 +698,7 @@ fn get_node_config(
     // i.e. the configuration that requires less extension of the edge
     // nodes (extension is required when number of cells is not multiple
     // of the number of nodes in a dimension)
-    let mut min_missing_factor = xcells * ycells * zcells;
+    //let mut min_missing_factor = xcells * ycells * zcells;
 
     *destx = 1;
     *desty = 1;
@@ -605,6 +706,8 @@ fn get_node_config(
 
     // Go through all possibilities of node configurations, update only
     // when missing factor is lower than the current one
+
+    /*
     for i in range(1, world_size) {
         if(world_size % i == 0) {
             let rem_yz = world_size / i;
@@ -619,6 +722,33 @@ fn get_node_config(
                         *desty = j;
                         *destz = k;
                         min_missing_factor = missing_factor;
+                    }
+                }
+            }
+        }
+    }
+    */
+
+    let areax = (xcells * ycells) as f64;
+    let areay = (xcells * zcells) as f64;
+    let areaz = (ycells * zcells) as f64;
+
+    let mut bestsurf = 2.0 * (areax + areay + areaz) as f64;
+
+    for i in range(1, world_size) {
+        if(world_size % i == 0) {
+            let rem_yz = world_size / i;
+
+            for j in range(1, rem_yz) {
+                if(rem_yz % j == 0) {
+                    let k = rem_yz / j;
+                    let surf = areax / i as f64 / j as f64 + areay / i as f64 / k as f64 + areaz / j as f64 / k as f64;
+
+                    if surf < bestsurf {
+                        *destx = i;
+                        *desty = j;
+                        *destz = k;
+                        bestsurf = surf;
                     }
                 }
             }
@@ -950,41 +1080,43 @@ fn unpack_ghost_layer_particles(
 
     map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
         if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
-            let cell_size = cell_sizes(flat_index);
-            let new_cell_size = buffer_data(buffer_index) as i32;
+            let particles_offset = cell_sizes(flat_index);
+            let nparticles = buffer_data(buffer_index) as i32;
+            let new_cell_size = particles_offset + nparticles;
+            let offset = get_cell_offset(flat_index, grid) + particles_offset;
 
             buffer_index += 1;
 
             if(new_cell_size >= grid.cell_capacity) {
-                let new_capacity = new_cell_size + new_cell_size / 10;
-                reallocate_cell_capacity(grid, new_capacity);
+                reallocate_cell_capacity(grid, new_cell_size + new_cell_size / 10);
             }
 
-            let cell_offset = get_cell_offset(flat_index, grid);
-
-            if(new_cell_size > 0) {
+            if(nparticles > 0) {
                 copy_offset(
                     comm_buffer, buffer_index * sizeof[real_t](),
-                    grid.masses_cpu, cell_offset * sizeof[real_t](), new_cell_size * sizeof[real_t]());
+                    grid.masses_cpu, offset * sizeof[real_t](),
+                    nparticles * sizeof[real_t]());
 
-                buffer_index += new_cell_size;
-
-                copy_buffer_to_3d_arrays(
-                    comm_buffer, buffer_index * sizeof[real_t](),
-                    grid.positions_cpu, cell_offset * sizeof[real_t](), new_cell_size * sizeof[real_t]());
-
-                buffer_index += new_cell_size * 3;
+                buffer_index += nparticles;
 
                 copy_buffer_to_3d_arrays(
                     comm_buffer, buffer_index * sizeof[real_t](),
-                    grid.velocities_cpu, cell_offset * sizeof[real_t](), new_cell_size * sizeof[real_t]());
+                    grid.positions_cpu, offset * sizeof[real_t](),
+                    nparticles * sizeof[real_t]());
 
-                buffer_index += new_cell_size * 3;
-                unpacked_particles += new_cell_size;
+                buffer_index += nparticles * 3;
+
+                copy_buffer_to_3d_arrays(
+                    comm_buffer, buffer_index * sizeof[real_t](),
+                    grid.velocities_cpu, offset * sizeof[real_t](),
+                    nparticles * sizeof[real_t]());
+
+                buffer_index += nparticles * 3;
+                unpacked_particles += nparticles;
             }
 
             cell_sizes(flat_index) = new_cell_size;
-            grid.nparticles += new_cell_size - cell_size;
+            grid.nparticles += nparticles;
         }
 
         iterations++;
@@ -1004,6 +1136,8 @@ fn exchange_ghost_layer_particles(
     let mut request: MPI_Request;
     let mut status: MPIStatus;
 
+    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+
     let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
     let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
 
@@ -1014,6 +1148,22 @@ fn exchange_ghost_layer_particles(
 
     max_send_particles = 0;
     max_recv_particles = 0;
+
+    for exchange_rank,
+        send_begin_x, send_begin_y, send_begin_z,
+        send_end_x, send_end_y, send_end_z,
+        recv_begin_x, recv_begin_y, recv_begin_z,
+        recv_end_x, recv_end_y, recv_end_z in
+        communication_nodes(world_size, world_rank, grid) {
+
+        map_over_grid_subdomain(
+            grid, recv_begin_x, recv_begin_y, recv_begin_z, recv_end_x, recv_end_y, recv_end_z, range, range, range,
+            |flat_index, index| {
+                grid.nparticles -= cell_sizes(flat_index);
+                cell_sizes(flat_index) = 0;
+            }
+        );
+    }
 
     for exchange_rank,
         send_begin_x, send_begin_y, send_begin_z,
@@ -1112,32 +1262,10 @@ fn get_node_particles_amount(grid: Grid, world_size: i32, world_rank: i32) -> (i
     let mut nghost = 0;
 
     map_over_grid(grid, range, range, range, |flat_index, index| {
-        let mut is_ghost = false;
-
-        for exchange_rank,
-            send_begin_x, send_begin_y, send_begin_z,
-            send_end_x, send_end_y, send_end_z,
-            recv_begin_x, recv_begin_y, recv_begin_z,
-            recv_end_x, recv_end_y, recv_end_z in
-            communication_nodes(world_size, world_rank, grid) {
-
-            for flat_ghost_index, ghost_index in
-                map_over_grid_subdomain(
-                    grid,
-                    recv_begin_x, recv_begin_y, recv_begin_z,
-                    recv_end_x, recv_end_y, recv_end_z,
-                    range, range, range) {
-
-                if flat_index == flat_ghost_index {
-                    is_ghost = true;
-                }
-            }
-        }
-
-        if is_ghost {
-            nghost += cell_sizes(flat_index);
-        } else {
+        if is_local_cell(index(0), index(1), index(2), grid) {
             nparticles += cell_sizes(flat_index);
+        } else {
+            nghost += cell_sizes(flat_index);
         }
     });
 
@@ -1149,4 +1277,18 @@ fn reduce_time(local_time: f64, global_time: &mut f64) -> () {
     let mut local = local_time;
 
     mpih.allreduce(&mut local as MPI_MutBuf, global_time as MPI_MutBuf, 1, mpih.double_t, mpih.ops.max, mpih.comms.world);
+}
+
+fn reduce_i32_sum(local_value: i32, global_value: &mut i32) -> () {
+    let mpih = mpi();
+    let mut local = local_value;
+
+    mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.int_t, mpih.ops.sum, mpih.comms.world);
+}
+
+fn reduce_i64_sum(local_value: i64, global_value: &mut i64) -> () {
+    let mpih = mpi();
+    let mut local = local_value;
+
+    mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.int64_t, mpih.ops.sum, mpih.comms.world);
 }

@@ -28,6 +28,7 @@ extern "C" {
     // wrappers in mpi.cpp for getting MPI constants
     fn get_mpi_comm_world() -> MPI_Comm;
     fn get_mpi_int() -> MPI_Datatype;
+    fn get_mpi_int64() -> MPI_Datatype;
     fn get_mpi_double() -> MPI_Datatype;
     fn get_mpi_float() -> MPI_Datatype;
     fn get_mpi_max() -> MPI_Op;
@@ -65,6 +66,7 @@ struct MPI {
     int_t : MPI_Datatype,
     double_t : MPI_Datatype,
     float_t : MPI_Datatype,
+    int64_t: MPI_Datatype,
     init : fn() -> i32,
     comm_size : fn(MPI_Comm, &mut i32) -> i32,
     comm_rank : fn(MPI_Comm, &mut i32) -> i32,
@@ -95,6 +97,7 @@ fn @mpi() -> MPI {
         },
         double_t : get_mpi_double(),
         int_t : get_mpi_int(),
+        int64_t : get_mpi_int64(),
         float_t : get_mpi_float(),
         init : MPI_init,
         comm_size : MPI_Comm_size,

@@ -86,9 +86,9 @@ fn get_z_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
 }
 
 fn copy_3d_arrays(i: i32, j: i32, src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
-   bitcast[&mut[real_t]](dest.x.data)(j) = bitcast[&[real_t]](src.x.data)(i);
-   bitcast[&mut[real_t]](dest.y.data)(j) = bitcast[&[real_t]](src.y.data)(i);
-   bitcast[&mut[real_t]](dest.z.data)(j) = bitcast[&[real_t]](src.z.data)(i);
+    bitcast[&mut[real_t]](dest.x.data)(j) = bitcast[&[real_t]](src.x.data)(i);
+    bitcast[&mut[real_t]](dest.y.data)(j) = bitcast[&[real_t]](src.y.data)(i);
+    bitcast[&mut[real_t]](dest.z.data)(j) = bitcast[&[real_t]](src.z.data)(i);
 }
 
 fn swap_3d_arrays(i: i32, j: i32, struct_of_arrays: StructOfArrays3D) -> () {

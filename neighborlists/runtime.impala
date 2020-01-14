@@ -2,6 +2,9 @@ static mut grid_ : Grid;
 static mut comm_offsets_ : CommOffsets;
 static mut world_size : i32;
 static mut world_rank : i32;
+static mut force_iters : i64;
+static mut rsq_iters : i64;
+static mut integration_iters : i64;
 
 extern fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
@@ -90,7 +93,7 @@ extern fn md_deallocate_grid() -> () {
 }
 
 extern fn md_integration(dt: real_t) -> () {
-    accelerator_integration(grid_, dt);
+    integration_iters = accelerator_integration(grid_, dt);
 }
 
 extern fn md_write_grid_data_to_arrays(
@@ -143,7 +146,9 @@ extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: rea
     let potential = create_potential(sigma, epsilon);
 
     if(get_cluster_size() == 1) {
-        accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
+        let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
+        force_iters = iforces;
+        rsq_iters = irsq;
     } else {
         accelerator_compute_cluster_forces(grid_, cutoff_distance*cutoff_distance, potential);
     }
@@ -183,16 +188,43 @@ extern fn md_report_memory_allocation() -> () {
     report_memory_allocation();
 }
 
-extern fn md_report_particles() -> () {
-    let (nparticles, nghost) = get_node_particles_amount(grid_, world_size, world_rank);
+extern fn md_report_iterations() -> () {
+    let mut res: i64;
+    let is_root = world_rank == 0;
 
-    print_i32(nparticles);
-    print_string(" ");
-    print_i32(nghost);
-    print_string(" # nparticles / nghost (rank = ");
-    print_i32(world_rank);
-    print_string(")\n");
-    print_flush();
+    barrier();
+    print_string_cond(is_root, "ForceIters RsqIters IntegrationIters\n");
+
+    reduce_i64_sum(force_iters, &mut res);
+    print_i64_cond(is_root, res);
+
+    reduce_i64_sum(rsq_iters, &mut res);
+    print_string_cond(is_root, " ");
+    print_i64_cond(is_root, res);
+
+    reduce_i64_sum(integration_iters, &mut res);
+    print_string_cond(is_root, " ");
+    print_i64_cond(is_root, res);
+
+    print_string_cond(is_root, "\n");
+}
+
+extern fn md_report_particles() -> () {
+    let mut res: i32;
+    let (nparticles, nghost) = get_node_particles_amount(grid_, world_size, world_rank);
+    let is_root = world_rank == 0;
+
+    barrier();
+    print_string_cond(is_root, "# Local # Ghost\n");
+
+    reduce_i32_sum(nparticles, &mut res);
+    print_i32_cond(is_root, res);
+
+    reduce_i32_sum(nghost, &mut res);
+    print_string_cond(is_root, " ");
+    print_i32_cond(is_root, res);
+
+    print_string_cond(is_root, "\n");
 }
 
 extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64, other_avg: f64) -> () {

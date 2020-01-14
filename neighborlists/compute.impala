@@ -1,7 +1,10 @@
 fn accelerator_compute_particle_forces(
     grid: Grid,
     squared_cutoff_distance: real_t,
-    @potential: fn(real_t) -> real_t) -> () {
+    @potential: fn(real_t) -> real_t) -> (i64, i64) {
+
+    let mut total_iters = 0 as i64;
+    let mut rsq_iters = 0 as i64;
 
     for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
         let mut force = Vector3D {
@@ -24,11 +27,16 @@ fn accelerator_compute_particle_forces(
                 let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
 
                 force = vector_add(force, vector_scale(f, del));
+                rsq_iters++;
             }
+
+            total_iters++;
         }
 
         set_force(begin + j, grid, force);
     }
+
+    (total_iters, rsq_iters)
 }
 
 fn accelerator_compute_cluster_forces(
@@ -113,7 +121,9 @@ fn accelerator_restrict_to_boundary(grid: Grid, aabb: AABB) -> () {
     }
 }
 
-fn accelerator_integration(grid: Grid, dt: real_t) -> () {
+fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
+    let mut iters = 0 as i64;
+
     for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
         let masses = get_masses(grid);
         let inverse_mass = 1.0 as real_t / masses(begin + j);
@@ -131,5 +141,9 @@ fn accelerator_integration(grid: Grid, dt: real_t) -> () {
 
         set_velocity(begin + j, grid, velocity);
         set_position(begin + j, grid, position);
+
+        iters++;
     }
+
+    iters
 }

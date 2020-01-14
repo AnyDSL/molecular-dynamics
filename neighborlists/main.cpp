@@ -117,9 +117,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 40, 100);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
 #else
-        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 40, 100);
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -177,6 +177,11 @@ int main(int argc, char **argv) {
 
             if(vtk || (j > 0 && j % 20 == 0)) {
                 begin = measure_time();
+                md_synchronize_ghost_layer();
+                end = measure_time();
+                synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+                begin = measure_time();
                 md_copy_data_from_accelerator();
                 end = measure_time();
                 copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -231,6 +236,7 @@ int main(int argc, char **argv) {
             }
         }
 
+        md_report_iterations();
         md_report_particles();
 
         begin = measure_time();

@@ -129,6 +129,18 @@ fn print_f64_cond(condition: bool, value: f64) -> () {
     }
 }
 
+fn print_i32_cond(condition: bool, value: i32) -> () {
+    if(condition) {
+        print_i32(value);
+    }
+}
+
+fn print_i64_cond(condition: bool, value: i64) -> () {
+    if(condition) {
+        print_i64(value);
+    }
+}
+
 fn print_string_cond(condition: bool, string: &[u8]) -> () {
     if(condition) {
         print_string(string);

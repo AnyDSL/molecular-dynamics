@@ -356,21 +356,39 @@ fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
         let mut cell_size = cell_sizes(cell_index);
         let mut i = 0;
 
+        let spatial_index = unflatten_index(cell_index, grid);
+
         while i < cell_size {
             let position = get_vector_from_3d_arrays(cell_offset + i, grid.positions_cpu);
 
             if is_within_domain(position, grid) {
-                let cur_index = flatten_index(compute_cell_position(position, grid), grid);
+                let mut new_spatial_index = compute_cell_position(position, grid);
+
+                new_spatial_index(0) = math.max(new_spatial_index(0), 0);
+                new_spatial_index(0) = math.min(new_spatial_index(0), grid.nx - 1);
+                new_spatial_index(1) = math.max(new_spatial_index(1), 0);
+                new_spatial_index(1) = math.min(new_spatial_index(1), grid.ny - 1);
+                new_spatial_index(2) = math.max(new_spatial_index(2), 0);
+                new_spatial_index(2) = math.min(new_spatial_index(2), grid.nz - 1);
+
+                let cur_index = flatten_index(new_spatial_index, grid);
 
                 if cur_index != cell_index {
-                    let mass = get_real(cell_offset + i, grid.masses_cpu);
-                    let velocity = get_vector_from_3d_arrays(cell_offset + i, grid.velocities_cpu);
+                    let from_local = is_local_cell(spatial_index(0), spatial_index(1), spatial_index(2), grid);
+                    let to_local = is_local_cell(new_spatial_index(0), new_spatial_index(1), new_spatial_index(2), grid);
 
-                    remove_particle(cell_index, cell_offset, i, grid);
-                    append_particle(cur_index, mass, position, velocity, grid, allocate);
+                    if from_local && to_local {
+                        let mass = get_real(cell_offset + i, grid.masses_cpu);
+                        let velocity = get_vector_from_3d_arrays(cell_offset + i, grid.velocities_cpu);
 
-                    cell_offset = get_cell_offset(cell_index, grid);
-                    cell_size -= 1;
+                        remove_particle(cell_index, cell_offset, i, grid);
+                        append_particle(cur_index, mass, position, velocity, grid, allocate);
+
+                        cell_offset = get_cell_offset(cell_index, grid);
+                        cell_size -= 1;
+                    } else {
+                        ++i;
+                    }
                 } else {
                     ++i;
                 }
