@@ -3,11 +3,6 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
-// In the GPU, we can either make each thread process a different cluster, or each thread
-// process different particles in the same cluster, if this option is true we use the first
-// approach, if this option is false we use the second one
-fn @accelerator_split_clusters() -> bool { true }
-
 fn @nvvm_shfldown_i32(var: i32, delta: i32, width: i32) -> i32 {
     let mut res: i32;
     let warp_size = 32; 
@@ -70,45 +65,36 @@ fn @transfer_between_devices(source: Buffer, destination: Buffer) -> () {
 }
 
 fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) -> () {
-    _transfer_3d_arrays_between_devices(source, destination, N);
+    _transfer_3d_arrays_between_devices(source, destination);
 }
 
 fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
-    let cluster_size = get_cluster_size();
+    let cell_sizes = get_array_of_i32_accelerator(grid.cell_sizes_accelerator);
+    let neighbors_per_cluster = get_array_of_i32_accelerator(grid.neighbors_per_cluster_accelerator);
+    let neighborlist_capacity = grid.neighborlist_capacity;
+    let neighborlists = get_neighborlists(grid);
+
+    let ncells = grid.ncells;
     let acc = accelerator(device_id);
+    let grid_size = (ncells * 128, 1, 1);
+    let block_size = (128, 1, 1);
 
-    if accelerator_split_clusters() {
-        let grid = (grid.total_number_of_clusters * cluster_size, 1, 1);
-        let block = (cluster_size, 1, 1);
+    for work_item in acc.exec(grid_size, block_size) {
+        let cell_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
-        for work_item in acc.exec(grid, block) {
-            let i = work_item.bidx();
-            let neighborlists = get_neighborlists(grid);
+        if cell_index < ncells {
+            let cell_offset = get_cell_offset(cell_index, grid);
+            let ghost_mask = get_ghost_mask(cell_index, grid);
 
-            if i < grid.total_number_of_clusters {
-                let j = work_item.tidx();
-                let begin = i * cluster_size;
-                let number_of_neighbors = get_number_of_neighbors(i, grid);
-                let neighborlist_offset = get_neighborlist_offset(i, grid);
+            if is_mask_true(ghost_mask) {
+                let cell_size = cell_sizes(cell_index);
 
-                @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
-            }
-        }
-    } else {
-        let grid = (grid.total_number_of_clusters * 128, 1, 1);
-        let block = (128, 1, 1);
+                range(0, cell_size, |cluster| {
+                    let cluster_index = cell_offset + cluster;
+                    let nb_list_offset = neighborlist_capacity * cluster_index;
+                    let nb_list_size = neighbors_per_cluster(cluster_index);
 
-        for work_item in acc.exec(grid, block) {
-            let i = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            let neighborlists = get_neighborlists(grid);
-
-            if i < grid.total_number_of_clusters {
-                let begin = i * cluster_size;
-                let number_of_neighbors = get_number_of_neighbors(i, grid);
-                let neighborlist_offset = get_neighborlist_offset(i, grid);
-
-                range(0, cluster_size, |j| {
-                    @@body(i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists);
+                    @@body(cluster, cluster_index, 0, nb_list_size, nb_list_offset, neighborlists);
                 });
             }
         }
@@ -119,10 +105,6 @@ fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) 
 
 fn @get_number_of_neighbors(cluster_index: i32, grid: Grid) -> i32 {
     get_i32_accelerator(cluster_index, grid.neighbors_per_cluster_accelerator)
-}
-
-fn @get_neighborlist_offset(cluster_index: i32, grid: Grid) -> i32 {
-    get_i32_accelerator(cluster_index, grid.neighborlist_offsets_accelerator)
 }
 
 fn @get_neighborlists(grid: Grid) -> &mut[1][i32] {
@@ -171,6 +153,10 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
 
 fn @get_mask(i: i32, grid: Grid) -> mask_t {
     get_mask_t_accelerator(i, grid.interaction_mask_accelerator)
+}
+
+fn @get_ghost_mask(i: i32, grid: Grid) -> mask_t {
+    get_mask_t_accelerator(i, grid.ghost_mask_accelerator)
 }
 
 fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> () {
@@ -222,7 +208,6 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i
 fn build_comm_offsets(
     world_size: i32,
     rank: i32,
-    grid: &Grid,
     grid: &Grid,
     comm_offsets: &mut CommOffsets) -> () {
 
@@ -360,13 +345,13 @@ fn @get_comm_recv_sizes_accelerator(index: i32, comm_offsets: CommOffsets) -> i3
 
 fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, grid: Grid) -> () {
     let acc = accelerator(device_id);
-    let grid = (comm_offsets.send_noffsets * 64, 1, 1);
-    let block = (64, 1, 1);
+    let grid_size = (comm_offsets.send_noffsets * 64, 1, 1);
+    let block_size = (64, 1, 1);
     let buffer_gpu = comm_offsets.send_buffer_accelerator;
     let noffsets = comm_offsets.send_noffsets;
 
     if noffsets > 0 {
-        for work_item in acc.exec(grid, block) {
+        for work_item in acc.exec(grid_size, block_size) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
             if th_idx < noffsets {
@@ -392,15 +377,15 @@ fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, grid
 
 fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, grid: Grid) -> () {
     let acc = accelerator(device_id);
-    let grid = (comm_offsets.recv_noffsets * 64, 1, 1);
-    let block = (64, 1, 1);
+    let grid_size = (comm_offsets.recv_noffsets * 64, 1, 1);
+    let block_size = (64, 1, 1);
     let buffer_gpu = comm_offsets.recv_buffer_accelerator;
     let noffsets = comm_offsets.recv_noffsets;
 
     if noffsets > 0 {
         copy(comm_buffer, buffer_gpu);
 
-        for work_item in acc.exec(grid, block) {
+        for work_item in acc.exec(grid_size, block_size) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
             if th_idx < noffsets {
