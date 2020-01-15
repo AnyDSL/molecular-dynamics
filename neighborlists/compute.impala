@@ -6,9 +6,7 @@ fn accelerator_compute_particle_forces(
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(grid, grid.ncells, grid.cell_capacity, grid.neighborlist_capacity) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
@@ -46,9 +44,7 @@ fn accelerator_compute_cluster_forces(
     squared_cutoff_distance: real_t,
     @potential: fn(real_t) -> real_t) -> () {
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(grid, grid.ncells, grid.cell_capacity, grid.neighborlist_capacity) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
@@ -100,9 +96,7 @@ fn accelerator_compute_cluster_forces(
 }
 
 fn accelerator_restrict_to_boundary(grid: Grid, aabb: AABB) -> () {
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(grid, grid.ncells, grid.cell_capacity, grid.neighborlist_capacity) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
         let mut position = get_position(begin + j, grid); 
 
         if(position.x < aabb.xmin) {
@@ -130,9 +124,7 @@ fn accelerator_restrict_to_boundary(grid: Grid, aabb: AABB) -> () {
 fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in
-        loop_accelerator(grid, grid.ncells, grid.cell_capacity, grid.neighborlist_capacity) {
-
+    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
         let masses = get_masses(grid);
         let inverse_mass = 1.0 as real_t / masses(begin + j);
         let mut position = get_position(begin + j, grid);

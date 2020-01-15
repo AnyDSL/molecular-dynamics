@@ -68,16 +68,13 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) ->
     _transfer_3d_arrays_between_devices(source, destination);
 }
 
-fn loop_accelerator(
-    grid: Grid,
-    ncells: i32,
-    cell_capacity: i32,
-    neighborlist_capacity: i32,
-    body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
-
+fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
     let cell_sizes = get_array_of_i32_accelerator(grid.cell_sizes_accelerator);
     let neighbors_per_cluster = get_array_of_i32_accelerator(grid.neighbors_per_cluster_accelerator);
     let neighborlists = get_neighborlists(grid);
+    let ncells = grid.ncells;
+    let cell_capacity = grid.cell_capacity;
+    let neighborlist_capacity = grid.neighborlist_capacity;
 
     let acc = accelerator(device_id);
     let grid_size = (ncells * 128, 1, 1);
