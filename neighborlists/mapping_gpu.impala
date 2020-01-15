@@ -41,7 +41,6 @@ fn @nvvm_shfl_f64(var: f64, src_lane: i32, width: i32) -> f64 {
     res 
 }
 
-
 fn @shuffle(x: real_t, src_lane: i32, laneOffset: i32) -> real_t {
     nvvm_shfl_f64(x, src_lane, get_cluster_size())
 }
@@ -49,6 +48,8 @@ fn @shuffle(x: real_t, src_lane: i32, laneOffset: i32) -> real_t {
 fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
     ptr
 }
+
+fn add_iterator(iterator: &mut i64) -> () {}
 
 fn @accelerator_allocate(size: i32) -> Buffer {
     let acc = accelerator(device_id);
