@@ -68,23 +68,27 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) ->
     _transfer_3d_arrays_between_devices(source, destination);
 }
 
-fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+fn loop_accelerator(
+    grid: Grid,
+    ncells: i32,
+    cell_capacity: i32,
+    neighborlist_capacity: i32,
+    body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+
     let cell_sizes = get_array_of_i32_accelerator(grid.cell_sizes_accelerator);
     let neighbors_per_cluster = get_array_of_i32_accelerator(grid.neighbors_per_cluster_accelerator);
-    let neighborlist_capacity = grid.neighborlist_capacity;
     let neighborlists = get_neighborlists(grid);
 
-    let ncells = grid.ncells;
     let acc = accelerator(device_id);
     let grid_size = (ncells * 128, 1, 1);
     let block_size = (128, 1, 1);
 
-    for work_item in acc.exec(grid_size, block_size) {
+    acc.exec(grid_size, block_size, |work_item| {
         let cell_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
         if cell_index < ncells {
-            let cell_offset = get_cell_offset(cell_index, grid);
-            let ghost_mask = get_ghost_mask(cell_index, grid);
+            let cell_offset = cell_index * cell_capacity;
+            let ghost_mask = get_ghost_mask(cell_offset, grid);
 
             if is_mask_true(ghost_mask) {
                 let cell_size = cell_sizes(cell_index);
@@ -98,7 +102,7 @@ fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) 
                 });
             }
         }
-    }
+    });
 
     acc.sync();
 }
