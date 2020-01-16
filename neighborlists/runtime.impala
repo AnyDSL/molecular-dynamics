@@ -118,7 +118,7 @@ extern fn md_initialize_clusters() -> () {
 }
 
 extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighborlists(&mut grid_, cutoff_distance, alloc_cpu, assemble_particles_full_neighborlist);
+    grid_assemble_neighborlists(&mut grid_, cutoff_distance, assemble_particles_full_neighborlist);
 }
 
 extern fn md_print_grid() -> () {
