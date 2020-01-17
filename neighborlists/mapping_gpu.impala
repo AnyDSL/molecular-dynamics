@@ -69,35 +69,26 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) ->
     _transfer_3d_arrays_between_devices(source, destination);
 }
 
-fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) -> ()) -> () {
+fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> () {
     let cell_sizes = get_array_of_i32_accelerator(grid.cell_sizes_accelerator);
-    let neighbors_per_cluster = get_array_of_i32_accelerator(grid.neighbors_per_cluster_accelerator);
-    let neighborlists = get_neighborlists(grid);
-    let ncells = grid.ncells;
-    let cell_capacity = grid.cell_capacity;
+    let neighbors_sizes = get_array_of_i32_accelerator(grid.neighbors_sizes_accelerator);
+    let neighborlists = get_array_of_i32_accelerator(grid.neighborlists_accelerator);
     let neighborlist_capacity = grid.neighborlist_capacity;
+    let nparticles = grid.nparticles;
 
     let acc = accelerator(device_id);
-    let grid_size = (ncells * 128, 1, 1);
-    let block_size = (128, 1, 1);
+    let grid_size = (nparticles * 32, 1, 1);
+    let block_size = (32, 1, 1);
 
     acc.exec(grid_size, block_size, |work_item| {
-        let cell_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
+        let particle_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
-        if cell_index < ncells {
-            let cell_offset = cell_index * cell_capacity;
-            let ghost_mask = get_ghost_mask(cell_offset, grid);
+        if particle_index < nparticles {
+            if is_mask_true(get_ghost_mask(particle_index, grid)) {
+                let nb_list_offset = neighborlist_capacity * particle_index;
+                let nb_list_size = neighbors_sizes(particle_index);
 
-            if is_mask_true(ghost_mask) {
-                let cell_size = cell_sizes(cell_index);
-
-                range(0, cell_size, |cluster| {
-                    let cluster_index = cell_offset + cluster;
-                    let nb_list_offset = neighborlist_capacity * cluster_index;
-                    let nb_list_size = neighbors_per_cluster(cluster_index);
-
-                    @@body(cluster, cluster_index, 0, nb_list_size, nb_list_offset, neighborlists);
-                });
+                @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
             }
         }
     });
@@ -106,7 +97,7 @@ fn loop_accelerator(grid: Grid, body: fn(i32, i32, i32, i32, i32, &mut[1][i32]) 
 }
 
 fn @get_number_of_neighbors(cluster_index: i32, grid: Grid) -> i32 {
-    get_i32_accelerator(cluster_index, grid.neighbors_per_cluster_accelerator)
+    get_i32_accelerator(cluster_index, grid.neighbors_sizes_accelerator)
 }
 
 fn @get_neighborlists(grid: Grid) -> &mut[1][i32] {
@@ -151,10 +142,6 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     force.y += dF_y;
     force.z += dF_z;
     set_3d_arrays_accelerator(i, grid.forces_accelerator, force);
-}
-
-fn @get_mask(i: i32, grid: Grid) -> mask_t {
-    get_mask_t_accelerator(i, grid.interaction_mask_accelerator)
 }
 
 fn @get_ghost_mask(i: i32, grid: Grid) -> mask_t {
@@ -225,7 +212,7 @@ fn build_comm_offsets(
     let recv_sizes = get_array_of_i32(comm_offsets.recv_sizes);
     let send_starts = get_array_of_i32(comm_offsets.send_starts);
     let recv_starts = get_array_of_i32(comm_offsets.recv_starts);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
     if world_size > 1 {
         range(0, world_size, |r| {
@@ -258,7 +245,7 @@ fn build_comm_offsets(
                 send_sizes(isend) = cell_size;
                 send_starts(isend) = ptr_send;
 
-                isend += 1;
+                isend++;
                 ptr_send += 3 * cell_size;
             }
 
@@ -276,7 +263,7 @@ fn build_comm_offsets(
                 recv_sizes(irecv) = cell_size;
                 recv_starts(irecv) = ptr_recv;
 
-                irecv += 1;
+                irecv++;
                 ptr_recv += 3 * cell_size;
             }
         }
