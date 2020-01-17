@@ -16,17 +16,10 @@ fn neighbor_cells(index: i32, nx: i32, ny: i32, ncells: i32, body: fn(i32) -> ()
     });
 }
 
-fn append_neighbor(
-    cluster: i32,
-    cell_index: i32,
-    cell_offset: i32,
-    neighbor_cluster: i32,
-    neighbor_cell: i32,
-    neighbor_offset: i32,
-    grid: &mut Grid) -> () {
-
-    let neighbors_per_cluster = get_array_of_i32(grid.neighbors_per_cluster_cpu);
-    let nb_list_size = neighbors_per_cluster(cell_offset + cluster);
+fn append_neighbor(particle_index: i32, neighbor_index: i32, grid: &mut Grid) -> () {
+    let neighbors_sizes = get_array_of_i32(grid.neighbors_sizes_cpu);
+    let neighborlists = get_array_of_i32(grid.neighborlists_cpu);
+    let nb_list_size = neighbors_sizes(particle_index);
 
     if nb_list_size == grid.neighborlist_capacity {
         let adding = nb_list_size / 10 + 1;
@@ -36,76 +29,66 @@ fn append_neighbor(
         reallocate_neighborlist_capacity(grid, capacity);
     }
 
-    let neighborlists = get_array_of_i32(grid.neighborlists_cpu);
-    let buffer_index = grid.neighborlist_capacity * (cell_offset + cluster) + nb_list_size;
-
-    neighborlists(buffer_index) = neighbor_offset + neighbor_cluster * grid.cluster_size;
-    neighbors_per_cluster(cell_offset + cluster) += 1;
+    neighborlists(grid.neighborlist_capacity * particle_index + nb_list_size) = neighbor_index;
+    neighbors_sizes(particle_index)++;
 }
 
-// Redundant computation to get rid of atomics (only works when cluster_size = 1)
-fn assemble_particles_full_neighborlist(
-    cluster: i32,
-    cell_index: i32,
-    cell_offset: i32,
-    grid: &mut Grid,
-    cutoff_distance: real_t) -> () {
-
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+fn grid_assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
+    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
+    let neighbors_sizes = get_array_of_i32(grid.neighbors_sizes_cpu);
     let squared_cutoff_distance = cutoff_distance * cutoff_distance;
-    let cluster_index = cell_offset + cluster;
-    let mx = get_x_component(cluster_index, grid.positions_cpu);
-    let my = get_y_component(cluster_index, grid.positions_cpu);
-    let mz = get_z_component(cluster_index, grid.positions_cpu);
 
-    neighbor_cells(cell_index, grid.nx, grid.ny, grid.ncells, |neighboring_cell_index| {
-        let same_cell = cell_index == neighboring_cell_index;
-        let neighbor_cell_offset = get_cell_offset(neighboring_cell_index, grid);
-        let neighbor_cell_size = cell_sizes(neighboring_cell_index);
+    let ncells = grid.ncells;
+    let cell_capacity = grid.cell_capacity;
+    let nx = grid.nx;
+    let ny = grid.ny;
 
-        if same_cell == false {
-            for z in range(0, neighbor_cell_size) {
-                let neighbor_cluster_index = neighbor_cell_offset + z;
-                let dx = mx - get_x_component(neighbor_cluster_index, grid.positions_cpu);
-                let dy = my - get_y_component(neighbor_cluster_index, grid.positions_cpu);
-                let dz = mz - get_z_component(neighbor_cluster_index, grid.positions_cpu);
-
-                if dx * dx + dy * dy + dz * dz <= squared_cutoff_distance {
-                    append_neighbor(cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset, grid);
-                }
-            }
-        } else {
-            for z in range(0, neighbor_cell_size) {
-                if cluster != z {
-                    let neighbor_cluster_index = neighbor_cell_offset + z;
-                    let dx = mx - get_x_component(neighbor_cluster_index, grid.positions_cpu);
-                    let dy = my - get_y_component(neighbor_cluster_index, grid.positions_cpu);
-                    let dz = mz - get_z_component(neighbor_cluster_index, grid.positions_cpu);
-
-                    if dx * dx + dy * dy + dz * dz <= squared_cutoff_distance {
-                        append_neighbor(cluster, cell_index, cell_offset, z, neighboring_cell_index, neighbor_cell_offset, grid);
-                    }
-                }
-            }
-        }
-    });
-}
-
-fn grid_assemble_neighborlists(
-    grid: &mut Grid,
-    cutoff_distance: real_t,
-    assemble: fn(i32, i32, i32, &mut Grid, real_t)-> ()) -> () {
-
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
-    let neighbors_per_cluster = get_array_of_i32(grid.neighbors_per_cluster_cpu);
-
-    range(0, grid.ncells, |cell_index| {
+    range(0, ncells, |cell_index| {
         let cell_offset = get_cell_offset(cell_index, grid);
         let cell_size = cell_sizes(cell_index);
 
-        range(0, cell_size, |cluster| {
-            neighbors_per_cluster(cell_offset + cluster) = 0;
-            assemble(cluster, cell_index, cell_offset, grid, cutoff_distance);
+        range(0, cell_size, |cell_particle_index| {
+            let particle_index = cell_particles(cell_offset + cell_particle_index);
+            let mx = get_x_component(particle_index, grid.positions_cpu);
+            let my = get_y_component(particle_index, grid.positions_cpu);
+            let mz = get_z_component(particle_index, grid.positions_cpu);
+
+            neighbors_sizes(particle_index) = 0;
+
+            neighbor_cells(cell_index, nx, ny, ncells, |neighboring_cell_index| {
+                let same_cell = cell_index == neighboring_cell_index;
+
+                if same_cell == false {
+                    let neighbor_cell_offset = get_cell_offset(neighboring_cell_index, grid);
+                    let neighbor_cell_size = cell_sizes(neighboring_cell_index);
+
+                    range(0, neighbor_cell_size, |neighbor_particle_index| {
+                        let neighbor_particle_index = cell_particles(neighbor_cell_offset + neighbor_particle_index);
+                        let dx = mx - get_x_component(neighbor_particle_index, grid.positions_cpu);
+                        let dy = my - get_y_component(neighbor_particle_index, grid.positions_cpu);
+                        let dz = mz - get_z_component(neighbor_particle_index, grid.positions_cpu);
+
+                        if dx * dx + dy * dy + dz * dz <= squared_cutoff_distance {
+                            @@append_neighbor(particle_index, neighbor_particle_index, grid);
+                        }
+                    });
+                } else {
+                    range(0, cell_size, |neighbor_particle_index| {
+                        if cell_particle_index != neighbor_particle_index {
+                            let neighbor_particle_index = cell_particles(cell_offset + neighbor_particle_index);
+                            let dx = mx - get_x_component(neighbor_particle_index, grid.positions_cpu);
+                            let dy = my - get_y_component(neighbor_particle_index, grid.positions_cpu);
+                            let dz = mz - get_z_component(neighbor_particle_index, grid.positions_cpu);
+
+                            if dx * dx + dy * dy + dz * dz <= squared_cutoff_distance {
+                                @@append_neighbor(particle_index, neighbor_particle_index, grid);
+                            }
+                        }
+                    });
+                }
+            });
+
         });
     });
 }

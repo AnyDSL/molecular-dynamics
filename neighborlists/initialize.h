@@ -154,6 +154,7 @@ int init_rectangular_grid(
     double spacing[3],
     double maximum_velocity,
     double cell_spacing,
+    int particle_capacity,
     int cell_capacity,
     int neighborlist_capacity) {
 
@@ -185,6 +186,7 @@ int init_rectangular_grid(
         rank_aabb.min,
         rank_aabb.max,
         cell_spacing,
+        particle_capacity,
         cell_capacity,
         neighborlist_capacity
     );
@@ -201,6 +203,7 @@ int init_body_collision(
     double mass2,
     double velocity,
     double cell_spacing,
+    int particle_capacity,
     int cell_capacity,
     int neighborlist_capacity) {
 
@@ -249,6 +252,7 @@ int init_body_collision(
         rank_aabb.min,
         rank_aabb.max,
         cell_spacing,
+        particle_capacity,
         cell_capacity,
         neighborlist_capacity
     );

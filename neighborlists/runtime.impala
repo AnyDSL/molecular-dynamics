@@ -20,6 +20,7 @@ extern fn md_initialize_grid(
     rank_min: &[real_t],
     rank_max: &[real_t],
     cell_spacing: real_t,
+    particle_capacity: i32,
     cell_capacity: i32,
     neighborlist_capacity: i32) -> i32 {
 
@@ -41,9 +42,7 @@ extern fn md_initialize_grid(
         zmax: rank_max(2)
     };
 
-    let cluster_size = get_cluster_size();
-
-    grid_ = allocate_grid(rank_aabb, cell_spacing, cluster_size, cell_capacity, neighborlist_capacity);
+    grid_ = allocate_grid(rank_aabb, cell_spacing, particle_capacity, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
@@ -118,40 +117,28 @@ extern fn md_initialize_clusters() -> () {
 }
 
 extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighborlists(&mut grid_, cutoff_distance, assemble_particles_full_neighborlist);
+    grid_assemble_neighborlists(&mut grid_, cutoff_distance);
 }
 
 extern fn md_print_grid() -> () {
-    let cell_sizes = get_array_of_i32(grid_.cell_sizes);
+    map_over_grid_particles(grid_, range, |particle_index| {
+        let pos = get_position(particle_index, grid_);
 
-    map_over_grid(grid_, range, range, range, |flat_index, index| {
-        let cell_offset = get_cell_offset(flat_index, grid_);
-        let cell_size = cell_sizes(flat_index);
-
-        range(0, cell_size, |particle| {
-            let pos = get_position(cell_offset + particle, grid_);
-
-            print_f64(pos.x);
-            print_string(", ");
-            print_f64(pos.y);
-            print_string(", ");
-            print_f64(pos.z);
-            print_string("\n");
-            print_flush();
-        });
+        print_f64(pos.x);
+        print_string(", ");
+        print_f64(pos.y);
+        print_string(", ");
+        print_f64(pos.z);
+        print_string("\n");
+        print_flush();
     });
 }
 
 extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
-
-    if(get_cluster_size() == 1) {
-        let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
-        force_iters = iforces;
-        rsq_iters = irsq;
-    } else {
-        accelerator_compute_cluster_forces(grid_, cutoff_distance*cutoff_distance, potential);
-    }
+    let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
+    force_iters = iforces;
+    rsq_iters = irsq;
 }
 
 extern fn md_compute_total_kinetic_energy() -> real_t {

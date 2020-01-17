@@ -100,14 +100,7 @@ fn inside_same_ghost_layer(cell_index1: [i32 * 3], cell_index2: [i32 * 3], grid:
 fn last_dimension_node(@dim: i32) -> bool { true }
 
 fn get_node_particles_amount(grid: Grid, world_size: i32, world_rank: i32) -> (i32, i32) {
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
-    let mut nparticles = 0;
-
-    map_over_grid(grid, range, range, range, |flat_index, index| {
-        nparticles += cell_sizes(flat_index);
-    });
-
-    (nparticles, 0)
+    (grid.nparticles, 0)
 }
 
 fn reduce_time(local_time: f64, global_time: &mut f64) -> () {

@@ -6,22 +6,22 @@ fn accelerator_compute_particle_forces(
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
+    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
             z: 0.0 as real_t
         };
 
-        let pos = get_position(begin + j, grid);
+        let pos = get_position(i, grid);
 
-        for n in range(0, number_of_neighbors) {
-            let begin_neighbor = neighborlists(neighborlist_offset + n);
-            let pos_neighbor = get_position(begin_neighbor, grid);
+        for n in range(0, nb_list_size) {
+            let neighbor_index = neighborlists(nb_list_offset + n);
+            let pos_neighbor = get_position(neighbor_index, grid);
             let del = vector_sub(pos, pos_neighbor);
             let rsq = vector_len2(del);
 
-            if(rsq < squared_cutoff_distance) {
+            if rsq < squared_cutoff_distance {
                 let sr2 = 1.0 / rsq;
                 let sr6 = sr2 * sr2 * sr2;
                 let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
@@ -33,103 +33,47 @@ fn accelerator_compute_particle_forces(
             @@add_iterator(&mut total_iters);
         }
 
-        set_force(begin + j, grid, force);
-    }
+        set_force(i, grid, force);
+    });
 
     (total_iters, rsq_iters)
 }
 
-fn accelerator_compute_cluster_forces(
-    grid: Grid,
-    squared_cutoff_distance: real_t,
-    @potential: fn(real_t) -> real_t) -> () {
-
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
-        let mut force = Vector3D {
-            x: 0.0 as real_t,
-            y: 0.0 as real_t,
-            z: 0.0 as real_t
-        };
-
-        let pos = get_position(begin + j, grid);
-
-        for k in unroll(1, get_cluster_size()) {
-            let src_lane = (j + k) % get_cluster_size();
-            let pos_neighbor = Vector3D {
-                x: shuffle(pos.x, src_lane, k),
-                y: shuffle(pos.y, src_lane, k),
-                z: shuffle(pos.z, src_lane, k)
-            };
-
-            let mask = get_mask(begin + j + k, grid);
-            let diff = vector_sub(pos_neighbor, pos);
-            let len2 = vector_len2(diff);
-
-            if len2 < squared_cutoff_distance {
-                increase_flops(1);
-                if is_mask_true(mask) {
-                    force = vector_add(force, vector_scale(potential(len2), diff));
-                }
-            }
-        }
-
-        for n in range(0, number_of_neighbors) {
-            let begin_neighbor = neighborlists(neighborlist_offset + n);
-
-            for k in range(0, get_cluster_size()) {
-                let pos_neighbor = get_position(begin_neighbor + k, grid);
-                let mask = get_mask(begin_neighbor + k, grid);
-                let diff = vector_sub(pos_neighbor, pos);
-                let len2 = vector_len2(diff);
-
-                if len2 < squared_cutoff_distance {
-                    increase_flops(1);
-                    if is_mask_true(mask) {
-                        force = vector_add(force, vector_scale(potential(len2), diff));
-                    }
-                }
-            }
-        }
-
-        set_force(begin + j, grid, force);
-    }
-}
-
 fn accelerator_restrict_to_boundary(grid: Grid, aabb: AABB) -> () {
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
-        let mut position = get_position(begin + j, grid); 
+    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+        let mut position = get_position(i, grid);
 
-        if(position.x < aabb.xmin) {
+        if position.x < aabb.xmin {
             position.x = aabb.xmin + EPSILON;
-        } else if(position.x > aabb.xmax) {
+        } else if position.x > aabb.xmax {
             position.x = aabb.xmax - EPSILON;
         }
 
-        if(position.y < aabb.ymin) {
+        if position.y < aabb.ymin {
             position.y = aabb.ymin + EPSILON;
-        } else if(position.y > aabb.ymax) {
+        } else if position.y > aabb.ymax {
             position.y = aabb.ymax - EPSILON;
         }
 
-        if(position.z < aabb.zmin) {
+        if position.z < aabb.zmin {
             position.z = aabb.zmin + EPSILON;
-        } else if(position.z > aabb.zmax) {
+        } else if position.z > aabb.zmax {
             position.z = aabb.zmax - EPSILON;
         }
 
-        set_position(begin + j, grid, position);
-    }
+        set_position(i, grid, position);
+    });
 }
 
 fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
 
-    for i, begin, j, number_of_neighbors, neighborlist_offset, neighborlists in loop_accelerator(grid) {
+    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
         let masses = get_masses(grid);
-        let inverse_mass = 1.0 as real_t / masses(begin + j);
-        let mut position = get_position(begin + j, grid);
-        let mut velocity = get_velocity(begin + j, grid);
-        let force = get_force(begin + j, grid);
+        let inverse_mass = 1.0 as real_t / masses(i);
+        let mut position = get_position(i, grid);
+        let mut velocity = get_velocity(i, grid);
+        let force = get_force(i, grid);
 
         velocity.x += dt * force.x * inverse_mass;
         velocity.y += dt * force.y * inverse_mass;
@@ -139,11 +83,11 @@ fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
 
-        set_velocity(begin + j, grid, velocity);
-        set_position(begin + j, grid, position);
+        set_velocity(i, grid, velocity);
+        set_position(i, grid, position);
 
         @@add_iterator(&mut iters);
-    }
+    });
 
     iters
 }

@@ -138,4 +138,3 @@ fn copy_buffer_to_3d_arrays(
 
     length * 3
 }
-
