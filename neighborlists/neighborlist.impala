@@ -29,7 +29,7 @@ fn append_neighbor(particle_index: i32, neighbor_index: i32, grid: &mut Grid) ->
         reallocate_neighborlist_capacity(grid, capacity);
     }
 
-    neighborlists(grid.neighborlist_capacity * particle_index + nb_list_size) = neighbor_index;
+    neighborlists(get_neighborlist_index(particle_index, nb_list_size, *grid)) = neighbor_index;
     neighbors_sizes(particle_index)++;
 }
 

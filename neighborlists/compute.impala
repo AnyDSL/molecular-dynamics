@@ -16,7 +16,7 @@ fn accelerator_compute_particle_forces(
         let pos = get_position(i, grid);
 
         for n in range(0, nb_list_size) {
-            let neighbor_index = neighborlists(nb_list_offset + n);
+            let neighbor_index = neighborlists(get_neighborlist_index(i, n, grid));
             let pos_neighbor = get_position(neighbor_index, grid);
             let del = vector_sub(pos, pos_neighbor);
             let rsq = vector_len2(del);
