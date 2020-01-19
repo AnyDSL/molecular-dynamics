@@ -59,8 +59,20 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     });
 }
 
+fn @get_cell_particles(grid: Grid) -> &mut[i32] {
+    get_array_of_i32(grid.cell_particles_cpu)
+}
+
+fn @get_cell_sizes(grid: Grid) -> &mut[i32] {
+    get_array_of_i32(grid.cell_sizes_cpu)
+}
+
 fn @get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
     grid.neighborlist_capacity * particle_index + neighbor_index
+}
+
+fn @get_neighbors_sizes(grid: Grid) -> &mut[i32] {
+    get_array_of_i32(grid.neighbors_sizes_cpu)
 }
 
 fn @get_number_of_neighbors(cluster_index: i32, grid: Grid) -> i32 {
