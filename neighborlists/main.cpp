@@ -133,14 +133,14 @@ int main(int argc, char **argv) {
         }
 
         begin = measure_time();
-        md_assemble_neighborlists(cutoff_radius+verlet_buffer);
-        end = measure_time();
-        neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-        begin = measure_time();
         md_copy_data_to_accelerator();
         end = measure_time();
         copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+        begin = measure_time();
+        md_assemble_neighborlists(cutoff_radius+verlet_buffer);
+        end = measure_time();
+        neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
         std::vector<double> masses(size);
         std::vector<Vector3D> positions(size);
@@ -195,14 +195,14 @@ int main(int argc, char **argv) {
                 exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_assemble_neighborlists(cutoff_radius+verlet_buffer);
-                end = measure_time();
-                neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-                begin = measure_time();
                 md_copy_data_to_accelerator();
                 end = measure_time();
                 copy_data_to_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+                begin = measure_time();
+                md_assemble_neighborlists(cutoff_radius+verlet_buffer);
+                end = measure_time();
+                neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
             }
 
             if(vtk && i == 0) {

@@ -437,8 +437,6 @@ fn copy_to_accelerator(grid: &Grid) -> () {
     transfer_3d_arrays_between_devices(grid.positions_cpu, grid.positions_accelerator);
     transfer_3d_arrays_between_devices(grid.velocities_cpu, grid.velocities_accelerator);
     transfer_between_devices(grid.ghost_mask_cpu, grid.ghost_mask_accelerator);
-    transfer_between_devices(grid.neighbors_sizes_cpu, grid.neighbors_sizes_accelerator);
-    transfer_between_devices(grid.neighborlists_cpu, grid.neighborlists_accelerator);
 }
 
 fn copy_from_accelerator(grid: &Grid) -> () {
