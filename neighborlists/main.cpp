@@ -224,6 +224,11 @@ int main(int argc, char **argv) {
             }
         }
 
+        begin = measure_time();
+        md_copy_data_from_accelerator();
+        end = measure_time();
+        copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
         md_report_iterations();
         md_report_particles();
 

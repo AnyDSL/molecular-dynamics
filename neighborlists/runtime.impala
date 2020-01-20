@@ -122,7 +122,7 @@ extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
 
 extern fn md_print_grid() -> () {
     map_over_grid_particles(grid_, range, |particle_index| {
-        let pos = get_position(particle_index, grid_);
+        let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
 
         print_f64(pos.x);
         print_string(", ");
