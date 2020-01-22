@@ -20,7 +20,6 @@ extern fn md_initialize_grid(
     rank_min: &[real_t],
     rank_max: &[real_t],
     cell_spacing: real_t,
-    particle_capacity: i32,
     cell_capacity: i32,
     neighborlist_capacity: i32) -> i32 {
 
@@ -42,7 +41,7 @@ extern fn md_initialize_grid(
         zmax: rank_max(2)
     };
 
-    grid_ = allocate_grid(rank_aabb, cell_spacing, particle_capacity, cell_capacity, neighborlist_capacity);
+    grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
@@ -117,7 +116,7 @@ extern fn md_initialize_clusters() -> () {
 }
 
 extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighborlists(grid_, cutoff_distance);
+    assemble_neighborlists(grid_, cutoff_distance);
 }
 
 extern fn md_print_grid() -> () {

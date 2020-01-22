@@ -241,11 +241,11 @@ fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
 fn mpi_finalize() -> () {
     let mpih = mpi();
 
-    if(comm_send_buffer_size > 0) {
+    if comm_send_buffer_size > 0 {
         release_host(comm_send_buffer);
     }
 
-    if(comm_recv_buffer_size > 0) {
+    if comm_recv_buffer_size > 0 {
         release_host(comm_recv_buffer);
     }
 
@@ -259,14 +259,11 @@ fn mpi_finalize() -> () {
 // Resize communication buffers (data is not preserved)
 fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     // If new send buffer size is higher than current one
-    if(send_size > comm_send_buffer_size) {
-        if(comm_send_buffer_size > 0) {
-            add_mpi_allocation(-(sizeof[real_t]() * comm_send_buffer_size));
-            release_host(comm_send_buffer);
+    if send_size > comm_send_buffer_size {
+        if comm_send_buffer_size > 0 {
+            release(comm_send_buffer);
             release(comm_offsets_.send_buffer_accelerator);
         }
-
-        add_mpi_allocation(sizeof[real_t]() * send_size);
 
         // Allocate new buffer with new size and update size
         comm_send_buffer = alloc_unaligned_cpu(sizeof[real_t]() * send_size);
@@ -275,14 +272,11 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     }
 
     // If new receive buffer size is higher than current one
-    if(recv_size > comm_recv_buffer_size) {
-        if(comm_recv_buffer_size > 0) {
-            add_mpi_allocation(-(sizeof[real_t]() * comm_recv_buffer_size));
-            release_host(comm_recv_buffer);
+    if recv_size > comm_recv_buffer_size {
+        if comm_recv_buffer_size > 0 {
+            release(comm_recv_buffer);
             release(comm_offsets_.recv_buffer_accelerator);
         }
-
-        add_mpi_allocation(sizeof[real_t]() * recv_size);
 
         // Allocate new buffer with new size and update size
         comm_recv_buffer = alloc_unaligned_cpu(sizeof[real_t]() * recv_size);
@@ -299,7 +293,7 @@ fn communication_nodes_1d(
     body: fn(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()) -> () {
 
     // If rank is not the last one
-    if(rank < world_size - 1) {
+    if rank < world_size - 1 {
         // Communicate with next rank
         @@body(
             rank + 1,
@@ -311,7 +305,7 @@ fn communication_nodes_1d(
     }
 
     // If rank is not the first one
-    if(rank > 0) {
+    if rank > 0 {
         // Communicate with previous rank
         @@body(
             rank - 1,
@@ -333,7 +327,7 @@ fn @get_node_bounding_box_1d(
     let mut zmin: real_t;
     let mut zmax: real_t;
 
-    if(world_size > 1) {
+    if world_size > 1 {
         // Number of cells in z axis
         let zcells = real_floor((grid_aabb.zmax - grid_aabb.zmin) / cell_spacing) as i32;
 
@@ -345,12 +339,12 @@ fn @get_node_bounding_box_1d(
         zmax = grid_aabb.zmin + zlength * ((rank + 1) as real_t);
 
         // If this is not the first node, include ghost layer for lower z ranks
-        if(rank > 0) {
+        if rank > 0 {
             zmin -= (get_sync_timesteps() as real_t) * cell_spacing;
         }
 
         // If this is not the last node, include ghost layer for upper z ranks
-        if(rank < world_size - 1) {
+        if rank < world_size - 1 {
             zmax += (get_sync_timesteps() as real_t) * cell_spacing;
         // Otherwise, just increase cell spacing to maximum delimiter to
         // reach any possible missing cells in the original bounding box
@@ -382,14 +376,14 @@ fn transfer_ranges(offset: i32, ncells: i32, body: fn(i32, i32, i32, i32) -> ())
 
     // If offset is zero (same position), communication must comprise all
     // cells in this axis (adjacent nodes)
-    if(offset == 0) {
+    if offset == 0 {
         send_begin = 0;
         send_end = ncells;
         recv_begin = 0;
         recv_end = ncells;
     // If offset is less than zero (lower position), communication must
     // comprise only last cells in this axis
-    } else if(offset < 0) {
+    } else if offset < 0 {
         send_begin = ncells - get_sync_timesteps() * 2;
         send_end = ncells - get_sync_timesteps();
         recv_begin = ncells - get_sync_timesteps();
@@ -472,7 +466,7 @@ fn communication_nodes_generic(
                 //if(nzeros == 2 || (synchronize_diagonals() && nzeros < 3)) {
 
                 // If number of zeros is two, not a diagonal (adjacent node)
-                if(nzeros == 2) {
+                if nzeros == 2 {
                     // Perform for original and mirrored offsets to avoid deadlocks
                     for xoff, yoff, zoff in mirror_comm(xoffset, yoffset, zoffset) {
                       // Check if node for communication is valid
@@ -621,7 +615,7 @@ fn communication_nodes(
     // Has successor node in z axis?
     let znext = rz < gz - 1;
 
-    if(xnext) {
+    if xnext {
         @@body(
             flat_index([rx + 1, ry, rz], gx, gy),
             grid.nx - get_sync_timesteps() * 2, 0, 0,
@@ -631,7 +625,7 @@ fn communication_nodes(
         );
     }
 
-    if(xprev) {
+    if xprev {
         @@body(
             flat_index([rx - 1, ry, rz], gx, gy),
             get_sync_timesteps(), 0, 0,
@@ -641,7 +635,7 @@ fn communication_nodes(
         );
     }
 
-    if(ynext) {
+    if ynext {
         @@body(
             flat_index([rx, ry + 1, rz], gx, gy),
             0, grid.ny - get_sync_timesteps() * 2, 0,
@@ -651,7 +645,7 @@ fn communication_nodes(
         );
     }
 
-    if(yprev) {
+    if yprev {
         @@body(
             flat_index([rx, ry - 1, rz], gx, gy),
             0, get_sync_timesteps(), 0,
@@ -661,7 +655,7 @@ fn communication_nodes(
         );
     }
 
-    if(znext) {
+    if znext {
         @@body(
             flat_index([rx, ry, rz + 1], gx, gy),
             0, 0, grid.nz - get_sync_timesteps() * 2,
@@ -671,7 +665,7 @@ fn communication_nodes(
         );
     }
 
-    if(zprev) {
+    if zprev {
         @@body(
             flat_index([rx, ry, rz - 1], gx, gy),
             0, 0, get_sync_timesteps(),
@@ -709,15 +703,15 @@ fn get_node_config(
 
     /*
     for i in range(1, world_size) {
-        if(world_size % i == 0) {
+        if world_size % i == 0 {
             let rem_yz = world_size / i;
 
             for j in range(1, rem_yz) {
-                if(rem_yz % j == 0) {
+                if rem_yz % j == 0 {
                     let k = rem_yz / j;
                     let missing_factor = xcells % i + ycells % j + zcells % k;
 
-                    if(min_missing_factor > missing_factor) {
+                    if min_missing_factor > missing_factor {
                         *destx = i;
                         *desty = j;
                         *destz = k;
@@ -736,11 +730,11 @@ fn get_node_config(
     let mut bestsurf = 2.0 * (areax + areay + areaz) as f64;
 
     for i in range(1, world_size) {
-        if(world_size % i == 0) {
+        if world_size % i == 0 {
             let rem_yz = world_size / i;
 
             for j in range(1, rem_yz) {
-                if(rem_yz % j == 0) {
+                if rem_yz % j == 0 {
                     let k = rem_yz / j;
                     let surf = areax / i as f64 / j as f64 + areay / i as f64 / k as f64 + areaz / j as f64 / k as f64;
 
@@ -770,7 +764,7 @@ fn @get_node_bounding_box(
     let mut zmin: real_t;
     let mut zmax: real_t;
 
-    if(world_size > 1) {
+    if world_size > 1 {
         let mut rx: i32;
         let mut ry: i32;
         let mut rz: i32;
@@ -806,31 +800,31 @@ fn @get_node_bounding_box(
         // the cell spacing to adjust boxes that are not multiple of
         // the cell spacing sizes
 
-        if(rx > 0) {
+        if rx > 0 {
             xmin -= (get_sync_timesteps() as real_t) * cell_spacing;
         }
 
-        if(rx < gx - 1) {
+        if rx < gx - 1 {
             xmax += (get_sync_timesteps() as real_t) * cell_spacing;
         } else {
             xmax += cell_spacing;
         }
 
-        if(ry > 0) {
+        if ry > 0 {
             ymin -= (get_sync_timesteps() as real_t) * cell_spacing;
         }
 
-        if(ry < gy - 1) {
+        if ry < gy - 1 {
             ymax += (get_sync_timesteps() as real_t) * cell_spacing;
         } else {
             ymax += cell_spacing;
         }
 
-        if(rz > 0) {
+        if rz > 0 {
             zmin -= (get_sync_timesteps() as real_t) * cell_spacing;
         }
 
-        if(rz < gz - 1) {
+        if rz < gz - 1 {
             zmax += (get_sync_timesteps() as real_t) * cell_spacing;
         } else {
             zmax += cell_spacing;
@@ -865,7 +859,7 @@ fn initialize_comm(
     world_size: i32,
     world_rank: i32) -> () {
 
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
     let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
     let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
 
@@ -897,9 +891,8 @@ fn initialize_comm(
                 range, range, range) {
 
             let cell_size = cell_sizes(flat_index);
-
             rank_send_ptr(exchange_rank) += cell_size;
-            send_cells += 1;
+            send_cells++;
         }
 
         for flat_index, index in
@@ -910,12 +903,11 @@ fn initialize_comm(
                 range, range, range) {
 
             let cell_size = cell_sizes(flat_index);
-
-            rank_recv_ptr(exchange_rank) += cell_size;
-            recv_cells += 1;
+            rank_recv_ptr(exchange_rank) += 20;
+            recv_cells++;
         }
 
-        neighs += 1;
+        neighs++;
         max_send_particles = math.max(max_send_particles, rank_send_ptr(exchange_rank));
         max_recv_particles = math.max(max_recv_particles, rank_recv_ptr(exchange_rank));
         max_send_cells = math.max(max_send_cells, send_cells);
@@ -997,7 +989,8 @@ fn pack_ghost_layer_particles(
     rmng_particles: &mut i32) -> i32 {
 
     let buffer_data = get_array_of_reals(comm_buffer);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
     let mut buffer_index = 0;
     let mut iterations = 0;
     let mut packed_particles = 0;
@@ -1012,36 +1005,38 @@ fn pack_ghost_layer_particles(
         let cell_size = cell_sizes(flat_index);
         let cell_offset = get_cell_offset(flat_index, grid);
 
-        if(iterations >= start_iteration) {
-            if(!keep_packing || packed_particles + cell_size > max_particles) {
+        if iterations >= start_iteration {
+            if !keep_packing || packed_particles + cell_size > max_particles {
                 *rmng_particles += cell_size;
                 keep_packing = false;
             } else {
                 buffer_data(buffer_index) = cell_size as real_t;
-                buffer_index += 1;
+                buffer_index++;
 
-                if(cell_size > 0) {
+                range(0, cell_size, |cell_particle_index| {
+                    let particle_index = cell_particles(cell_offset + cell_particle_index);
+
                     copy_offset(
-                        grid.masses_cpu, cell_offset * sizeof[real_t](),
-                        comm_buffer, buffer_index * sizeof[real_t](), cell_size * sizeof[real_t]());
+                        grid.masses_cpu, particle_index * sizeof[real_t](),
+                        comm_buffer, buffer_index * sizeof[real_t](), sizeof[real_t]());
 
-                    buffer_index += cell_size;
-
-                    copy_3d_arrays_to_buffer(
-                        grid.positions_cpu, cell_offset * sizeof[real_t](),
-                        comm_buffer, buffer_index * sizeof[real_t](), cell_size * sizeof[real_t]());
-
-                    buffer_index += cell_size * 3;
+                    buffer_index++;
 
                     copy_3d_arrays_to_buffer(
-                        grid.velocities_cpu, cell_offset * sizeof[real_t](),
-                        comm_buffer, buffer_index * sizeof[real_t](), cell_size * sizeof[real_t]());
+                        grid.positions_cpu, particle_index * sizeof[real_t](),
+                        comm_buffer, buffer_index * sizeof[real_t](), sizeof[real_t]());
 
-                    buffer_index += cell_size * 3;
-                    packed_particles += cell_size;
-                }
+                    buffer_index += 3;
 
-                *packed_iterations += 1;
+                    copy_3d_arrays_to_buffer(
+                        grid.velocities_cpu, particle_index * sizeof[real_t](),
+                        comm_buffer, buffer_index * sizeof[real_t](), sizeof[real_t]());
+
+                    buffer_index += 3;
+                });
+
+                packed_particles += cell_size;
+                (*packed_iterations)++;
             }
         }
 
@@ -1069,7 +1064,8 @@ fn unpack_ghost_layer_particles(
     rmng_particles: &mut i32) -> i32 {
 
     let buffer_data = get_array_of_reals(comm_buffer);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
     let mut buffer_index = 0;
     let mut iterations = 0;
     let mut unpacked_particles = 0;
@@ -1079,44 +1075,38 @@ fn unpack_ghost_layer_particles(
     buffer_index += 2;
 
     map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
-        if(iterations >= start_iter && iterations < start_iter + *unpacked_iterations) {
-            let particles_offset = cell_sizes(flat_index);
+        if iterations >= start_iter && iterations < start_iter + *unpacked_iterations {
+            let cell_size = cell_sizes(flat_index);
             let nparticles = buffer_data(buffer_index) as i32;
-            let new_cell_size = particles_offset + nparticles;
-            let offset = get_cell_offset(flat_index, grid) + particles_offset;
 
-            buffer_index += 1;
+            buffer_index++;
+            add_ghost_cell_slots(flat_index, nparticles, cell_size, grid);
 
-            if(new_cell_size >= grid.cell_capacity) {
-                reallocate_cell_capacity(grid, new_cell_size + new_cell_size / 10);
-            }
+            let cell_offset = get_cell_offset(flat_index, grid);
 
-            if(nparticles > 0) {
+            range(cell_size, nparticles + cell_size, |cell_particle_index| {
+                let particle_index = cell_particles(cell_offset + cell_particle_index);
+
                 copy_offset(
                     comm_buffer, buffer_index * sizeof[real_t](),
-                    grid.masses_cpu, offset * sizeof[real_t](),
-                    nparticles * sizeof[real_t]());
+                    grid.masses_cpu, particle_index * sizeof[real_t](), sizeof[real_t]());
 
-                buffer_index += nparticles;
-
-                copy_buffer_to_3d_arrays(
-                    comm_buffer, buffer_index * sizeof[real_t](),
-                    grid.positions_cpu, offset * sizeof[real_t](),
-                    nparticles * sizeof[real_t]());
-
-                buffer_index += nparticles * 3;
+                buffer_index += 1;
 
                 copy_buffer_to_3d_arrays(
                     comm_buffer, buffer_index * sizeof[real_t](),
-                    grid.velocities_cpu, offset * sizeof[real_t](),
-                    nparticles * sizeof[real_t]());
+                    grid.positions_cpu, particle_index * sizeof[real_t](), sizeof[real_t]());
 
-                buffer_index += nparticles * 3;
-                unpacked_particles += nparticles;
-            }
+                buffer_index += 3;
 
-            cell_sizes(flat_index) = new_cell_size;
-            grid.nparticles += nparticles;
+                copy_buffer_to_3d_arrays(
+                    comm_buffer, buffer_index * sizeof[real_t](),
+                    grid.velocities_cpu, particle_index * sizeof[real_t](), sizeof[real_t]());
+
+                buffer_index += 3;
+            });
+
+            unpacked_particles += nparticles;
         }
 
         iterations++;
@@ -1136,7 +1126,7 @@ fn exchange_ghost_layer_particles(
     let mut request: MPI_Request;
     let mut status: MPIStatus;
 
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
     let rank_send_ptr = bitcast[&mut[i32]](rank_send_particles.data);
     let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
@@ -1149,6 +1139,8 @@ fn exchange_ghost_layer_particles(
     max_send_particles = 0;
     max_recv_particles = 0;
 
+    grid.nghost = 0;
+
     for exchange_rank,
         send_begin_x, send_begin_y, send_begin_z,
         send_end_x, send_end_y, send_end_z,
@@ -1159,7 +1151,6 @@ fn exchange_ghost_layer_particles(
         map_over_grid_subdomain(
             grid, recv_begin_x, recv_begin_y, recv_begin_z, recv_end_x, recv_end_y, recv_end_z, range, range, range,
             |flat_index, index| {
-                grid.nparticles -= cell_sizes(flat_index);
                 cell_sizes(flat_index) = 0;
             }
         );
@@ -1214,7 +1205,7 @@ fn exchange_ghost_layer_particles(
             recv_begin_x, recv_begin_y, recv_begin_z, recv_end_x, recv_end_y, recv_end_z,
             0, &mut unpacked_iterations, &mut rmng_recv_ptcs);
 
-        if(rmng_recv_ptcs > 0) {
+        if rmng_recv_ptcs > 0 {
             let rmng_recv_length = rmng_recv_ptcs + rmng_recv_ptcs * 2 * 3;
 
             resize_comm_buffers(0, dims_length + rmng_recv_length);
@@ -1225,7 +1216,7 @@ fn exchange_ghost_layer_particles(
                 mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
         }
 
-        if(rmng_send_ptcs > 0) {
+        if rmng_send_ptcs > 0 {
             let rmng_send_length = rmng_send_ptcs + rmng_send_ptcs * 2 * 3;
 
             resize_comm_buffers(dims_length + rmng_send_length, 0);
@@ -1242,7 +1233,7 @@ fn exchange_ghost_layer_particles(
                 mpih.double_t, exchange_rank, 0, mpih.comms.world);
         }
 
-        if(rmng_recv_ptcs > 0) {
+        if rmng_recv_ptcs > 0 {
             mpih.wait(&mut request, &mut status);
 
             rank_recv_ptr(exchange_rank) += unpack_ghost_layer_particles(
@@ -1257,19 +1248,7 @@ fn exchange_ghost_layer_particles(
 }
 
 fn get_node_particles_amount(grid: Grid, world_size: i32, world_rank: i32) -> (i32, i32) {
-    let cell_sizes = get_array_of_i32(grid.cell_sizes);
-    let mut nparticles = 0;
-    let mut nghost = 0;
-
-    map_over_grid(grid, range, range, range, |flat_index, index| {
-        if is_local_cell(index(0), index(1), index(2), grid) {
-            nparticles += cell_sizes(flat_index);
-        } else {
-            nghost += cell_sizes(flat_index);
-        }
-    });
-
-    (nparticles, nghost)
+    (grid.nparticles, grid.nghost)
 }
 
 fn reduce_time(local_time: f64, global_time: &mut f64) -> () {

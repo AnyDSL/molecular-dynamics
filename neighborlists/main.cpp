@@ -69,7 +69,6 @@ int main(int argc, char **argv) {
     double spacing[3];
     double spacing1[3];
     double spacing2[3];
-    int particle_capacity = gridsize[0] * gridsize[1] * gridsize[2] * 4 + 100;
 
     for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
@@ -118,11 +117,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(
-            0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, particle_capacity, 60, 100);
+        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
 #else
-        size = init_rectangular_grid(
-            static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, particle_capacity, 60, 100);
+        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
@@ -131,6 +128,8 @@ int main(int argc, char **argv) {
             std::cout << "Zero particles created. Aborting." << std::endl;
             return EXIT_FAILURE;
         }
+
+        md_exchange_ghost_layer();
 
         begin = measure_time();
         md_copy_data_to_accelerator();
@@ -166,19 +165,12 @@ int main(int argc, char **argv) {
             end = measure_time();
             integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            if(vtk || (j > 0 && j % md_get_sync_timesteps() == 0 && j % 20 != 0)) {
-                begin = measure_time();
-                md_synchronize_ghost_layer();
-                end = measure_time();
-                synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-            }
+            begin = measure_time();
+            md_synchronize_ghost_layer();
+            end = measure_time();
+            synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
             if(vtk || (j > 0 && j % 20 == 0)) {
-                begin = measure_time();
-                md_synchronize_ghost_layer();
-                end = measure_time();
-                synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
                 begin = measure_time();
                 md_copy_data_from_accelerator();
                 end = measure_time();

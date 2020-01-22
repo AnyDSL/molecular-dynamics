@@ -35,9 +35,10 @@ fn append_neighbor(particle_index: i32, neighbor_index: i32, grid: Grid) -> () {
     neighbors_sizes(particle_index)++;
 }
 
-fn grid_assemble_neighborlists(grid: Grid, cutoff_distance: real_t) -> () {
+fn assemble_neighborlists(grid: Grid, cutoff_distance: real_t) -> () {
     let cell_particles = get_cell_particles(grid);
     let cell_sizes = get_cell_sizes(grid);
+    let particles_cell = get_particles_cell(grid);
     let neighbors_sizes = get_neighbors_sizes(grid);
 
     let ncells = grid.ncells;
@@ -48,7 +49,7 @@ fn grid_assemble_neighborlists(grid: Grid, cutoff_distance: real_t) -> () {
 
     loop_accelerator(grid, |particle_index, neighborlists, nb_list_size, nb_list_offset| {
         let pos = get_position(particle_index, grid);
-        let cell_index = flatten_index(compute_cell_position(pos, grid), grid);
+        let cell_index = particles_cell(particle_index);
 
         neighbors_sizes(particle_index) = 0;
 
