@@ -3,7 +3,6 @@ struct CommOffsets {
     // Host send data
     send_rank_offsets: Buffer,
     send_starts: Buffer,
-    send_sizes: Buffer,
     send_offsets: Buffer,
     send_capacity: i32,
     send_noffsets: i32,
@@ -11,7 +10,6 @@ struct CommOffsets {
     // Host receive data
     recv_rank_offsets: Buffer,
     recv_starts: Buffer,
-    recv_sizes: Buffer,
     recv_offsets: Buffer,
     recv_capacity: i32,
     recv_noffsets: i32,
@@ -20,14 +18,12 @@ struct CommOffsets {
     send_buffer_accelerator: Buffer,
     send_rank_offsets_accelerator: Buffer,
     send_starts_accelerator: Buffer,
-    send_sizes_accelerator: Buffer,
     send_offsets_accelerator: Buffer,
 
     // Accelerator receive data
     recv_buffer_accelerator: Buffer,
     recv_rank_offsets_accelerator: Buffer,
     recv_starts_accelerator: Buffer,
-    recv_sizes_accelerator: Buffer,
     recv_offsets_accelerator: Buffer,
 
     // Number of neighbor ranks
@@ -864,8 +860,6 @@ fn initialize_comm(
     let rank_recv_ptr = bitcast[&mut[i32]](rank_recv_particles.data);
 
     let mut neighs = 0;
-    let mut max_send_cells = 0;
-    let mut max_recv_cells = 0;
 
     max_send_particles = 0;
     max_recv_particles = 0;
@@ -910,12 +904,10 @@ fn initialize_comm(
         neighs++;
         max_send_particles = math.max(max_send_particles, rank_send_ptr(exchange_rank));
         max_recv_particles = math.max(max_recv_particles, rank_recv_ptr(exchange_rank));
-        max_send_cells = math.max(max_send_cells, send_cells);
-        max_recv_cells = math.max(max_recv_cells, recv_cells);
     }
 
     // Allocate communication offsets for GPU data transfer
-    alloc_comm_offsets(comm_offsets, world_size, neighs, neighs * max_send_cells, neighs * max_recv_cells);
+    alloc_comm_offsets(comm_offsets, world_size, neighs, max_send_particles, max_recv_particles);
 
     initialize_grid_transfer_ranges(grid);
 }
@@ -1119,6 +1111,7 @@ fn unpack_ghost_layer_particles(
 // particles is also updated)
 fn exchange_ghost_layer_particles(
     grid: &mut Grid,
+    comm_offsets: &mut CommOffsets,
     world_size: i32,
     world_rank: i32) -> () {
 
@@ -1245,6 +1238,8 @@ fn exchange_ghost_layer_particles(
         max_send_particles = math.max(max_send_particles, rank_send_ptr(exchange_rank));
         max_recv_particles = math.max(max_recv_particles, rank_recv_ptr(exchange_rank));
     }
+
+    resize_comm_offsets(comm_offsets, world_size, max_send_particles, max_recv_particles);
 }
 
 fn get_node_particles_amount(grid: Grid, world_size: i32, world_rank: i32) -> (i32, i32) {

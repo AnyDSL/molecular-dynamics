@@ -188,6 +188,8 @@ fn build_comm_offsets(
 
 fn release_comm_offsets(comm_offsets: CommOffsets) -> () {}
 
+fn resize_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, send_capacity: i32, recv_capacity: i32) -> () {}
+
 fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, grid: Grid) -> () {}
 
 fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, grid: Grid) -> () {}
