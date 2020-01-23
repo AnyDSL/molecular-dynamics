@@ -79,6 +79,7 @@ fn synchronize_ghost_layer_cells(
 
 fn exchange_ghost_layer_particles(
     grid: &mut Grid,
+    comm_offsets: &mut CommOffsets,
     world_size: i32,
     world_rank: i32) -> () {
 
