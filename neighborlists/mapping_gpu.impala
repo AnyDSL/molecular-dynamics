@@ -96,6 +96,10 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> 
     acc.sync();
 }
 
+fn @get_particles_cell(grid: Grid) -> &mut[1][i32] {
+    get_array_of_i32_accelerator(grid.particles_cell_accelerator)
+}
+
 fn @get_cell_particles(grid: Grid) -> &mut[1][i32] {
     get_array_of_i32_accelerator(grid.cell_particles_accelerator)
 }
@@ -253,7 +257,7 @@ fn build_comm_offsets(
                     send_starts(isend) = ptr_send;
 
                     isend++;
-                    ptr_send += 3 * cell_size;
+                    ptr_send += 3;
                 });
             }
 
@@ -272,7 +276,7 @@ fn build_comm_offsets(
                     recv_starts(irecv) = ptr_recv;
 
                     irecv++;
-                    ptr_recv += 3 * cell_size;
+                    ptr_recv += 3;
                 });
             }
         }
@@ -315,7 +319,7 @@ fn resize_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, send_cap
     if send_capacity > comm_offsets.send_capacity || recv_capacity > comm_offsets.recv_capacity {
         let neighs = comm_offsets.neighs;
 
-        release_comm_offsets(comm_offsets);
+        release_comm_offsets(*comm_offsets);
         alloc_comm_offsets(comm_offsets, world_size, neighs, send_capacity, recv_capacity);
     }
 }
@@ -396,7 +400,7 @@ fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, gri
 // Pack ghost layer cells (CPU only)
 fn pack_ghost_layer_cells(
     comm_buffer: Buffer,
-    grid: &mut Grid,
+    grid: Grid,
     begin_x: i32,
     begin_y: i32,
     begin_z: i32,
@@ -407,7 +411,7 @@ fn pack_ghost_layer_cells(
 // Unpack ghost layer cells (CPU only)
 fn unpack_ghost_layer_cells(
     comm_buffer: Buffer,
-    grid: &mut Grid,
+    grid: Grid,
     begin_x: i32,
     begin_y: i32,
     begin_z: i32,
