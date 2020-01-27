@@ -258,12 +258,10 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     if send_size > comm_send_buffer_size {
         if comm_send_buffer_size > 0 {
             release(comm_send_buffer);
-            release(comm_offsets_.send_buffer_accelerator);
         }
 
         // Allocate new buffer with new size and update size
         comm_send_buffer = alloc_unaligned_cpu(sizeof[real_t]() * send_size);
-        comm_offsets_.send_buffer_accelerator = accelerator_allocate(sizeof[real_t]() * send_size);
         comm_send_buffer_size = send_size;
     }
 
@@ -271,12 +269,10 @@ fn resize_comm_buffers(send_size: i32, recv_size: i32) -> () {
     if recv_size > comm_recv_buffer_size {
         if comm_recv_buffer_size > 0 {
             release(comm_recv_buffer);
-            release(comm_offsets_.recv_buffer_accelerator);
         }
 
         // Allocate new buffer with new size and update size
         comm_recv_buffer = alloc_unaligned_cpu(sizeof[real_t]() * recv_size);
-        comm_offsets_.recv_buffer_accelerator = accelerator_allocate(sizeof[real_t]() * recv_size);
         comm_recv_buffer_size = recv_size;
     }
 }

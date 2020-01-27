@@ -188,13 +188,13 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i
             recv_noffsets: 0,
 
             // Accelerator send data
-            send_buffer_accelerator: null_buf,
+            send_buffer_accelerator: accelerator_allocate(neighs * send_capacity * 3 * sizeof[real_t]()),
             send_rank_offsets_accelerator: accelerator_allocate(world_size * sizeof[i32]()),
             send_starts_accelerator: accelerator_allocate(neighs * send_capacity * sizeof[i32]()),
             send_offsets_accelerator: accelerator_allocate(neighs * send_capacity * sizeof[i32]()),
 
             // Accelerator receive data
-            recv_buffer_accelerator: null_buf,
+            recv_buffer_accelerator: accelerator_allocate(neighs * recv_capacity * 3 * sizeof[real_t]()),
             recv_rank_offsets_accelerator: accelerator_allocate(world_size * sizeof[i32]()),
             recv_starts_accelerator: accelerator_allocate(neighs * recv_capacity * sizeof[i32]()),
             recv_offsets_accelerator: accelerator_allocate(neighs * recv_capacity * sizeof[i32]()),
@@ -318,9 +318,11 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
 fn resize_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, send_capacity: i32, recv_capacity: i32) -> () {
     if send_capacity > comm_offsets.send_capacity || recv_capacity > comm_offsets.recv_capacity {
         let neighs = comm_offsets.neighs;
+        let new_send_capacity = math.max(send_capacity, comm_offsets.send_capacity);
+        let new_recv_capacity = math.max(recv_capacity, comm_offsets.recv_capacity);
 
         release_comm_offsets(*comm_offsets);
-        alloc_comm_offsets(comm_offsets, world_size, neighs, send_capacity, recv_capacity);
+        alloc_comm_offsets(comm_offsets, world_size, neighs, new_send_capacity, new_recv_capacity);
     }
 }
 
@@ -375,7 +377,7 @@ fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: CommOffsets, gri
     let noffsets = comm_offsets.recv_noffsets;
 
     if noffsets > 0 {
-        copy(comm_buffer, buffer_gpu);
+        copy_offset(comm_buffer, 0, buffer_gpu, 0, buffer_gpu.size as i32);
 
         for work_item in acc.exec(grid_size, block_size) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
@@ -430,10 +432,10 @@ fn get_comm_buffer_starts(exchange_rank: i32, comm_offsets: &CommOffsets) -> (i3
     let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
     let send_starts = get_array_of_i32(comm_offsets.send_starts);
     let recv_starts = get_array_of_i32(comm_offsets.recv_starts);
-    let recv_offset = recv_rank_offsets(exchange_rank);
     let send_offset = send_rank_offsets(exchange_rank);
-    let recv_start = recv_starts(recv_offset);
+    let recv_offset = recv_rank_offsets(exchange_rank);
     let send_start = send_starts(send_offset);
+    let recv_start = recv_starts(recv_offset);
 
     (send_start, recv_start)
 }
