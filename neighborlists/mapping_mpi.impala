@@ -893,7 +893,7 @@ fn initialize_comm(
                 range, range, range) {
 
             let cell_size = cell_sizes(flat_index);
-            rank_recv_ptr(exchange_rank) += 20;
+            rank_recv_ptr(exchange_rank) += 100;
             recv_cells++;
         }
 
