@@ -1,0 +1,7 @@
+100 timesteps, grid size 64x64x64 (1048576 particles)
+
+                AnyDSL      miniMD
+gtx1080         2079.06     2561.367      GeForce GTX 1080 (8 GB memory)
+gtx1080ti       1686.78     2984.561      GeForce GTX 1080 Ti (11 GB memory)
+rtx2080ti       1436.85     1027.917      GeForce RTX 2080 Ti (11 GB memory)
+v100            1012.3      414.487       Tesla V100-PCIE-32GB ((32 GB memory)
