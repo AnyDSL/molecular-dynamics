@@ -4,23 +4,23 @@ AnyDSL compiled with clang 8.0.0
 miniMD compiled with icc (ICC) 16.0.4
 
                 AnyDSL      miniMD
-naples          13639.7     16108.435       AMD EPYC 7451 24-Core Processor @ 2.30GHz
-cascadelakesp   12600.4     14440.316       Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz
-skylakesp       19462.2     22399.068       Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz
-interlagos      18941.7     20703.327       AMD Opteron(TM) Processor 6276 @ 2.30GHz
+naples          13053.6     16108.435       AMD EPYC 7451 24-Core Processor @ 2.30GHz
+cascadelakesp   12166.6     14440.316       Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz
+skylakesp       18682.9     22399.068       Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz
+interlagos      17655.3     20703.327       AMD Opteron(TM) Processor 6276 @ 2.30GHz
 
 
 miniMD compiled with icc (ICC) 18.0.5
 
                 AnyDSL      miniMD
-naples          13639.7     15885.787       AMD EPYC 7451 24-Core Processor @ 2.30GHz
-interlagos      18941.7     19680.954       AMD Opteron(TM) Processor 6276 @ 2.30GHz
+naples          13053.6     15885.787       AMD EPYC 7451 24-Core Processor @ 2.30GHz
+interlagos      17655.3     19680.954       AMD Opteron(TM) Processor 6276 @ 2.30GHz
 
 
 MFLOPS/s
 
                 AnyDSL      miniMD
 naples          1082.2859   1151.9725
-cascadelakesp   1537.4504   1593.2596
-skylakesp       1002.7642   1026.0606
-interlagos      1054.5808   1152.7600
+cascadelakesp   1597.1789   1593.2596
+skylakesp       1030.9995   1026.0606
+interlagos      1135.0374   1152.7600
