@@ -524,7 +524,7 @@ fn is_within_domain(position: Vector3D, grid: &Grid) -> bool {
 }
 
 fn map_over_grid_particles(grid: &Grid, iterate: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(i32) -> ()) -> () {
-    iterate(0, grid.nparticles + grid.nghost, |particle_index| {
+    iterate(0, grid.nparticles, |particle_index| {
         body(particle_index)
     });
 }

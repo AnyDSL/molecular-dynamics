@@ -136,122 +136,34 @@ fn @get_ghost_mask(cluster_index: i32, grid: Grid) -> mask_t {
     get_mask_t(cluster_index, grid.ghost_mask_cpu)
 }
 
-fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i32, send_capacity: i32, recv_capacity: i32) -> () {
-    let null_buf = Buffer {
-        device: 0,
-        data: 0 as &[i8],
-        size: 0 as i64
-    };
-
-    *comm_offsets = CommOffsets {
-        // Host send data
-        send_rank_offsets: null_buf,
-        send_starts: null_buf,
-        send_offsets: null_buf,
-        send_capacity: 0,
-        send_noffsets: 0,
-
-        // Host receive data
-        recv_rank_offsets: null_buf,
-        recv_starts: null_buf,
-        recv_offsets: null_buf,
-        recv_capacity: 0,
-        recv_noffsets: 0,
-
-        // Accelerator send data
-        send_buffer_accelerator: null_buf,
-        send_rank_offsets_accelerator: null_buf,
-        send_starts_accelerator: null_buf,
-        send_offsets_accelerator: null_buf,
-
-        // Accelerator receive data
-        recv_buffer_accelerator: null_buf,
-        recv_rank_offsets_accelerator: null_buf,
-        recv_starts_accelerator: null_buf,
-        recv_offsets_accelerator: null_buf,
-
-        // Number of neighbor ranks
-        neighs: 0
-    };
+fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
+    get_i32(index, comm_offsets.send_offsets)
 }
 
-// Build offsets used by scatter and gather kernels on GPU
-fn build_comm_offsets(
-    world_size: i32,
-    rank: i32,
-    grid: &Grid,
-    comm_offsets: &mut CommOffsets) -> () {}
+fn @get_comm_recv_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
+    get_i32(index, comm_offsets.recv_offsets)
+}
 
-fn release_comm_offsets(comm_offsets: CommOffsets) -> () {}
+fn gather_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i32, Buffer, real_t) -> ()) -> ()) -> () {
+    let buffer = comm_offsets.send_buffer;
+    let noffsets = comm_offsets.send_noffsets;
 
-fn resize_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, send_capacity: i32, recv_capacity: i32) -> () {}
+    outer_loop_cpu(0, noffsets, |i| {
+        let offset = get_comm_send_offsets(i, comm_offsets);
+        let start = i * 3;
 
-fn gather_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, grid: Grid) -> () {}
-
-fn scatter_ghost_layer_cells(comm_buffer: Buffer, comm_offsets: &CommOffsets, grid: Grid) -> () {}
-
-// Pack ghost layer cells in the CPU
-fn pack_ghost_layer_cells(
-    comm_buffer: Buffer,
-    grid: Grid,
-    begin_x: i32,
-    begin_y: i32,
-    begin_z: i32,
-    end_x: i32,
-    end_y: i32,
-    end_z: i32) -> () {
-
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let cell_capacity = grid.cell_capacity;
-    let elem_size = sizeof[real_t]();
-    let mut buffer_ptr = 0;
-
-    map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
-        let cell_size = cell_sizes(flat_index);
-        let cell_offset = get_cell_offset(flat_index, grid);
-
-        range(0, cell_size, |cell_particle_index| {
-            let particle_index = cell_particles(cell_offset + cell_particle_index);
-            copy_3d_arrays_to_buffer(grid.positions_cpu, particle_index * elem_size, comm_buffer, buffer_ptr, elem_size);
-            buffer_ptr += 3 * elem_size;
-        });
+        @@body(i, buffer, start, offset, set_real);
     });
 }
 
-// Unpack ghost layer cells in the CPU
-fn unpack_ghost_layer_cells(
-    comm_buffer: Buffer,
-    grid: Grid,
-    begin_x: i32,
-    begin_y: i32,
-    begin_z: i32,
-    end_x: i32,
-    end_y: i32,
-    end_z: i32) -> () {
+fn scatter_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i32, Buffer) -> real_t) -> ()) -> () {
+    let buffer = comm_offsets.recv_buffer;
+    let noffsets = comm_offsets.recv_noffsets;
 
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let cell_capacity = grid.cell_capacity;
-    let elem_size = sizeof[real_t]();
-    let mut buffer_ptr = 0;
+    outer_loop_cpu(0, noffsets, |i| {
+        let offset = get_comm_recv_offsets(i, comm_offsets);
+        let start = i * 3;
 
-    map_over_grid_subdomain(grid, begin_x, begin_y, begin_z, end_x, end_y, end_z, range, range, range, |flat_index, index| {
-        let cell_size = cell_sizes(flat_index);
-        let cell_offset = get_cell_offset(flat_index, grid);
-
-        range(0, cell_size, |cell_particle_index| {
-            let particle_index = cell_particles(cell_offset + cell_particle_index);
-            copy_buffer_to_3d_arrays(comm_buffer, buffer_ptr, grid.positions_cpu, particle_index * elem_size, elem_size);
-            buffer_ptr += 3 * elem_size;
-        });
+        @@body(i, buffer, start, offset, get_real);
     });
 }
-
-// Communication buffer sizes
-fn get_comm_buffer_sizes(neighs: i32, max_send_particles: i32, max_recv_particles: i32) -> (i32, i32) {
-    (max_send_particles * 3, max_recv_particles * 3)
-}
-
-// Start positions for communication buffer
-fn get_comm_buffer_starts(exchange_rank: i32, comm_offsets: &CommOffsets) -> (i32, i32) { (0, 0) }
