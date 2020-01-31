@@ -865,17 +865,17 @@ fn @get_node_bounding_box(
         let mut rz: i32;
 
         // Number of cells in each dimension
-        let xcells = real_floor((aabb.xmax - aabb.xmin) / cell_spacing) as i32;
-        let ycells = real_floor((aabb.ymax - aabb.ymin) / cell_spacing) as i32;
-        let zcells = real_floor((aabb.zmax - aabb.zmin) / cell_spacing) as i32;
+        let xcells = real_floor((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing) as i32;
+        let ycells = real_floor((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing) as i32;
+        let zcells = real_floor((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing) as i32;
 
         // Get configuration of nodes
         get_node_config(world_size, rank, xcells, ycells, zcells, &mut gx, &mut gy, &mut gz);
 
         // Length of each node in each dimension
-        let xlength = (xcells / gx) as real_t * cell_spacing;
-        let ylength = (ycells / gy) as real_t * cell_spacing;
-        let zlength = (zcells / gz) as real_t * cell_spacing;
+        let xlength = ((xcells + gx - 1) / gx) as real_t * cell_spacing;
+        let ylength = ((ycells + gy - 1) / gy) as real_t * cell_spacing;
+        let zlength = ((zcells + gz - 1) / gz) as real_t * cell_spacing;
 
         // 3D cartesian position of current rank
         unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
