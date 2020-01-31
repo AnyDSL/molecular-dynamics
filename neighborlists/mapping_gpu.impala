@@ -164,16 +164,8 @@ fn @get_ghost_mask(i: i32, grid: Grid) -> mask_t {
     get_mask_t_accelerator(i, grid.ghost_mask_accelerator)
 }
 
-fn @get_comm_send_starts_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
-    get_i32_accelerator(index, comm_offsets.send_starts_accelerator)
-}
-
 fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.send_offsets_accelerator)
-}
-
-fn @get_comm_recv_starts_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
-    get_i32_accelerator(index, comm_offsets.recv_starts_accelerator)
 }
 
 fn @get_comm_recv_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
@@ -192,15 +184,15 @@ fn gather_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i32
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
             if th_idx < noffsets {
-                let start = get_comm_send_starts_accelerator(th_idx, comm_offsets);
                 let offset = get_comm_send_offsets_accelerator(th_idx, comm_offsets);
+                let start = th_idx * 3;
 
                 @@body(th_idx, buffer, start, offset, set_real_accelerator);
             }
         }
 
         acc.sync();
-        copy(buffer, comm_offsets.send_buffer_cpu);
+        copy(buffer, comm_offsets.send_buffer);
     }
 }
 
@@ -212,14 +204,14 @@ fn scatter_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i3
     let noffsets = comm_offsets.recv_noffsets;
 
     if noffsets > 0 {
-        copy_offset(comm_offsets.recv_buffer_cpu, 0, buffer, 0, buffer.size as i32);
+        copy_offset(comm_offsets.recv_buffer, 0, buffer, 0, buffer.size as i32);
 
         for work_item in acc.exec(grid_size, block_size) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
             if th_idx < noffsets {
-                let start = get_comm_recv_starts_accelerator(th_idx, comm_offsets);
                 let offset = get_comm_recv_offsets_accelerator(th_idx, comm_offsets);
+                let start = th_idx * 3;
 
                 @@body(th_idx, buffer, start, offset, get_real_accelerator);
             }

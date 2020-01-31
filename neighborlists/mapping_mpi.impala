@@ -1305,6 +1305,8 @@ fn exchange_ghost_layer_particles(
         if rmng_recv_ptcs > 0 {
             let rmng_recv_length = rmng_recv_ptcs + rmng_recv_ptcs * 2 * 3;
 
+            resize_comm_offsets(comm_offsets, world_size, 0, dims_length + rmng_recv_length);
+
             mpih.irecv(
                 bitcast[&mut[real_t]](comm_offsets.recv_buffer.data) as MPI_MutBuf,
                 dims_length + rmng_recv_length,
@@ -1313,6 +1315,8 @@ fn exchange_ghost_layer_particles(
 
         if rmng_send_ptcs > 0 {
             let rmng_send_length = rmng_send_ptcs + rmng_send_ptcs * 2 * 3;
+
+            resize_comm_offsets(comm_offsets, world_size, dims_length + rmng_send_length, 0);
 
             rank_send_ptr(exchange_rank) += pack_ghost_layer_particles(
                 comm_offsets.send_buffer, grid,
