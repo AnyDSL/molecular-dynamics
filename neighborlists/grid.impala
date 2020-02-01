@@ -418,12 +418,55 @@ fn move_particle(particle_index: i32, source_cell: i32, dest_cell: i32, grid: &m
     let last_source_particle = cell_particles(source_cell_offset + source_cell_size - 1);
 
     swap_particles(particle_index, last_source_particle, grid);
-    cell_sizes(source_cell)--;
-
     cell_particles(dest_cell_offset + dest_cell_size) = last_source_particle;
-    cell_sizes(dest_cell)++;
-
     particles_cell(last_source_particle) = dest_cell;
+
+    cell_sizes(source_cell)--;
+    cell_sizes(dest_cell)++;
+}
+
+fn promote_particle(particle_index: i32, cell_particle_index: i32, grid: &mut Grid) -> i32 {
+    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
+    let cell = particles_cell(particle_index);
+    let cell_offset = get_cell_offset(cell, grid);
+    let first_ghost_index = grid.nparticles;
+    let first_ghost_cell = particles_cell(first_ghost_index);
+    let first_ghost_cell_offset = get_cell_offset(cell, grid);
+
+    swap_particles(particle_index, first_ghost_index, grid);
+    cell_particles(cell_offset + cell_particle_index) = first_ghost_index;
+    cell_particles(first_ghost_cell_offset) = particle_index; // assume first index
+    particles_cell(particle_index) = first_ghost_cell;
+    particles_cell(first_ghost_index) = cell;
+
+    grid.nparticles++;
+    grid.nghost--;
+
+    first_ghost_index
+}
+
+fn demote_particle(particle_index: i32, cell_particle_index: i32, grid: &mut Grid) -> i32 {
+    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
+    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
+    let cell = particles_cell(particle_index);
+    let cell_offset = get_cell_offset(cell, grid);
+    let last_local_index = grid.nparticles - 1;
+    let last_local_cell = particles_cell(last_local_index);
+    let last_local_cell_size = cell_sizes(last_local_cell);
+    let last_local_cell_offset = get_cell_offset(last_local_cell, grid);
+
+    swap_particles(particle_index, last_local_index, grid);
+    cell_particles(cell_offset + cell_particle_index) = last_local_index;
+    cell_particles(last_local_cell_offset + last_local_cell_size - 1) = particle_index; // assume last index
+    particles_cell(particle_index) = last_local_cell;
+    particles_cell(last_local_index) = cell;
+
+    grid.nparticles--;
+    grid.nghost++;
+
+    last_local_index
 }
 
 fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
