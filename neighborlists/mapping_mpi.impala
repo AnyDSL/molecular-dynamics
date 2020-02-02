@@ -787,7 +787,7 @@ fn get_node_config(
     // i.e. the configuration that requires less extension of the edge
     // nodes (extension is required when number of cells is not multiple
     // of the number of nodes in a dimension)
-    //let mut min_missing_factor = xcells * ycells * zcells;
+    let mut min_missing_factor = xcells * ycells * zcells;
 
     *destx = 1;
     *desty = 1;
@@ -796,7 +796,6 @@ fn get_node_config(
     // Go through all possibilities of node configurations, update only
     // when missing factor is lower than the current one
 
-    /*
     for i in range(1, world_size) {
         if world_size % i == 0 {
             let rem_yz = world_size / i;
@@ -816,8 +815,8 @@ fn get_node_config(
             }
         }
     }
-    */
 
+    /*
     let areax = (xcells * ycells) as f64;
     let areay = (xcells * zcells) as f64;
     let areaz = (ycells * zcells) as f64;
@@ -843,6 +842,36 @@ fn get_node_config(
             }
         }
     }
+    */
+}
+
+fn get_rank_boundary(rank: i32, nodes: i32, cells: i32) -> (i32, i32) {
+    let tmp_buffer = alloc_unaligned_cpu(nodes * sizeof[i32]());
+    let tmp = get_array_of_i32(tmp_buffer);
+
+    let mut sum = nodes;
+    let mut index = 0;
+    let mut ncells = 0;
+    let mut offset = 0;
+
+    if nodes > cells {
+        print_string("Problem: you have more nodes than cells in one direction!");
+    }
+
+    range(0, nodes, |i| { tmp(i) = 1; });
+
+    while sum < cells {
+        tmp(index)++;
+        index = (index + 1) % nodes;
+        sum++;
+    }
+
+    ncells = tmp(rank);
+    range(0, rank, |i| { offset += tmp(i); });
+
+    release(tmp_buffer);
+
+    (ncells, offset)
 }
 
 // Get bounding box for current node
@@ -865,28 +894,27 @@ fn @get_node_bounding_box(
         let mut rz: i32;
 
         // Number of cells in each dimension
-        let xcells = real_floor((aabb.xmax - aabb.xmin) / cell_spacing) as i32;
-        let ycells = real_floor((aabb.ymax - aabb.ymin) / cell_spacing) as i32;
-        let zcells = real_floor((aabb.zmax - aabb.zmin) / cell_spacing) as i32;
+        let xcells = real_floor((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing) as i32;
+        let ycells = real_floor((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing) as i32;
+        let zcells = real_floor((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing) as i32;
 
         // Get configuration of nodes
         get_node_config(world_size, rank, xcells, ycells, zcells, &mut gx, &mut gy, &mut gz);
 
-        // Length of each node in each dimension
-        let xlength = (xcells / gx) as real_t * cell_spacing;
-        let ylength = (ycells / gy) as real_t * cell_spacing;
-        let zlength = (zcells / gz) as real_t * cell_spacing;
-
         // 3D cartesian position of current rank
         unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
+        let (xlcells, xoffset) = get_rank_boundary(rx, gx, xcells);
+        let (ylcells, yoffset) = get_rank_boundary(ry, gy, ycells);
+        let (zlcells, zoffset) = get_rank_boundary(rz, gz, zcells);
+
         // Calculate boundaries using lengths in each dimension
-        xmin = aabb.xmin + xlength * (rx as real_t);
-        xmax = aabb.xmin + xlength * ((rx + 1) as real_t);
-        ymin = aabb.ymin + ylength * (ry as real_t);
-        ymax = aabb.ymin + ylength * ((ry + 1) as real_t);
-        zmin = aabb.zmin + zlength * (rz as real_t);
-        zmax = aabb.zmin + zlength * ((rz + 1) as real_t);
+        xmin = aabb.xmin + (xoffset as real_t) * cell_spacing;
+        xmax = xmin + (xlcells as real_t) * cell_spacing;
+        ymin = aabb.ymin + (yoffset as real_t) * cell_spacing;
+        ymax = ymin + (ylcells as real_t) * cell_spacing;
+        zmin = aabb.zmin + (zoffset as real_t) * cell_spacing;
+        zmax = zmin + (zlcells as real_t) * cell_spacing;
 
         // In the next steps, we extend the boundary for nodes that are
         // not in the edges in each dimension, this is done to comprise
