@@ -1,15 +1,15 @@
 // Communication offsets (for GPU gather and scatter kernels)
 struct CommOffsets {
     // Host send data
+    send_buffer: Buffer,
     send_rank_offsets: Buffer,
-    send_starts: Buffer,
     send_offsets: Buffer,
     send_capacity: i32,
     send_noffsets: i32,
 
     // Host receive data
+    recv_buffer: Buffer,
     recv_rank_offsets: Buffer,
-    recv_starts: Buffer,
     recv_offsets: Buffer,
     recv_capacity: i32,
     recv_noffsets: i32,
@@ -17,13 +17,12 @@ struct CommOffsets {
     // Accelerator send data
     send_buffer_accelerator: Buffer,
     send_rank_offsets_accelerator: Buffer,
-    send_starts_accelerator: Buffer,
+    send_rank_lengths_accelerator: Buffer,
     send_offsets_accelerator: Buffer,
 
     // Accelerator receive data
     recv_buffer_accelerator: Buffer,
-    recv_rank_offsets_accelerator: Buffer,
-    recv_starts_accelerator: Buffer,
+    recv_rank_lengths_accelerator: Buffer,
     recv_offsets_accelerator: Buffer,
 
     // Number of neighbor ranks
@@ -54,6 +53,15 @@ fn initialize_comm(
     comm_offsets: &mut CommOffsets,
     world_size: i32,
     world_rank: i32) -> () {
+
+}
+
+// Build offsets used by scatter and gather kernels
+fn build_comm_offsets(
+    world_size: i32,
+    rank: i32,
+    grid: &Grid,
+    comm_offsets: &mut CommOffsets) -> () {
 
 }
 
