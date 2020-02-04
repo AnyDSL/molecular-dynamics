@@ -16,6 +16,13 @@ struct CommOffsets {
     recv_capacity: i32,
     recv_noffsets: i32,
 
+    // Exchange data
+    send_exchg_buffer: Buffer,
+    recv_exchg_buffer: Buffer,
+    send_rank_exchgs: Buffer,
+    recv_rank_exchgs: Buffer,
+    exchg_rank_offsets: Buffer,
+
     // Accelerator send data
     send_buffer_accelerator: Buffer,
     send_offsets_accelerator: Buffer,
@@ -266,6 +273,12 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
+            send_exchg_buffer: alloc_unaligned_cpu(neighs * send_capacity * 7 * sizeof[real_t]()),
+            recv_exchg_buffer: alloc_unaligned_cpu(neighs * recv_capacity * 7 * sizeof[real_t]()),
+            send_rank_exchgs: alloc_unaligned_cpu(world_size * sizeof[i32]()),
+            recv_rank_exchgs: alloc_unaligned_cpu(world_size * sizeof[i32]()),
+            exchg_rank_offsets: alloc_unaligned_cpu(world_size * sizeof[i32]()),
+
             // Accelerator send data
             send_buffer_accelerator: accelerator_allocate(neighs * send_capacity * 3 * sizeof[real_t]()),
             send_offsets_accelerator: accelerator_allocate(neighs * send_capacity * sizeof[i32]()),
@@ -289,6 +302,8 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.send_offsets);
         release(comm_offsets.send_buffer_accelerator);
         release(comm_offsets.send_offsets_accelerator);
+        release(comm_offsets.send_exchg_buffer);
+        release(comm_offsets.send_rank_exchgs);
     }
 
     if comm_offsets.recv_capacity > 0 {
@@ -298,7 +313,11 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.recv_offsets);
         release(comm_offsets.recv_buffer_accelerator);
         release(comm_offsets.recv_offsets_accelerator);
+        release(comm_offsets.recv_exchg_buffer);
+        release(comm_offsets.recv_rank_exchgs);
     }
+
+    release(comm_offsets.exchg_rank_offsets);
 }
 
 fn resize_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, send_capacity: i32, recv_capacity: i32) -> () {
@@ -696,7 +715,7 @@ fn get_rank_boundary(rank: i32, nodes: i32, cells: i32) -> (i32, i32) {
     let mut offset = 0;
 
     if nodes > cells {
-        print_string("Problem: you have more nodes than cells in one direction!");
+        print_string("Problem: you have more nodes than cells in one direction!\n");
     }
 
     range(0, nodes, |i| { tmp(i) = 1; });
@@ -885,6 +904,32 @@ fn synchronize_ghost_layer_cells(
     });
 }
 
+fn copy_grid_data_to_buffer(grid: &Grid, offset: i32, buffer: Buffer, buffer_index: i32) -> i32 {
+    let mut index = buffer_index;
+
+    copy_offset(grid.masses_cpu, offset * sizeof[real_t](), buffer, index * sizeof[real_t](), sizeof[real_t]());
+    index++;
+
+    copy_3d_arrays_to_buffer(grid.positions_cpu, offset * sizeof[real_t](), buffer, index * sizeof[real_t](), sizeof[real_t]());
+    index += 3;
+
+    copy_3d_arrays_to_buffer(grid.velocities_cpu, offset * sizeof[real_t](), buffer, index * sizeof[real_t](), sizeof[real_t]());
+    index + 3
+}
+
+fn copy_buffer_data_to_grid(buffer: Buffer, buffer_index: i32, grid: &Grid, offset: i32) -> i32 {
+    let mut index = buffer_index;
+
+    copy_offset(buffer, index * sizeof[real_t](), grid.masses_cpu, offset * sizeof[real_t](), sizeof[real_t]());
+    index++;
+
+    copy_buffer_to_3d_arrays(buffer, index * sizeof[real_t](), grid.positions_cpu, offset * sizeof[real_t](), sizeof[real_t]());
+    index += 3;
+
+    copy_buffer_to_3d_arrays(buffer, index * sizeof[real_t](), grid.velocities_cpu, offset * sizeof[real_t](), sizeof[real_t]());
+    index + 3
+}
+
 // Exchange ghost layer particles with neighbor ranks (here the number of
 // particles is also updated)
 fn exchange_ghost_layer_particles(
@@ -899,15 +944,20 @@ fn exchange_ghost_layer_particles(
 
     let send_rank_offsets = get_array_of_i32(comm_offsets.send_rank_offsets);
     let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
+    let exchg_rank_offsets = get_array_of_i32(comm_offsets.exchg_rank_offsets);
     let send_rank_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
+    let send_rank_exchgs =  get_array_of_i32(comm_offsets.send_rank_exchgs);
+    let recv_rank_exchgs =  get_array_of_i32(comm_offsets.recv_rank_exchgs);
     let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
     let recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
     let mut isend = 0;
     let mut irecv = 0;
+    let mut iexchg = 0;
     let mut buffer_index = 0;
+    let mut exchg_index = 0;
 
     if world_size > 1 {
         range(0, world_size, |r| {
@@ -921,35 +971,33 @@ fn exchange_ghost_layer_particles(
     // Pack particles in each direction
     communication_nodes(world_size, world_rank, grid, |exchange_rank, check_send_condition| {
         send_rank_offsets(exchange_rank) = isend;
+        exchg_rank_offsets(exchange_rank) = iexchg;
 
-        range(0, grid.nparticles, |particle_index| {
+        let mut particle_index = 0;
+
+        while particle_index < grid.nparticles {
             let pos = get_position(particle_index, *grid);
 
             if check_send_condition(pos, grid) {
-                copy_offset(
-                    grid.masses_cpu, particle_index * sizeof[real_t](),
-                    comm_offsets.send_buffer, buffer_index * sizeof[real_t](), sizeof[real_t]());
-
-                buffer_index++;
-
-                copy_3d_arrays_to_buffer(
-                    grid.positions_cpu, particle_index * sizeof[real_t](),
-                    comm_offsets.send_buffer, buffer_index * sizeof[real_t](), sizeof[real_t]());
-
-                buffer_index += 3;
-
-                copy_3d_arrays_to_buffer(
-                    grid.velocities_cpu, particle_index * sizeof[real_t](),
-                    comm_offsets.send_buffer, buffer_index * sizeof[real_t](), sizeof[real_t]());
-
-                buffer_index += 3;
-
-                send_offsets(isend++) = particle_index;
+                if is_within_local_domain(pos, grid) {
+                    buffer_index = copy_grid_data_to_buffer(grid, particle_index, comm_offsets.send_buffer, buffer_index);
+                    send_offsets(isend++) = particle_index;
+                } else {
+                    exchg_index = copy_grid_data_to_buffer(grid, particle_index, comm_offsets.send_exchg_buffer, exchg_index);
+                    delete_particle(particle_index, grid);
+                    particle_index--;
+                    iexchg++;
+                }
             }
-        });
+
+            particle_index++;
+        }
 
         send_rank_lengths(exchange_rank) = isend - send_rank_offsets(exchange_rank);
+        send_rank_exchgs(exchange_rank) = iexchg - exchg_rank_offsets(exchange_rank);
     });
+
+    iexchg = 0;
 
     // Exchange particles with other ranks
     communication_nodes(world_size, world_rank, grid, |exchange_rank, _| {
@@ -959,10 +1007,14 @@ fn exchange_ghost_layer_particles(
         // Offsets to send and receive
         let send_offset = send_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
         let recv_offset = recv_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
+        let exchg_send_offset = exchg_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
+        let exchg_recv_offset = iexchg * 7 * sizeof[real_t]();
 
         // Exchange sizes
         mpih.send(&mut send_rank_lengths(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world);
         mpih.recv(&mut recv_rank_lengths(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world, &mut status);
+        mpih.send(&mut send_rank_exchgs(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world);
+        mpih.recv(&mut recv_rank_exchgs(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world, &mut status);
 
         // Exchange data
         mpih.irecv(
@@ -977,35 +1029,38 @@ fn exchange_ghost_layer_particles(
 
         mpih.wait(&mut request, &mut status);
 
+        mpih.irecv(
+            bitcast[&mut[real_t]](&comm_offsets.recv_exchg_buffer.data(exchg_recv_offset)) as MPI_MutBuf,
+            recv_rank_exchgs(exchange_rank) * 7,
+            mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+
+        mpih.send(
+            bitcast[&mut[real_t]](&comm_offsets.send_exchg_buffer.data(exchg_send_offset)) as MPI_MutBuf,
+            send_rank_exchgs(exchange_rank) * 7,
+            mpih.double_t, exchange_rank, 0, mpih.comms.world);
+
+        mpih.wait(&mut request, &mut status);
+
         // Adjust receive offset data
         range(irecv, irecv + recv_rank_lengths(exchange_rank), |i| { recv_offsets(i) = grid.nparticles + i; });
         irecv += recv_rank_lengths(exchange_rank);
+        iexchg += recv_rank_exchgs(exchange_rank);
     });
 
     // Unpack received particles
-    buffer_index = 0;
+    if iexchg > 0 { add_local_slots(iexchg, grid); }
     if irecv > 0 { add_ghost_slots(irecv, grid); }
 
+    exchg_index = 0;
+    buffer_index = 0;
+
+    range(0, iexchg, |i| {
+        exchg_index = copy_buffer_data_to_grid(comm_offsets.recv_buffer, exchg_index, grid, grid.nparticles + i);
+    });
+
     range(0, irecv, |i| {
-        let offset = recv_offsets(i);
-
-        copy_offset(
-            comm_offsets.recv_buffer, buffer_index * sizeof[real_t](),
-            grid.masses_cpu, offset * sizeof[real_t](), sizeof[real_t]());
-
-        buffer_index++;
-
-        copy_buffer_to_3d_arrays(
-            comm_offsets.recv_buffer, buffer_index * sizeof[real_t](),
-            grid.positions_cpu, offset * sizeof[real_t](), sizeof[real_t]());
-
-        buffer_index += 3;
-
-        copy_buffer_to_3d_arrays(
-            comm_offsets.recv_buffer, buffer_index * sizeof[real_t](),
-            grid.velocities_cpu, offset * sizeof[real_t](), sizeof[real_t]());
-
-        buffer_index += 3;
+        recv_offsets(i) += iexchg;
+        buffer_index = copy_buffer_data_to_grid(comm_offsets.recv_buffer, buffer_index, grid, recv_offsets(i));
     });
 
     comm_offsets.send_noffsets = isend;

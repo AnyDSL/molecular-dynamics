@@ -293,20 +293,6 @@ fn insert_particle(
     grid: &mut Grid,
     allocate: fn(i32) -> Buffer) -> () {
 
-    let cell_index = compute_cell_position(position, true, grid);
-    let flat_index = flatten_index(cell_index, grid);
-
-    append_particle(flat_index, mass, position, velocity, grid, allocate);
-}
-
-fn append_particle(
-    cell_index: i32,
-    mass: real_t,
-    position: Vector3D,
-    velocity: Vector3D,
-    grid: &mut Grid,
-    allocate: fn(i32) -> Buffer) -> () {
-
     let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let particle_index = grid.nparticles;
 
@@ -322,6 +308,26 @@ fn append_particle(
     set_i32(particle_index, grid.neighbors_sizes_cpu, 0);
 
     grid.nparticles++;
+}
+
+fn delete_particle(particle_index: i32, grid: &mut Grid) -> () {
+    swap_particles(particle_index, grid.nparticles - 1, grid);
+    grid.nparticles--;
+}
+
+fn add_local_slots(slots: i32, grid: &mut Grid) -> () {
+    let first_particle_index = grid.nparticles;
+
+    if grid.nghost > 0 {
+        print_string("Problem: adding local slots when there are ghost particles!\n");
+    }
+
+    if first_particle_index + slots > grid.particle_capacity {
+        let new_capacity = grid.particle_capacity + grid.particle_capacity / 10 + slots;
+        reallocate_particle_capacity(grid, new_capacity);
+    }
+
+    grid.nparticles += slots;
 }
 
 fn add_ghost_slots(slots: i32, grid: &mut Grid) -> () {
