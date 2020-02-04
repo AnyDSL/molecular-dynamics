@@ -77,9 +77,6 @@ extern fn md_get_node_bounding_box(
 
 extern fn md_copy_data_to_accelerator() -> () {
     copy_to_accelerator(grid_);
-
-    // Build communication offsets (GPU only)
-    build_comm_offsets(world_size, world_rank, grid_, &mut comm_offsets_);
 }
 
 extern fn md_copy_data_from_accelerator() -> () {
@@ -122,14 +119,7 @@ extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
 extern fn md_print_grid() -> () {
     map_over_grid_particles(grid_, range, |particle_index| {
         let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
-
-        print_f64(pos.x);
-        print_string(", ");
-        print_f64(pos.y);
-        print_string(", ");
-        print_f64(pos.z);
-        print_string("\n");
-        print_flush();
+        print_real_vector_with_rank("pos", pos);
     });
 }
 
@@ -197,16 +187,15 @@ extern fn md_report_iterations() -> () {
 
 extern fn md_report_particles() -> () {
     let mut res: i32;
-    let (nparticles, nghost) = get_node_particles_amount(grid_, world_size, world_rank);
     let is_root = world_rank == 0;
 
     barrier();
     print_string_cond(is_root, "# Local # Ghost\n");
 
-    reduce_i32_sum(nparticles, &mut res);
+    reduce_i32_sum(grid_.nparticles, &mut res);
     print_i32_cond(is_root, res);
 
-    reduce_i32_sum(nghost, &mut res);
+    reduce_i32_sum(grid_.nghost, &mut res);
     print_string_cond(is_root, " ");
     print_i32_cond(is_root, res);
 

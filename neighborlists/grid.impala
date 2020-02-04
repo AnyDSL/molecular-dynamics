@@ -55,25 +55,9 @@ fn allocate_grid(
     cell_capacity: i32,
     neighborlist_capacity: i32) -> Grid {
 
-    let lastx = last_dimension_node(0);
-    let lasty = last_dimension_node(1);
-    let lastz = last_dimension_node(2);
-
-    let mut nx = real_floor(((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
-    let mut ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
-    let mut nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32;
-
-    if lastx {
-        nx++;
-    }
-
-    if lasty {
-        ny++;
-    }
-
-    if lastz {
-        nz++;
-    }
+    let nx = real_floor(((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
+    let ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
+    let nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
 
     let ncells = nx * ny * nz;
     let particle_capacity = ncells * 32;
@@ -305,7 +289,7 @@ fn initialize_grid(
     range(0, grid.ncells, |cell_index| { cell_sizes(cell_index) = 0; });
 
     for i in range(0, nparticles) {
-        if(is_within_domain(positions(i), grid)) {
+        if is_within_local_domain(positions(i), grid) {
             insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
         }
     }
@@ -321,9 +305,7 @@ fn insert_particle(
     let cell_index = compute_cell_position(position, grid);
     let flat_index = flatten_index(cell_index, grid);
 
-    if is_local_cell(cell_index(0), cell_index(1), cell_index(2), grid) {
-        append_particle(flat_index, mass, position, velocity, MASK_TRUE, grid, allocate);
-    }
+    append_particle(flat_index, mass, position, velocity, MASK_TRUE, grid, allocate);
 }
 
 fn append_particle(
@@ -368,10 +350,7 @@ fn append_particle(
     grid.nparticles++;
 }
 
-fn add_ghost_cell_slots(cell_index: i32, slots: i32, first_index: i32, grid: &mut Grid) -> () {
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
+fn add_ghost_slots(slots: i32, grid: &mut Grid) -> () {
     let first_particle_index = grid.nparticles + grid.nghost;
 
     if first_particle_index + slots > grid.particle_capacity {
@@ -379,19 +358,6 @@ fn add_ghost_cell_slots(cell_index: i32, slots: i32, first_index: i32, grid: &mu
         reallocate_particle_capacity(grid, new_capacity);
     }
 
-    if first_index + slots > grid.cell_capacity {
-        let new_capacity = grid.cell_capacity + grid.cell_capacity / 10 + slots;
-        reallocate_cell_capacity(grid, new_capacity);
-    }
-
-    let cell_offset = get_cell_offset(cell_index, grid);
-
-    range(0, slots, |slot| {
-        particles_cell(first_particle_index + slot) = cell_index;
-        cell_particles(cell_offset + first_index + slot) = first_particle_index + slot;
-    });
-
-    cell_sizes(cell_index) += slots;
     grid.nghost += slots;
 }
 
@@ -484,7 +450,7 @@ fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
             let particle_index = cell_particles(cell_offset + i);
             let position = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
 
-            if is_within_domain(position, grid) {
+            if is_within_domain(position, grid.aabb) && particle_index < grid.nghost {
                 let mut new_spatial_index = compute_cell_position(position, grid);
 
                 new_spatial_index(0) = math.max(new_spatial_index(0), 0);
@@ -497,16 +463,9 @@ fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
                 let cur_index = flatten_index(new_spatial_index, grid);
 
                 if cur_index != cell_index {
-                    let from_local = is_local_cell(spatial_index(0), spatial_index(1), spatial_index(2), grid);
-                    let to_local = is_local_cell(new_spatial_index(0), new_spatial_index(1), new_spatial_index(2), grid);
-
-                    if from_local && to_local {
-                        move_particle(particle_index, cell_index, cur_index, grid);
-                        cell_offset = get_cell_offset(cell_index, grid);
-                        cell_size--;
-                    } else {
-                        ++i;
-                    }
+                    move_particle(particle_index, cell_index, cur_index, grid);
+                    cell_offset = get_cell_offset(cell_index, grid);
+                    cell_size--;
                 } else {
                     ++i;
                 }
@@ -558,9 +517,7 @@ fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
     [i, j, k]
 }
 
-fn is_within_domain(position: Vector3D, grid: &Grid) -> bool {
-    let aabb = (*grid).aabb;
-
+fn is_within_domain(position: Vector3D, aabb: AABB) -> bool {
     position.x >= aabb.xmin && position.x <= aabb.xmax &&
     position.y >= aabb.ymin && position.y <= aabb.ymax &&
     position.z >= aabb.zmin && position.z <= aabb.zmax
