@@ -846,13 +846,6 @@ fn synchronize_ghost_layer_cells(
             mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
         mpih.wait(&mut request, &mut status);
-
-        /*
-        print_real_buffer_with_rank(
-            "send_buffer", comm_offsets.send_buffer, send_rank_offsets(exchange_rank) * 3, send_rank_lengths(exchange_rank) * 3);
-        print_real_buffer_with_rank(
-            "recv_buffer", comm_offsets.recv_buffer, recv_rank_offsets(exchange_rank) * 3, recv_rank_lengths(exchange_rank) * 3);
-        */
     });
 
     scatter_loop(comm_offsets, |i, buffer, start, offset, get| {
