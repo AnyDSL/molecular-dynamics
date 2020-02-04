@@ -130,6 +130,7 @@ int main(int argc, char **argv) {
         }
 
         md_exchange_ghost_layer();
+        md_redistribute_particles();
 
         begin = measure_time();
         md_copy_data_to_accelerator();
@@ -165,10 +166,12 @@ int main(int argc, char **argv) {
             end = measure_time();
             integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
-            begin = measure_time();
-            md_synchronize_ghost_layer();
-            end = measure_time();
-            synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+            if(!vtk && j % 20 != 0) {
+                begin = measure_time();
+                md_synchronize_ghost_layer();
+                end = measure_time();
+                synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+            }
 
             if(vtk || (j > 0 && j % 20 == 0)) {
                 begin = measure_time();
@@ -177,14 +180,14 @@ int main(int argc, char **argv) {
                 copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_redistribute_particles();
-                end = measure_time();
-                redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-                begin = measure_time();
                 md_exchange_ghost_layer();
                 end = measure_time();
                 exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+                begin = measure_time();
+                md_redistribute_particles();
+                end = measure_time();
+                redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
                 md_copy_data_to_accelerator();
@@ -220,6 +223,8 @@ int main(int argc, char **argv) {
         md_copy_data_from_accelerator();
         end = measure_time();
         copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+
+        md_print_grid();
 
         md_report_iterations();
         md_report_particles();

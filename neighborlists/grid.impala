@@ -302,7 +302,7 @@ fn insert_particle(
     grid: &mut Grid,
     allocate: fn(i32) -> Buffer) -> () {
 
-    let cell_index = compute_cell_position(position, grid);
+    let cell_index = compute_cell_position(position, true, grid);
     let flat_index = flatten_index(cell_index, grid);
 
     append_particle(flat_index, mass, position, velocity, MASK_TRUE, grid, allocate);
@@ -318,27 +318,12 @@ fn append_particle(
     allocate: fn(i32) -> Buffer) -> () {
 
     let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
     let particle_index = grid.nparticles;
-    let cell_particle_index = cell_sizes(cell_index);
 
     if particle_index >= grid.particle_capacity {
         let new_capacity = grid.particle_capacity + grid.particle_capacity / 10 + 10;
         reallocate_particle_capacity(grid, new_capacity);
     }
-
-    if cell_particle_index >= grid.cell_capacity {
-        let new_capacity = grid.cell_capacity + grid.cell_capacity / 10 + 1;
-        reallocate_cell_capacity(grid, new_capacity);
-    }
-
-    let cell_offset = get_cell_offset(cell_index, grid);
-
-    particles_cell(particle_index) = cell_index;
-    cell_particles(cell_offset + cell_particle_index) = particle_index;
-    cell_sizes(cell_index)++;
 
     set_real(particle_index, grid.masses_cpu, mass);
     set_3d_arrays(particle_index, grid.positions_cpu, position);
@@ -368,111 +353,27 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
     swap_3d_arrays(i, j, grid.velocities_cpu);
 }
 
-fn move_particle(particle_index: i32, source_cell: i32, dest_cell: i32, grid: &mut Grid) -> () {
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
-    let source_cell_size = cell_sizes(source_cell);
-    let dest_cell_size = cell_sizes(dest_cell);
-
-    if dest_cell_size + 1 >= grid.cell_capacity {
-        reallocate_cell_capacity(grid, grid.cell_capacity + 10);
-    }
-
-    let source_cell_offset = get_cell_offset(source_cell, grid);
-    let dest_cell_offset = get_cell_offset(dest_cell, grid);
-    let last_source_particle = cell_particles(source_cell_offset + source_cell_size - 1);
-
-    swap_particles(particle_index, last_source_particle, grid);
-    cell_particles(dest_cell_offset + dest_cell_size) = last_source_particle;
-    particles_cell(last_source_particle) = dest_cell;
-
-    cell_sizes(source_cell)--;
-    cell_sizes(dest_cell)++;
-}
-
-fn promote_particle(particle_index: i32, cell_particle_index: i32, grid: &mut Grid) -> i32 {
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
-    let cell = particles_cell(particle_index);
-    let cell_offset = get_cell_offset(cell, grid);
-    let first_ghost_index = grid.nparticles;
-    let first_ghost_cell = particles_cell(first_ghost_index);
-    let first_ghost_cell_offset = get_cell_offset(cell, grid);
-
-    swap_particles(particle_index, first_ghost_index, grid);
-    cell_particles(cell_offset + cell_particle_index) = first_ghost_index;
-    cell_particles(first_ghost_cell_offset) = particle_index; // assume first index
-    particles_cell(particle_index) = first_ghost_cell;
-    particles_cell(first_ghost_index) = cell;
-
-    grid.nparticles++;
-    grid.nghost--;
-
-    first_ghost_index
-}
-
-fn demote_particle(particle_index: i32, cell_particle_index: i32, grid: &mut Grid) -> i32 {
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let cell = particles_cell(particle_index);
-    let cell_offset = get_cell_offset(cell, grid);
-    let last_local_index = grid.nparticles - 1;
-    let last_local_cell = particles_cell(last_local_index);
-    let last_local_cell_size = cell_sizes(last_local_cell);
-    let last_local_cell_offset = get_cell_offset(last_local_cell, grid);
-
-    swap_particles(particle_index, last_local_index, grid);
-    cell_particles(cell_offset + cell_particle_index) = last_local_index;
-    cell_particles(last_local_cell_offset + last_local_cell_size - 1) = particle_index; // assume last index
-    particles_cell(particle_index) = last_local_cell;
-    particles_cell(last_local_index) = cell;
-
-    grid.nparticles--;
-    grid.nghost++;
-
-    last_local_index
-}
-
 fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
     let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
-    range(0, grid.ncells, |cell_index| {
-        let mut cell_size = cell_sizes(cell_index);
-        let mut cell_offset = get_cell_offset(cell_index, grid);
-        let mut i = 0;
+    range(0, grid.ncells, |cell_index| { cell_sizes(cell_index) = 0; });
 
-        let spatial_index = unflatten_index(cell_index, grid);
+    range(0, grid.nparticles + grid.nghost, |particle_index| {
+        let pos = get_position(particle_index, *grid);
+        let cell_index = compute_cell_position(pos, true, grid);
+        let flat_index = flatten_index(cell_index, grid);
+        let cell_size = cell_sizes(flat_index);
 
-        while i < cell_size {
-            let particle_index = cell_particles(cell_offset + i);
-            let position = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
-
-            if is_within_domain(position, grid.aabb) && particle_index < grid.nghost {
-                let mut new_spatial_index = compute_cell_position(position, grid);
-
-                new_spatial_index(0) = math.max(new_spatial_index(0), 0);
-                new_spatial_index(0) = math.min(new_spatial_index(0), grid.nx - 1);
-                new_spatial_index(1) = math.max(new_spatial_index(1), 0);
-                new_spatial_index(1) = math.min(new_spatial_index(1), grid.ny - 1);
-                new_spatial_index(2) = math.max(new_spatial_index(2), 0);
-                new_spatial_index(2) = math.min(new_spatial_index(2), grid.nz - 1);
-
-                let cur_index = flatten_index(new_spatial_index, grid);
-
-                if cur_index != cell_index {
-                    move_particle(particle_index, cell_index, cur_index, grid);
-                    cell_offset = get_cell_offset(cell_index, grid);
-                    cell_size--;
-                } else {
-                    ++i;
-                }
-            } else {
-                ++i;
-            }
+        if cell_size >= grid.cell_capacity {
+            reallocate_cell_capacity(grid, grid.cell_capacity + grid.cell_capacity / 10 + 10);
         }
+
+        let cell_offset = get_cell_offset(flat_index, grid);
+        particles_cell(particle_index) = flat_index;
+        cell_particles(cell_offset + cell_size) = particle_index;
+        cell_sizes(flat_index)++;
     });
 }
 
@@ -509,10 +410,19 @@ fn write_grid_data_to_arrays(
     grid.nparticles
 }
 
-fn @compute_cell_position(position: Vector3D, grid: &Grid) -> [i32 * 3] {
-    let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
-    let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
-    let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
+fn @compute_cell_position(position: Vector3D, local_only: bool, grid: &Grid) -> [i32 * 3] {
+    let mut i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
+    let mut j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
+    let mut k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
+
+    if local_only {
+        i = math.max(i, 0);
+        i = math.min(i, grid.nx - 1);
+        j = math.max(j, 0);
+        j = math.min(j, grid.ny - 1);
+        k = math.max(k, 0);
+        k = math.min(k, grid.nz - 1);
+    }
 
     [i, j, k]
 }
@@ -526,16 +436,6 @@ fn is_within_domain(position: Vector3D, aabb: AABB) -> bool {
 fn map_over_grid_particles(grid: &Grid, iterate: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(i32) -> ()) -> () {
     iterate(0, grid.nparticles, |particle_index| {
         body(particle_index)
-    });
-}
-
-fn map_over_cell_particles(grid: &Grid, cell_index: i32, iterate: fn(i32, i32, fn(i32) -> ()) -> (), body: fn(i32) -> ()) -> () {
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let cell_offset = get_cell_offset(cell_index, grid);
-
-    iterate(0, cell_sizes(cell_index), |cell_particle_index| {
-        body(cell_particles(cell_offset + cell_particle_index))
     });
 }
 

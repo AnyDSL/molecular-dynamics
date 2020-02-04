@@ -186,6 +186,32 @@ fn print_real_vector_with_rank(field: &[u8], value: Vector3D) -> () {
     print_flush();
 }
 
+// Print AABB with rank
+fn print_aabb_with_rank(field: &[u8], value: AABB) -> () {
+    let mpih = mpi();
+    let mut rank: i32;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+
+    print_i32(rank);
+    print_string("> ");
+    print_string(field);
+    print_string(": xrange = <");
+    print_f64(value.xmin);
+    print_string(", ");
+    print_f64(value.xmax);
+    print_string("> yrange = <");
+    print_f64(value.ymin);
+    print_string(", ");
+    print_f64(value.ymax);
+    print_string("> zrange = <");
+    print_f64(value.zmin);
+    print_string(", ");
+    print_f64(value.zmax);
+    print_string(">\n");
+    print_flush();
+}
+
 // Mirrored communication (avoid deadlocks)
 fn @mirror_comm(
     xoffset: i32,
@@ -837,12 +863,12 @@ fn synchronize_ghost_layer_cells(
 
         mpih.irecv(
             bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
-            send_rank_lengths(exchange_rank) * 3,
+            recv_rank_lengths(exchange_rank) * 3,
             mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
         mpih.send(
             bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
-            recv_rank_lengths(exchange_rank) * 3,
+            send_rank_lengths(exchange_rank) * 3,
             mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
         mpih.wait(&mut request, &mut status);
@@ -877,25 +903,18 @@ fn exchange_ghost_layer_particles(
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
     let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
     let recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
 
     let mut isend = 0;
     let mut irecv = 0;
     let mut buffer_index = 0;
 
-    range(0, world_size, |r| {
-        send_rank_offsets(r) = -1;
-        recv_rank_offsets(r) = -1;
-    });
-
-    range(0, grid.nghost, |ghost_index| {
-        let particle_index = grid.nparticles + ghost_index;
-        let cell = particles_cell(particle_index);
-
-        cell_sizes(cell)--;
-    });
+    if world_size > 1 {
+        range(0, world_size, |r| {
+            send_rank_offsets(r) = -1;
+            recv_rank_offsets(r) = -1;
+        });
+    }
 
     grid.nghost = 0;
 
@@ -925,8 +944,7 @@ fn exchange_ghost_layer_particles(
 
                 buffer_index += 3;
 
-                send_offsets(isend) = particle_index;
-                isend++;
+                send_offsets(isend++) = particle_index;
             }
         });
 
@@ -966,7 +984,7 @@ fn exchange_ghost_layer_particles(
 
     // Unpack received particles
     buffer_index = 0;
-    add_ghost_slots(irecv, grid);
+    if irecv > 0 { add_ghost_slots(irecv, grid); }
 
     range(0, irecv, |i| {
         let offset = recv_offsets(i);
@@ -988,23 +1006,6 @@ fn exchange_ghost_layer_particles(
             grid.velocities_cpu, offset * sizeof[real_t](), sizeof[real_t]());
 
         buffer_index += 3;
-
-        // Insert particle into cell
-        let pos = get_position(offset, *grid);
-        let cell_index = compute_cell_position(pos, grid);
-        let flat_index = flatten_index(cell_index, grid);
-
-        if flat_index >= 0 && flat_index < grid.ncells {
-            let cell_size = cell_sizes(flat_index);
-
-            if cell_size >= grid.cell_capacity {
-                reallocate_cell_capacity(grid, grid.cell_capacity + grid.cell_capacity / 10 + 10);
-            }
-
-            particles_cell(offset) = flat_index;
-            cell_particles(get_cell_offset(flat_index, grid) + cell_size) = offset;
-            cell_sizes(flat_index)++;
-        }
     });
 
     comm_offsets.send_noffsets = isend;

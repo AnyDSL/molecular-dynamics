@@ -53,12 +53,10 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     let neighborlist_capacity = grid.neighborlist_capacity;
 
     outer_loop_cpu(0, grid.nparticles, |particle_index| {
-        if is_mask_true(get_ghost_mask(particle_index, grid)) {
-            let nb_list_offset = neighborlist_capacity * particle_index;
-            let nb_list_size = neighbors_sizes(particle_index);
+        let nb_list_offset = neighborlist_capacity * particle_index;
+        let nb_list_size = neighbors_sizes(particle_index);
 
-            @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
-        }
+        @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
     });
 }
 
