@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
         }
 
         md_exchange_ghost_layer();
-        md_redistribute_particles();
+        md_distribute_particles();
 
         begin = measure_time();
         md_copy_data_to_accelerator();
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
                 exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
                 begin = measure_time();
-                md_redistribute_particles();
+                md_distribute_particles();
                 end = measure_time();
                 redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
 
@@ -223,8 +223,6 @@ int main(int argc, char **argv) {
         md_copy_data_from_accelerator();
         end = measure_time();
         copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
-
-        md_print_grid();
 
         md_report_iterations();
         md_report_particles();

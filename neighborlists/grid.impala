@@ -342,7 +342,7 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
     swap_3d_arrays(i, j, grid.velocities_cpu);
 }
 
-fn redistribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
+fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
     let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
     let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);

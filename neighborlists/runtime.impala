@@ -100,8 +100,8 @@ extern fn md_write_grid_data_to_arrays(
     write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
-extern fn md_redistribute_particles() -> () {
-    redistribute_particles(&mut grid_, alloc_cpu);
+extern fn md_distribute_particles() -> () {
+    distribute_particles(&mut grid_, alloc_cpu);
 }
 
 extern fn md_exchange_ghost_layer() -> () {
