@@ -65,14 +65,6 @@ fn @get_array_of_reals(buf: Buffer) -> &mut[real_t] {
     bitcast[&mut[real_t]](buf.data)
 }
 
-fn @get_mask_t(i: i32, buf: Buffer) -> mask_t {
-    bitcast[&[mask_t]](buf.data)(i)
-}
-
-fn @set_mask_t(i: i32, buf: Buffer, value: mask_t) -> () {
-    bitcast[&mut[mask_t]](buf.data)(i) = value;
-}
-
 fn @get_u8(i: i32, buf: Buffer) -> u8 {
     bitcast[&[u8]](buf.data)(i)
 }

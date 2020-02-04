@@ -130,10 +130,6 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     set_3d_arrays(i, grid.forces_cpu, force);
 }
 
-fn @get_ghost_mask(cluster_index: i32, grid: Grid) -> mask_t {
-    get_mask_t(cluster_index, grid.ghost_mask_cpu)
-}
-
 fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32(index, comm_offsets.send_offsets)
 }

@@ -84,12 +84,10 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> 
         let particle_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
         if particle_index < nparticles {
-            if is_mask_true(get_ghost_mask(particle_index, grid)) {
-                let nb_list_offset = neighborlist_capacity * particle_index;
-                let nb_list_size = neighbors_sizes(particle_index);
+            let nb_list_offset = neighborlist_capacity * particle_index;
+            let nb_list_size = neighbors_sizes(particle_index);
 
-                @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
-            }
+            @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
         }
     });
 
@@ -158,10 +156,6 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     force.y += dF_y;
     force.z += dF_z;
     set_3d_arrays_accelerator(i, grid.forces_accelerator, force);
-}
-
-fn @get_ghost_mask(i: i32, grid: Grid) -> mask_t {
-    get_mask_t_accelerator(i, grid.ghost_mask_accelerator)
 }
 
 fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
