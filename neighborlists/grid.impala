@@ -356,7 +356,7 @@ fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
     range(0, grid.ncells, |cell_index| { cell_sizes(cell_index) = 0; });
 
     range(0, grid.nparticles + grid.nghost, |particle_index| {
-        let pos = get_position(particle_index, *grid);
+        let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
         let cell_index = compute_cell_position(pos, true, grid);
         let flat_index = flatten_index(cell_index, grid);
         let cell_size = cell_sizes(flat_index);

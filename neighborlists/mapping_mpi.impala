@@ -976,7 +976,7 @@ fn exchange_ghost_layer_particles(
         let mut particle_index = 0;
 
         while particle_index < grid.nparticles {
-            let pos = get_position(particle_index, *grid);
+            let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
 
             if check_send_condition(pos, grid) {
                 if is_within_local_domain(pos, grid) {
