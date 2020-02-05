@@ -45,6 +45,8 @@ extern fn md_initialize_grid(
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 
+    warmup();
+
     grid_.nparticles
 }
 
