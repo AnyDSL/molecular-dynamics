@@ -20,6 +20,10 @@ fn deallocate_3d_arrays(arrays: Buffer) -> () {
     release(arrays);
 }
 
+fn assign_accelerator_3d_arrays(cpu_arrays: &mut Buffer, gpu_arrays: Buffer) -> () {
+    assign_accelerator_buffer(cpu_arrays, gpu_arrays);
+}
+
 fn @copy_offset_3d_arrays(src: Buffer, offset_src: i32, dest: Buffer, offset_dest: i32, N: i32) -> () {
     let elem_size = 3 * sizeof[real_t]();
     copy_offset(src, offset_src * elem_size, dest, offset_dest * elem_size, N * elem_size);

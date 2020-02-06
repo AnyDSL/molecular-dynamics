@@ -3,6 +3,7 @@ fn @is_cuda() -> bool { false }
 fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
+fn @use_unified_memory() -> bool { false }
 
 /*
 extern "C" {
@@ -31,6 +32,8 @@ fn add_iterator(iterator: &mut i64) -> () {
     (*iterator)++;
 }
 
+fn cpu_allocate(size: i32) -> Buffer { alloc_cpu(size) }
+
 fn @accelerator_allocate(size: i32) -> Buffer {
     Buffer {
         device: 0,
@@ -43,6 +46,7 @@ fn @accelerator_allocate_3d_arrays(N: i32) -> Array3D {
     null_3d_array()
 }
 
+fn @assign_accelerator_buffer(cpu_buffer: &mut Buffer, gpu_buffer: Buffer) -> () {}
 fn @transfer_between_devices(source: Buffer, destination: Buffer) -> () {}
 fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) -> () {}
 

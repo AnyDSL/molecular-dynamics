@@ -38,6 +38,11 @@ fn deallocate_3d_arrays(struct_of_arrays: StructOfArrays3D) -> () {
     release(struct_of_arrays.z);
 }
 
+fn assign_accelerator_3d_arrays(cpu_arrays: &mut StructOfArrays3D, gpu_arrays: StructOfArrays3D) -> () {
+    assign_accelerator_buffer(&mut cpu_arrays.x, gpu_arrays.x);
+    assign_accelerator_buffer(&mut cpu_arrays.y, gpu_arrays.y);
+    assign_accelerator_buffer(&mut cpu_arrays.z, gpu_arrays.z);
+}
 
 fn @copy_offset_3d_arrays(src: StructOfArrays3D, offset_src: i32, dest: StructOfArrays3D, offset_dest: i32, N: i32) -> () {
     copy_offset(src.x, offset_src * sizeof[real_t](), dest.x, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
