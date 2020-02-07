@@ -159,18 +159,17 @@ fn reallocate_particle_3d_arrays(array: &mut Array3D, size: i32, particle_capaci
 fn reallocate_cell_buffer(
     grid: &Grid,
     buffer: &mut Buffer,
-    size: i32,
-    cell_capacity: i32,
+    capacity: i32,
     elem_size: i32,
     allocate: fn(i32) -> Buffer) -> () {
 
-    let new_buffer = allocate(size * elem_size);
+    let new_buffer = allocate(capacity * grid.ncells * elem_size);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
     range(0, grid.ncells, |cell_index| {
         let cell_offset = get_cell_offset(cell_index, grid);
         let cell_size = cell_sizes(cell_index);
-        let new_offset = cell_index * cell_capacity;
+        let new_offset = cell_index * capacity;
 
         copy_offset(*buffer, cell_offset * elem_size, new_buffer, new_offset * elem_size, cell_size * elem_size);
     });
@@ -244,11 +243,10 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     print_string(")\n");
     print_flush();
 
-    reallocate_cell_buffer(grid, &mut grid.cell_particles_cpu, capacity * grid.ncells, grid.cell_capacity, sizeof[i32](), alloc_cpu);
+    reallocate_cell_buffer(grid, &mut grid.cell_particles_cpu, capacity, sizeof[i32](), alloc_cpu);
 
     release(grid.cell_particles_accelerator);
     grid.cell_particles_accelerator = accelerator_allocate(capacity * grid.ncells * sizeof[i32]());
-
     grid.cell_capacity = capacity;
 
     print_string("end reallocate_cell_capacity\n");
@@ -369,7 +367,7 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
 }
 
 fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
-    let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+    let mut cell_particles = get_array_of_i32(grid.cell_particles_cpu);
     let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
@@ -382,7 +380,8 @@ fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
         let cell_size = cell_sizes(flat_index);
 
         if cell_size >= grid.cell_capacity {
-            reallocate_cell_capacity(grid, grid.cell_capacity + grid.cell_capacity / 10 + 10);
+            reallocate_cell_capacity(grid, grid.cell_capacity * 2);
+            cell_particles = get_array_of_i32(grid.cell_particles_cpu);
         }
 
         let cell_offset = get_cell_offset(flat_index, grid);
