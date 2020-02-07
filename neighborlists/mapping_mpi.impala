@@ -1060,7 +1060,7 @@ fn exchange_ghost_layer_particles(
     buffer_index = 0;
 
     range(0, iexchg, |i| {
-        exchg_index = copy_buffer_data_to_grid(comm_offsets.recv_buffer, exchg_index, grid, grid.nparticles + i);
+        exchg_index = copy_buffer_data_to_grid(comm_offsets.recv_exchg_buffer, exchg_index, grid, grid.nparticles + i);
     });
 
     range(0, irecv, |i| {
