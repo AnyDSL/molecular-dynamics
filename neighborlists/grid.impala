@@ -61,7 +61,13 @@ fn allocate_grid(
     let particle_capacity = ncells * 32;
     let neighbors_capacity = particle_capacity * neighborlist_capacity;
 
-    Grid {
+    let null_buf = Buffer {
+        device: 0,
+        data: 0 as &[i8],
+        size: 0 as i64
+    };
+
+    let mut grid = Grid {
         aabb: aabb,
         nx: nx,
         ny: ny,
@@ -74,15 +80,15 @@ fn allocate_grid(
         nghost: 0,
         spacing: cell_spacing,
 
-        cell_particles_cpu: alloc_cpu(ncells * cell_capacity * sizeof[i32]()),
-        cell_sizes_cpu: alloc_cpu(ncells * sizeof[i32]()),
-        particles_cell_cpu: alloc_cpu(particle_capacity * sizeof[i32]()),
-        masses_cpu: alloc_cpu(particle_capacity * sizeof[real_t]()),
-        positions_cpu: allocate_3d_arrays(particle_capacity, alloc_cpu),
-        velocities_cpu: allocate_3d_arrays(particle_capacity, alloc_cpu),
-        forces_cpu: allocate_3d_arrays(particle_capacity, alloc_cpu),
-        neighbors_sizes_cpu: alloc_cpu(particle_capacity * sizeof[i32]()),
-        neighborlists_cpu: alloc_cpu(neighbors_capacity * sizeof[i32]()),
+        cell_particles_cpu: cpu_allocate(ncells * cell_capacity * sizeof[i32]()),
+        cell_sizes_cpu: cpu_allocate(ncells * sizeof[i32]()),
+        particles_cell_cpu: cpu_allocate(particle_capacity * sizeof[i32]()),
+        masses_cpu: cpu_allocate(particle_capacity * sizeof[real_t]()),
+        positions_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
+        velocities_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
+        forces_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
+        neighbors_sizes_cpu: cpu_allocate(particle_capacity * sizeof[i32]()),
+        neighborlists_cpu: cpu_allocate(neighbors_capacity * sizeof[i32]()),
 
         cell_particles_accelerator: accelerator_allocate(ncells * cell_capacity * sizeof[i32]()),
         cell_sizes_accelerator: accelerator_allocate(ncells * sizeof[i32]()),
@@ -93,19 +99,33 @@ fn allocate_grid(
         forces_accelerator: accelerator_allocate_3d_arrays(particle_capacity),
         neighbors_sizes_accelerator: accelerator_allocate(particle_capacity * sizeof[i32]()),
         neighborlists_accelerator: accelerator_allocate(neighbors_capacity * sizeof[i32]())
-    }
+    };
+
+    assign_accelerator_buffer(&mut grid.cell_particles_cpu, grid.cell_particles_accelerator);
+    assign_accelerator_buffer(&mut grid.cell_sizes_cpu, grid.cell_sizes_accelerator);
+    assign_accelerator_buffer(&mut grid.particles_cell_cpu, grid.particles_cell_accelerator);
+    assign_accelerator_buffer(&mut grid.masses_cpu, grid.masses_accelerator);
+    assign_accelerator_3d_arrays(&mut grid.positions_cpu, grid.positions_accelerator);
+    assign_accelerator_3d_arrays(&mut grid.velocities_cpu, grid.velocities_accelerator);
+    assign_accelerator_3d_arrays(&mut grid.forces_cpu, grid.forces_accelerator);
+    assign_accelerator_buffer(&mut grid.neighbors_sizes_cpu, grid.neighbors_sizes_accelerator);
+    assign_accelerator_buffer(&mut grid.neighborlists_cpu, grid.neighborlists_accelerator);
+
+    grid
 }
 
 fn deallocate_grid(grid: Grid) -> () {
-    release(grid.cell_particles_cpu);
-    release(grid.cell_sizes_cpu);
-    release(grid.particles_cell_cpu);
-    release(grid.masses_cpu);
-    deallocate_3d_arrays(grid.positions_cpu);
-    deallocate_3d_arrays(grid.velocities_cpu);
-    deallocate_3d_arrays(grid.forces_cpu);
-    release(grid.neighbors_sizes_cpu);
-    release(grid.neighborlists_cpu);
+    if !use_unified_memory() {
+        release(grid.cell_particles_cpu);
+        release(grid.cell_sizes_cpu);
+        release(grid.particles_cell_cpu);
+        release(grid.masses_cpu);
+        deallocate_3d_arrays(grid.positions_cpu);
+        deallocate_3d_arrays(grid.velocities_cpu);
+        deallocate_3d_arrays(grid.forces_cpu);
+        release(grid.neighbors_sizes_cpu);
+        release(grid.neighborlists_cpu);
+    }
 
     release(grid.cell_particles_accelerator);
     release(grid.cell_sizes_accelerator);
@@ -373,18 +393,22 @@ fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
 }
 
 fn copy_to_accelerator(grid: &Grid) -> () {
-    transfer_between_devices(grid.cell_particles_cpu, grid.cell_particles_accelerator);
-    transfer_between_devices(grid.cell_sizes_cpu, grid.cell_sizes_accelerator);
-    transfer_between_devices(grid.particles_cell_cpu, grid.particles_cell_accelerator);
-    transfer_between_devices(grid.masses_cpu, grid.masses_accelerator);
-    transfer_3d_arrays_between_devices(grid.positions_cpu, grid.positions_accelerator);
-    transfer_3d_arrays_between_devices(grid.velocities_cpu, grid.velocities_accelerator);
+    if !use_unified_memory() {
+        transfer_between_devices(grid.cell_particles_cpu, grid.cell_particles_accelerator);
+        transfer_between_devices(grid.cell_sizes_cpu, grid.cell_sizes_accelerator);
+        transfer_between_devices(grid.particles_cell_cpu, grid.particles_cell_accelerator);
+        transfer_between_devices(grid.masses_cpu, grid.masses_accelerator);
+        transfer_3d_arrays_between_devices(grid.positions_cpu, grid.positions_accelerator);
+        transfer_3d_arrays_between_devices(grid.velocities_cpu, grid.velocities_accelerator);
+    }
 }
 
 fn copy_from_accelerator(grid: &Grid) -> () {
-    transfer_3d_arrays_between_devices(grid.positions_accelerator, grid.positions_cpu);
-    transfer_3d_arrays_between_devices(grid.velocities_accelerator, grid.velocities_cpu);
-    transfer_3d_arrays_between_devices(grid.forces_accelerator, grid.forces_cpu);
+    if !use_unified_memory() {
+        transfer_3d_arrays_between_devices(grid.positions_accelerator, grid.positions_cpu);
+        transfer_3d_arrays_between_devices(grid.velocities_accelerator, grid.velocities_cpu);
+        transfer_3d_arrays_between_devices(grid.forces_accelerator, grid.forces_cpu);
+    }
 }
 
 fn write_grid_data_to_arrays(

@@ -258,18 +258,18 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i
     if world_size > 1 && neighs > 0 && send_capacity > 0 && recv_capacity > 0 {
         *comm_offsets = CommOffsets {
             // Host send data
-            send_buffer: alloc_unaligned_cpu(neighs * send_capacity * 7 * sizeof[real_t]()),
-            send_rank_offsets: alloc_unaligned_cpu(world_size * sizeof[i32]()),
-            send_rank_lengths: alloc_unaligned_cpu(world_size * sizeof[i32]()),
-            send_offsets: alloc_unaligned_cpu(neighs * send_capacity * sizeof[i32]()),
+            send_buffer: cpu_allocate(neighs * send_capacity * 7 * sizeof[real_t]()),
+            send_rank_offsets: alloc_cpu(world_size * sizeof[i32]()),
+            send_rank_lengths: alloc_cpu(world_size * sizeof[i32]()),
+            send_offsets: cpu_allocate(neighs * send_capacity * sizeof[i32]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
             // Host receive data
-            recv_buffer: alloc_unaligned_cpu(neighs * recv_capacity * 7 * sizeof[real_t]()),
+            recv_buffer: cpu_allocate(neighs * recv_capacity * 7 * sizeof[real_t]()),
             recv_rank_offsets: alloc_unaligned_cpu(world_size * sizeof[i32]()),
             recv_rank_lengths: alloc_unaligned_cpu(world_size * sizeof[i32]()),
-            recv_offsets: alloc_unaligned_cpu(neighs * recv_capacity * sizeof[i32]()),
+            recv_offsets: cpu_allocate(neighs * recv_capacity * sizeof[i32]()),
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
@@ -290,6 +290,11 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i
             // Number of neighbor ranks
             neighs: neighs
         };
+
+        assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
+        assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+        assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
+        assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
     }
 }
 

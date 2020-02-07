@@ -2,6 +2,7 @@ fn @is_x86() -> bool { false }
 fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
+fn @use_unified_memory() -> bool { true }
 
 fn @nvvm_shfldown_i32(var: i32, delta: i32, width: i32) -> i32 {
     let mut res: i32;
@@ -51,22 +52,46 @@ fn @align(ptr: &[i8], alignment: i32) -> &[i8] {
 
 fn add_iterator(iterator: &mut i64) -> () {}
 
+fn cpu_allocate(size: i32) -> Buffer {
+    if use_unified_memory() {
+        Buffer {
+            device: 0,
+            data: 0 as &[i8],
+            size: 0 as i64
+        }
+    } else {
+        alloc_cpu(size)
+    }
+}
+
 fn @accelerator_allocate(size: i32) -> Buffer {
-    let acc = accelerator(device_id);
-    acc.alloc(size)
+    if use_unified_memory() {
+        alloc_cuda_unified(device_id, size)
+    } else {
+        accelerator(device_id).alloc(size)
+    }
+}
+
+fn @assign_accelerator_buffer(cpu_buffer: &mut Buffer, gpu_buffer: Buffer) -> () {
+    if use_unified_memory() {
+        *cpu_buffer = gpu_buffer;
+    }
 }
 
 fn @accelerator_allocate_3d_arrays(size: i32) -> Array3D {
-    let acc = accelerator(device_id);
-    allocate_3d_arrays(size, acc.alloc)
+    allocate_3d_arrays(size, accelerator_allocate)
 }
 
 fn @transfer_between_devices(source: Buffer, destination: Buffer) -> () {
-    copy(source, destination);
+    if !use_unified_memory() {
+        copy(source, destination);
+    }
 }
 
 fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) -> () {
-    _transfer_3d_arrays_between_devices(source, destination);
+    if !use_unified_memory() {
+        _transfer_3d_arrays_between_devices(source, destination);
+    }
 }
 
 fn warmup() -> () {
@@ -193,7 +218,10 @@ fn gather_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i32
         }
 
         acc.sync();
-        copy(buffer, comm_offsets.send_buffer);
+
+        if !use_unified_memory() {
+            copy(buffer, comm_offsets.send_buffer);
+        }
     }
 }
 
@@ -205,7 +233,9 @@ fn scatter_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i3
     let noffsets = comm_offsets.recv_noffsets;
 
     if noffsets > 0 {
-        copy_offset(comm_offsets.recv_buffer, 0, buffer, 0, buffer.size as i32);
+        if !use_unified_memory() {
+            copy_offset(comm_offsets.recv_buffer, 0, buffer, 0, buffer.size as i32);
+        }
 
         for work_item in acc.exec(grid_size, block_size) {
             let th_idx = work_item.bidx() * work_item.bdimx() + work_item.tidx();
