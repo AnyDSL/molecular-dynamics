@@ -265,8 +265,6 @@ int main(int argc, char **argv) {
         time_results[2].first + time_results[6].first + time_results[7].first + time_results[8].first
     );
 
-    //md_report_memory_allocation();
-
     md_mpi_finalize();
 
     return EXIT_SUCCESS;

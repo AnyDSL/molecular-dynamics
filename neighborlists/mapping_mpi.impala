@@ -607,19 +607,37 @@ fn last_dimension_node(@dim: i32) -> bool {
     }
 }
 
-fn xnext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x >= grid.aabb.xmax - grid.spacing * 2.0 }
-fn xprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x <= grid.aabb.xmin + grid.spacing * 2.0 }
-fn ynext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y >= grid.aabb.ymax - grid.spacing * 2.0 }
-fn yprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y <= grid.aabb.ymin + grid.spacing * 2.0 }
-fn znext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z >= grid.aabb.zmax - grid.spacing * 2.0 }
-fn zprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z <= grid.aabb.zmin + grid.spacing * 2.0 }
+// Not perfect but works for our cases
+fn int_mod(value: i32, divisor: i32) -> i32 {
+    if value < 0 {
+        value + divisor
+    } else if value >= divisor {
+        value - divisor
+    } else {
+        value
+    }
+}
+
+fn xnext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x -= grid.xlength; }
+fn xprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x += grid.xlength; }
+fn ynext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y -= grid.ylength; }
+fn yprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y += grid.ylength; }
+fn znext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.z -= grid.zlength; }
+fn zprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.z += grid.zlength; }
+
+fn xnext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x > grid.aabb.xmax - grid.spacing * 2.0 }
+fn xprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x < grid.aabb.xmin + grid.spacing * 2.0 }
+fn ynext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y > grid.aabb.ymax - grid.spacing * 2.0 }
+fn yprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y < grid.aabb.ymin + grid.spacing * 2.0 }
+fn znext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z > grid.aabb.zmax - grid.spacing * 2.0 }
+fn zprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z < grid.aabb.zmin + grid.spacing * 2.0 }
 
 // Communication pattern using 6-stencil neighbors
 fn communication_nodes(
     world_size: i32,
     rank: i32,
     grid: &Grid,
-    body: fn(i32, fn(Vector3D, &Grid) -> bool) -> ()) -> () {
+    body: fn(i32, bool, fn(&mut Vector3D, &Grid) -> (), fn(Vector3D, &Grid) -> bool) -> ()) -> () {
 
     let mut rx: i32;
     let mut ry: i32;
@@ -628,12 +646,35 @@ fn communication_nodes(
     // Index of rank in the 3D cartesian grid
     unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
-    if rx < gx - 1 { @@body(flat_index([rx + 1, ry, rz], gx, gy), xnext_send_condition); }
-    if rx > 0      { @@body(flat_index([rx - 1, ry, rz], gx, gy), xprev_send_condition); }
-    if ry < gy - 1 { @@body(flat_index([rx, ry + 1, rz], gx, gy), ynext_send_condition); }
-    if ry > 0      { @@body(flat_index([rx, ry - 1, rz], gx, gy), yprev_send_condition); }
-    if rz < gz - 1 { @@body(flat_index([rx, ry, rz + 1], gx, gy), znext_send_condition); }
-    if rz > 0      { @@body(flat_index([rx, ry, rz - 1], gx, gy), zprev_send_condition); }
+    if gx > 1 {
+        if rx % 2 == 0 {
+            @@body(flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition);
+            @@body(flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition);
+        } else {
+            @@body(flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition);
+            @@body(flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition);
+        }
+    }
+
+    if gy > 1 {
+        if ry % 2 == 0 {
+            @@body(flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition);
+            @@body(flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition);
+        } else {
+            @@body(flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition);
+            @@body(flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition);
+        }
+    }
+
+    if gz > 1 {
+        if rz % 2 == 0 {
+            @@body(flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition);
+            @@body(flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition);
+        } else {
+            @@body(flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition);
+            @@body(flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition);
+        }
+    }
 }
 
 // Get configuration for nodes according to world size and number of
@@ -710,35 +751,6 @@ fn get_node_config(
     }
 }
 
-fn get_rank_boundary(rank: i32, nodes: i32, cells: i32) -> (i32, i32) {
-    let tmp_buffer = alloc_unaligned_cpu(nodes * sizeof[i32]());
-    let tmp = get_array_of_i32(tmp_buffer);
-
-    let mut sum = nodes;
-    let mut index = 0;
-    let mut ncells = 0;
-    let mut offset = 0;
-
-    if nodes > cells {
-        print_string("Problem: you have more nodes than cells in one direction!\n");
-    }
-
-    range(0, nodes, |i| { tmp(i) = 1; });
-
-    while sum < cells {
-        tmp(index)++;
-        index = (index + 1) % nodes;
-        sum++;
-    }
-
-    ncells = tmp(rank);
-    range(0, rank, |i| { offset += tmp(i); });
-
-    release(tmp_buffer);
-
-    (ncells, offset)
-}
-
 // Get bounding box for current node
 fn @get_node_bounding_box(
     world_size: i32,
@@ -781,15 +793,6 @@ fn @get_node_bounding_box(
         ymax = ymin + ylength;
         zmin = aabb.zmin + zlength * (rz as real_t);
         zmax = zmin + zlength;
-
-        // Extend grid to include ghost layer
-        if rx > 0      { xmin -= cell_spacing; }
-        if rx < gx - 1 { xmax += cell_spacing; }
-        if ry > 0      { ymin -= cell_spacing; }
-        if ry < gy - 1 { ymax += cell_spacing; }
-        if rz > 0      { zmin -= cell_spacing; }
-        if rz < gz - 1 { zmax += cell_spacing; }
-
     } else {
         gx = 1;
         gy = 1;
@@ -813,14 +816,26 @@ fn @get_node_bounding_box(
     }
 }
 
+// Extend domain to include cells for ghost particles
+fn extend_rank_domain(aabb: &mut AABB, cell_spacing: real_t) -> () {
+    if gx > 1 {
+        aabb.xmin -= cell_spacing;
+        aabb.xmax += cell_spacing;
+    }
+
+    if gy > 1 {
+        aabb.ymin -= cell_spacing;
+        aabb.ymax += cell_spacing;
+    }
+
+    if gz > 1 {
+        aabb.zmin -= cell_spacing;
+        aabb.zmax += cell_spacing;
+    }
+}
+
 // Check if position is inside local domain (exclude ghost layer)
 fn is_within_local_domain(position: Vector3D, grid: &Grid) -> bool {
-    let mpih = mpi();
-    let mut rank: i32;
-    let mut rx: i32;
-    let mut ry: i32;
-    let mut rz: i32;
-
     let mut aabb = AABB {
         xmin: grid.aabb.xmin,
         xmax: grid.aabb.xmax,
@@ -830,15 +845,20 @@ fn is_within_local_domain(position: Vector3D, grid: &Grid) -> bool {
         zmax: grid.aabb.zmax
     };
 
-    mpih.comm_rank(mpih.comms.world, &mut rank);
-    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
+    if gx > 1 {
+        aabb.xmin += grid.spacing;
+        aabb.xmax -= grid.spacing;
+    }
 
-    if rx > 0      { aabb.xmin += grid.spacing; }
-    if rx < gx - 1 { aabb.xmax -= grid.spacing; }
-    if ry > 0      { aabb.ymin += grid.spacing; }
-    if ry < gy - 1 { aabb.ymax -= grid.spacing; }
-    if rz > 0      { aabb.zmin += grid.spacing; }
-    if rz < gz - 1 { aabb.zmax -= grid.spacing; }
+    if gy > 1 {
+        aabb.ymin += grid.spacing;
+        aabb.ymax -= grid.spacing;
+    }
+
+    if gz > 1 {
+        aabb.zmin += grid.spacing;
+        aabb.zmax -= grid.spacing;
+    }
 
     is_within_domain(position, aabb)
 }
@@ -853,7 +873,7 @@ fn initialize_comm(
     let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz);
     let mut neighs = 0;
 
-    communication_nodes(world_size, world_rank, grid, |_, _| { neighs++; });
+    communication_nodes(world_size, world_rank, grid, |_, _, _, _| { neighs++; });
     alloc_comm_offsets(comm_offsets, world_size, neighs, max_faces_dim * 100, max_faces_dim * 100);
 }
 
@@ -881,21 +901,23 @@ fn synchronize_ghost_layer_cells(
         set(start + 2, buffer, pos.z);
     });
 
-    communication_nodes(world_size, world_rank, grid, |exchange_rank, _| {
-        let send_offset = send_rank_offsets(exchange_rank) * 3 * sizeof[real_t]();
-        let recv_offset = recv_rank_offsets(exchange_rank) * 3 * sizeof[real_t]();
+    communication_nodes(world_size, world_rank, grid, |exchange_rank, pbc, _, _| {
+        if !pbc {
+            let send_offset = send_rank_offsets(exchange_rank) * 3 * sizeof[real_t]();
+            let recv_offset = recv_rank_offsets(exchange_rank) * 3 * sizeof[real_t]();
 
-        mpih.irecv(
-            bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
-            recv_rank_lengths(exchange_rank) * 3,
-            mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+            mpih.irecv(
+                bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
+                recv_rank_lengths(exchange_rank) * 3,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
-        mpih.send(
-            bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
-            send_rank_lengths(exchange_rank) * 3,
-            mpih.double_t, exchange_rank, 0, mpih.comms.world);
+            mpih.send(
+                bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
+                send_rank_lengths(exchange_rank) * 3,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
-        mpih.wait(&mut request, &mut status);
+            mpih.wait(&mut request, &mut status);
+        }
     });
 
     scatter_loop(comm_offsets, |i, buffer, start, offset, get| {
@@ -909,17 +931,18 @@ fn synchronize_ghost_layer_cells(
     });
 }
 
-fn copy_grid_data_to_buffer(grid: &Grid, offset: i32, buffer: Buffer, buffer_index: i32) -> i32 {
-    let mut index = buffer_index;
+fn copy_particle_data_to_buffer(mass: real_t, pos: Vector3D, vel: Vector3D, buffer: Buffer, index: i32) -> i32 {
+    let mut buffer_index = index;
 
-    copy_offset(grid.masses_cpu, offset * sizeof[real_t](), buffer, index * sizeof[real_t](), sizeof[real_t]());
-    index++;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = mass;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = pos.x;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = pos.y;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = pos.z;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = vel.x;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = vel.y;
+    bitcast[&mut[real_t]](buffer.data)(buffer_index++) = vel.z;
 
-    copy_3d_arrays_to_buffer(grid.positions_cpu, offset * sizeof[real_t](), buffer, index * sizeof[real_t](), sizeof[real_t]());
-    index += 3;
-
-    copy_3d_arrays_to_buffer(grid.velocities_cpu, offset * sizeof[real_t](), buffer, index * sizeof[real_t](), sizeof[real_t]());
-    index + 3
+    buffer_index
 }
 
 fn copy_buffer_data_to_grid(buffer: Buffer, buffer_index: i32, grid: &Grid, offset: i32) -> i32 {
@@ -973,39 +996,64 @@ fn exchange_ghost_layer_particles(
 
     grid.nghost = 0;
 
-    // Pack particles in each direction
-    communication_nodes(world_size, world_rank, grid, |exchange_rank, check_send_condition| {
-        send_rank_offsets(exchange_rank) = isend;
+    // Pack particles in each direction to exchange
+    communication_nodes(world_size, world_rank, grid, |exchange_rank, pbc, pbc_adjust, check_send_condition| {
         exchg_rank_offsets(exchange_rank) = iexchg;
 
         let mut particle_index = 0;
 
         while particle_index < grid.nparticles {
-            let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+            let mut pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
 
-            if check_send_condition(pos, grid) {
-                if is_within_local_domain(pos, grid) {
-                    buffer_index = copy_grid_data_to_buffer(grid, particle_index, comm_offsets.send_buffer, buffer_index);
-                    send_offsets(isend++) = particle_index;
-                } else {
-                    exchg_index = copy_grid_data_to_buffer(grid, particle_index, comm_offsets.send_exchg_buffer, exchg_index);
-                    delete_particle(particle_index, grid);
-                    particle_index--;
-                    iexchg++;
+            if check_send_condition(pos, grid) && !is_within_local_domain(pos, grid) {
+                let mass = get_real(particle_index, grid.masses_cpu);
+                let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
+
+                if pbc {
+                    pbc_adjust(&mut pos, grid);
                 }
+
+                exchg_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_exchg_buffer, exchg_index);
+                delete_particle(particle_index, grid);
+                particle_index--;
+                iexchg++;
             }
 
             particle_index++;
         }
 
-        send_rank_lengths(exchange_rank) = isend - send_rank_offsets(exchange_rank);
         send_rank_exchgs(exchange_rank) = iexchg - exchg_rank_offsets(exchange_rank);
+    });
+
+    // Pack particles in each direction to send at other iterations
+    communication_nodes(world_size, world_rank, grid, |exchange_rank, pbc, _, check_send_condition| {
+        send_rank_offsets(exchange_rank) = isend;
+
+        if !pbc {
+            let mut particle_index = 0;
+
+            while particle_index < grid.nparticles {
+                let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+
+                if check_send_condition(pos, grid) {
+                    let mass = get_real(particle_index, grid.masses_cpu);
+                    let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
+
+                    buffer_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_buffer, buffer_index);
+                    send_offsets(isend++) = particle_index;
+                }
+
+                particle_index++;
+            }
+        }
+
+        send_rank_lengths(exchange_rank) = isend - send_rank_offsets(exchange_rank);
     });
 
     iexchg = 0;
 
     // Exchange particles with other ranks
-    communication_nodes(world_size, world_rank, grid, |exchange_rank, _| {
+    communication_nodes(world_size, world_rank, grid, |exchange_rank, _, _, _| {
         // Rank receive offset
         recv_rank_offsets(exchange_rank) = irecv;
 

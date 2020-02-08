@@ -23,7 +23,7 @@ extern fn md_initialize_grid(
     cell_capacity: i32,
     neighborlist_capacity: i32) -> i32 {
 
-    let aabb = AABB {
+    let world_aabb = AABB {
         xmin: min(0),
         xmax: max(0),
         ymin: min(1),
@@ -32,7 +32,7 @@ extern fn md_initialize_grid(
         zmax: max(2)
     };
 
-    let rank_aabb = AABB {
+    let mut rank_aabb = AABB {
         xmin: rank_min(0),
         xmax: rank_max(0),
         ymin: rank_min(1),
@@ -41,7 +41,9 @@ extern fn md_initialize_grid(
         zmax: rank_max(2)
     };
 
-    grid_ = allocate_grid(rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
+    extend_rank_domain(&mut rank_aabb, cell_spacing);
+
+    grid_ = allocate_grid(world_aabb, rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
 

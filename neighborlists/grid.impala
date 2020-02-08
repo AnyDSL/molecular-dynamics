@@ -18,6 +18,9 @@ struct Grid {
     ncells: i32, // number of cells in the grid
     nparticles: i32, // number of particles in the grid
     nghost: i32, // number of ghost particles in the grid
+    xlength: real_t, // grid length in x dimension for PBC correction
+    ylength: real_t, // grid length in y dimension for PBC correction
+    zlength: real_t, // grid length in z dimension for PBC correction
     spacing: real_t, // cell spacing
 
     cell_particles_cpu: Buffer, // particles in each cell [i32]
@@ -48,6 +51,7 @@ fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) ->
 }
 
 fn allocate_grid(
+    world_aabb: AABB,
     aabb: AABB,
     cell_spacing: f64,
     cell_capacity: i32,
@@ -78,6 +82,9 @@ fn allocate_grid(
         ncells: ncells,
         nparticles: 0,
         nghost: 0,
+        xlength: world_aabb.xmax - world_aabb.xmin,
+        ylength: world_aabb.ymax - world_aabb.ymin,
+        zlength: world_aabb.zmax - world_aabb.zmin,
         spacing: cell_spacing,
 
         cell_particles_cpu: cpu_allocate(ncells * cell_capacity * sizeof[i32]()),
