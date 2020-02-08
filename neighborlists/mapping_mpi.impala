@@ -632,13 +632,27 @@ fn yprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y < grid.aabb.
 fn znext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z > grid.aabb.zmax - grid.spacing * 2.0 }
 fn zprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z < grid.aabb.zmin + grid.spacing * 2.0 }
 
-// Communication pattern using 6-stencil neighbors
-fn communication_nodes(
-    world_size: i32,
-    rank: i32,
-    grid: &Grid,
-    body: fn(i32, bool, fn(&mut Vector3D, &Grid) -> (), fn(Vector3D, &Grid) -> bool) -> ()) -> () {
+type PBCFunc = fn(&mut Vector3D, &Grid) -> ();
+type CondFunc = fn(Vector3D, &Grid) -> bool;
+type CommFunc = fn(i32, bool, PBCFunc, CondFunc) -> ();
 
+// Mirror communication to avoid deadlocks
+fn mirror(
+    body: CommFunc, condition: bool,
+    next_rank: i32, next_pbc_cond: bool, next_pbc_func: PBCFunc, next_send_cond: CondFunc,
+    prev_rank: i32, prev_pbc_cond: bool, prev_pbc_func: PBCFunc, prev_send_cond: CondFunc) -> () {
+
+    if condition {
+        @@body(next_rank, next_pbc_cond, next_pbc_func, next_send_cond);
+        @@body(prev_rank, prev_pbc_cond, prev_pbc_func, prev_send_cond);
+    } else {
+        @@body(prev_rank, prev_pbc_cond, prev_pbc_func, prev_send_cond);
+        @@body(next_rank, next_pbc_cond, next_pbc_func, next_send_cond);
+    }
+}
+
+// Communication pattern using 6-stencil neighbors
+fn communication_nodes(world_size: i32, rank: i32, grid: &Grid, body: CommFunc) -> () {
     let mut rx: i32;
     let mut ry: i32;
     let mut rz: i32;
@@ -647,33 +661,21 @@ fn communication_nodes(
     unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
     if gx > 1 {
-        if rx % 2 == 0 {
-            @@body(flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition);
-            @@body(flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition);
-        } else {
-            @@body(flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition);
-            @@body(flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition);
-        }
+        mirror( body, rx % 2 == 0,
+                flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition,
+                flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition );
     }
 
     if gy > 1 {
-        if ry % 2 == 0 {
-            @@body(flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition);
-            @@body(flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition);
-        } else {
-            @@body(flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition);
-            @@body(flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition);
-        }
+        mirror( body, ry % 2 == 0,
+                flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition,
+                flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition );
     }
 
     if gz > 1 {
-        if rz % 2 == 0 {
-            @@body(flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition);
-            @@body(flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition);
-        } else {
-            @@body(flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition);
-            @@body(flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition);
-        }
+        mirror( body, rz % 2 == 0,
+                flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition,
+                flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition );
     }
 }
 
