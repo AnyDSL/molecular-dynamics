@@ -305,9 +305,7 @@ fn initialize_grid(
     range(0, grid.ncells, |cell_index| { cell_sizes(cell_index) = 0; });
 
     for i in range(0, nparticles) {
-        if is_within_local_domain(positions(i), grid) {
-            insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
-        }
+        insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
     }
 }
 
@@ -399,22 +397,18 @@ fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
 }
 
 fn copy_to_accelerator(grid: &Grid) -> () {
-    if !use_unified_memory() {
-        transfer_between_devices(grid.cell_particles_cpu, grid.cell_particles_accelerator);
-        transfer_between_devices(grid.cell_sizes_cpu, grid.cell_sizes_accelerator);
-        transfer_between_devices(grid.particles_cell_cpu, grid.particles_cell_accelerator);
-        transfer_between_devices(grid.masses_cpu, grid.masses_accelerator);
-        transfer_3d_arrays_between_devices(grid.positions_cpu, grid.positions_accelerator);
-        transfer_3d_arrays_between_devices(grid.velocities_cpu, grid.velocities_accelerator);
-    }
+    transfer_between_devices(grid.cell_particles_cpu, grid.cell_particles_accelerator);
+    transfer_between_devices(grid.cell_sizes_cpu, grid.cell_sizes_accelerator);
+    transfer_between_devices(grid.particles_cell_cpu, grid.particles_cell_accelerator);
+    transfer_between_devices(grid.masses_cpu, grid.masses_accelerator);
+    transfer_3d_arrays_between_devices(grid.positions_cpu, grid.positions_accelerator);
+    transfer_3d_arrays_between_devices(grid.velocities_cpu, grid.velocities_accelerator);
 }
 
 fn copy_from_accelerator(grid: &Grid) -> () {
-    if !use_unified_memory() {
-        transfer_3d_arrays_between_devices(grid.positions_accelerator, grid.positions_cpu);
-        transfer_3d_arrays_between_devices(grid.velocities_accelerator, grid.velocities_cpu);
-        transfer_3d_arrays_between_devices(grid.forces_accelerator, grid.forces_cpu);
-    }
+    transfer_3d_arrays_between_devices(grid.positions_accelerator, grid.positions_cpu);
+    transfer_3d_arrays_between_devices(grid.velocities_accelerator, grid.velocities_cpu);
+    transfer_3d_arrays_between_devices(grid.forces_accelerator, grid.forces_cpu);
 }
 
 fn write_grid_data_to_arrays(

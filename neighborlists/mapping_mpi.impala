@@ -22,6 +22,7 @@ struct CommOffsets {
     send_rank_exchgs: Buffer,
     recv_rank_exchgs: Buffer,
     exchg_rank_offsets: Buffer,
+    exchg_rank_status: Buffer,
 
     // Accelerator send data
     send_buffer_accelerator: Buffer,
@@ -278,6 +279,7 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, neighs: i
             send_rank_exchgs: alloc_unaligned_cpu(world_size * sizeof[i32]()),
             recv_rank_exchgs: alloc_unaligned_cpu(world_size * sizeof[i32]()),
             exchg_rank_offsets: alloc_unaligned_cpu(world_size * sizeof[i32]()),
+            exchg_rank_status: alloc_unaligned_cpu(world_size * sizeof[i32]()),
 
             // Accelerator send data
             send_buffer_accelerator: accelerator_allocate(neighs * send_capacity * 3 * sizeof[real_t]()),
@@ -323,6 +325,7 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     }
 
     release(comm_offsets.exchg_rank_offsets);
+    release(comm_offsets.exchg_rank_status);
 }
 
 fn resize_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, send_capacity: i32, recv_capacity: i32) -> () {
@@ -975,6 +978,7 @@ fn exchange_ghost_layer_particles(
     let send_rank_offsets = get_array_of_i32(comm_offsets.send_rank_offsets);
     let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
     let exchg_rank_offsets = get_array_of_i32(comm_offsets.exchg_rank_offsets);
+    let exchg_rank_status = get_array_of_i32(comm_offsets.exchg_rank_status);
     let send_rank_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
     let send_rank_exchgs =  get_array_of_i32(comm_offsets.send_rank_exchgs);
@@ -994,6 +998,7 @@ fn exchange_ghost_layer_particles(
             send_rank_offsets(r) = -1;
             recv_rank_offsets(r) = -1;
             exchg_rank_offsets(r) = -1;
+            exchg_rank_status(r) = 0;
         });
     }
 
@@ -1056,50 +1061,56 @@ fn exchange_ghost_layer_particles(
 
     // Exchange particles with other ranks
     communication_nodes(world_size, world_rank, grid, |exchange_rank, _, _, _| {
-        // Rank receive offset
-        recv_rank_offsets(exchange_rank) = irecv;
+        if exchg_rank_status(exchange_rank) == 0 {
+            // Rank receive offset
+            recv_rank_offsets(exchange_rank) = irecv;
 
-        // Offsets to send and receive
-        let send_offset = send_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
-        let recv_offset = recv_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
-        let exchg_send_offset = exchg_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
-        let exchg_recv_offset = iexchg * 7 * sizeof[real_t]();
+            // Offsets to send and receive
+            let send_offset = send_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
+            let recv_offset = recv_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
+            let exchg_send_offset = exchg_rank_offsets(exchange_rank) * 7 * sizeof[real_t]();
+            let exchg_recv_offset = iexchg * 7 * sizeof[real_t]();
 
-        // Exchange sizes
-        mpih.send(&mut send_rank_lengths(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world);
-        mpih.recv(&mut recv_rank_lengths(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world, &mut status);
-        mpih.send(&mut send_rank_exchgs(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world);
-        mpih.recv(&mut recv_rank_exchgs(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world, &mut status);
+            // Send sizes
+            mpih.send(&mut send_rank_lengths(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world);
+            mpih.recv(&mut recv_rank_lengths(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world, &mut status);
+            // Send data
+            mpih.irecv(
+                bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
+                recv_rank_lengths(exchange_rank) * 7,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
-        // Exchange data
-        mpih.irecv(
-            bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
-            recv_rank_lengths(exchange_rank) * 7,
-            mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+            mpih.send(
+                bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
+                send_rank_lengths(exchange_rank) * 7,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
-        mpih.send(
-            bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
-            send_rank_lengths(exchange_rank) * 7,
-            mpih.double_t, exchange_rank, 0, mpih.comms.world);
+            mpih.wait(&mut request, &mut status);
 
-        mpih.wait(&mut request, &mut status);
+            // Exchange sizes
+            mpih.send(&mut send_rank_exchgs(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world);
+            mpih.recv(&mut recv_rank_exchgs(exchange_rank) as MPI_MutBuf, 1, mpih.int_t, exchange_rank, 0, mpih.comms.world, &mut status);
 
-        mpih.irecv(
-            bitcast[&mut[real_t]](&comm_offsets.recv_exchg_buffer.data(exchg_recv_offset)) as MPI_MutBuf,
-            recv_rank_exchgs(exchange_rank) * 7,
-            mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
+            mpih.irecv(
+                bitcast[&mut[real_t]](&comm_offsets.recv_exchg_buffer.data(exchg_recv_offset)) as MPI_MutBuf,
+                recv_rank_exchgs(exchange_rank) * 7,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world, &mut request);
 
-        mpih.send(
-            bitcast[&mut[real_t]](&comm_offsets.send_exchg_buffer.data(exchg_send_offset)) as MPI_MutBuf,
-            send_rank_exchgs(exchange_rank) * 7,
-            mpih.double_t, exchange_rank, 0, mpih.comms.world);
+            // Exchange data
+            mpih.send(
+                bitcast[&mut[real_t]](&comm_offsets.send_exchg_buffer.data(exchg_send_offset)) as MPI_MutBuf,
+                send_rank_exchgs(exchange_rank) * 7,
+                mpih.double_t, exchange_rank, 0, mpih.comms.world);
 
-        mpih.wait(&mut request, &mut status);
+            mpih.wait(&mut request, &mut status);
 
-        // Adjust receive offset data
-        range(irecv, irecv + recv_rank_lengths(exchange_rank), |i| { recv_offsets(i) = grid.nparticles + i; });
-        irecv += recv_rank_lengths(exchange_rank);
-        iexchg += recv_rank_exchgs(exchange_rank);
+            // Adjust receive offset data
+            range(irecv, irecv + recv_rank_lengths(exchange_rank), |i| { recv_offsets(i) = grid.nparticles + i; });
+            irecv += recv_rank_lengths(exchange_rank);
+            iexchg += recv_rank_exchgs(exchange_rank);
+        }
+
+        exchg_rank_status(exchange_rank) = 1;
     });
 
     // Unpack received particles
