@@ -157,7 +157,7 @@ int init_rectangular_grid(
     int cell_capacity,
     int neighborlist_capacity) {
 
-    AABB ext_aabb, rank_aabb;
+    AABB rank_aabb;
     //seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937_64 random_engine(seed);
     std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
@@ -165,12 +165,9 @@ int init_rectangular_grid(
 
     for(int i = 0; i < 3; ++i) {
         velocity[i] = 0.0;
-
-        ext_aabb.min[i] = aabb.min[i];
-        ext_aabb.max[i] = aabb.max[i];
     }
 
-    md_get_node_bounding_box(cell_spacing, ext_aabb.min, ext_aabb.max, &rank_aabb.min, &rank_aabb.max);
+    md_get_node_bounding_box(cell_spacing, aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
 
     auto tuple = generate_rectangular_grid(aabb, rank_aabb, spacing, 1.0, velocity);
     auto size = std::get<0>(tuple).size();
@@ -180,8 +177,8 @@ int init_rectangular_grid(
         std::get<1>(tuple).data(),
         std::get<2>(tuple).data(),
         size,
-        ext_aabb.min,
-        ext_aabb.max,
+        aabb.min,
+        aabb.max,
         rank_aabb.min,
         rank_aabb.max,
         cell_spacing,

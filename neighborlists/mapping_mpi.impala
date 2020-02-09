@@ -993,6 +993,7 @@ fn exchange_ghost_layer_particles(
         range(0, world_size, |r| {
             send_rank_offsets(r) = -1;
             recv_rank_offsets(r) = -1;
+            exchg_rank_offsets(r) = -1;
         });
     }
 
@@ -1000,7 +1001,9 @@ fn exchange_ghost_layer_particles(
 
     // Pack particles in each direction to exchange
     communication_nodes(world_size, world_rank, grid, |exchange_rank, pbc, pbc_adjust, check_send_condition| {
-        exchg_rank_offsets(exchange_rank) = iexchg;
+        if exchg_rank_offsets(exchange_rank) == -1 {
+            exchg_rank_offsets(exchange_rank) = iexchg;
+        }
 
         let mut particle_index = 0;
 
@@ -1029,24 +1032,21 @@ fn exchange_ghost_layer_particles(
 
     // Pack particles in each direction to send at other iterations
     communication_nodes(world_size, world_rank, grid, |exchange_rank, pbc, _, check_send_condition| {
-        send_rank_offsets(exchange_rank) = isend;
+        if send_rank_offsets(exchange_rank) == -1 {
+            send_rank_offsets(exchange_rank) = isend;
+        }
 
         if !pbc {
-            let mut particle_index = 0;
-
-            while particle_index < grid.nparticles {
+            range(0, grid.nparticles, |particle_index| {
                 let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
 
                 if check_send_condition(pos, grid) {
                     let mass = get_real(particle_index, grid.masses_cpu);
                     let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
-
                     buffer_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_buffer, buffer_index);
                     send_offsets(isend++) = particle_index;
                 }
-
-                particle_index++;
-            }
+            });
         }
 
         send_rank_lengths(exchange_rank) = isend - send_rank_offsets(exchange_rank);
@@ -1103,6 +1103,8 @@ fn exchange_ghost_layer_particles(
     });
 
     // Unpack received particles
+    let exchg_start = grid.nparticles;
+
     if iexchg > 0 { add_local_slots(iexchg, grid); }
     if irecv > 0 { add_ghost_slots(irecv, grid); }
 
@@ -1110,7 +1112,7 @@ fn exchange_ghost_layer_particles(
     buffer_index = 0;
 
     range(0, iexchg, |i| {
-        exchg_index = copy_buffer_data_to_grid(comm_offsets.recv_exchg_buffer, exchg_index, grid, grid.nparticles + i);
+        exchg_index = copy_buffer_data_to_grid(comm_offsets.recv_exchg_buffer, exchg_index, grid, exchg_start + i);
     });
 
     range(0, irecv, |i| {
