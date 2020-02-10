@@ -144,26 +144,24 @@ fn @get_comm_recv_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32(index, comm_offsets.recv_offsets)
 }
 
-fn gather_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i32, Buffer, real_t) -> ()) -> ()) -> () {
+fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
     let buffer = comm_offsets.send_buffer;
     let noffsets = comm_offsets.send_noffsets;
+    let mut index = 0;
 
     outer_loop_cpu(0, noffsets, |i| {
         let offset = get_comm_send_offsets(i, comm_offsets);
-        let start = i * 3;
-
-        @@body(i, buffer, start, offset, set_real);
+        @@copy_3d_array_to_buffer(grid.positions_cpu, offset, buffer, &mut index);
     });
 }
 
-fn scatter_loop(comm_offsets: CommOffsets, body: fn(i32, Buffer, i32, i32, fn(i32, Buffer) -> real_t) -> ()) -> () {
+fn scatter_data(grid: Grid, comm_offsets: CommOffsets) -> () {
     let buffer = comm_offsets.recv_buffer;
     let noffsets = comm_offsets.recv_noffsets;
+    let mut index = 0;
 
     outer_loop_cpu(0, noffsets, |i| {
         let offset = get_comm_recv_offsets(i, comm_offsets);
-        let start = i * 3;
-
-        @@body(i, buffer, start, offset, get_real);
+        @@copy_buffer_to_3d_array(buffer, &mut index, grid.positions_cpu, offset);
     });
 }

@@ -898,13 +898,7 @@ fn synchronize_ghost_layer_cells(
     let send_rank_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
 
-    gather_loop(comm_offsets, |i, buffer, start, offset, set| {
-        let pos = get_position(offset, grid);
-
-        set(start,     buffer, pos.x);
-        set(start + 1, buffer, pos.y);
-        set(start + 2, buffer, pos.z);
-    });
+    gather_data(grid, comm_offsets);
 
     communication_nodes(world_size, world_rank, grid, |exchange_rank, pbc, _, _| {
         if !pbc {
@@ -925,15 +919,7 @@ fn synchronize_ghost_layer_cells(
         }
     });
 
-    scatter_loop(comm_offsets, |i, buffer, start, offset, get| {
-        let pos = Vector3D {
-            x: get(start,     buffer),
-            y: get(start + 1, buffer),
-            z: get(start + 2, buffer),
-        };
-
-        set_position(offset, grid, pos);
-    });
+    scatter_data(grid, comm_offsets);
 }
 
 fn copy_particle_data_to_buffer(mass: real_t, pos: Vector3D, vel: Vector3D, buffer: Buffer, index: i32) -> i32 {
@@ -993,14 +979,12 @@ fn exchange_ghost_layer_particles(
     let mut buffer_index = 0;
     let mut exchg_index = 0;
 
-    if world_size > 1 {
-        range(0, world_size, |r| {
-            send_rank_offsets(r) = -1;
-            recv_rank_offsets(r) = -1;
-            exchg_rank_offsets(r) = -1;
-            exchg_rank_status(r) = 0;
-        });
-    }
+    communication_nodes(world_size, world_rank, grid, |exchange_rank, _, _, _| {
+        send_rank_offsets(exchange_rank) = -1;
+        recv_rank_offsets(exchange_rank) = -1;
+        exchg_rank_offsets(exchange_rank) = -1;
+        exchg_rank_status(exchange_rank) = 0;
+    });
 
     grid.nghost = 0;
 

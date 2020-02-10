@@ -116,6 +116,18 @@ fn @_transfer_3d_arrays_between_devices(src: StructOfArrays3D, dest: StructOfArr
     copy(src.z, dest.z);
 }
 
+fn copy_3d_array_to_buffer(source: StructOfArrays3D, offset_source: i32, dest: Buffer, offset_dest: &mut i32) -> () {
+    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.x.data)(offset_source);
+    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.y.data)(offset_source);
+    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.z.data)(offset_source);
+}
+
+fn copy_buffer_to_3d_array(source: Buffer, offset_source: &mut i32, dest: StructOfArrays3D, offset_dest: i32) -> () {
+    bitcast[&mut[real_t]](dest.x.data)(offset_dest) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
+    bitcast[&mut[real_t]](dest.y.data)(offset_dest) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
+    bitcast[&mut[real_t]](dest.z.data)(offset_dest) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
+}
+
 fn copy_3d_arrays_to_buffer(
     source: StructOfArrays3D,
     offset_source: i32,
