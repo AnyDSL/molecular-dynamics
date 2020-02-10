@@ -92,9 +92,9 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
             pos.z = aabb.min[2] + k * spacing[2];
 
             if(
-                pos.x >= rank_aabb.min[0] && pos.x < rank_aabb.max[0] &&
-                pos.y >= rank_aabb.min[1] && pos.y < rank_aabb.max[1] &&
-                pos.z >= rank_aabb.min[2] && pos.z < rank_aabb.max[2]
+                pos.x >= rank_aabb.min[0] && pos.x < rank_aabb.max[0] - 0.01 &&
+                pos.y >= rank_aabb.min[1] && pos.y < rank_aabb.max[1] - 0.01 &&
+                pos.z >= rank_aabb.min[2] && pos.z < rank_aabb.max[2] - 0.01
             ) {
                 n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
 
