@@ -213,12 +213,12 @@ extern fn md_report_particles() -> () {
     print_string_cond(is_root, "\n");
 }
 
-extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64, other_avg: f64) -> () {
+extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, sync_avg: f64, exchg_avg: f64, other_avg: f64) -> () {
     let mut res: f64;
     let is_root = world_rank == 0;
 
     barrier();
-    print_string_cond(is_root, "Total Force Neigh Comm Other\n");
+    print_string_cond(is_root, "Total Force Neigh Sync Exchg Other\n");
 
     reduce_time(total_avg, &mut res);
     print_f64_cond(is_root, res);
@@ -231,7 +231,11 @@ extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_av
     print_string_cond(is_root, " ");
     print_f64_cond(is_root, res);
 
-    reduce_time(comm_avg, &mut res);
+    reduce_time(sync_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(exchg_avg, &mut res);
     print_string_cond(is_root, " ");
     print_f64_cond(is_root, res);
 

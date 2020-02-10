@@ -664,21 +664,21 @@ fn communication_nodes(world_size: i32, rank: i32, grid: &Grid, body: CommFunc) 
     unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
 
     if gx > 1 {
-        mirror( body, rx % 2 == 0,
-                flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition,
-                flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition );
+        @@mirror( body, rx % 2 == 0,
+                  flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), rx == gx - 1, xnext_adjust_pbc, xnext_send_condition,
+                  flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), rx == 0,      xprev_adjust_pbc, xprev_send_condition );
     }
 
     if gy > 1 {
-        mirror( body, ry % 2 == 0,
-                flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition,
-                flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition );
+        @@mirror( body, ry % 2 == 0,
+                  flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), ry == gy - 1, ynext_adjust_pbc, ynext_send_condition,
+                  flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), ry == 0,      yprev_adjust_pbc, yprev_send_condition );
     }
 
     if gz > 1 {
-        mirror( body, rz % 2 == 0,
-                flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition,
-                flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition );
+        @@mirror( body, rz % 2 == 0,
+                  flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), rz == gz - 1, znext_adjust_pbc, znext_send_condition,
+                  flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), rz == 0,      zprev_adjust_pbc, zprev_send_condition );
     }
 }
 

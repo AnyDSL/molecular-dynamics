@@ -261,7 +261,8 @@ int main(int argc, char **argv) {
         mean_sum,
         time_results[1].first + time_results[5].first,
         time_results[3].first + time_results[4].first,
-        time_results[9].first + time_results[10].first,
+        time_results[9].first,
+        time_results[10].first,
         time_results[2].first + time_results[6].first + time_results[7].first + time_results[8].first
     );
 
