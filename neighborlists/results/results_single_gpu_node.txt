@@ -5,4 +5,4 @@ gtx1080         1903.35     2561.367      GeForce GTX 1080 (8 GB memory)
 gtx1080ti       1562.39     2984.561      GeForce GTX 1080 Ti (11 GB memory)
 rtx2080         1515        1529          GeForce RTX 2080
 rtx2080ti       1436.85     1027.917      GeForce RTX 2080 Ti (11 GB memory)
-v100            686.775     414.487       Tesla V100-PCIE-32GB ((32 GB memory)
+v100            403.284     414.487       Tesla V100-PCIE-32GB (32 GB memory)
