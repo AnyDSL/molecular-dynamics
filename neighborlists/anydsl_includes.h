@@ -26,7 +26,6 @@ extern "C" {
     void md_set_thread_count(int);
     void md_mpi_initialize();
     void md_mpi_finalize();
-    int md_get_sync_timesteps();
     void md_synchronize_ghost_layer();
     void md_exchange_ghost_layer();
     int md_get_world_rank();

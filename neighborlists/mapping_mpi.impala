@@ -42,24 +42,14 @@ static mut gx: i32;
 static mut gy: i32;
 static mut gz: i32;
 
-// Lookup table for ghost layer ranges
-static mut grid_transfer_ranges: [[i32 * 4] * 9];
-
-// Timesteps to perform cell synchronization (ghost layer width)
-fn @get_sync_timesteps() -> i32 { 1 }
-
-// Must synchronize diagonals (true/false)
-fn @synchronize_diagonals() -> bool { false }
-
-// Flatten index for ranks (3D cartesian mapping)
-fn @flat_index(index: [i32 * 3], nx: i32, ny: i32) -> i32 { (index(2) * ny + index(1)) * nx + index(0) }
-
-// Unflatten index for ranks (3D cartesian mapping)
-fn @unflat_index(index: i32, nx: i32, ny: i32, nz: i32, rx: &mut i32, ry: &mut i32, rz: &mut i32) -> () {
-    *rx = index % nx;
-    *ry = (index / nx) % ny;
-    *rz = index / (nx * ny);
-}
+// Cartesian info
+static mut myloc: [i32 * 3];
+static mut xprev: i32;
+static mut xnext: i32;
+static mut yprev: i32;
+static mut ynext: i32;
+static mut zprev: i32;
+static mut znext: i32;
 
 // MPI barrier
 fn barrier() -> () {
@@ -361,288 +351,6 @@ fn resize_comm_offsets(
     }
 }
 
-// Get current node bounding box for 1D domain partitioning
-fn @get_node_bounding_box_1d(
-    world_size: i32,
-    rank: i32,
-    cell_spacing: real_t,
-    grid_aabb: AABB) -> AABB {
-
-    let mut zmin: real_t;
-    let mut zmax: real_t;
-
-    if world_size > 1 {
-        // Number of cells in z axis
-        let zcells = real_floor((grid_aabb.zmax - grid_aabb.zmin) / cell_spacing) as i32;
-
-        // Total length for cells in z axis
-        let zlength = (zcells / world_size) as real_t * cell_spacing;
-
-        // Calculate zmin and zmax based on rank value
-        zmin = grid_aabb.zmin + zlength * (rank as real_t);
-        zmax = grid_aabb.zmin + zlength * ((rank + 1) as real_t);
-
-        // If this is not the first node, include ghost layer for lower z ranks
-        if rank > 0 {
-            zmin -= (get_sync_timesteps() as real_t) * cell_spacing;
-        }
-
-        // If this is not the last node, include ghost layer for upper z ranks
-        if rank < world_size - 1 {
-            zmax += (get_sync_timesteps() as real_t) * cell_spacing;
-        // Otherwise, just increase cell spacing to maximum delimiter to
-        // reach any possible missing cells in the original bounding box
-        } else {
-            zmax += cell_spacing;
-        }
-    // Otherwise, just use original bounding box
-    } else {
-        zmin = grid_aabb.zmin;
-        zmax = grid_aabb.zmax;
-    }
-
-    AABB {
-        xmin: grid_aabb.xmin,
-        xmax: grid_aabb.xmax,
-        ymin: grid_aabb.ymin,
-        ymax: grid_aabb.ymax,
-        zmin: grid_aabb.zmin,
-        zmax: grid_aabb.zmax
-    }
-}
-
-// Get send and receive transfer ranges for communications
-fn transfer_ranges(offset: i32, ncells: i32, body: fn(i32, i32, i32, i32) -> ()) -> () {
-    let mut send_begin: i32;
-    let mut send_end: i32;
-    let mut recv_begin: i32;
-    let mut recv_end: i32;
-
-    // If offset is zero (same position), communication must comprise all
-    // cells in this axis (adjacent nodes)
-    if offset == 0 {
-        send_begin = 0;
-        send_end = ncells;
-        recv_begin = 0;
-        recv_end = ncells;
-    // If offset is less than zero (lower position), communication must
-    // comprise only last cells in this axis
-    } else if offset < 0 {
-        send_begin = ncells - get_sync_timesteps() * 2;
-        send_end = ncells - get_sync_timesteps();
-        recv_begin = ncells - get_sync_timesteps();
-        recv_end = ncells;
-    // If offset is greater than zero (lower position), communication must
-    // comprise only first cells in this axis
-    } else {
-        send_begin = get_sync_timesteps();
-        send_end = get_sync_timesteps() * 2;
-        recv_begin = 0;
-        recv_end = get_sync_timesteps();
-    }
-
-    @@body(send_begin, send_end, recv_begin, recv_end)
-}
-
-// Build lookup table for transferring ranges in all dimensions
-fn initialize_grid_transfer_ranges(grid: &Grid) -> () {
-    // Go through all offsets (-1, 0, +1)
-    for i in range(-1, 2) {
-        transfer_ranges(i, grid.nx, |send_begin, send_end, recv_begin, recv_end| {
-            grid_transfer_ranges(i + 1)(0) = send_begin;
-            grid_transfer_ranges(i + 1)(1) = send_end;
-            grid_transfer_ranges(i + 1)(2) = recv_begin;
-            grid_transfer_ranges(i + 1)(3) = recv_end;
-        });
-
-        transfer_ranges(i, grid.ny, |send_begin, send_end, recv_begin, recv_end| {
-            grid_transfer_ranges(i + 4)(0) = send_begin;
-            grid_transfer_ranges(i + 4)(1) = send_end;
-            grid_transfer_ranges(i + 4)(2) = recv_begin;
-            grid_transfer_ranges(i + 4)(3) = recv_end;
-        });
-
-        transfer_ranges(i, grid.nz, |send_begin, send_end, recv_begin, recv_end| {
-            grid_transfer_ranges(i + 7)(0) = send_begin;
-            grid_transfer_ranges(i + 7)(1) = send_end;
-            grid_transfer_ranges(i + 7)(2) = recv_begin;
-            grid_transfer_ranges(i + 7)(3) = recv_end;
-        });
-    }
-}
-
-// Generic communication pattern (including diagonals)
-fn communication_nodes_generic(
-    world_size: i32,
-    rank: i32,
-    grid: &Grid,
-    body: fn(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()) -> () {
-
-    let mut rx: i32;
-    let mut ry: i32;
-    let mut rz: i32;
-
-    // Index of rank in the 3D cartesian grid
-    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
-
-    // Has previous node in x axis?
-    let xprev = rx > 0;
-    // Has successor node in x axis?
-    let xnext = rx < gx - 1;
-    // Has previous node in y axis?
-    let yprev = ry > 0;
-    // Has successor node in y axis?
-    let ynext = ry < gy - 1;
-    // Has previous node in z axis?
-    let zprev = rz > 0;
-    // Has successor node in z axis?
-    let znext = rz < gz - 1;
-
-    // Go through possible offsets
-    for xoffset in range(-1, 1) {
-        for yoffset in range(-1, 1 - xoffset) {
-            for zoffset in range(-1, 2) {
-                // Number of zero offsets (diagonals include zero or one)
-                let nzeros = (xoffset == 0) as i32 +
-                             (yoffset == 0) as i32 +
-                             (zoffset == 0) as i32;
-
-                //if(nzeros == 2 || (synchronize_diagonals() && nzeros < 3)) {
-
-                // If number of zeros is two, not a diagonal (adjacent node)
-                if nzeros == 2 {
-                    // Perform for original and mirrored offsets to avoid deadlocks
-                    for xoff, yoff, zoff in mirror_comm(xoffset, yoffset, zoffset) {
-                      // Check if node for communication is valid
-                      if(
-                          ((xoff < 0 && xprev) || (xoff > 0 && xnext) || (xoff == 0)) &&
-                          ((yoff < 0 && yprev) || (yoff > 0 && ynext) || (yoff == 0)) &&
-                          ((zoff < 0 && zprev) || (zoff > 0 && znext) || (zoff == 0))
-                      ) {
-                        // Exchange rank based on offsets
-                        let exchange_rank = flat_index(
-                            [rx + xoff, ry + yoff, rz + zoff], gx, gy
-                        );
-
-                        // Get x, y and z ranges on lookup table
-                        let xranges = grid_transfer_ranges(xoff + 1);
-                        let yranges = grid_transfer_ranges(yoff + 4);
-                        let zranges = grid_transfer_ranges(zoff + 7);
-
-                        // Build ranges based on vectors obtained from the lookup table
-                        let send_begin = [xranges(0), yranges(0), zranges(0)];
-                        let send_end   = [xranges(1), yranges(1), zranges(1)];
-                        let recv_begin = [xranges(2), yranges(2), zranges(2)];
-                        let recv_end   = [xranges(3), yranges(3), zranges(3)];
-
-                        // Performs communication with rank using the obtained ranges
-                        @@body( exchange_rank,
-                                xranges(0), yranges(0), zranges(0),
-                                xranges(1), yranges(1), zranges(1),
-                                xranges(2), yranges(2), zranges(2),
-                                xranges(3), yranges(3), zranges(3)  );
-                      }
-                  }
-              }
-          }
-      }
-    }
-}
-
-// Is this a local cell?
-fn is_local_cell(cx: i32, cy: i32, cz: i32, grid: &Grid) -> bool {
-    let mpih = mpi();
-    let mut rank: i32;
-    let mut rx: i32;
-    let mut ry: i32;
-    let mut rz: i32;
-
-    let mut local_cond = true;
-
-    mpih.comm_rank(mpih.comms.world, &mut rank);
-    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
-
-    local_cond =               (rx == 0      || cx > get_sync_timesteps() - 1);
-    local_cond = local_cond && (rx == gx - 1 || cx < grid.nx - get_sync_timesteps());
-    local_cond = local_cond && (ry == 0      || cy > get_sync_timesteps() - 1);
-    local_cond = local_cond && (ry == gy - 1 || cy < grid.ny - get_sync_timesteps());
-    local_cond = local_cond && (rz == 0      || cz > get_sync_timesteps() - 1);
-    local_cond = local_cond && (rz == gz - 1 || cz < grid.nz - get_sync_timesteps());
-
-    local_cond
-}
-
-// Adjust cell index to closest local one
-fn closest_local_cell(cx: i32, cy: i32, cz: i32, grid: &Grid) -> [i32 * 3] {
-    let mpih = mpi();
-    let mut rank: i32;
-    let mut rx: i32;
-    let mut ry: i32;
-    let mut rz: i32;
-    let mut resx = cx;
-    let mut resy = cy;
-    let mut resz = cz;
-
-    mpih.comm_rank(mpih.comms.world, &mut rank);
-    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
-
-    resx = select(rx > 0      && resx < get_sync_timesteps(),            get_sync_timesteps(), resx);
-    resx = select(rx < gx - 1 && resx >= grid.nx - get_sync_timesteps(), grid.nx - get_sync_timesteps() - 1, resx);
-    resy = select(ry > 0      && resy < get_sync_timesteps(),            get_sync_timesteps(), resy);
-    resy = select(ry < gy - 1 && resy >= grid.ny - get_sync_timesteps(), grid.ny - get_sync_timesteps() - 1, resy);
-    resz = select(rz > 0      && resz < get_sync_timesteps(),            get_sync_timesteps(), resz);
-    resz = select(rz < gz - 1 && resz >= grid.nz - get_sync_timesteps(), grid.nz - get_sync_timesteps() - 1, resz);
-
-    [resx, resy, resz]
-}
-
-// Check if cells are inside the same ghost layer (rank region)
-fn inside_same_ghost_layer(c1x: i32, c1y: i32, c1z: i32, c2x: i32, c2y: i32, c2z: i32, grid: &Grid) -> bool {
-    let mut equal_cond = false;
-
-    equal_cond =               (c1x < get_sync_timesteps()            && c2x < get_sync_timesteps());
-    equal_cond = equal_cond || (c1x >= grid.nx - get_sync_timesteps() && c2x >= grid.nx - get_sync_timesteps());
-    equal_cond = equal_cond || (c1y < get_sync_timesteps()            && c2y < get_sync_timesteps());
-    equal_cond = equal_cond || (c1y >= grid.ny - get_sync_timesteps() && c2y >= grid.ny - get_sync_timesteps());
-    equal_cond = equal_cond || (c1z < get_sync_timesteps()            && c2z < get_sync_timesteps());
-    equal_cond = equal_cond || (c1z >= grid.nz - get_sync_timesteps() && c2z >= grid.nz - get_sync_timesteps());
-
-    equal_cond
-}
-
-// Is this the last node in the dimension?
-fn last_dimension_node(@dim: i32) -> bool {
-    let mpih = mpi();
-    let mut rank: i32;
-    let mut rx: i32;
-    let mut ry: i32;
-    let mut rz: i32;
-
-    mpih.comm_rank(mpih.comms.world, &mut rank);
-    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
-
-    if dim == 0 {
-        rx == gx - 1
-    } else if dim == 1 {
-        ry == gy - 1
-    } else if dim == 2 {
-        rz == gz - 1
-    } else {
-        false
-    }
-}
-
-// Not perfect but works for our cases
-fn int_mod(value: i32, divisor: i32) -> i32 {
-    if value < 0 {
-        value + divisor
-    } else if value >= divisor {
-        value - divisor
-    } else {
-        value
-    }
-}
-
 fn xnext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x -= grid.xlength; }
 fn xprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x += grid.xlength; }
 fn ynext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y -= grid.ylength; }
@@ -678,29 +386,22 @@ fn mirror(
 
 // Communication pattern using 6-stencil neighbors
 fn communication_nodes(world_size: i32, rank: i32, grid: &Grid, body: CommFunc) -> () {
-    let mut rx: i32;
-    let mut ry: i32;
-    let mut rz: i32;
-
-    // Index of rank in the 3D cartesian grid
-    unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
-
     if gx > 1 {
-        @@mirror( body, rx % 2 == 0,
-                  flat_index([int_mod(rx + 1, gx), ry, rz], gx, gy), select(rx == gx - 1, 1, 0), xnext_adjust_pbc, xnext_send_condition,
-                  flat_index([int_mod(rx - 1, gx), ry, rz], gx, gy), select(rx == 0, 1, 0),      xprev_adjust_pbc, xprev_send_condition );
+        @@mirror( body, myloc(0) % 2 == 0,
+                  xnext, select(myloc(0) == gx - 1, 1, 0), xnext_adjust_pbc, xnext_send_condition,
+                  xprev, select(myloc(0) == 0, 1, 0),      xprev_adjust_pbc, xprev_send_condition );
     }
 
     if gy > 1 {
-        @@mirror( body, ry % 2 == 0,
-                  flat_index([rx, int_mod(ry + 1, gy), rz], gx, gy), select(ry == gy - 1, 1, 0), ynext_adjust_pbc, ynext_send_condition,
-                  flat_index([rx, int_mod(ry - 1, gy), rz], gx, gy), select(ry == 0, 1, 0),      yprev_adjust_pbc, yprev_send_condition );
+        @@mirror( body, myloc(1) % 2 == 0,
+                  ynext, select(myloc(1) == gy - 1, 1, 0), ynext_adjust_pbc, ynext_send_condition,
+                  yprev, select(myloc(1) == 0, 1, 0),      yprev_adjust_pbc, yprev_send_condition );
     }
 
     if gz > 1 {
-        @@mirror( body, rz % 2 == 0,
-                  flat_index([rx, ry, int_mod(rz + 1, gz)], gx, gy), select(rz == gz - 1, 1, 0), znext_adjust_pbc, znext_send_condition,
-                  flat_index([rx, ry, int_mod(rz - 1, gz)], gx, gy), select(rz == 0, 1, 0),      zprev_adjust_pbc, zprev_send_condition );
+        @@mirror( body, myloc(2) % 2 == 0,
+                  znext, select(myloc(2) == gz - 1, 1, 0), znext_adjust_pbc, znext_send_condition,
+                  zprev, select(myloc(2) == 0, 1, 0),      zprev_adjust_pbc, zprev_send_condition );
     }
 }
 
@@ -716,40 +417,9 @@ fn get_node_config(
     desty: &mut i32,
     destz: &mut i32) -> () {
 
-    // We want to find the configuration with the minimum missing factor,
-    // i.e. the configuration that requires less extension of the edge
-    // nodes (extension is required when number of cells is not multiple
-    // of the number of nodes in a dimension)
-    //let mut min_missing_factor = xcells * ycells * zcells;
-
     *destx = 1;
     *desty = 1;
     *destz = 1;
-
-    // Go through all possibilities of node configurations, update only
-    // when missing factor is lower than the current one
-
-    /*
-    for i in range(1, world_size) {
-        if world_size % i == 0 {
-            let rem_yz = world_size / i;
-
-            for j in range(1, rem_yz) {
-                if rem_yz % j == 0 {
-                    let k = rem_yz / j;
-                    let missing_factor = xcells % i + ycells % j + zcells % k;
-
-                    if min_missing_factor > missing_factor {
-                        *destx = i;
-                        *desty = j;
-                        *destz = k;
-                        min_missing_factor = missing_factor;
-                    }
-                }
-            }
-        }
-    }
-    */
 
     let areax = xlength * ylength;
     let areay = xlength * zlength;
@@ -785,6 +455,8 @@ fn @get_node_bounding_box(
     cell_spacing: real_t,
     aabb: AABB) -> AABB {
 
+    let mpih = mpi();
+
     let mut xmin: real_t;
     let mut xmax: real_t;
     let mut ymin: real_t;
@@ -793,10 +465,6 @@ fn @get_node_bounding_box(
     let mut zmax: real_t;
 
     if world_size > 1 {
-        let mut rx: i32;
-        let mut ry: i32;
-        let mut rz: i32;
-
         // Number of cells in each dimension
         let xtotallength = aabb.xmax - aabb.xmin;
         let ytotallength = aabb.ymax - aabb.ymin;
@@ -810,15 +478,31 @@ fn @get_node_bounding_box(
         let ylength = ytotallength / (gy as real_t);
         let zlength = ztotallength / (gz as real_t);
 
+        let mut locx: i32;
+        let mut locy: i32;
+        let mut locz: i32;
+
         // 3D cartesian position of current rank
-        unflat_index(rank, gx, gy, gz, &mut rx, &mut ry, &mut rz);
+        mpih.cart(gx, gy, gz, &mut locx, &mut locy, &mut locz, &mut xprev, &mut xnext, &mut yprev, &mut ynext, &mut zprev, &mut znext);
+
+        myloc(0) = locx;
+        myloc(1) = locy;
+        myloc(2) = locz;
+
+        print_i32_vector_with_rank("myloc", myloc);
+        print_i32_with_rank("xprev", xprev);
+        print_i32_with_rank("xnext", xnext);
+        print_i32_with_rank("yprev", yprev);
+        print_i32_with_rank("ynext", ynext);
+        print_i32_with_rank("zprev", zprev);
+        print_i32_with_rank("znext", znext);
 
         // Calculate boundaries using lengths in each dimension
-        xmin = aabb.xmin + xlength * (rx as real_t);
+        xmin = aabb.xmin + xlength * (myloc(0) as real_t);
         xmax = xmin + xlength;
-        ymin = aabb.ymin + ylength * (ry as real_t);
+        ymin = aabb.ymin + ylength * (myloc(1) as real_t);
         ymax = ymin + ylength;
-        zmin = aabb.zmin + zlength * (rz as real_t);
+        zmin = aabb.zmin + zlength * (myloc(2) as real_t);
         zmax = zmin + zlength;
     } else {
         gx = 1;
