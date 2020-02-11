@@ -155,10 +155,6 @@ extern fn md_mpi_finalize() -> () {
     mpi_finalize();
 }
 
-extern fn md_get_sync_timesteps() -> i32 {
-    get_sync_timesteps()
-}
-
 extern fn md_synchronize_ghost_layer() -> () {
     synchronize_ghost_layer_cells(grid_, comm_offsets_, world_size, world_rank);
 }
