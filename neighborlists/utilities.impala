@@ -5,6 +5,9 @@ fn @set_thread_count(thread_count: i32) -> () {
 
 fn @get_thread_count() -> i32 { THREAD_COUNT }
 
+// nearest multiple of num
+fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+
 fn @outer_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     for i in parallel(get_thread_count(), lower, upper) {
         @@body(i);
@@ -25,11 +28,6 @@ fn alloc_unaligned_cpu(size: i32) -> Buffer {
 
 fn @release_host(buf: Buffer) -> () {
     runtime_release_host(buf.device, buf.data)
-}
-
-fn @round_up(n: i32, d: i32) -> i32 {
-    let m = n % d;
-    n + (if m != 0 { d - m } else { 0 })
 }
 
 struct Vector3D {

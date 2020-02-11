@@ -109,8 +109,8 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> 
     let nparticles = grid.nparticles;
 
     let acc = accelerator(device_id);
-    let grid_size = (round_up(nparticles, 128), 1, 1);
-    let block_size = (128, 1, 1);
+    let block_size = (64, 1, 1);
+    let grid_size  = (round_up(nparticles, block_size(0)), 1, 1);
 
     acc.exec(grid_size, block_size, |work_item| {
         let particle_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
@@ -200,8 +200,8 @@ fn @get_comm_recv_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> 
 
 fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
     let acc = accelerator(device_id);
-    let grid_size = (round_up(comm_offsets.send_noffsets, 64), 1, 1);
     let block_size = (64, 1, 1);
+    let grid_size  = (round_up(comm_offsets.send_noffsets, block_size(0)), 1, 1);
     let buffer = comm_offsets.send_buffer_accelerator;
     let noffsets = comm_offsets.send_noffsets;
 
@@ -229,8 +229,8 @@ fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
 
 fn scatter_data(grid: Grid, comm_offsets: CommOffsets) -> () {
     let acc = accelerator(device_id);
-    let grid_size = (round_up(comm_offsets.recv_noffsets, 64), 1, 1);
     let block_size = (64, 1, 1);
+    let grid_size  = (round_up(comm_offsets.recv_noffsets, block_size(0)), 1, 1);
     let buffer = comm_offsets.recv_buffer_accelerator;
     let noffsets = comm_offsets.recv_noffsets;
 
