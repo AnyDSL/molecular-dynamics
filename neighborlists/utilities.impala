@@ -27,6 +27,11 @@ fn @release_host(buf: Buffer) -> () {
     runtime_release_host(buf.device, buf.data)
 }
 
+fn @round_up(n: i32, d: i32) -> i32 {
+    let m = n % d;
+    n + (if m != 0 { d - m } else { 0 })
+}
+
 struct Vector3D {
     x: real_t,
     y: real_t,
