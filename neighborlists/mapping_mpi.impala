@@ -485,17 +485,10 @@ fn @get_node_bounding_box(
         // 3D cartesian position of current rank
         mpih.cart(gx, gy, gz, &mut locx, &mut locy, &mut locz, &mut xprev, &mut xnext, &mut yprev, &mut ynext, &mut zprev, &mut znext);
 
+        // Location for my rank
         myloc(0) = locx;
         myloc(1) = locy;
         myloc(2) = locz;
-
-        print_i32_vector_with_rank("myloc", myloc);
-        print_i32_with_rank("xprev", xprev);
-        print_i32_with_rank("xnext", xnext);
-        print_i32_with_rank("yprev", yprev);
-        print_i32_with_rank("ynext", ynext);
-        print_i32_with_rank("zprev", zprev);
-        print_i32_with_rank("znext", znext);
 
         // Calculate boundaries using lengths in each dimension
         xmin = aabb.xmin + xlength * (myloc(0) as real_t);
