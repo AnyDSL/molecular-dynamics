@@ -33,8 +33,9 @@ extern "C" {
     void md_get_node_bounding_box(double, double const *, double const *, double (*)[3], double (*)[3]);
     void md_report_iterations();
     void md_report_particles();
-    void md_report_time(double, double, double, double, double, double);
+    void md_report_time(double, double, double, double, double, double, double);
     void md_report_memory_allocation();
+    void md_barrier();
 }
 #endif // ANYDSL_INCLUDES
 

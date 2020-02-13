@@ -41,6 +41,7 @@ extern fn md_initialize_grid(
         zmax: rank_max(2)
     };
 
+    //print_aabb_with_rank("rank_aabb", rank_aabb);
     extend_rank_domain(&mut rank_aabb, cell_spacing);
 
     grid_ = allocate_grid(world_aabb, rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
@@ -159,6 +160,10 @@ extern fn md_synchronize_ghost_layer() -> () {
     synchronize_ghost_layer_cells(grid_, comm_offsets_, world_size, world_rank);
 }
 
+extern fn md_barrier() -> () {
+    barrier();
+}
+
 extern fn md_get_world_rank() -> i32 {
     world_rank
 }
@@ -209,12 +214,34 @@ extern fn md_report_particles() -> () {
     print_string_cond(is_root, "\n");
 }
 
-extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, sync_avg: f64, exchg_avg: f64, other_avg: f64) -> () {
+extern fn md_report_time(
+    total_avg: f64, force_avg: f64, neigh_avg: f64, sync_avg: f64, exchg_avg: f64, other_avg: f64, barrier_avg: f64) -> () {
+
     let mut res: f64;
     let is_root = world_rank == 0;
 
     barrier();
-    print_string_cond(is_root, "Total Force Neigh Sync Exchg Other\n");
+    print_string_cond(is_root, "Total Force Neigh Sync Exchg Other Barrier\n");
+
+/*
+    print_i32(world_rank);
+    print_string("> ");
+    print_f64(total_avg);
+    print_string(", ");
+    print_f64(force_avg);
+    print_string(", ");
+    print_f64(neigh_avg);
+    print_string(", ");
+    print_f64(sync_avg);
+    print_string(", ");
+    print_f64(exchg_avg);
+    print_string(", ");
+    print_f64(other_avg);
+    print_string(", ");
+    print_f64(barrier_avg);
+    print_string("\n");
+    barrier();
+*/
 
     reduce_time(total_avg, &mut res);
     print_f64_cond(is_root, res);
@@ -236,6 +263,10 @@ extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, sync_av
     print_f64_cond(is_root, res);
 
     reduce_time(other_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(barrier_avg, &mut res);
     print_string_cond(is_root, " ");
     print_f64_cond(is_root, res);
 

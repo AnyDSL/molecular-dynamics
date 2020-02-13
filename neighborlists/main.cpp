@@ -20,6 +20,8 @@
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
 
+#define time_diff(begin, end)   static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))
+
 void print_usage(char *name) {
     std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
 }
@@ -104,6 +106,7 @@ int main(int argc, char **argv) {
     std::vector<double> deallocation_time(runs, 0);
     std::vector<double> synchronization_time(runs, 0);
     std::vector<double> exchange_time(runs, 0);
+    std::vector<double> barrier_time(runs, 0);
     double const factor = 1e-6;
     md_set_thread_count(nthreads);
     double const verlet_buffer = 0.3;
@@ -122,7 +125,7 @@ int main(int argc, char **argv) {
         size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
 #endif
         auto end = measure_time();
-        grid_initialization_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        grid_initialization_time[i] = time_diff(begin, end) * factor;
 
         if(size == 0) {
             std::cout << "Zero particles created. Aborting." << std::endl;
@@ -131,16 +134,17 @@ int main(int argc, char **argv) {
 
         md_exchange_ghost_layer();
         md_distribute_particles();
+        md_barrier();
 
         begin = measure_time();
         md_copy_data_to_accelerator();
         end = measure_time();
-        copy_data_to_accelerator_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        copy_data_to_accelerator_time[i] = time_diff(begin, end) * factor;
 
         begin = measure_time();
         md_assemble_neighborlists(cutoff_radius+verlet_buffer);
         end = measure_time();
-        neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        neighborlist_creation_time[i] += time_diff(begin, end) * factor;
 
         std::vector<double> masses(size);
         std::vector<Vector3D> positions(size);
@@ -159,45 +163,50 @@ int main(int argc, char **argv) {
             md_compute_forces(cutoff_radius, epsilon, sigma);
             end = measure_time();
             LIKWID_MARKER_STOP("Force");
-            force_computation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+            force_computation_time[i] += time_diff(begin, end) * factor;
 
             begin = measure_time();
             md_integration(dt);
             end = measure_time();
-            integration_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+            integration_time[i] += time_diff(begin, end) * factor;
+
+            begin = measure_time();
+            //md_barrier();
+            end = measure_time();
+            barrier_time[i] += time_diff(begin, end) * factor;
 
             if(!vtk && j % 20 != 0) {
                 begin = measure_time();
                 md_synchronize_ghost_layer();
                 end = measure_time();
-                synchronization_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                synchronization_time[i] += time_diff(begin, end) * factor;
             }
 
             if(vtk || (j > 0 && j % 20 == 0)) {
                 begin = measure_time();
                 md_copy_data_from_accelerator();
                 end = measure_time();
-                copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                copy_data_from_accelerator_time[i] += time_diff(begin, end) * factor;
 
                 begin = measure_time();
                 md_exchange_ghost_layer();
                 end = measure_time();
-                exchange_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                exchange_time[i] += time_diff(begin, end) * factor;
 
                 begin = measure_time();
                 md_distribute_particles();
                 end = measure_time();
-                redistribution_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                redistribution_time[i] += time_diff(begin, end) * factor;
 
                 begin = measure_time();
                 md_copy_data_to_accelerator();
                 end = measure_time();
-                copy_data_to_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                copy_data_to_accelerator_time[i] += time_diff(begin, end) * factor;
 
                 begin = measure_time();
                 md_assemble_neighborlists(cutoff_radius+verlet_buffer);
                 end = measure_time();
-                neighborlist_creation_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+                neighborlist_creation_time[i] += time_diff(begin, end) * factor;
             }
 
             if(vtk && i == 0) {
@@ -222,7 +231,7 @@ int main(int argc, char **argv) {
         begin = measure_time();
         md_copy_data_from_accelerator();
         end = measure_time();
-        copy_data_from_accelerator_time[i] += static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        copy_data_from_accelerator_time[i] += time_diff(begin, end) * factor;
 
         md_report_iterations();
         md_report_particles();
@@ -231,12 +240,12 @@ int main(int argc, char **argv) {
         md_deallocate_grid();
         end = measure_time();
 
-        deallocation_time[i] = static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))*factor;
+        deallocation_time[i] = time_diff(begin, end) * factor;
     }
 
     LIKWID_MARKER_CLOSE;
 
-    std::vector<std::pair<double,double>> time_results(11);
+    std::vector<std::pair<double,double>> time_results(12);
 
     time_results[0] = get_time_statistics(grid_initialization_time, "grid_initialization ");
     time_results[1] = get_time_statistics(integration_time, "integration");
@@ -249,10 +258,11 @@ int main(int argc, char **argv) {
     time_results[8] = get_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
     time_results[9] = get_time_statistics(synchronization_time, "synchronization");
     time_results[10] = get_time_statistics(exchange_time, "exchange");
+    time_results[11] = get_time_statistics(barrier_time, "barrier");
 
     double mean_sum = 0, stdev_sum = 0;
 
-    for(size_t i = 1; i < time_results.size(); ++i) {
+    for(size_t i = 1; i < time_results.size() - 1; ++i) {
         mean_sum += time_results[i].first;
         stdev_sum += time_results[i].second;
     }
@@ -263,7 +273,8 @@ int main(int argc, char **argv) {
         time_results[3].first + time_results[4].first,
         time_results[9].first,
         time_results[10].first,
-        time_results[2].first + time_results[6].first + time_results[7].first + time_results[8].first
+        time_results[2].first + time_results[6].first + time_results[7].first + time_results[8].first,
+        time_results[11].first
     );
 
     md_mpi_finalize();

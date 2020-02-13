@@ -571,7 +571,7 @@ fn initialize_comm(
     world_rank: i32) -> () {
 
     let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz);
-    alloc_comm_offsets(grid, comm_offsets, world_size, world_rank, max_faces_dim * 100, max_faces_dim * 100);
+    alloc_comm_offsets(grid, comm_offsets, world_size, world_rank, max_faces_dim * 20, max_faces_dim * 20);
 }
 
 // Synchronize ghost layer cells with neighbor ranks
