@@ -48,4 +48,27 @@ void get_mpi_cart_neighborhood(
     MPI_Comm_free(&cartesian);
 }
 
+void sync_ghost_layer_loop(
+    int neighs,
+    const char *send_buffer, char *recv_buffer,
+    int *send_ranks, int *recv_ranks,
+    int *send_offsets, int *recv_offsets,
+    int *send_lengths, int *recv_lengths) {
+
+    MPI_Request request;
+    MPI_Status status;
+    int neigh;
+
+    for(neigh = 0; neigh < neighs; ++neigh) {
+        int send_rank = send_ranks[neigh];
+        int recv_rank = recv_ranks[neigh];
+        int send_offset = send_offsets[neigh] * 3 * sizeof(double);
+        int recv_offset = recv_offsets[neigh] * 3 * sizeof(double);
+
+        MPI_Irecv(&(recv_buffer[recv_offset]), recv_lengths[neigh] * 3, MPI_DOUBLE, recv_rank, 0, MPI_COMM_WORLD, &request);
+        MPI_Send(&(send_buffer[send_offset]), send_lengths[neigh] * 3, MPI_DOUBLE, send_rank, 0, MPI_COMM_WORLD);
+        MPI_Wait(&request, &status);
+    }
+}
+
 }
