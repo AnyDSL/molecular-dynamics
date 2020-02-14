@@ -1,3 +1,9 @@
+fn @use_cpp_kernel() -> bool { true }
+
+extern "C" {
+    fn compute_fullneigh(i32, f64, &[f64], &[f64], &[i32], &[i32], i32) -> ();
+}
+
 fn accelerator_compute_particle_forces(
     grid: Grid,
     squared_cutoff_distance: real_t,
@@ -6,35 +12,44 @@ fn accelerator_compute_particle_forces(
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
 
-    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
-        let mut force = Vector3D {
-            x: 0.0 as real_t,
-            y: 0.0 as real_t,
-            z: 0.0 as real_t
-        };
+    if use_cpp_kernel() && use_aos() {
+        let x = get_array_of_reals(array_3d_to_buffer(grid.positions_cpu));
+        let f = get_array_of_reals(array_3d_to_buffer(grid.forces_cpu));
+        let neighbors = get_array_of_i32(grid.neighborlists_cpu);
+        let numneigh = get_array_of_i32(grid.neighbors_sizes_cpu);
 
-        let pos = get_position(i, grid);
+        compute_fullneigh(grid.nparticles, squared_cutoff_distance, x, f, neighbors, numneigh, grid.neighborlist_capacity);
+    } else {
+        loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+            let mut force = Vector3D {
+                x: 0.0 as real_t,
+                y: 0.0 as real_t,
+                z: 0.0 as real_t
+            };
 
-        for n in range(0, nb_list_size) {
-            let neighbor_index = neighborlists(get_neighborlist_index(i, n, grid));
-            let pos_neighbor = get_position(neighbor_index, grid);
-            let del = vector_sub(pos, pos_neighbor);
-            let rsq = vector_len2(del);
+            let pos = get_position(i, grid);
 
-            if rsq < squared_cutoff_distance {
-                let sr2 = 1.0 / rsq;
-                let sr6 = sr2 * sr2 * sr2;
-                let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
+            for n in range(0, nb_list_size) {
+                let neighbor_index = neighborlists(get_neighborlist_index(i, n, grid));
+                let pos_neighbor = get_position(neighbor_index, grid);
+                let del = vector_sub(pos, pos_neighbor);
+                let rsq = vector_len2(del);
 
-                force = vector_add(force, vector_scale(f, del));
-                @@add_iterator(&mut rsq_iters);
+                if rsq < squared_cutoff_distance {
+                    let sr2 = 1.0 / rsq;
+                    let sr6 = sr2 * sr2 * sr2;
+                    let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
+
+                    force = vector_add(force, vector_scale(f, del));
+                    @@add_iterator(&mut rsq_iters);
+                }
+
+                @@add_iterator(&mut total_iters);
             }
 
-            @@add_iterator(&mut total_iters);
-        }
-
-        set_force(i, grid, force);
-    });
+            set_force(i, grid, force);
+        });
+    }
 
     (total_iters, rsq_iters)
 }

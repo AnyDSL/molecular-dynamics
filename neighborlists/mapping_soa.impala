@@ -1,5 +1,8 @@
 /* Three-dimension struct of arrays layout, useful for vectorization when cluster size > 1 */
 
+fn @use_soa() -> bool { true }
+fn @use_aos() -> bool { false }
+
 struct StructOfArrays3D {
     x: Buffer,
     y: Buffer,
@@ -22,7 +25,9 @@ fn @null_3d_array() -> StructOfArrays3D {
     }
 }
 
-fn allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> StructOfArrays3D {
+fn @array_3d_to_buffer(struct_of_arrays: StructOfArrays3D) -> Buffer { struct_of_arrays.x }
+
+fn @allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> StructOfArrays3D {
     let struct_of_arrays = StructOfArrays3D {
         x: allocate(N * sizeof[real_t]()),
         y: allocate(N * sizeof[real_t]()),
@@ -32,7 +37,7 @@ fn allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> StructOfArrays3D {
     struct_of_arrays
 }
 
-fn deallocate_3d_arrays(struct_of_arrays: StructOfArrays3D) -> () {
+fn @deallocate_3d_arrays(struct_of_arrays: StructOfArrays3D) -> () {
     release(struct_of_arrays.x);
     release(struct_of_arrays.y);
     release(struct_of_arrays.z);

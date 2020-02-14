@@ -1,5 +1,8 @@
 /* Three-dimension arrays of struct (reals) layout */
 
+fn @use_soa() -> bool { false }
+fn @use_aos() -> bool { true }
+
 type Array3D = Buffer;
 
 fn @null_3d_array() -> Buffer {
@@ -12,13 +15,9 @@ fn @null_3d_array() -> Buffer {
     null_buf
 }
 
-fn allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> Buffer {
-    allocate(N * 3 * sizeof[real_t]())
-}
-
-fn deallocate_3d_arrays(arrays: Buffer) -> () {
-    release(arrays);
-}
+fn @array_3d_to_buffer(array: Buffer) -> Buffer { array }
+fn @allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> Buffer { allocate(N * 3 * sizeof[real_t]()) }
+fn @deallocate_3d_arrays(arrays: Buffer) -> () { release(arrays); }
 
 fn assign_accelerator_3d_arrays(cpu_arrays: &mut Buffer, gpu_arrays: Buffer) -> () {
     assign_accelerator_buffer(cpu_arrays, gpu_arrays);
