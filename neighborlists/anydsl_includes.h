@@ -14,6 +14,8 @@ extern "C" {
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
     void md_integration(double);
+    void md_initial_integration(double);
+    void md_final_integration(double);
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_distribute_particles();
     void md_initialize_clusters();
@@ -28,6 +30,7 @@ extern "C" {
     void md_mpi_finalize();
     void md_synchronize_ghost_layer();
     void md_exchange_ghost_layer();
+    void md_pbc();
     int md_get_world_rank();
     int md_get_number_of_particles();
     void md_get_node_bounding_box(double, double const *, double const *, double (*)[3], double (*)[3]);

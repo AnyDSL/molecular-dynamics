@@ -39,27 +39,16 @@ fn accelerator_compute_particle_forces(
     (total_iters, rsq_iters)
 }
 
-fn accelerator_restrict_to_boundary(grid: Grid, aabb: AABB) -> () {
-    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+fn accelerator_pbc(grid: Grid) -> () {
+    loop_accelerator(grid, |i, _, _, _| {
         let mut position = get_position(i, grid);
 
-        if position.x < aabb.xmin {
-            position.x = aabb.xmin + EPSILON;
-        } else if position.x > aabb.xmax {
-            position.x = aabb.xmax - EPSILON;
-        }
-
-        if position.y < aabb.ymin {
-            position.y = aabb.ymin + EPSILON;
-        } else if position.y > aabb.ymax {
-            position.y = aabb.ymax - EPSILON;
-        }
-
-        if position.z < aabb.zmin {
-            position.z = aabb.zmin + EPSILON;
-        } else if position.z > aabb.zmax {
-            position.z = aabb.zmax - EPSILON;
-        }
+        if position.x < 0.0             { position.x += grid.xlength; }
+        if position.x > grid.aabb.xmax  { position.x -= grid.xlength; }
+        if position.y < 0.0             { position.y += grid.ylength; }
+        if position.y > grid.aabb.ymax  { position.y -= grid.ylength; }
+        if position.z < 0.0             { position.z += grid.zlength; }
+        if position.z > grid.aabb.zmax  { position.z -= grid.zlength; }
 
         set_position(i, grid, position);
     });
@@ -68,7 +57,7 @@ fn accelerator_restrict_to_boundary(grid: Grid, aabb: AABB) -> () {
 fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
 
-    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+    loop_accelerator(grid, |i, _, _, _| {
         let masses = get_masses(grid);
         let inverse_mass = 1.0 as real_t / masses(i);
         let mut position = get_position(i, grid);
@@ -85,6 +74,52 @@ fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
 
         set_velocity(i, grid, velocity);
         set_position(i, grid, position);
+
+        @@add_iterator(&mut iters);
+    });
+
+    iters
+}
+
+fn accelerator_initial_integration(grid: Grid, dt: real_t) -> i64 {
+    let mut iters = 0 as i64;
+    let dtforce = 0.5 * dt;
+
+    loop_accelerator(grid, |i, _, _, _| {
+        let mut position = get_position(i, grid);
+        let mut velocity = get_velocity(i, grid);
+        let force = get_force(i, grid);
+
+        velocity.x += dtforce * force.x;
+        velocity.y += dtforce * force.y;
+        velocity.z += dtforce * force.z;
+
+        position.x += dt * velocity.x;
+        position.y += dt * velocity.y;
+        position.z += dt * velocity.z;
+
+        set_velocity(i, grid, velocity);
+        set_position(i, grid, position);
+
+        @@add_iterator(&mut iters);
+    });
+
+    iters
+}
+
+fn accelerator_final_integration(grid: Grid, dt: real_t) -> i64 {
+    let mut iters = 0 as i64;
+    let dtforce = 0.5 * dt;
+
+    loop_accelerator(grid, |i, _, _, _| {
+        let mut velocity = get_velocity(i, grid);
+        let force = get_force(i, grid);
+
+        velocity.x += dtforce * force.x;
+        velocity.y += dtforce * force.y;
+        velocity.z += dtforce * force.z;
+
+        set_velocity(i, grid, velocity);
 
         @@add_iterator(&mut iters);
     });
