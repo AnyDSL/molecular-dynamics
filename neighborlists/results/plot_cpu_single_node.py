@@ -6,9 +6,9 @@ plt.rcParams.update({'hatch.color': 'black'})
 
 results = {}
 results['AnyDSL']               =       [13043.8,   7699.6,   13430.8,   13668.2  ]
-results['AnyDSL (C++)']         =       [7172.65,   3010.5,   4988.99,   5921.43  ]
+results['AnyDSL (C++)']         =       [7172.65,   3010.5,   4535.9,    5921.43  ]
 results['miniMD']               =       [15475.209, 7957.003, 14767.304, 14211.262]
-results['miniMD (-xHost)']      =       [12159.366, 4056.584, 8415.369,  8733.466 ]
+results['miniMD (-xHost)']      =       [11524.212, 3874.003, 6090.834,  8237.429 ]
 
 results_sec = {}
 
