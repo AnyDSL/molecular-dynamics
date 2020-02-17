@@ -5,12 +5,11 @@ miniMD compiled with icc (ICC) 18.0.5
 
 Time(ms)
 
-                AnyDSL      miniMD
-naples          13053.6     15885.787       AMD EPYC 7451 24-Core Processor @ 2.30GHz
-cascadelakesp   12166.6     13936.689       Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz
-skylakesp       18682.9     21457.358       Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz
-interlagos      17655.3     19680.954       AMD Opteron(TM) Processor 6276 @ 2.30GHz
-
+                AnyDSL      miniMD        miniMD (Jan) miniMD(-xHost)
+naples          13043.8     15475.209     12159.366    15450.468        AMD EPYC 7451 24-Core Processor @ 2.30GHz
+cascadelakesp   7699.6      7957.003      4056.584     4781.095         Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz
+skylakesp       13430.8     14767.304     8763.512     8415.369         Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz
+broadwellep1    13668.2     14211.262     8733.466     10024.744
 
 MFLOPS/s
 
@@ -18,4 +17,3 @@ MFLOPS/s
 naples          1082.2859   1151.9725
 cascadelakesp   1597.1789   1593.2596
 skylakesp       1030.9995   1026.0606
-interlagos      1135.0374   1152.7600
