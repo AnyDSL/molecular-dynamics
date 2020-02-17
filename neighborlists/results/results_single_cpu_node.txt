@@ -1,0 +1,19 @@
+100 timesteps, grid size 32x32x32 (131072 particles)
+
+AnyDSL compiled with clang 8.0.0
+miniMD compiled with icc (ICC) 18.0.5
+
+Time(ms)
+
+                AnyDSL      AnyDSL (C++)  miniMD        miniMD (opt)
+naples          13043.8     7172.65       15475.209     11524.212     AMD EPYC 7451 24-Core Processor @ 2.30GHz
+cascadelakesp   7699.6      3010.5        7957.003      3874.003      Intel(R) Xeon(R) Gold 6248 CPU @ 2.50GHz
+skylakesp       13430.8     4535.9        14767.304     6090.834      Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz
+broadwellep1    13668.2     5921.43       14211.262     8237.429
+
+MFLOPS/s
+
+                AnyDSL      miniMD
+naples          1082.2859   1151.9725
+cascadelakesp   1597.1789   1593.2596
+skylakesp       1030.9995   1026.0606
