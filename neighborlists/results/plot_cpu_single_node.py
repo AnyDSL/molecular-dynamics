@@ -5,9 +5,9 @@ plt.rcParams.update({'font.size': 14})
 plt.rcParams.update({'hatch.color': 'black'})
 
 results = {}
-results['AnyDSL']               =       [13043.8,   7699.6,   13430.8,   13668.2  ]
+results['AnyDSL']               =       [12743.5,   7699.6,   12254.2,   13668.2  ]
 results['AnyDSL (C++)']         =       [7172.65,   3010.5,   4535.9,    5921.43  ]
-results['miniMD']               =       [15475.209, 7957.003, 14767.304, 14211.262]
+results['miniMD']               =       [15475.209, 7957.003, 12718.436, 14136.247]
 results['miniMD (opt)']         =       [11524.212, 3874.003, 6090.834,  8237.429 ]
 
 results_sec = {}
@@ -15,9 +15,11 @@ results_sec = {}
 for p in results:
     results_sec[p] = [i / 1000.0 for i in results[p]]
 
-processors = ['naples', 'cascadelake', 'skylake', 'broadwell']
-variants = [variant for variant in results]
-variants.sort(reverse=True)
+processors = ['zen', 'cascadelake', 'skylake', 'broadwell']
+variants   = ['miniMD', 'AnyDSL', 'miniMD (opt)', 'AnyDSL (C++)']
+
+#variants = [variant for variant in results]
+#variants.sort(reverse=True)
 
 print(variants)
 
@@ -39,9 +41,9 @@ plt.bar(x + 3 * bar_width / 2, results_sec[variants[3]], bar_width - bar_sep * 0
 #plt.bar(x + bar_width * 2, results_sec[variants[4]], bar_width - bar_sep * 0.5, align='center', alpha=0.5, label=variants[4])
 
 plt.xticks(x, processors)
-plt.xlabel("Architecture");
+plt.xlabel("Microarchitecture");
 plt.ylabel("Time (s)")
-plt.ylim(0, 30)
+plt.ylim(0, 25)
 plt.axes().yaxis.grid(linestyle=':', linewidth=0.15)
 plt.legend()
 plt.tight_layout()
