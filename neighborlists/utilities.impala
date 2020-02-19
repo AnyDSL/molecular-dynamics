@@ -7,6 +7,7 @@ fn @get_thread_count() -> i32 { THREAD_COUNT }
 
 // nearest multiple of num
 fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+fn @round_down(n: i32, d: i32) -> i32 { (n / d) * d }
 
 fn @outer_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     for i in parallel(get_thread_count(), lower, upper) {
