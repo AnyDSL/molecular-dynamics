@@ -52,13 +52,32 @@ fn @transfer_3d_arrays_between_devices(source: Array3D, destination: Array3D) ->
 
 fn warmup() -> () {}
 
+// Vectorizes an arbitrary range
+fn @vectorized_range(vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> ()) -> () {
+    if vector_width == 1 {
+        for i in range(a, b) {
+            body(i, 1);
+        }
+    } else {
+        let n_vec = round_down(b - a, vector_width);
+        for i in range_step(a, a + n_vec, vector_width) {
+            for j in vectorize(vector_width) {
+                @@body(i + j, vector_width)
+            }
+        }
+        for i in range(a + n_vec, b) {
+            @@body(i, 1)
+        }
+    }
+}
+
 fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
     let neighbors_sizes = get_array_of_i32(grid.neighbors_sizes_cpu);
     let neighborlists = get_array_of_i32(grid.neighborlists_cpu);
     let neighborlist_capacity = grid.neighborlist_capacity;
 
-    outer_loop_cpu(0, grid.nparticles, |particle_index| {
+    vectorized_range(8, 0, grid.nparticles, |particle_index, _| {
         let nb_list_offset = neighborlist_capacity * particle_index;
         let nb_list_size = neighbors_sizes(particle_index);
 
