@@ -22,6 +22,10 @@
 
 #define time_diff(begin, end)   static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))
 
+#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+#include <x86intrin.h>
+#endif
+
 void print_usage(char *name) {
     std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
 }
@@ -33,6 +37,11 @@ std::pair<double,double> get_time_statistics(std::vector<double> time, std::stri
 }
 
 int main(int argc, char **argv) {
+    // Force flush to zero mode for denormals
+#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+    _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
+#endif
+
     if(argc != 7 && argc != 9) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
