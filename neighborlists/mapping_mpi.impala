@@ -320,12 +320,17 @@ fn alloc_comm_offsets(
 
 // Release communication buffers
 fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
-    if comm_offsets.send_capacity > 0 {
+    if !use_unified_memory() {
         release(comm_offsets.send_buffer);
+        release(comm_offsets.recv_buffer);
+        release(comm_offsets.send_offsets);
+        release(comm_offsets.recv_offsets);
+    }
+
+    if comm_offsets.send_capacity > 0 {
         release(comm_offsets.send_neighbors);
         release(comm_offsets.send_rank_offsets);
         release(comm_offsets.send_rank_lengths);
-        release(comm_offsets.send_offsets);
         release(comm_offsets.send_buffer_accelerator);
         release(comm_offsets.send_offsets_accelerator);
         release(comm_offsets.send_exchg_buffer);
@@ -333,11 +338,9 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     }
 
     if comm_offsets.recv_capacity > 0 {
-        release(comm_offsets.recv_buffer);
         release(comm_offsets.recv_neighbors);
         release(comm_offsets.recv_rank_offsets);
         release(comm_offsets.recv_rank_lengths);
-        release(comm_offsets.recv_offsets);
         release(comm_offsets.recv_buffer_accelerator);
         release(comm_offsets.recv_offsets_accelerator);
         release(comm_offsets.recv_exchg_buffer);
