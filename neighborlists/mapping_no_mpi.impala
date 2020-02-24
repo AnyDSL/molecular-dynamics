@@ -1,0 +1,117 @@
+// Communication offsets (for GPU gather and scatter kernels)
+struct CommOffsets {
+    // Host send data
+    send_buffer: Buffer,
+    send_rank_offsets: Buffer,
+    send_offsets: Buffer,
+    send_capacity: i32,
+    send_noffsets: i32,
+
+    // Host receive data
+    recv_buffer: Buffer,
+    recv_rank_offsets: Buffer,
+    recv_offsets: Buffer,
+    recv_capacity: i32,
+    recv_noffsets: i32,
+
+    // Accelerator send data
+    send_buffer_accelerator: Buffer,
+    send_rank_offsets_accelerator: Buffer,
+    send_rank_lengths_accelerator: Buffer,
+    send_offsets_accelerator: Buffer,
+
+    // Accelerator receive data
+    recv_buffer_accelerator: Buffer,
+    recv_rank_lengths_accelerator: Buffer,
+    recv_offsets_accelerator: Buffer,
+
+    // Number of neighbor ranks
+    neighs: i32
+};
+
+fn @get_sync_timesteps() -> i32 { 1 }
+
+fn barrier() -> () { }
+
+fn communication_nodes(
+    world_size: i32,
+    rank: i32,
+    grid: &Grid,
+    body: fn(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32) -> ()) -> () {
+
+}
+
+fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
+    *world_size = 1;
+    *world_rank = 0;
+}
+
+fn mpi_finalize() -> () { }
+
+fn initialize_comm(
+    grid: &Grid,
+    comm_offsets: &mut CommOffsets,
+    world_size: i32,
+    world_rank: i32) -> () {
+
+}
+
+// Build offsets used by scatter and gather kernels
+fn build_comm_offsets(
+    world_size: i32,
+    rank: i32,
+    grid: &Grid,
+    comm_offsets: &mut CommOffsets) -> () {
+
+}
+
+fn initialize_grid_comm(
+    grid: &Grid,
+    comm_offsets: &mut CommOffsets,
+    world_size: i32,
+    world_rank: i32) -> () {
+
+}
+
+fn synchronize_ghost_layer_cells(
+    grid: Grid,
+    comm_offsets: &CommOffsets,
+    world_size: i32,
+    world_rank: i32) -> () {
+
+}
+
+fn exchange_ghost_layer_particles(
+    grid: &mut Grid,
+    comm_offsets: &mut CommOffsets,
+    world_size: i32,
+    world_rank: i32) -> () {
+
+}
+
+// Get bounding box for current node
+fn @get_node_bounding_box(
+    world_size: i32,
+    rank: i32,
+    cell_spacing: real_t,
+    aabb: AABB) -> AABB {
+
+    aabb
+}
+
+fn is_local_cell(cx: i32, cy: i32, cz: i32, grid: &Grid) -> bool { true }
+fn closest_local_cell(cell_index: [i32 * 3], grid: &Grid) -> [i32 * 3] { cell_index }
+fn inside_same_ghost_layer(cell_index1: [i32 * 3], cell_index2: [i32 * 3], grid: &Grid) -> bool { true }
+fn last_dimension_node(@dim: i32) -> bool { true }
+
+fn reduce_time(local_time: f64, global_time: &mut f64) -> () {
+    *global_time = local_time;
+}
+
+fn reduce_i32_sum(local_value: i32, global_value: &mut i32) -> () {
+    *global_value = local_value;
+}
+
+fn reduce_i64_sum(local_value: i64, global_value: &mut i64) -> () {
+    *global_value = local_value;
+}

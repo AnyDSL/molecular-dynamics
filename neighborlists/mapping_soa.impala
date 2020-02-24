@@ -1,0 +1,162 @@
+/* Three-dimension struct of arrays layout, useful for vectorization when cluster size > 1 */
+
+fn @use_soa() -> bool { true }
+fn @use_aos() -> bool { false }
+
+struct StructOfArrays3D {
+    x: Buffer,
+    y: Buffer,
+    z: Buffer
+}
+
+type Array3D = StructOfArrays3D;
+
+fn @null_3d_array() -> StructOfArrays3D {
+    let null_buf = Buffer {
+        device: 0,
+        data: 0 as &[i8],
+        size: 0 as i64
+    };
+
+    StructOfArrays3D {
+        x: null_buf,
+        y: null_buf,
+        z: null_buf
+    }
+}
+
+fn @array_3d_to_buffer(struct_of_arrays: StructOfArrays3D) -> Buffer { struct_of_arrays.x }
+
+fn @allocate_3d_arrays(N: i32, allocate: fn(i32) -> Buffer) -> StructOfArrays3D {
+    let struct_of_arrays = StructOfArrays3D {
+        x: allocate(N * sizeof[real_t]()),
+        y: allocate(N * sizeof[real_t]()),
+        z: allocate(N * sizeof[real_t]())
+    };
+
+    struct_of_arrays
+}
+
+fn @deallocate_3d_arrays(struct_of_arrays: StructOfArrays3D) -> () {
+    release(struct_of_arrays.x);
+    release(struct_of_arrays.y);
+    release(struct_of_arrays.z);
+}
+
+fn assign_accelerator_3d_arrays(cpu_arrays: &mut StructOfArrays3D, gpu_arrays: StructOfArrays3D) -> () {
+    assign_accelerator_buffer(&mut cpu_arrays.x, gpu_arrays.x);
+    assign_accelerator_buffer(&mut cpu_arrays.y, gpu_arrays.y);
+    assign_accelerator_buffer(&mut cpu_arrays.z, gpu_arrays.z);
+}
+
+fn @copy_offset_3d_arrays(src: StructOfArrays3D, offset_src: i32, dest: StructOfArrays3D, offset_dest: i32, N: i32) -> () {
+    copy_offset(src.x, offset_src * sizeof[real_t](), dest.x, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
+    copy_offset(src.y, offset_src * sizeof[real_t](), dest.y, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
+    copy_offset(src.z, offset_src * sizeof[real_t](), dest.z, offset_dest * sizeof[real_t](), N * sizeof[real_t]());
+}
+
+fn set_3d_arrays(i: i32, struct_of_arrays: StructOfArrays3D, vector: Vector3D) -> () {
+    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i) = vector.x;
+    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i) = vector.y;
+    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) = vector.z;
+}
+
+fn get_vector_from_3d_arrays(i: i32, struct_of_arrays: StructOfArrays3D) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[real_t]](struct_of_arrays.x.data)(i),
+        y: bitcast[&mut[real_t]](struct_of_arrays.y.data)(i),
+        z: bitcast[&mut[real_t]](struct_of_arrays.z.data)(i)
+    }
+}
+
+fn @set_3d_arrays_accelerator(i: i32, struct_of_arrays: StructOfArrays3D, vector: Vector3D) -> () {
+    bitcast[&mut[1][real_t]](struct_of_arrays.x.data)(i) = vector.x;
+    bitcast[&mut[1][real_t]](struct_of_arrays.y.data)(i) = vector.y;
+    bitcast[&mut[1][real_t]](struct_of_arrays.z.data)(i) = vector.z;
+}
+
+fn @get_vector_from_3d_arrays_accelerator(i: i32, struct_of_arrays: StructOfArrays3D) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[1][real_t]](struct_of_arrays.x.data)(i),
+        y: bitcast[&mut[1][real_t]](struct_of_arrays.y.data)(i),
+        z: bitcast[&mut[1][real_t]](struct_of_arrays.z.data)(i)
+    }
+}
+
+fn get_x_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
+    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i)
+}
+
+fn get_y_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
+    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i)
+}
+
+fn get_z_component(i: i32, struct_of_arrays: StructOfArrays3D) -> real_t {
+    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i)
+}
+
+fn copy_3d_arrays(i: i32, j: i32, src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
+    bitcast[&mut[real_t]](dest.x.data)(j) = bitcast[&[real_t]](src.x.data)(i);
+    bitcast[&mut[real_t]](dest.y.data)(j) = bitcast[&[real_t]](src.y.data)(i);
+    bitcast[&mut[real_t]](dest.z.data)(j) = bitcast[&[real_t]](src.z.data)(i);
+}
+
+fn swap_3d_arrays(i: i32, j: i32, struct_of_arrays: StructOfArrays3D) -> () {
+    let tmp_x = bitcast[&[real_t]](struct_of_arrays.x.data)(i);
+    let tmp_y = bitcast[&[real_t]](struct_of_arrays.y.data)(i);
+    let tmp_z = bitcast[&[real_t]](struct_of_arrays.z.data)(i);
+
+    bitcast[&mut[real_t]](struct_of_arrays.x.data)(i) = bitcast[&[real_t]](struct_of_arrays.x.data)(j);
+    bitcast[&mut[real_t]](struct_of_arrays.y.data)(i) = bitcast[&[real_t]](struct_of_arrays.y.data)(j);
+    bitcast[&mut[real_t]](struct_of_arrays.z.data)(i) = bitcast[&[real_t]](struct_of_arrays.z.data)(j);
+
+    bitcast[&mut[real_t]](struct_of_arrays.x.data)(j) = tmp_x;
+    bitcast[&mut[real_t]](struct_of_arrays.y.data)(j) = tmp_y;
+    bitcast[&mut[real_t]](struct_of_arrays.z.data)(j) = tmp_z;
+}
+
+fn @_transfer_3d_arrays_between_devices(src: StructOfArrays3D, dest: StructOfArrays3D) -> () {
+    copy(src.x, dest.x);
+    copy(src.y, dest.y);
+    copy(src.z, dest.z);
+}
+
+fn copy_3d_array_to_buffer(source: StructOfArrays3D, offset_source: i32, dest: Buffer, offset_dest: &mut i32) -> () {
+    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.x.data)(offset_source);
+    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.y.data)(offset_source);
+    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.z.data)(offset_source);
+}
+
+fn copy_buffer_to_3d_array(source: Buffer, offset_source: &mut i32, dest: StructOfArrays3D, offset_dest: i32) -> () {
+    bitcast[&mut[real_t]](dest.x.data)(offset_dest) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
+    bitcast[&mut[real_t]](dest.y.data)(offset_dest) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
+    bitcast[&mut[real_t]](dest.z.data)(offset_dest) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
+}
+
+fn copy_3d_arrays_to_buffer(
+    source: StructOfArrays3D,
+    offset_source: i32,
+    dest: Buffer,
+    offset_dest: i32,
+    length: i32) -> i32 {
+
+    copy_offset(source.x, offset_source, dest, offset_dest, length);
+    copy_offset(source.y, offset_source, dest, offset_dest + length, length);
+    copy_offset(source.z, offset_source, dest, offset_dest + length * 2, length);
+
+    length * 3
+}
+
+fn copy_buffer_to_3d_arrays(
+    source: Buffer,
+    offset_source: i32,
+    dest: StructOfArrays3D,
+    offset_dest: i32,
+    length: i32) -> i32 {
+
+    copy_offset(source, offset_source, dest.x, offset_dest, length);
+    copy_offset(source, offset_source + length, dest.y, offset_dest, length);
+    copy_offset(source, offset_source + length * 2, dest.z, offset_dest, length);
+
+    length * 3
+}

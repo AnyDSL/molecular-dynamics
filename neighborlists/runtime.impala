@@ -1,72 +1,285 @@
 static mut grid_ : Grid;
-static mut accelerator_grid_ : AcceleratorGrid;
-extern 
-fn md_set_thread_count(thread_count: i32) -> () {
+static mut comm_offsets_ : CommOffsets;
+static mut world_size : i32;
+static mut world_rank : i32;
+static mut force_iters : i64;
+static mut rsq_iters : i64;
+static mut integration_iters : i64;
+
+extern fn md_set_thread_count(thread_count: i32) -> () {
     set_thread_count(thread_count);
 }
-extern 
-fn md_initialize_grid(masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], 
-                       nparticles: i32, min: &[real_t], max: &[real_t], cell_spacing: real_t, cell_capacity: i32) -> () {
-    let aabb = AABB {
-        min: [min(0), min(1), min(2)],
-        max: [max(0), max(1), max(2)],
+
+extern fn md_initialize_grid(
+    masses: &[real_t],
+    positions: &[Vector3D],
+    velocities: &[Vector3D],
+    nparticles: i32,
+    min: &[real_t],
+    max: &[real_t],
+    rank_min: &[real_t],
+    rank_max: &[real_t],
+    cell_spacing: real_t,
+    cell_capacity: i32,
+    neighborlist_capacity: i32) -> i32 {
+
+    let world_aabb = AABB {
+        xmin: min(0),
+        xmax: max(0),
+        ymin: min(1),
+        ymax: max(1),
+        zmin: min(2),
+        zmax: max(2)
     };
-    let cluster_size = get_cluster_size();
-    grid_ = allocate_grid(aabb, cell_spacing, cell_capacity, cluster_size, alloc_cpu);
+
+    let mut rank_aabb = AABB {
+        xmin: rank_min(0),
+        xmax: rank_max(0),
+        ymin: rank_min(1),
+        ymax: rank_max(1),
+        zmin: rank_min(2),
+        zmax: rank_max(2)
+    };
+
+    extend_rank_domain(&mut rank_aabb, cell_spacing);
+
+    grid_ = allocate_grid(world_aabb, rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
-    let capacity = nparticles / 4 + 128;
-    accelerator_grid_ = allocate_accelerator_grid(grid_.nx, grid_.ny, capacity, cluster_size, capacity * 64); 
+    initialize_comm(grid_, &mut comm_offsets_, world_size, world_rank);
+
+    warmup();
+
+    grid_.nparticles
 }
+
+extern fn md_get_node_bounding_box(
+    cell_spacing: real_t,
+    min: &[real_t],
+    max: &[real_t],
+    rank_min: &mut[real_t * 3],
+    rank_max: &mut[real_t * 3]) -> () {
+
+    let aabb = AABB {
+        xmin: min(0),
+        xmax: max(0),
+        ymin: min(1),
+        ymax: max(1),
+        zmin: min(2),
+        zmax: max(2)
+    };
+
+    let rank_aabb = get_node_bounding_box(world_size, world_rank, cell_spacing, aabb);
+
+    rank_min(0) = rank_aabb.xmin;
+    rank_min(1) = rank_aabb.ymin;
+    rank_min(2) = rank_aabb.zmin;
+
+    rank_max(0) = rank_aabb.xmax;
+    rank_max(1) = rank_aabb.ymax;
+    rank_max(2) = rank_aabb.zmax;
+}
+
 extern fn md_copy_data_to_accelerator() -> () {
-    copy_to_accelerator(grid_, &mut accelerator_grid_);
+    copy_to_accelerator(grid_);
 }
+
 extern fn md_copy_data_from_accelerator() -> () {
-    copy_from_accelerator(accelerator_grid_, grid_);
+    copy_from_accelerator(grid_);
 }
-extern
-fn md_deallocate_grid() -> () {
+
+extern fn md_deallocate_grid() -> () {
     deallocate_grid(grid_);
-    deallocate_accelerator_grid(accelerator_grid_);
-}
-extern 
-fn md_integration(dt: real_t) -> () {
-    accelerator_integration(accelerator_grid_, dt);
 }
 
-extern
-fn md_write_grid_data_to_arrays(masses: &mut[real_t], positions: &mut [Vector3D], velocities: &mut [Vector3D], forces: &mut [Vector3D], size: i32) -> i32 {
-    write_grid_data_to_arrays(masses, positions, velocities, forces, size, &grid_)
+extern fn md_integration(dt: real_t) -> () {
+    integration_iters = accelerator_integration(grid_, dt);
 }
 
-extern
-fn md_redistribute_particles() -> () {
-    redistribute_particles(grid_, alloc_cpu);
+extern fn md_initial_integration(dt: real_t) -> () {
+    integration_iters = accelerator_initial_integration(grid_, dt);
 }
 
-extern 
-fn md_initialize_clusters(neighbor_list_capacity: i32) -> () {
-   grid_initialize_clusters(grid_, neighbor_list_capacity, alloc_cpu, outer_loop_cpu, inner_loop_cpu);  
+extern fn md_final_integration(dt: real_t) -> () {
+    integration_iters = accelerator_final_integration(grid_, dt);
 }
 
-extern
-fn md_assemble_neighbor_lists(cutoff_distance: real_t) -> () {
-    grid_assemble_neighbor_lists(&grid_, cutoff_distance, alloc_cpu, outer_loop_cpu, inner_loop_cpu);
+extern fn md_write_grid_data_to_arrays(
+    masses: &mut[real_t],
+    positions: &mut [Vector3D],
+    velocities: &mut [Vector3D],
+    forces: &mut [Vector3D]) -> i32 {
+
+    write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
-extern
-fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
+extern fn md_distribute_particles() -> () {
+    distribute_particles(&mut grid_, alloc_cpu);
+}
+
+extern fn md_exchange_ghost_layer() -> () {
+    exchange_ghost_layer_particles(&mut grid_, &mut comm_offsets_, world_size, world_rank);
+}
+
+extern fn md_pbc() -> () {
+    accelerator_pbc(grid_, );
+}
+
+extern fn md_initialize_clusters() -> () {
+    //grid_initialize_clusters(grid_, outer_loop_cpu, middle_loop_cpu, inner_loop_cpu);
+}
+
+extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () {
+    assemble_neighborlists(grid_, cutoff_distance);
+}
+
+extern fn md_print_grid() -> () {
+    range(0, grid_.nparticles, |particle_index| {
+        let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
+        print_real_vector_with_rank("pos_local", pos);
+    });
+}
+
+extern fn md_print_ghost() -> () {
+    range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
+        let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
+        print_real_vector_with_rank("pos_ghost", pos);
+    });
+}
+
+extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let potential = create_potential(sigma, epsilon);
-    accelerator_compute_forces(accelerator_grid_, cutoff_distance*cutoff_distance, potential);
+    let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
+    force_iters = iforces;
+    rsq_iters = irsq;
 }
 
-extern
-fn md_compute_total_kinetic_energy() -> real_t {
+extern fn md_compute_total_kinetic_energy() -> real_t {
     // TODO fix this function
    //compute_total_kinetic_energy(grid_, outer_loop_cpu, inner_loop_cpu)
-   0.0
+   0.0 as real_t
 }
 
-extern
-fn md_print_grid() -> () {
-    print_grid(grid_);
+extern fn md_mpi_initialize() -> () {
+    mpi_initialize(&mut world_size, &mut world_rank);
+}
+
+extern fn md_mpi_finalize() -> () {
+    mpi_finalize();
+}
+
+extern fn md_synchronize_ghost_layer() -> () {
+    synchronize_ghost_layer_cells(grid_, comm_offsets_, world_size, world_rank);
+}
+
+extern fn md_barrier() -> () {
+    barrier();
+}
+
+extern fn md_get_world_rank() -> i32 {
+    world_rank
+}
+
+extern fn md_get_number_of_particles() -> i32 {
+    grid_.nparticles
+}
+
+extern fn md_report_memory_allocation() -> () {
+    report_memory_allocation();
+}
+
+extern fn md_report_iterations() -> () {
+    let mut res: i64;
+    let is_root = world_rank == 0;
+
+    barrier();
+    print_string_cond(is_root, "ForceIters RsqIters IntegrationIters\n");
+
+    reduce_i64_sum(force_iters, &mut res);
+    print_i64_cond(is_root, res);
+
+    reduce_i64_sum(rsq_iters, &mut res);
+    print_string_cond(is_root, " ");
+    print_i64_cond(is_root, res);
+
+    reduce_i64_sum(integration_iters, &mut res);
+    print_string_cond(is_root, " ");
+    print_i64_cond(is_root, res);
+
+    print_string_cond(is_root, "\n");
+}
+
+extern fn md_report_particles() -> () {
+    let mut res: i32;
+    let is_root = world_rank == 0;
+
+    barrier();
+    print_string_cond(is_root, "# Local # Ghost\n");
+
+    reduce_i32_sum(grid_.nparticles, &mut res);
+    print_i32_cond(is_root, res);
+
+    reduce_i32_sum(grid_.nghost, &mut res);
+    print_string_cond(is_root, " ");
+    print_i32_cond(is_root, res);
+
+    print_string_cond(is_root, "\n");
+}
+
+extern fn md_report_time(
+    total_avg: f64, force_avg: f64, neigh_avg: f64, sync_avg: f64, exchg_avg: f64, other_avg: f64, barrier_avg: f64) -> () {
+
+    let mut res: f64;
+    let is_root = world_rank == 0;
+
+    barrier();
+    print_string_cond(is_root, "Total Force Neigh Sync Exchg Other Barrier\n");
+
+/*
+    print_i32(world_rank);
+    print_string("> ");
+    print_f64(total_avg);
+    print_string(", ");
+    print_f64(force_avg);
+    print_string(", ");
+    print_f64(neigh_avg);
+    print_string(", ");
+    print_f64(sync_avg);
+    print_string(", ");
+    print_f64(exchg_avg);
+    print_string(", ");
+    print_f64(other_avg);
+    print_string(", ");
+    print_f64(barrier_avg);
+    print_string("\n");
+    barrier();
+*/
+
+    reduce_time(total_avg, &mut res);
+    print_f64_cond(is_root, res);
+
+    reduce_time(force_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(neigh_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(sync_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(exchg_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(other_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    reduce_time(barrier_avg, &mut res);
+    print_string_cond(is_root, " ");
+    print_f64_cond(is_root, res);
+
+    print_string_cond(is_root, "\n");
 }

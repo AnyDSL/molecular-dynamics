@@ -10,6 +10,14 @@ fn @get_array_of_reals_accelerator(buf: Buffer) -> &mut[1][real_t] {
     bitcast[&mut[1][real_t]](buf.data)
 }
 
+fn @get_u8_accelerator(i: i32, buf: Buffer) -> u8 {
+    bitcast[&[1][u8]](buf.data)(i)
+}
+
+fn @set_u8_accelerator(i: i32, buf: Buffer, value: u8) -> () {
+    bitcast[&mut[1][u8]](buf.data)(i) = value;
+}
+
 fn @get_i32_accelerator(i: i32, buf: Buffer) -> i32 {
     bitcast[&[1][i32]](buf.data)(i)
 }
@@ -25,18 +33,3 @@ fn @get_array_of_i32_accelerator(buf: Buffer) -> &mut[1][i32] {
 fn @get_bool_accelerator(i: i32, buf: Buffer) -> bool {
     bitcast[&[1][bool]](buf.data)(i)
 }
-
-fn @set_struct_of_arrays_accelerator(i: i32, struct_of_arrays: StructOfArrays3D, vector: Vector3D) -> () {
-    bitcast[&mut[1][real_t]](struct_of_arrays.x.data)(i) = vector.x;
-    bitcast[&mut[1][real_t]](struct_of_arrays.y.data)(i) = vector.y;
-    bitcast[&mut[1][real_t]](struct_of_arrays.z.data)(i) = vector.z;
-}
-
-fn @get_vector_from_struct_of_arrays_accelerator(i: i32, struct_of_arrays: StructOfArrays3D) -> Vector3D {
-    Vector3D {
-        x: bitcast[&mut[1][real_t]](struct_of_arrays.x.data)(i), 
-        y: bitcast[&mut[1][real_t]](struct_of_arrays.y.data)(i), 
-        z: bitcast[&mut[1][real_t]](struct_of_arrays.z.data)(i) 
-    }
-}
-
