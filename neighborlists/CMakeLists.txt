@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.8.2 FATAL_ERROR)
 
 project(molecular-dynamics CXX)
 #enable_testing()
@@ -27,9 +27,9 @@ option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" OFF)
 option(BODY_COLLISION_TEST "BODY_COLLISION_TEST" OFF)
 
 # Just use -march=native when compiling and executing in the same machine
-#set(CLANG_FLAGS -march=native -O3)
-set(CLANG_FLAGS -O3)
-set(IMPALA_FLAGS --log-level warn -O3)
+#set(CLANG_FLAGS -march=native)
+set(CLANG_FLAGS)
+set(IMPALA_FLAGS --log-level warn)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 if(USE_SOA)
@@ -67,7 +67,7 @@ endif()
 
 if(LIKWID_DIR)
     target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
-	include_directories(${LIKWID_DIR}/include)
+    include_directories(${LIKWID_DIR}/include)
 endif()
 
 if(MONITOR_ONLY_FORCE_COMPUTATION)
