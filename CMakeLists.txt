@@ -27,8 +27,8 @@ option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" OFF)
 option(BODY_COLLISION_TEST "BODY_COLLISION_TEST" OFF)
 
 # Just use -march=native when compiling and executing in the same machine
-set(CLANG_FLAGS -O3 -march=native)
-set(IMPALA_FLAGS --log-level warn)
+set(CLANG_FLAGS -O3 -march=native -ffast-math)
+set(IMPALA_FLAGS -O3 --log-level warn)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 if(USE_SOA)
