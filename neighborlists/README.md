@@ -34,7 +34,7 @@ make -j4 # this uses 4 jobs to compile in parallel
 Currently, one testcase has been implemented based on miniMD setup. Particles are placed on a three dimensional cubic grid and are initialized with a random velocity. Use the following command to run a simulation:
 
 ```bash
-./md x y z timesteps runs threads [-vtk /path\_to/output\_directory]  
+./md x y z timesteps runs threads [-vtk directory]
 ```
 
 - **x, y, z:** Number of unit cells in each dimension. Each unit cell contains 4 particles in this setup. For example, if x = 10, y = 10 and z = 10 then 4000 particles are created in the grid.
