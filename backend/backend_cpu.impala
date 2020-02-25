@@ -1,2 +1,1 @@
-fn @get_cluster_size() -> i32 {1}
-fn @get_alignment() -> i32 { 4 }
+fn @get_vector_width() -> i32 { 1 }
