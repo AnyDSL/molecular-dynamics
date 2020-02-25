@@ -1,6 +1,6 @@
 # AnyDSL implementation of a neighborlist cutoff scheme optimized for SIMD and GPU architectures
 
-This repository contains a simple, fast, scalable and portable implementation in AnyDSL (https://anydsl.github.io/) for the Lennard-Jones potential using the miniMD benchmark tool as reference.
+This repository contains a simple, fast, scalable and portable implementation in AnyDSL (https://anydsl.github.io/) for particles short-range interactions simulations using the Lennard-Jones potential, it is entirely based on the miniMD micro-application benchmark.
 
 ## Building
 
