@@ -12,6 +12,3 @@ fn @is_cuda() -> bool { false }
 fn @is_opencl() -> bool { true }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
-
-fn @get_cluster_size() -> i32 {32}
-fn @get_alignment() -> i32 {4}
