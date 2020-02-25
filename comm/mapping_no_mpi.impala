@@ -3,11 +3,15 @@ struct CommOffsets {
     // Host send data
     send_buffer: Buffer,
     send_offsets: Buffer,
+    send_buffer_accelerator: Buffer,
+    send_offsets_accelerator: Buffer,
     send_noffsets: i32,
 
     // Host receive data
     recv_buffer: Buffer,
     recv_offsets: Buffer,
+    recv_buffer_accelerator: Buffer,
+    recv_offsets_accelerator: Buffer,
     recv_noffsets: i32,
 };
 
