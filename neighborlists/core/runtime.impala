@@ -183,10 +183,6 @@ extern fn md_get_number_of_particles() -> i32 {
     grid_.nparticles
 }
 
-extern fn md_report_memory_allocation() -> () {
-    report_memory_allocation();
-}
-
 extern fn md_report_iterations() -> () {
     let mut res: i64;
     let is_root = world_rank == 0;

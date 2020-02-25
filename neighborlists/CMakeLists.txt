@@ -12,12 +12,12 @@ endif()
 string(TOLOWER "${BACKEND}" BACKEND)
 message(STATUS "Selected backend: ${BACKEND}")
 
-set(BACKEND_FILE backend_${BACKEND}.impala)
+set(BACKEND_FILE backend/backend_${BACKEND}.impala)
 
 if(BACKEND STREQUAL "nvvm")
-    set(MAPPING_FILE mapping_gpu.impala)
+    set(MAPPING_FILE backend/mapping_gpu.impala)
 else()
-    set(MAPPING_FILE mapping_cpu.impala)
+    set(MAPPING_FILE backend/mapping_cpu.impala)
 endif()
 
 option(USE_SOA "USE_SOA" ON)
@@ -27,34 +27,46 @@ option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" OFF)
 option(BODY_COLLISION_TEST "BODY_COLLISION_TEST" OFF)
 
 # Just use -march=native when compiling and executing in the same machine
-#set(CLANG_FLAGS -march=native)
-set(CLANG_FLAGS)
+set(CLANG_FLAGS -O3 -march=native)
 set(IMPALA_FLAGS --log-level warn)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
 if(USE_SOA)
-    set(ARRAY_3D_FILES mapping_soa.impala)
+    set(DATA_LAYOUT_FILE data_layout/mapping_soa.impala)
 else()
-    set(ARRAY_3D_FILES mapping_aos.impala)
+    set(DATA_LAYOUT_FILE data_layout/mapping_aos.impala)
 endif()
 
 if(USE_MPI)
-    set(MPI_FILES mpi.impala mapping_mpi.impala)
-    set(MPI_CPP "mpi.cpp")
+    set(MPI_FILES comm/mpi.impala comm/mapping_mpi.impala)
+    set(MPI_CPP comm/mpi.cpp)
 else()
-    set(MPI_FILES mapping_no_mpi.impala)
+    set(MPI_FILES comm/mapping_no_mpi.impala)
     set(MPI_CPP "")
 endif()
 
-# examples based on the "mapping"
-anydsl_runtime_wrap(MD_PROGRAM
+set(MD_SRCS
+    core/compute.impala
+    core/grid.impala
+    core/lennard_jones.impala
+    core/neighborlist.impala
+    core/runtime.impala
+    utils/atomic.impala
+    utils/definitions.impala
+    utils/utilities.impala
+    utils/utilities_accelerator.impala
+    ${DATA_LAYOUT_FILE}
+    ${BACKEND_FILE}
+    ${MAPPING_FILE}
+    ${MPI_FILES})
+
+anydsl_runtime_wrap(MD_OBJS
     CLANG_FLAGS ${CLANG_FLAGS}
     IMPALA_FLAGS ${IMPALA_FLAGS}
     NAME md
-    FILES
-    definitions.impala ${BACKEND_FILE} ${MAPPING_FILE} ${ARRAY_3D_FILES} ${MPI_FILES} utilities.impala utilities_accelerator.impala atomic.impala count_flops/${COUNT_FLOPS}.impala grid.impala neighborlist.impala compute.impala lennard_jones.impala energy.impala runtime.impala memory.impala)
+    FILES ${MD_SRCS})
 
-add_executable(md main.cpp force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_PROGRAM})
+add_executable(md main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_OBJS})
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
 set_target_properties(md PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(md PROPERTIES CXX_STANDARD 14)
