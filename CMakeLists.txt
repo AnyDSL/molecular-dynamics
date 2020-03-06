@@ -5,6 +5,7 @@ project(molecular-dynamics CXX)
 
 find_package(AnyDSL_runtime REQUIRED)
 include_directories(${AnyDSL_runtime_INCLUDE_DIRS})
+
 set(BACKEND ${BACKEND} CACHE STRING "select the cpu backend from the following: cpu, avx, avx512, nvvm")
 if(NOT BACKEND)
     set(BACKEND cpu CACHE STRING "select the cpu backend from the following: cpu, avx, avx512, nvvm" FORCE)
@@ -19,6 +20,13 @@ if(BACKEND STREQUAL "nvvm")
 else()
     set(MAPPING_FILE backend/mapping_cpu.impala)
 endif()
+
+set(COMM_MAPPING ${COMM_MAPPING} CACHE STRING "select the MPI mapping from the following: anydsl, mesapd, nompi")
+if(NOT COMM_MAPPING)
+    set(COMM_MAPPING anydsl CACHE STRING "select the MPI mapping from the following: anydsl, mesapd, nompi" FORCE)
+endif()
+
+set(COMM_MAPPING_FILE comm/mapping_${COMM_MAPPING}.impala)
 
 option(USE_SOA "USE_SOA" ON)
 option(USE_MPI "USE_MPI" ON)
@@ -37,11 +45,11 @@ else()
     set(DATA_LAYOUT_FILE data_layout/mapping_aos.impala)
 endif()
 
-if(USE_MPI)
-    set(MPI_FILES comm/mpi.impala comm/mapping_mpi.impala)
+if(COMM_MAPPING STREQUAL "anydsl")
+    set(MPI_FILES comm/mpi.impala)
     set(MPI_CPP comm/mpi.cpp)
 else()
-    set(MPI_FILES comm/mapping_no_mpi.impala)
+    set(MPI_FILES "")
     set(MPI_CPP "")
 endif()
 
@@ -58,6 +66,7 @@ set(MD_SRCS
     ${DATA_LAYOUT_FILE}
     ${BACKEND_FILE}
     ${MAPPING_FILE}
+    ${COMM_MAPPING_FILE}
     ${MPI_FILES})
 
 anydsl_runtime_wrap(MD_OBJS
