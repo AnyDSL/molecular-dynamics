@@ -23,10 +23,6 @@ fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     range(lower, upper, body)
 }
 
-fn alloc_unaligned_cpu(size: i32) -> Buffer {
-    alloc_host(0, size)
-}
-
 fn @release_host(buf: Buffer) -> () {
     runtime_release_host(buf.device, buf.data)
 }

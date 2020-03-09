@@ -263,27 +263,27 @@ fn alloc_comm_offsets(
         *comm_offsets = CommOffsets {
             // Host send data
             send_buffer: cpu_allocate(neighs * send_capacity * 7 * sizeof[real_t]()),
-            send_neighbors: alloc_unaligned_cpu(neighs * sizeof[i32]()),
-            send_rank_offsets: alloc_cpu(neighs * sizeof[i32]()),
-            send_rank_lengths: alloc_cpu(neighs * sizeof[i32]()),
+            send_neighbors: cpu_allocate(neighs * sizeof[i32]()),
+            send_rank_offsets: cpu_allocate(neighs * sizeof[i32]()),
+            send_rank_lengths: cpu_allocate(neighs * sizeof[i32]()),
             send_offsets: cpu_allocate(neighs * send_capacity * sizeof[i32]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
             // Host receive data
             recv_buffer: cpu_allocate(neighs * recv_capacity * 7 * sizeof[real_t]()),
-            recv_neighbors: alloc_unaligned_cpu(neighs * sizeof[i32]()),
-            recv_rank_offsets: alloc_unaligned_cpu(neighs * sizeof[i32]()),
-            recv_rank_lengths: alloc_unaligned_cpu(neighs * sizeof[i32]()),
+            recv_neighbors: cpu_allocate(neighs * sizeof[i32]()),
+            recv_rank_offsets: cpu_allocate(neighs * sizeof[i32]()),
+            recv_rank_lengths: cpu_allocate(neighs * sizeof[i32]()),
             recv_offsets: cpu_allocate(neighs * recv_capacity * sizeof[i32]()),
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
-            send_exchg_buffer: alloc_unaligned_cpu(neighs * send_capacity * 7 * sizeof[real_t]()),
-            recv_exchg_buffer: alloc_unaligned_cpu(neighs * recv_capacity * 7 * sizeof[real_t]()),
-            send_rank_exchgs: alloc_unaligned_cpu(neighs * sizeof[i32]()),
-            recv_rank_exchgs: alloc_unaligned_cpu(neighs * sizeof[i32]()),
-            exchg_rank_offsets: alloc_unaligned_cpu(neighs * sizeof[i32]()),
+            send_exchg_buffer: cpu_allocate(neighs * send_capacity * 7 * sizeof[real_t]()),
+            recv_exchg_buffer: cpu_allocate(neighs * recv_capacity * 7 * sizeof[real_t]()),
+            send_rank_exchgs: cpu_allocate(neighs * sizeof[i32]()),
+            recv_rank_exchgs: cpu_allocate(neighs * sizeof[i32]()),
+            exchg_rank_offsets: cpu_allocate(neighs * sizeof[i32]()),
 
             // Accelerator send data
             send_buffer_accelerator: accelerator_allocate(neighs * send_capacity * 3 * sizeof[real_t]()),
@@ -294,7 +294,7 @@ fn alloc_comm_offsets(
             recv_offsets_accelerator: accelerator_allocate(neighs * recv_capacity * sizeof[i32]()),
 
             // PBC flags
-            pbc: alloc_unaligned_cpu(neighs * sizeof[i32]()),
+            pbc: cpu_allocate(neighs * sizeof[i32]()),
 
             // Number of neighbor ranks
             neighs: 0
