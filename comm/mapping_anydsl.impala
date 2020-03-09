@@ -33,10 +33,8 @@ struct CommOffsets {
     recv_buffer_accelerator: Buffer,
     recv_offsets_accelerator: Buffer,
 
-    // PBC flags
-    pbc: Buffer,
-
-    // Number of neighbors
+    // Maximun and current number of neighbors
+    max_neighs: i32,
     neighs: i32
 };
 
@@ -53,6 +51,9 @@ static mut yprev: i32;
 static mut ynext: i32;
 static mut zprev: i32;
 static mut znext: i32;
+
+// Maximum number of neighbor ranks
+fn @get_maximum_number_of_neighbors() -> i32 { 6 }
 
 // MPI barrier
 fn barrier() -> () {
@@ -258,58 +259,45 @@ fn alloc_comm_offsets(
     };
 
     if world_size > 1 && send_capacity > 0 && recv_capacity > 0 {
-        let neighs = 6;
+        let max_neighs = get_maximum_number_of_neighbors();
 
         *comm_offsets = CommOffsets {
             // Host send data
-            send_buffer: cpu_allocate(neighs * send_capacity * 7 * sizeof[real_t]()),
-            send_neighbors: cpu_allocate(neighs * sizeof[i32]()),
-            send_rank_offsets: cpu_allocate(neighs * sizeof[i32]()),
-            send_rank_lengths: cpu_allocate(neighs * sizeof[i32]()),
-            send_offsets: cpu_allocate(neighs * send_capacity * sizeof[i32]()),
+            send_buffer: cpu_allocate(max_neighs * send_capacity * 7 * sizeof[real_t]()),
+            send_neighbors: cpu_allocate(max_neighs * sizeof[i32]()),
+            send_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
+            send_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
+            send_offsets: cpu_allocate(max_neighs * send_capacity * sizeof[i32]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
             // Host receive data
-            recv_buffer: cpu_allocate(neighs * recv_capacity * 7 * sizeof[real_t]()),
-            recv_neighbors: cpu_allocate(neighs * sizeof[i32]()),
-            recv_rank_offsets: cpu_allocate(neighs * sizeof[i32]()),
-            recv_rank_lengths: cpu_allocate(neighs * sizeof[i32]()),
-            recv_offsets: cpu_allocate(neighs * recv_capacity * sizeof[i32]()),
+            recv_buffer: cpu_allocate(max_neighs * recv_capacity * 7 * sizeof[real_t]()),
+            recv_neighbors: cpu_allocate(max_neighs * sizeof[i32]()),
+            recv_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
+            recv_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
+            recv_offsets: cpu_allocate(max_neighs * recv_capacity * sizeof[i32]()),
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
-            send_exchg_buffer: cpu_allocate(neighs * send_capacity * 7 * sizeof[real_t]()),
-            recv_exchg_buffer: cpu_allocate(neighs * recv_capacity * 7 * sizeof[real_t]()),
-            send_rank_exchgs: cpu_allocate(neighs * sizeof[i32]()),
-            recv_rank_exchgs: cpu_allocate(neighs * sizeof[i32]()),
-            exchg_rank_offsets: cpu_allocate(neighs * sizeof[i32]()),
+            send_exchg_buffer: cpu_allocate(max_neighs * send_capacity * 7 * sizeof[real_t]()),
+            recv_exchg_buffer: cpu_allocate(max_neighs * recv_capacity * 7 * sizeof[real_t]()),
+            send_rank_exchgs: cpu_allocate(max_neighs * sizeof[i32]()),
+            recv_rank_exchgs: cpu_allocate(max_neighs * sizeof[i32]()),
+            exchg_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
 
             // Accelerator send data
-            send_buffer_accelerator: accelerator_allocate(neighs * send_capacity * 3 * sizeof[real_t]()),
-            send_offsets_accelerator: accelerator_allocate(neighs * send_capacity * sizeof[i32]()),
+            send_buffer_accelerator: accelerator_allocate(max_neighs * send_capacity * 3 * sizeof[real_t]()),
+            send_offsets_accelerator: accelerator_allocate(max_neighs * send_capacity * sizeof[i32]()),
 
             // Accelerator receive data
-            recv_buffer_accelerator: accelerator_allocate(neighs * recv_capacity * 3 * sizeof[real_t]()),
-            recv_offsets_accelerator: accelerator_allocate(neighs * recv_capacity * sizeof[i32]()),
+            recv_buffer_accelerator: accelerator_allocate(max_neighs * recv_capacity * 3 * sizeof[real_t]()),
+            recv_offsets_accelerator: accelerator_allocate(max_neighs * recv_capacity * sizeof[i32]()),
 
-            // PBC flags
-            pbc: cpu_allocate(neighs * sizeof[i32]()),
-
-            // Number of neighbor ranks
+            // Maximum and current number of neighbor ranks
+            max_neighs: max_neighs,
             neighs: 0
         };
-
-        let send_neighbors = get_array_of_i32(comm_offsets.send_neighbors);
-        let recv_neighbors = get_array_of_i32(comm_offsets.recv_neighbors);
-        let pbc_array = get_array_of_i32(comm_offsets.pbc);
-
-        communication_nodes(world_size, world_rank, grid, |send_rank, recv_rank, pbc, _, _| {
-            send_neighbors(comm_offsets.neighs) = send_rank;
-            recv_neighbors(comm_offsets.neighs) = recv_rank;
-            pbc_array(comm_offsets.neighs) = pbc;
-            comm_offsets.neighs++;
-        });
 
         assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
@@ -347,7 +335,6 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.recv_rank_exchgs);
     }
 
-    release(comm_offsets.pbc);
     release(comm_offsets.exchg_rank_offsets);
 }
 
@@ -663,9 +650,10 @@ fn exchange_ghost_layer_particles(
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
     let send_rank_exchgs =  get_array_of_i32(comm_offsets.send_rank_exchgs);
     let recv_rank_exchgs =  get_array_of_i32(comm_offsets.recv_rank_exchgs);
+    let send_neighbors = get_array_of_i32(comm_offsets.send_neighbors);
+    let recv_neighbors = get_array_of_i32(comm_offsets.recv_neighbors);
     let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
     let recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
-    let pbc_array = get_array_of_i32(comm_offsets.pbc);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
     let mut isend = 0;
@@ -674,7 +662,7 @@ fn exchange_ghost_layer_particles(
     let mut buffer_index = 0;
     let mut exchg_index = 0;
 
-    range(0, comm_offsets.neighs, |neigh| {
+    range(0, comm_offsets.max_neighs, |neigh| {
         send_rank_offsets(neigh) = -1;
         recv_rank_offsets(neigh) = -1;
         exchg_rank_offsets(neigh) = -1;
@@ -685,9 +673,13 @@ fn exchange_ghost_layer_particles(
     let mut neigh = 0;
 
     // Pack particles in each direction to exchange
-    communication_nodes(world_size, world_rank, grid, |_, _, _, pbc_adjust, check_send_condition| {
+    communication_nodes(world_size, world_rank, grid, |_, _, pbc, pbc_adjust, check_send_condition| {
         let mut particle_index = 0;
-        let pbc = pbc_array(neigh);
+
+        if neigh == comm_offsets.max_neighs {
+            print_string_with_rank("Problem: Maximum number of neighbors reached!");
+            return;
+        }
 
         exchg_rank_offsets(neigh) = iexchg;
 
@@ -718,9 +710,7 @@ fn exchange_ghost_layer_particles(
     neigh = 0;
 
     // Pack particles in each direction to send at other iterations
-    communication_nodes(world_size, world_rank, grid, |_, _, _, _, check_send_condition| {
-        let pbc = pbc_array(neigh);
-
+    communication_nodes(world_size, world_rank, grid, |_, _, pbc, _, check_send_condition| {
         send_rank_offsets(neigh) = isend;
 
         if pbc == 0 {
@@ -788,6 +778,10 @@ fn exchange_ghost_layer_particles(
 
         mpih.wait(&request, &mut status);
 
+        // Update ranks to send and receive during synchronization
+        send_neighbors(neigh) = send_rank;
+        recv_neighbors(neigh) = recv_rank;
+
         // Adjust receive offset data
         range(irecv, irecv + recv_rank_lengths(neigh), |i| { recv_offsets(i) = grid.nparticles + i; });
         irecv += recv_rank_lengths(neigh);
@@ -813,6 +807,7 @@ fn exchange_ghost_layer_particles(
         buffer_index = copy_buffer_data_to_grid(comm_offsets.recv_buffer, buffer_index, grid, recv_offsets(i));
     });
 
+    comm_offsets.neighs = neigh;
     comm_offsets.send_noffsets = isend;
     comm_offsets.recv_noffsets = irecv;
     transfer_between_devices(comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
