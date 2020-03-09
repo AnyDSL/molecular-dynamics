@@ -12,6 +12,7 @@ struct Grid {
     nx: i32, // number of cells in x dimension
     ny: i32, // number of cells in y dimension
     nz: i32, // number of cells in z dimension
+    ncells_capacity: i32, // capacity of cell amount in the grid
     particle_capacity: i32, // particle capacity in grid
     cell_capacity: i32, // cell capacity in grid
     neighborlist_capacity: i32, // capacity of the neighborlists arrays
@@ -66,7 +67,8 @@ fn allocate_grid(
     let nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
 
     let ncells = nx * ny * nz;
-    let particle_capacity = ncells * 32;
+    let ncells_capacity = ncells * 4;
+    let particle_capacity = ncells_capacity * 32;
     let neighbors_capacity = particle_capacity * neighborlist_capacity;
 
     let null_buf = Buffer {
@@ -80,6 +82,7 @@ fn allocate_grid(
         nx: nx,
         ny: ny,
         nz: nz,
+        ncells_capacity: ncells_capacity,
         particle_capacity: particle_capacity,
         cell_capacity: cell_capacity,
         neighborlist_capacity: neighborlist_capacity,
@@ -91,8 +94,8 @@ fn allocate_grid(
         zlength: world_aabb.zmax - world_aabb.zmin,
         spacing: cell_spacing,
 
-        cell_particles_cpu: cpu_allocate(ncells * cell_capacity * sizeof[i32]()),
-        cell_sizes_cpu: cpu_allocate(ncells * sizeof[i32]()),
+        cell_particles_cpu: cpu_allocate(ncells_capacity * cell_capacity * sizeof[i32]()),
+        cell_sizes_cpu: cpu_allocate(ncells_capacity * sizeof[i32]()),
         particles_cell_cpu: cpu_allocate(particle_capacity * sizeof[i32]()),
         masses_cpu: cpu_allocate(particle_capacity * sizeof[real_t]()),
         positions_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
@@ -103,8 +106,8 @@ fn allocate_grid(
         neighbors_sizes_cpu: cpu_allocate(particle_capacity * sizeof[i32]()),
         neighborlists_cpu: cpu_allocate(neighbors_capacity * sizeof[i32]()),
 
-        cell_particles_accelerator: accelerator_allocate(ncells * cell_capacity * sizeof[i32]()),
-        cell_sizes_accelerator: accelerator_allocate(ncells * sizeof[i32]()),
+        cell_particles_accelerator: accelerator_allocate(ncells_capacity * cell_capacity * sizeof[i32]()),
+        cell_sizes_accelerator: accelerator_allocate(ncells_capacity * sizeof[i32]()),
         particles_cell_accelerator: accelerator_allocate(particle_capacity * sizeof[i32]()),
         masses_accelerator: accelerator_allocate(particle_capacity * sizeof[real_t]()),
         positions_accelerator: accelerator_allocate_3d_arrays(particle_capacity),
@@ -125,6 +128,18 @@ fn allocate_grid(
     assign_accelerator_buffer(&mut grid.neighborlists_cpu, grid.neighborlists_accelerator);
 
     grid
+}
+
+fn rescale_grid(grid: &mut Grid, aabb: AABB) -> () {
+    grid.aabb = aabb;
+    grid.nx = real_floor(((aabb.xmax - aabb.xmin + (grid.spacing / (2.0 as real_t))) / grid.spacing)) as i32 + 1;
+    grid.ny = real_floor(((aabb.ymax - aabb.ymin + (grid.spacing / (2.0 as real_t))) / grid.spacing)) as i32 + 1;
+    grid.nz = real_floor(((aabb.zmax - aabb.zmin + (grid.spacing / (2.0 as real_t))) / grid.spacing)) as i32 + 1;
+    grid.ncells = grid.nx * grid.ny * grid.nz;
+
+    if grid.ncells > grid.ncells_capacity {
+        reallocate_ncells_capacity(grid, grid.ncells * 4);
+    }
 }
 
 fn deallocate_grid(grid: Grid) -> () {
@@ -178,7 +193,7 @@ fn reallocate_cell_buffer(
     elem_size: i32,
     allocate: fn(i32) -> Buffer) -> () {
 
-    let new_buffer = allocate(capacity * grid.ncells * elem_size);
+    let new_buffer = allocate(capacity * grid.ncells_capacity * elem_size);
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
     range(0, grid.ncells, |cell_index| {
@@ -213,6 +228,28 @@ fn reallocate_cell_3d_arrays(
 
     deallocate_3d_arrays(*array);
     *array = new_array;
+}
+
+// Do not preserve data in buffers
+fn reallocate_ncells_capacity(grid: &mut Grid, capacity: i32) -> () {
+    print_string("begin reallocate_ncells_capacity(");
+    print_i32(capacity);
+    print_string(")\n");
+    print_flush();
+
+    release(grid.cell_particles_cpu);
+    release(grid.cell_sizes_cpu);
+    release(grid.cell_particles_accelerator);
+    release(grid.cell_sizes_accelerator);
+
+    grid.cell_particles_cpu = cpu_allocate(capacity * grid.cell_capacity * sizeof[i32]());
+    grid.cell_sizes_cpu = cpu_allocate(capacity * sizeof[i32]());
+    grid.cell_particles_accelerator = accelerator_allocate(capacity * grid.cell_capacity * sizeof[i32]());
+    grid.cell_sizes_accelerator = accelerator_allocate(capacity * sizeof[i32]());
+    grid.ncells_capacity = capacity;
+
+    print_string("end reallocate_ncells_capacity\n");
+    print_flush();
 }
 
 fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
@@ -263,7 +300,7 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     reallocate_cell_buffer(grid, &mut grid.cell_particles_cpu, capacity, sizeof[i32](), alloc_cpu);
 
     release(grid.cell_particles_accelerator);
-    grid.cell_particles_accelerator = accelerator_allocate(capacity * grid.ncells * sizeof[i32]());
+    grid.cell_particles_accelerator = accelerator_allocate(capacity * grid.ncells_capacity * sizeof[i32]());
     grid.cell_capacity = capacity;
 
     print_string("end reallocate_cell_capacity\n");
