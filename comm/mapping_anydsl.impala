@@ -332,8 +332,8 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, world_ran
         };
 
         assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
-        assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
+        assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
     }
 }
