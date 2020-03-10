@@ -31,20 +31,21 @@ fn append_neighbor(grid: Grid, particle_index: i32, neighbor_index: i32, resize:
 }
 
 fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
-    let const_grid = *grid; // This ugly const reference is necessary to avoid compilation errors
-    let cell_particles = get_cell_particles(const_grid);
-    let cell_sizes = get_cell_sizes(const_grid);
-    let particles_cell = get_particles_cell(const_grid);
-    let neighbors_sizes = get_neighbors_sizes(const_grid);
-
-    let ncells = grid.ncells;
-    let cell_capacity = grid.cell_capacity;
-    let nx = grid.nx;
-    let ny = grid.ny;
-    let squared_cutoff_distance = cutoff_distance * cutoff_distance;
     let mut resize = 1;
 
     while resize > 0 {
+        let const_grid = *grid; // This ugly const reference is necessary to avoid compilation errors
+        let cell_particles = get_cell_particles(const_grid);
+        let cell_sizes = get_cell_sizes(const_grid);
+        let particles_cell = get_particles_cell(const_grid);
+        let neighbors_sizes = get_neighbors_sizes(const_grid);
+
+        let ncells = grid.ncells;
+        let cell_capacity = grid.cell_capacity;
+        let nx = grid.nx;
+        let ny = grid.ny;
+        let squared_cutoff_distance = cutoff_distance * cutoff_distance;
+
         resize = 0;
 
         loop_accelerator(const_grid, |particle_index, neighborlists, nb_list_size, nb_list_offset| {
