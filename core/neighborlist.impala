@@ -92,8 +92,7 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
         });
 
         if resize > 0 {
-            let extension = resize / 10 + 1;
-            reallocate_neighborlist_capacity(grid, grid.neighborlist_capacity + select(extension > 4, extension, 4));
+            reallocate_neighborlist_capacity(grid, resize * 2);
         }
     }
 }
