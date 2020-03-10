@@ -52,8 +52,57 @@ static mut ynext: i32;
 static mut zprev: i32;
 static mut znext: i32;
 
+// Mirrored communication (avoid deadlocks)
+fn @mirror_comm(
+    xoffset: i32,
+    yoffset: i32,
+    zoffset: i32,
+    body: fn(i32, i32, i32) -> ()) -> () {
+
+    @@body(xoffset, yoffset, zoffset);
+    @@body(-xoffset, -yoffset, -zoffset);
+}
+
 // Maximum number of neighbor ranks
 fn @get_maximum_number_of_neighbors() -> i32 { 6 }
+
+// PBC functions
+fn xnext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x -= grid.xlength; }
+fn xprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x += grid.xlength; }
+fn ynext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y -= grid.ylength; }
+fn yprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y += grid.ylength; }
+fn znext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.z -= grid.zlength; }
+fn zprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.z += grid.zlength; }
+
+// Send condition functions
+fn xnext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x > grid.aabb.xmax - grid.spacing * 2.0 }
+fn xprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x < grid.aabb.xmin + grid.spacing * 2.0 }
+fn ynext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y > grid.aabb.ymax - grid.spacing * 2.0 }
+fn yprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y < grid.aabb.ymin + grid.spacing * 2.0 }
+fn znext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z > grid.aabb.zmax - grid.spacing * 2.0 }
+fn zprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z < grid.aabb.zmin + grid.spacing * 2.0 }
+
+type PBCFunc = fn(&mut Vector3D, &Grid) -> ();
+type CondFunc = fn(Vector3D, &Grid) -> bool;
+type CommFunc = fn(i32, i32, i32, PBCFunc, CondFunc) -> ();
+
+// Communication pattern using 6-stencil neighbors
+fn communication_nodes(world_size: i32, rank: i32, grid: &Grid, body: CommFunc) -> () {
+    if gx > 1 {
+        @@body(xnext, xprev, select(myloc(0) == gx - 1, 1, 0), xnext_adjust_pbc, xnext_send_condition);
+        @@body(xprev, xnext, select(myloc(0) == 0, 1, 0),      xprev_adjust_pbc, xprev_send_condition);
+    }
+
+    if gy > 1 {
+        @@body(ynext, yprev, select(myloc(1) == gy - 1, 1, 0), ynext_adjust_pbc, ynext_send_condition);
+        @@body(yprev, ynext, select(myloc(1) == 0, 1, 0),      yprev_adjust_pbc, yprev_send_condition);
+    }
+
+    if gz > 1 {
+        @@body(znext, zprev, select(myloc(2) == gz - 1, 1, 0), znext_adjust_pbc, znext_send_condition);
+        @@body(zprev, znext, select(myloc(2) == 0, 1, 0),      zprev_adjust_pbc, zprev_send_condition);
+    }
+}
 
 // MPI barrier
 fn barrier() -> () {
@@ -215,17 +264,6 @@ fn print_aabb_with_rank(field: &[u8], value: AABB) -> () {
     print_flush();
 }
 
-// Mirrored communication (avoid deadlocks)
-fn @mirror_comm(
-    xoffset: i32,
-    yoffset: i32,
-    zoffset: i32,
-    body: fn(i32, i32, i32) -> ()) -> () {
-
-    @@body(xoffset, yoffset, zoffset);
-    @@body(-xoffset, -yoffset, -zoffset);
-}
-
 // Initialize MPI and defined data structures for communication
 fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () {
     let mpih = mpi();
@@ -244,14 +282,7 @@ fn mpi_finalize() -> () {
 }
 
 // Allocate communication buffers
-fn alloc_comm_offsets(
-    grid: &Grid,
-    comm_offsets: &mut CommOffsets,
-    world_size: i32,
-    world_rank: i32,
-    send_capacity: i32,
-    recv_capacity: i32) -> () {
-
+fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, world_rank: i32, send_capacity: i32, recv_capacity: i32) -> () {
     let null_buf = Buffer {
         device: 0,
         data: 0 as &[i8],
@@ -263,36 +294,36 @@ fn alloc_comm_offsets(
 
         *comm_offsets = CommOffsets {
             // Host send data
-            send_buffer: cpu_allocate(max_neighs * send_capacity * 7 * sizeof[real_t]()),
+            send_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
             send_neighbors: cpu_allocate(max_neighs * sizeof[i32]()),
             send_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
             send_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
-            send_offsets: cpu_allocate(max_neighs * send_capacity * sizeof[i32]()),
+            send_offsets: cpu_allocate(send_capacity * sizeof[i32]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
             // Host receive data
-            recv_buffer: cpu_allocate(max_neighs * recv_capacity * 7 * sizeof[real_t]()),
+            recv_buffer: cpu_allocate(recv_capacity * 7 * sizeof[real_t]()),
             recv_neighbors: cpu_allocate(max_neighs * sizeof[i32]()),
             recv_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
             recv_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
-            recv_offsets: cpu_allocate(max_neighs * recv_capacity * sizeof[i32]()),
+            recv_offsets: cpu_allocate(recv_capacity * sizeof[i32]()),
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
-            send_exchg_buffer: cpu_allocate(max_neighs * send_capacity * 7 * sizeof[real_t]()),
-            recv_exchg_buffer: cpu_allocate(max_neighs * recv_capacity * 7 * sizeof[real_t]()),
+            send_exchg_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
+            recv_exchg_buffer: cpu_allocate(recv_capacity * 7 * sizeof[real_t]()),
             send_rank_exchgs: cpu_allocate(max_neighs * sizeof[i32]()),
             recv_rank_exchgs: cpu_allocate(max_neighs * sizeof[i32]()),
             exchg_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
 
             // Accelerator send data
-            send_buffer_accelerator: accelerator_allocate(max_neighs * send_capacity * 3 * sizeof[real_t]()),
-            send_offsets_accelerator: accelerator_allocate(max_neighs * send_capacity * sizeof[i32]()),
+            send_buffer_accelerator: accelerator_allocate(send_capacity * 3 * sizeof[real_t]()),
+            send_offsets_accelerator: accelerator_allocate(send_capacity * sizeof[i32]()),
 
             // Accelerator receive data
-            recv_buffer_accelerator: accelerator_allocate(max_neighs * recv_capacity * 3 * sizeof[real_t]()),
-            recv_offsets_accelerator: accelerator_allocate(max_neighs * recv_capacity * sizeof[i32]()),
+            recv_buffer_accelerator: accelerator_allocate(recv_capacity * 3 * sizeof[real_t]()),
+            recv_offsets_accelerator: accelerator_allocate(recv_capacity * sizeof[i32]()),
 
             // Maximum and current number of neighbor ranks
             max_neighs: max_neighs,
@@ -338,57 +369,52 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     release(comm_offsets.exchg_rank_offsets);
 }
 
-fn resize_comm_offsets(
-    grid: &Grid,
-    comm_offsets: &mut CommOffsets,
-    world_size: i32,
-    world_rank: i32,
-    send_capacity: i32,
-    recv_capacity: i32) -> () {
+fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> () {
+    print_string("begin resize_send_capacity(");
+    print_i32(send_capacity);
+    print_string(")\n");
+    print_flush();
 
-    if send_capacity > comm_offsets.send_capacity || recv_capacity > comm_offsets.recv_capacity {
-        let new_send_capacity = math.max(send_capacity, comm_offsets.send_capacity);
-        let new_recv_capacity = math.max(recv_capacity, comm_offsets.recv_capacity);
+    reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_exchg_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
 
-        release_comm_offsets(*comm_offsets);
-        alloc_comm_offsets(grid, comm_offsets, world_size, world_rank, new_send_capacity, new_recv_capacity);
-    }
+    release(comm_offsets.send_buffer_accelerator);
+    release(comm_offsets.send_offsets_accelerator);
+
+    comm_offsets.send_buffer_accelerator = accelerator_allocate(send_capacity * 3 * sizeof[real_t]());
+    comm_offsets.send_offsets_accelerator = accelerator_allocate(send_capacity * sizeof[i32]());
+    comm_offsets.send_capacity = send_capacity;
+
+    assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
+    assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
+
+    print_string("end resize_send_capacity\n");
+    print_flush();
 }
 
-fn xnext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x -= grid.xlength; }
-fn xprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x += grid.xlength; }
-fn ynext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y -= grid.ylength; }
-fn yprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.y += grid.ylength; }
-fn znext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.z -= grid.zlength; }
-fn zprev_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.z += grid.zlength; }
+fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> () {
+    print_string("begin resize_recv_capacity(");
+    print_i32(recv_capacity);
+    print_string(")\n");
+    print_flush();
 
-fn xnext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x > grid.aabb.xmax - grid.spacing * 2.0 }
-fn xprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.x < grid.aabb.xmin + grid.spacing * 2.0 }
-fn ynext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y > grid.aabb.ymax - grid.spacing * 2.0 }
-fn yprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.y < grid.aabb.ymin + grid.spacing * 2.0 }
-fn znext_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z > grid.aabb.zmax - grid.spacing * 2.0 }
-fn zprev_send_condition(pos: Vector3D, grid: &Grid) -> bool { pos.z < grid.aabb.zmin + grid.spacing * 2.0 }
+    reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_offsets, recv_capacity, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_exchg_buffer, recv_capacity * 7, sizeof[real_t](), true, cpu_allocate);
 
-type PBCFunc = fn(&mut Vector3D, &Grid) -> ();
-type CondFunc = fn(Vector3D, &Grid) -> bool;
-type CommFunc = fn(i32, i32, i32, PBCFunc, CondFunc) -> ();
+    release(comm_offsets.recv_buffer_accelerator);
+    release(comm_offsets.recv_offsets_accelerator);
 
-// Communication pattern using 6-stencil neighbors
-fn communication_nodes(world_size: i32, rank: i32, grid: &Grid, body: CommFunc) -> () {
-    if gx > 1 {
-        @@body(xnext, xprev, select(myloc(0) == gx - 1, 1, 0), xnext_adjust_pbc, xnext_send_condition);
-        @@body(xprev, xnext, select(myloc(0) == 0, 1, 0),      xprev_adjust_pbc, xprev_send_condition);
-    }
+    comm_offsets.recv_buffer_accelerator = accelerator_allocate(recv_capacity * 3 * sizeof[real_t]());
+    comm_offsets.recv_offsets_accelerator = accelerator_allocate(recv_capacity * sizeof[i32]());
+    comm_offsets.recv_capacity = recv_capacity;
 
-    if gy > 1 {
-        @@body(ynext, yprev, select(myloc(1) == gy - 1, 1, 0), ynext_adjust_pbc, ynext_send_condition);
-        @@body(yprev, ynext, select(myloc(1) == 0, 1, 0),      yprev_adjust_pbc, yprev_send_condition);
-    }
+    assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
 
-    if gz > 1 {
-        @@body(znext, zprev, select(myloc(2) == gz - 1, 1, 0), znext_adjust_pbc, znext_send_condition);
-        @@body(zprev, znext, select(myloc(2) == 0, 1, 0),      zprev_adjust_pbc, zprev_send_condition);
-    }
+    print_string("end resize_recv_capacity\n");
+    print_flush();
 }
 
 // Get configuration for nodes according to world size and number of
@@ -435,12 +461,7 @@ fn get_node_config(
 }
 
 // Get bounding box for current node
-fn @get_node_bounding_box(
-    world_size: i32,
-    rank: i32,
-    cell_spacing: real_t,
-    aabb: AABB) -> AABB {
-
+fn @get_node_bounding_box(world_size: i32, rank: i32, cell_spacing: real_t, aabb: AABB) -> AABB {
     let mpih = mpi();
 
     let mut xmin: real_t;
@@ -554,23 +575,14 @@ fn is_within_local_domain(position: Vector3D, grid: &Grid) -> bool {
 }
 
 // Initialize grid communication
-fn initialize_comm(
-    grid: &Grid,
-    comm_offsets: &mut CommOffsets,
-    world_size: i32,
-    world_rank: i32) -> () {
-
+fn initialize_comm(grid: &Grid, comm_offsets: &mut CommOffsets, world_size: i32, world_rank: i32) -> () {
+    let max_neighs = get_maximum_number_of_neighbors();
     let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz);
-    alloc_comm_offsets(grid, comm_offsets, world_size, world_rank, max_faces_dim * 20, max_faces_dim * 20);
+    alloc_comm_offsets(comm_offsets, world_size, world_rank, max_neighs * max_faces_dim * 20, max_neighs * max_faces_dim * 20);
 }
 
 // Synchronize ghost layer cells with neighbor ranks
-fn synchronize_ghost_layer_cells(
-    grid: Grid,
-    comm_offsets: CommOffsets,
-    world_size: i32,
-    world_rank: i32) -> () {
-
+fn synchronize_ghost_layer_cells(grid: Grid, comm_offsets: CommOffsets, world_size: i32, world_rank: i32) -> () {
     let mpih = mpi();
     let mut request: MPI_Request;
     let mut status: MPIStatus;
@@ -633,12 +645,7 @@ fn copy_buffer_data_to_grid(buffer: Buffer, buffer_index: i32, grid: &Grid, offs
 
 // Exchange ghost layer particles with neighbor ranks (here the number of
 // particles is also updated)
-fn exchange_ghost_layer_particles(
-    grid: &mut Grid,
-    comm_offsets: &mut CommOffsets,
-    world_size: i32,
-    world_rank: i32) -> () {
-
+fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, world_size: i32, world_rank: i32) -> () {
     let mpih = mpi();
     let mut request: MPI_Request;
     let mut status: MPIStatus;
@@ -694,6 +701,10 @@ fn exchange_ghost_layer_particles(
                     pbc_adjust(&mut pos, grid);
                 }
 
+                if iexchg > comm_offsets.send_capacity {
+                    resize_send_capacity(comm_offsets, iexchg * 2);
+                }
+
                 exchg_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_exchg_buffer, exchg_index);
                 delete_particle(particle_index, grid);
                 particle_index--;
@@ -713,6 +724,11 @@ fn exchange_ghost_layer_particles(
     communication_nodes(world_size, world_rank, grid, |_, _, pbc, _, check_send_condition| {
         send_rank_offsets(neigh) = isend;
 
+        if neigh == comm_offsets.max_neighs {
+            print_string_with_rank("Problem: Maximum number of neighbors reached!");
+            return;
+        }
+
         if pbc == 0 {
             range(0, grid.nparticles, |particle_index| {
                 let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
@@ -720,6 +736,11 @@ fn exchange_ghost_layer_particles(
                 if check_send_condition(pos, grid) {
                     let mass = get_real(particle_index, grid.masses_cpu);
                     let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
+
+                    if isend > comm_offsets.send_capacity {
+                        resize_send_capacity(comm_offsets, isend * 2);
+                    }
+
                     buffer_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_buffer, buffer_index);
                     send_offsets(isend++) = particle_index;
                 }
@@ -748,6 +769,11 @@ fn exchange_ghost_layer_particles(
         mpih.send(&mut send_rank_lengths(neigh) as MPI_MutBuf, 1, mpih.int_t, send_rank, 0, mpih.comms.world);
         mpih.recv(&mut recv_rank_lengths(neigh) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, &mut status);
 
+        // Readjust receive capacity if it is not enough
+        if irecv + recv_rank_lengths(neigh) > comm_offsets.recv_capacity {
+            resize_recv_capacity(comm_offsets, (irecv + recv_rank_lengths(neigh)) * 2);
+        }
+
         // Send data
         mpih.irecv(
             bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
@@ -764,6 +790,11 @@ fn exchange_ghost_layer_particles(
         // Exchange sizes
         mpih.send(&mut send_rank_exchgs(neigh) as MPI_MutBuf, 1, mpih.int_t, send_rank, 0, mpih.comms.world);
         mpih.recv(&mut recv_rank_exchgs(neigh) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, &mut status);
+
+        // Readjust receive capacity if it is not enough
+        if iexchg + recv_rank_exchgs(neigh) > comm_offsets.recv_capacity {
+            resize_recv_capacity(comm_offsets, (iexchg + recv_rank_exchgs(neigh)) * 2);
+        }
 
         mpih.irecv(
             bitcast[&mut[real_t]](&comm_offsets.recv_exchg_buffer.data(exchg_recv_offset)) as MPI_MutBuf,
@@ -817,20 +848,17 @@ fn exchange_ghost_layer_particles(
 fn reduce_time(local_time: f64, global_time: &mut f64) -> () {
     let mpih = mpi();
     let mut local = local_time;
-
     mpih.allreduce(&mut local as MPI_MutBuf, global_time as MPI_MutBuf, 1, mpih.double_t, mpih.ops.max, mpih.comms.world);
 }
 
 fn reduce_i32_sum(local_value: i32, global_value: &mut i32) -> () {
     let mpih = mpi();
     let mut local = local_value;
-
     mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.int_t, mpih.ops.sum, mpih.comms.world);
 }
 
 fn reduce_i64_sum(local_value: i64, global_value: &mut i64) -> () {
     let mpih = mpi();
     let mut local = local_value;
-
     mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.int64_t, mpih.ops.sum, mpih.comms.world);
 }

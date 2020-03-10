@@ -168,19 +168,25 @@ fn deallocate_grid(grid: Grid) -> () {
     release(grid.neighborlists_accelerator);
 }
 
-fn reallocate_particle_buffer(buffer: &mut Buffer, size: i32, elem_size: i32, allocate: fn(i32) -> Buffer) -> () {
+fn reallocate_buffer(buffer: &mut Buffer, size: i32, elem_size: i32, preserve: bool, allocate: fn(i32) -> Buffer) -> () {
     let new_buffer = allocate(size * elem_size);
 
-    copy(*buffer, new_buffer);
+    if preserve {
+        copy(*buffer, new_buffer);
+    }
+
     release(*buffer);
 
     *buffer = new_buffer;
 }
 
-fn reallocate_particle_3d_arrays(array: &mut Array3D, size: i32, particle_capacity: i32, allocate: fn(i32) -> Buffer) -> () {
+fn reallocate_3d_arrays(array: &mut Array3D, size: i32, capacity: i32, preserve: bool, allocate: fn(i32) -> Buffer) -> () {
     let new_array = allocate_3d_arrays(size, allocate);
 
-    copy_offset_3d_arrays(*array, 0, new_array, 0, particle_capacity);
+    if preserve {
+        copy_offset_3d_arrays(*array, 0, new_array, 0, capacity);
+    }
+
     deallocate_3d_arrays(*array);
 
     *array = new_array;
@@ -258,14 +264,14 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     print_string(")\n");
     print_flush();
 
-    reallocate_particle_buffer(&mut grid.particles_cell_cpu, capacity, sizeof[i32](), cpu_allocate);
-    reallocate_particle_buffer(&mut grid.masses_cpu, capacity, sizeof[real_t](), cpu_allocate);
-    reallocate_particle_3d_arrays(&mut grid.positions_cpu, capacity, grid.particle_capacity, cpu_allocate);
-    reallocate_particle_3d_arrays(&mut grid.velocities_cpu, capacity, grid.particle_capacity, cpu_allocate);
-    reallocate_particle_3d_arrays(&mut grid.positions_copy_cpu, capacity, grid.particle_capacity, cpu_allocate);
-    reallocate_particle_3d_arrays(&mut grid.velocities_copy_cpu, capacity, grid.particle_capacity, cpu_allocate);
-    reallocate_particle_3d_arrays(&mut grid.forces_cpu, capacity, grid.particle_capacity, cpu_allocate);
-    reallocate_particle_buffer(&mut grid.neighbors_sizes_cpu, capacity, sizeof[i32](), cpu_allocate);
+    reallocate_buffer(&mut grid.particles_cell_cpu, capacity, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut grid.masses_cpu, capacity, sizeof[real_t](), true, cpu_allocate);
+    reallocate_3d_arrays(&mut grid.positions_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
+    reallocate_3d_arrays(&mut grid.velocities_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
+    reallocate_3d_arrays(&mut grid.positions_copy_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
+    reallocate_3d_arrays(&mut grid.velocities_copy_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
+    reallocate_3d_arrays(&mut grid.forces_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
+    reallocate_buffer(&mut grid.neighbors_sizes_cpu, capacity, sizeof[i32](), true, cpu_allocate);
 
     release(grid.particles_cell_accelerator);
     release(grid.masses_accelerator);
