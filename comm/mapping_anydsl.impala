@@ -64,7 +64,7 @@ fn @mirror_comm(
 }
 
 // Maximum number of neighbor ranks
-fn @get_maximum_number_of_neighbors() -> i32 { 6 }
+fn @get_initial_maximum_neighbor_ranks() -> i32 { 30 }
 
 // PBC functions
 fn xnext_adjust_pbc(pos: &mut Vector3D, grid: &Grid) { pos.x -= grid.xlength; }
@@ -290,7 +290,7 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, world_ran
     };
 
     if world_size > 1 && send_capacity > 0 && recv_capacity > 0 {
-        let max_neighs = get_maximum_number_of_neighbors();
+        let max_neighs = get_initial_maximum_neighbor_ranks();
 
         *comm_offsets = CommOffsets {
             // Host send data
@@ -311,6 +311,7 @@ fn alloc_comm_offsets(comm_offsets: &mut CommOffsets, world_size: i32, world_ran
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
+            // Exchange data
             send_exchg_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
             recv_exchg_buffer: cpu_allocate(recv_capacity * 7 * sizeof[real_t]()),
             send_rank_exchgs: cpu_allocate(max_neighs * sizeof[i32]()),
@@ -367,6 +368,28 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     }
 
     release(comm_offsets.exchg_rank_offsets);
+}
+
+fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32) -> () {
+    print_string("begin resize_max_neighbors_capacity(");
+    print_i32(max_neighs);
+    print_string(")\n");
+    print_flush();
+
+    reallocate_buffer(&mut comm_offsets.send_neighbors, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_rank_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_rank_lengths, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_neighbors, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_rank_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_rank_lengths, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_rank_exchgs, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_rank_exchgs, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.exchg_rank_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
+
+    comm_offsets.max_neighs = max_neighs;
+
+    print_string("end resize_max_neighbors_capacity\n");
+    print_flush();
 }
 
 fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> () {
@@ -576,7 +599,7 @@ fn is_within_local_domain(position: Vector3D, grid: &Grid) -> bool {
 
 // Initialize grid communication
 fn initialize_comm(grid: &Grid, comm_offsets: &mut CommOffsets, world_size: i32, world_rank: i32) -> () {
-    let max_neighs = get_maximum_number_of_neighbors();
+    let max_neighs = get_initial_maximum_neighbor_ranks();
     let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz);
     alloc_comm_offsets(comm_offsets, world_size, world_rank, max_neighs * max_faces_dim * 20, max_neighs * max_faces_dim * 20);
 }
@@ -683,9 +706,8 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
     communication_nodes(world_size, world_rank, grid, |_, _, pbc, pbc_adjust, check_send_condition| {
         let mut particle_index = 0;
 
-        if neigh == comm_offsets.max_neighs {
-            print_string_with_rank("Problem: Maximum number of neighbors reached!");
-            return;
+        if neigh >= comm_offsets.max_neighs {
+            resize_max_neighbors_capacity(comm_offsets, neigh + 8);
         }
 
         exchg_rank_offsets(neigh) = iexchg;
@@ -701,7 +723,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
                     pbc_adjust(&mut pos, grid);
                 }
 
-                if iexchg > comm_offsets.send_capacity {
+                if iexchg >= comm_offsets.send_capacity {
                     resize_send_capacity(comm_offsets, iexchg * 2);
                 }
 
@@ -724,9 +746,8 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
     communication_nodes(world_size, world_rank, grid, |_, _, pbc, _, check_send_condition| {
         send_rank_offsets(neigh) = isend;
 
-        if neigh == comm_offsets.max_neighs {
-            print_string_with_rank("Problem: Maximum number of neighbors reached!");
-            return;
+        if neigh >= comm_offsets.max_neighs {
+            resize_max_neighbors_capacity(comm_offsets, neigh + 8);
         }
 
         if pbc == 0 {
@@ -737,7 +758,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
                     let mass = get_real(particle_index, grid.masses_cpu);
                     let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
 
-                    if isend > comm_offsets.send_capacity {
+                    if isend >= comm_offsets.send_capacity {
                         resize_send_capacity(comm_offsets, isend * 2);
                     }
 
@@ -770,7 +791,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
         mpih.recv(&mut recv_rank_lengths(neigh) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, &mut status);
 
         // Readjust receive capacity if it is not enough
-        if irecv + recv_rank_lengths(neigh) > comm_offsets.recv_capacity {
+        if irecv + recv_rank_lengths(neigh) >= comm_offsets.recv_capacity {
             resize_recv_capacity(comm_offsets, (irecv + recv_rank_lengths(neigh)) * 2);
         }
 
@@ -792,7 +813,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
         mpih.recv(&mut recv_rank_exchgs(neigh) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, &mut status);
 
         // Readjust receive capacity if it is not enough
-        if iexchg + recv_rank_exchgs(neigh) > comm_offsets.recv_capacity {
+        if iexchg + recv_rank_exchgs(neigh) >= comm_offsets.recv_capacity {
             resize_recv_capacity(comm_offsets, (iexchg + recv_rank_exchgs(neigh)) * 2);
         }
 
