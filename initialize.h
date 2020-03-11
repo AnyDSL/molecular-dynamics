@@ -35,6 +35,24 @@ double random(int* idum) {
     return ans;
 }
 
+AABB get_rank_aabb(AABB aabb) {
+    AABB rank_aabb;
+#ifdef USE_WALBERLA_LOAD_BALANCING
+    // TODO: get rank aabb with block forest
+#else
+    md_get_node_bounding_box(aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
+#endif
+    return rank_aabb;
+}
+
+bool is_within_aabb(Vector3D pos, AABB aabb) {
+    return (
+        pos.x >= aabb.min[0] && pos.x < aabb.max[0] - 0.00001 &&
+        pos.y >= aabb.min[1] && pos.y < aabb.max[1] - 0.00001 &&
+        pos.z >= aabb.min[2] && pos.z < aabb.max[2] - 0.00001
+    );
+}
+
 std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> generate_rectangular_grid(
     AABB aabb,
     AABB rank_aabb,
@@ -91,11 +109,8 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
             pos.y = aabb.min[1] + j * spacing[1];
             pos.z = aabb.min[2] + k * spacing[2];
 
-            if(
-                pos.x >= rank_aabb.min[0] && pos.x < rank_aabb.max[0] - 0.00001 &&
-                pos.y >= rank_aabb.min[1] && pos.y < rank_aabb.max[1] - 0.00001 &&
-                pos.z >= rank_aabb.min[2] && pos.z < rank_aabb.max[2] - 0.00001
-            ) {
+            // TODO: Check for block forest when using Walberla
+            if(is_within_aabb(pos, rank_aabb)) {
                 n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
 
                 for(m = 0; m < 5; m++) random(&n);
@@ -157,7 +172,6 @@ int init_rectangular_grid(
     int cell_capacity,
     int neighborlist_capacity) {
 
-    AABB rank_aabb;
     //seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937_64 random_engine(seed);
     std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
@@ -167,8 +181,7 @@ int init_rectangular_grid(
         velocity[i] = 0.0;
     }
 
-    md_get_node_bounding_box(cell_spacing, aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
-
+    auto rank_aabb = get_rank_aabb(aabb);
     auto tuple = generate_rectangular_grid(aabb, rank_aabb, spacing, 1.0, velocity);
     auto size = std::get<0>(tuple).size();
 
@@ -207,7 +220,7 @@ int init_body_collision(
         return 0;
     }
 
-    AABB aabb, rank_aabb;
+    AABB aabb;
 
     for(int d = 0; d < 3; ++d) {
         aabb.min[d] = std::min(aabb1.min[d], aabb2.min[d]) - 20;
@@ -225,8 +238,7 @@ int init_body_collision(
     velocity2[1] = velocity;
     velocity2[2] = 0;
 
-    md_get_node_bounding_box(cell_spacing, aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
-
+    auto rank_aabb = get_rank_aabb(aabb);
     auto tuple1 = generate_rectangular_grid(aabb1, rank_aabb, spacing1, mass1, velocity1);
     auto tuple2 = generate_rectangular_grid(aabb2, rank_aabb, spacing2, mass2, velocity2);
 

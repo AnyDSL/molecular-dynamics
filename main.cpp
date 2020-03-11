@@ -7,6 +7,16 @@
 #include "initialize.h"
 #include "time.h"
 #include "vtk.h"
+
+#ifdef USE_WALBERLA_LOAD_BALANCING
+#include <blockforest/BlockForest.h>
+#include <blockforest/Initialization.h>
+#include <blockforest/loadbalancing/DynamicCurve.h>
+#include <blockforest/loadbalancing/DynamicParMetis.h>
+#include <blockforest/loadbalancing/InfoCollection.h>
+#include <blockforest/loadbalancing/PODPhantomData.h>
+#endif
+
 #ifdef LIKWID_PERFMON
 #include <likwid.h>
 #else
@@ -121,7 +131,12 @@ int main(int argc, char **argv) {
     double const verlet_buffer = 0.3;
     int size;
 
+#ifdef USE_WALBERLA_LOAD_BALANCING
+    auto mpiManager = walberla::mpi::MPIManager::instance();
+    mpiManager->useWorldComm();
+#else
     md_mpi_initialize();
+#endif
 
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
@@ -286,7 +301,9 @@ int main(int argc, char **argv) {
         time_results[11].first
     );
 
+#ifndef USE_WALBERLA_LOAD_BALANCING
     md_mpi_finalize();
+#endif
 
     return EXIT_SUCCESS;
 }

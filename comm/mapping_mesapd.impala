@@ -29,13 +29,14 @@ fn print_real_vector_with_rank(field: &[u8], value: Vector3D) -> () {
     print_flush();
 }
 
+fn get_process_rank() -> i32 { 0 }
 fn barrier() -> () {}
-fn mpi_initialize(world_size: &mut i32, world_rank: &mut i32) -> () { *world_size = 1; *world_rank = 0; }
+fn mpi_initialize() -> () {}
 fn mpi_finalize() -> () {}
-fn initialize_comm(grid: &Grid, comm_offsets: &mut CommOffsets, world_size: i32, world_rank: i32) -> () {}
-fn synchronize_ghost_layer_cells(grid: Grid, comm_offsets: &CommOffsets, world_size: i32, world_rank: i32) -> () {}
-fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, world_size: i32, world_rank: i32) -> () {}
-fn @get_node_bounding_box(world_size: i32, rank: i32, cell_spacing: real_t, aabb: AABB) -> AABB { aabb }
+fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {}
+fn synchronize_ghost_layer_cells(grid: Grid, comm_offsets: &CommOffsets) -> () {}
+fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {}
+fn @get_node_bounding_box(aabb: AABB) -> AABB { aabb }
 fn extend_rank_domain(aabb: &mut AABB, cell_spacing: real_t) -> () {}
 fn reduce_time(local_time: f64, global_time: &mut f64) -> () { *global_time = local_time; }
 fn reduce_i32_sum(local_value: i32, global_value: &mut i32) -> () { *global_value = local_value; }
