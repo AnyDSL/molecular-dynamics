@@ -17,9 +17,10 @@ cmake .. -DAnyDSL_runtime_DIR="/path_to/anydsl/runtime/build/share/anydsl/cmake"
 There are several CMake options you can adjust before compilation, the most important ones are listed as follows:
 
 - **BACKEND:** Backend to compile the application, please use the following: cpu, avx, avx512 or nvvm (default is cpu).
-- **COMM\_MAPPING:** MPI variant, please use the following: anydsl, mesapd or nompi (default is anydsl).
+- **COMM\_MAPPING:** MPI variant, please use the following: anydsl or nompi (default is anydsl).
 - **USE\_SOA:** Set this option to OFF if you want to use the Array of Structs (AoS) data layout for particle positions, velocities and forces (default is ON).
 - **MONITOR\_ONLY\_FORCE\_COMPUTATION:** If you intend to use Likwid to instrument the force computation kernel and do performance monitoring, use this option to include the markers (default is OFF).
+- **USE\_WALBERLA\_LOAD\_BALANCING:** Enable this option to use the load balancing mechanism from Walberla, it must be installed (default is OFF).
 
 The Impala compiler generates Thorin intermediate representation that is further compiled using Clang/LLVM. If you want to do cross-compilation or experiment among different compilation flags you can change the CLANG\_FLAGS option.
 
