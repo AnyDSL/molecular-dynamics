@@ -8,6 +8,15 @@
 #include <chrono>
 #include <random>
 #include "anydsl_includes.h"
+//---
+#ifdef USE_WALBERLA_LOAD_BALANCING
+#include <blockforest/BlockForest.h>
+#include <blockforest/Initialization.h>
+#include <blockforest/loadbalancing/DynamicCurve.h>
+#include <blockforest/loadbalancing/DynamicParMetis.h>
+#include <blockforest/loadbalancing/InfoCollection.h>
+#include <blockforest/loadbalancing/PODPhantomData.h>
+#endif
 
 struct AABB {
 		double min[3];
@@ -37,28 +46,56 @@ double random(int* idum) {
 
 AABB get_rank_aabb(AABB aabb) {
     AABB rank_aabb;
-#ifdef USE_WALBERLA_LOAD_BALANCING
-    // TODO: get rank aabb with block forest
-#else
     md_get_node_bounding_box(aabb.min, aabb.max, &rank_aabb.min, &rank_aabb.max);
-#endif
     return rank_aabb;
 }
 
-bool is_within_aabb(Vector3D pos, AABB aabb) {
+bool is_within_aabb(double x, double y, double z, AABB aabb) {
     return (
-        pos.x >= aabb.min[0] && pos.x < aabb.max[0] - 0.00001 &&
-        pos.y >= aabb.min[1] && pos.y < aabb.max[1] - 0.00001 &&
-        pos.z >= aabb.min[2] && pos.z < aabb.max[2] - 0.00001
+        x >= aabb.min[0] && x < aabb.max[0] - 0.00001 &&
+        y >= aabb.min[1] && y < aabb.max[1] - 0.00001 &&
+        z >= aabb.min[2] && z < aabb.max[2] - 0.00001
     );
 }
 
+#ifdef USE_WALBERLA_LOAD_BALANCING
+AABB get_rank_aabb_from_block_forest(std::shared_ptr<walberla::BlockForest> forest) {
+    AABB rank_aabb;
+    auto aabb_union = forest->begin()->getAABB();
+
+    for(auto& iblock: *forest) {
+        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+        aabb_union.merge(block->getAABB());
+    }
+
+    rank_aabb.min[0] = aabb_union.xMin();
+    rank_aabb.max[0] = aabb_union.xMax();
+    rank_aabb.min[1] = aabb_union.yMin();
+    rank_aabb.max[1] = aabb_union.yMax();
+    rank_aabb.min[2] = aabb_union.zMin();
+    rank_aabb.max[2] = aabb_union.zMax();
+
+    return rank_aabb;
+}
+
+bool is_within_block_forest(double x, double y, double z, std::shared_ptr<walberla::BlockForest> forest) {
+    for(auto& iblock: *forest) {
+        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+
+        if(block->getAABB().contains(x, y, z)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+#endif
+
 std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> generate_rectangular_grid(
     AABB aabb,
-    AABB rank_aabb,
     double spacing[3],
     double const mass,
-    double velocity[3]) {
+    std::function<bool(double, double, double)> is_within_domain) {
 
     int nvertices[3];
     int nxyz[3];
@@ -75,9 +112,9 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
     std::vector<Vector3D> positions;
     std::vector<Vector3D> velocities;
 
-    for(int i = 0; i < 3; ++i) {
-        nvertices[i] = (aabb.max[i] - aabb.min[i]) / spacing[i];
-        nxyz[i] = nvertices[i] / 2;
+    for(std::size_t d = 0; d < 3; ++d) {
+        nvertices[d] = (int)((aabb.max[d] - aabb.min[d]) / spacing[d]);
+        nxyz[d] = nvertices[d] / 2;
     }
 
     int ilo = static_cast<int>(aabb.min[0] / spacing[0] - 1);
@@ -109,8 +146,7 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
             pos.y = aabb.min[1] + j * spacing[1];
             pos.z = aabb.min[2] + k * spacing[2];
 
-            // TODO: Check for block forest when using Walberla
-            if(is_within_aabb(pos, rank_aabb)) {
+            if(is_within_domain(pos.x, pos.y, pos.z)) {
                 n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
 
                 for(m = 0; m < 5; m++) random(&n);
@@ -164,26 +200,16 @@ std::tuple<std::vector<double>, std::vector<Vector3D>, std::vector<Vector3D>> ge
 }
 
 int init_rectangular_grid(
-    unsigned seed,
     AABB aabb,
+    AABB rank_aabb,
     double spacing[3],
-    double maximum_velocity,
     double cell_spacing,
     int cell_capacity,
-    int neighborlist_capacity) {
+    int neighborlist_capacity,
+    std::function<bool(double, double, double)> is_within_domain) {
 
-    //seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    std::mt19937_64 random_engine(seed);
-    std::uniform_real_distribution<double> distribution(-maximum_velocity, maximum_velocity);
-    double velocity[3];
-
-    for(int i = 0; i < 3; ++i) {
-        velocity[i] = 0.0;
-    }
-
-    auto rank_aabb = get_rank_aabb(aabb);
-    auto tuple = generate_rectangular_grid(aabb, rank_aabb, spacing, 1.0, velocity);
-    auto size = std::get<0>(tuple).size();
+    auto tuple = generate_rectangular_grid(aabb, spacing, 1.0, is_within_domain);
+    int size = (int) std::get<0>(tuple).size();
 
     return md_initialize_grid(
         std::get<0>(tuple).data(),
@@ -202,17 +228,15 @@ int init_rectangular_grid(
 
 
 int init_body_collision(
-    unsigned const seed,
+    AABB aabb,
     AABB aabb1,
     AABB aabb2,
-    double spacing1[3],
-    double spacing2[3],
-    double mass1,
-    double mass2,
-    double velocity,
+    AABB rank_aabb,
+    double spacing[3],
     double cell_spacing,
     int cell_capacity,
-    int neighborlist_capacity) {
+    int neighborlist_capacity,
+    std::function<bool(double, double, double)> is_within_domain) {
 
     if(aabb1.min[1] < aabb2.max[1]) {
         std::cerr << "The first bounding box must be located on top of the second!" << std::endl;
@@ -220,13 +244,7 @@ int init_body_collision(
         return 0;
     }
 
-    AABB aabb;
-
-    for(int d = 0; d < 3; ++d) {
-        aabb.min[d] = std::min(aabb1.min[d], aabb2.min[d]) - 20;
-        aabb.max[d] = std::max(aabb1.max[d], aabb2.max[d]) + 20;
-    }
-
+    /*
     double velocity1[3];
     double velocity2[3];
 
@@ -237,16 +255,16 @@ int init_body_collision(
     velocity2[0] = 0;
     velocity2[1] = velocity;
     velocity2[2] = 0;
+    */
 
-    auto rank_aabb = get_rank_aabb(aabb);
-    auto tuple1 = generate_rectangular_grid(aabb1, rank_aabb, spacing1, mass1, velocity1);
-    auto tuple2 = generate_rectangular_grid(aabb2, rank_aabb, spacing2, mass2, velocity2);
+    auto tuple1 = generate_rectangular_grid(aabb1, spacing, 1.0, is_within_domain);
+    auto tuple2 = generate_rectangular_grid(aabb2, spacing, 1.0, is_within_domain);
 
     std::get<0>(tuple1).insert(std::get<0>(tuple1).end(), std::get<0>(tuple2).begin(), std::get<0>(tuple2).end());
     std::get<1>(tuple1).insert(std::get<1>(tuple1).end(), std::get<1>(tuple2).begin(), std::get<1>(tuple2).end());
     std::get<2>(tuple1).insert(std::get<2>(tuple1).end(), std::get<2>(tuple2).begin(), std::get<2>(tuple2).end());
 
-    auto size = std::get<0>(tuple1).size();
+    int size = (int) std::get<0>(tuple1).size();
 
     return md_initialize_grid(
         std::get<0>(tuple1).data(),

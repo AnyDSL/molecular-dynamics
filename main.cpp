@@ -1,13 +1,15 @@
+#include <cstdint>
 #include <iostream>
 #include <fstream>
+#include <functional>
 #include <string>
-#include <cstdint>
 #include <utility>
+//---
 #include "anydsl_includes.h"
 #include "initialize.h"
 #include "time.h"
 #include "vtk.h"
-
+/*
 #ifdef USE_WALBERLA_LOAD_BALANCING
 #include <blockforest/BlockForest.h>
 #include <blockforest/Initialization.h>
@@ -16,7 +18,7 @@
 #include <blockforest/loadbalancing/InfoCollection.h>
 #include <blockforest/loadbalancing/PODPhantomData.h>
 #endif
-
+*/
 #ifdef LIKWID_PERFMON
 #include <likwid.h>
 #else
@@ -40,13 +42,15 @@ void print_usage(char *name) {
     std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
 }
 
-std::pair<double,double> get_time_statistics(std::vector<double> time, std::string name) {
+std::pair<double,double> get_time_statistics(std::vector<double> time) {
     double const mean = compute_mean(time);
     double const stdev = compute_standard_deviation(time, mean);
     return std::make_pair(mean, stdev);
 }
 
 int main(int argc, char **argv) {
+    using namespace std::placeholders;
+
     // Force flush to zero mode for denormals
 #if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
     _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
@@ -82,37 +86,42 @@ int main(int argc, char **argv) {
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
-    double const maximum_velocity = 1.0;
     double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
     //double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     double potential_minimum = 1.6796;
-    AABB aabb, aabb1, aabb2;
+    AABB aabb;
     double spacing[3];
-    double spacing1[3];
-    double spacing2[3];
 
-    for(int i = 0; i < 3; ++i) {
-        aabb.min[i] = 0;
-        aabb.max[i] = gridsize[i] * potential_minimum;
-        spacing[i] = potential_minimum / spacing_div_factor[i];
-    }
+#ifdef BODY_COLLISION_TEST
+    AABB aabb1, aabb2;
 
     // Body Collision Test
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
         aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
-        spacing1[i] = potential_minimum;
     }
 
     for(int i = 0; i < 3; ++i) {
         aabb2.min[i] = 50;
         aabb2.max[i] = 50 + gridsize[i] * potential_minimum;
-        spacing2[i] = potential_minimum;
     }
 
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
     aabb2.max[1] -= shift;
+#endif
+
+    for(int i = 0; i < 3; ++i) {
+#ifdef BODY_COLLISION_TEST
+        aabb.min[i] = std::min(aabb1.min[i], aabb2.min[i]) - 20;
+        aabb.max[i] = std::max(aabb1.max[i], aabb2.max[i]) + 20;
+        spacing[i] = potential_minimum;
+#else
+        aabb.min[i] = 0;
+        aabb.max[i] = gridsize[i] * potential_minimum;
+        spacing[i] = potential_minimum / spacing_div_factor[i];
+#endif
+    }
 
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
@@ -127,15 +136,30 @@ int main(int argc, char **argv) {
     std::vector<double> exchange_time(runs, 0);
     std::vector<double> barrier_time(runs, 0);
     double const factor = 1e-6;
-    md_set_thread_count(nthreads);
     double const verlet_buffer = 0.3;
     int size;
+
+    md_set_thread_count(nthreads);
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
     auto mpiManager = walberla::mpi::MPIManager::instance();
     mpiManager->useWorldComm();
+
+    walberla::math::AABB domain(
+        walberla::real_t(aabb.min[0]), walberla::real_t(aabb.min[1]), walberla::real_t(aabb.min[2]),
+        walberla::real_t(aabb.max[0]), walberla::real_t(aabb.max[1]), walberla::real_t(aabb.max[2]));
+
+    auto forest = walberla::blockforest::createBlockForest(
+        domain, walberla::Vector3<walberla::uint_t>(1, 1, 1), walberla::Vector3<bool>(true, true, true),
+        mpiManager->numProcesses(), walberla::uint_t(0));
+
+    auto rank_aabb = get_rank_aabb_from_block_forest(forest);
+    auto is_within_domain = std::bind(is_within_block_forest, _1, _2, _3, forest);
 #else
     md_mpi_initialize();
+
+    auto rank_aabb = get_rank_aabb(aabb);
+    auto is_within_domain = std::bind(is_within_aabb, _1, _2, _3, rank_aabb);
 #endif
 
     LIKWID_MARKER_INIT;
@@ -144,9 +168,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
 #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(0, aabb1, aabb2, spacing1, spacing2, 1, 1, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
+        size = init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
 #else
-        size = init_rectangular_grid(static_cast<unsigned>(i), aabb, spacing, maximum_velocity, cutoff_radius+verlet_buffer, 60, 100);
+        size = init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
 #endif
         auto end = measure_time();
         grid_initialization_time[i] = time_diff(begin, end) * factor;
@@ -271,18 +295,18 @@ int main(int argc, char **argv) {
 
     std::vector<std::pair<double,double>> time_results(12);
 
-    time_results[0] = get_time_statistics(grid_initialization_time, "grid_initialization ");
-    time_results[1] = get_time_statistics(integration_time, "integration");
-    time_results[2] = get_time_statistics(redistribution_time, "redistribution");
-    time_results[3] = get_time_statistics(cluster_initialization_time, "cluster_initialization");
-    time_results[4] = get_time_statistics(neighborlist_creation_time, "neighborlist_creation");
-    time_results[5] = get_time_statistics(force_computation_time, "force_computation");
-    time_results[6] = get_time_statistics(deallocation_time, "deallocation");
-    time_results[7] = get_time_statistics(copy_data_to_accelerator_time, "copy_data_to_accelerator");
-    time_results[8] = get_time_statistics(copy_data_from_accelerator_time, "copy_data_from_accelerator");
-    time_results[9] = get_time_statistics(synchronization_time, "synchronization");
-    time_results[10] = get_time_statistics(exchange_time, "exchange");
-    time_results[11] = get_time_statistics(barrier_time, "barrier");
+    time_results[0] = get_time_statistics(grid_initialization_time);
+    time_results[1] = get_time_statistics(integration_time);
+    time_results[2] = get_time_statistics(redistribution_time);
+    time_results[3] = get_time_statistics(cluster_initialization_time);
+    time_results[4] = get_time_statistics(neighborlist_creation_time);
+    time_results[5] = get_time_statistics(force_computation_time);
+    time_results[6] = get_time_statistics(deallocation_time);
+    time_results[7] = get_time_statistics(copy_data_to_accelerator_time);
+    time_results[8] = get_time_statistics(copy_data_from_accelerator_time);
+    time_results[9] = get_time_statistics(synchronization_time);
+    time_results[10] = get_time_statistics(exchange_time);
+    time_results[11] = get_time_statistics(barrier_time);
 
     double mean_sum = 0, stdev_sum = 0;
 
