@@ -143,6 +143,7 @@ int main(int argc, char **argv) {
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
     auto mpiManager = walberla::mpi::MPIManager::instance();
+    mpiManager->initializeMPI(&argc, &argv);
     mpiManager->useWorldComm();
 
     walberla::math::AABB domain(
