@@ -51,9 +51,9 @@ void print_usage(char *name) {
     std::cout << "\t-t, --threads=NUMBER      number of threads to run (default 1)." << std::endl;
     std::cout << "\t-c, --config=FILE         walberla configuration file (must be set when walberla load balancing is used)." << std::endl;
     std::cout << "\t-v, --vtk=DIRECTORY       VTK output directory (for MPI simulations, the rank number is concatenated" << std::endl;
-    std::cout << "\t                          in the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << std::endl;
+    std::cout << "\t                          at the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << std::endl;
     std::cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << std::endl;
-    std::cout << "\t-h                        display this help message." << std::endl;
+    std::cout << "\t-h, --help                display this help message." << std::endl;
 }
 
 std::pair<double,double> get_time_statistics(std::vector<double> time) {
@@ -87,6 +87,7 @@ int main(int argc, char **argv) {
         {"threads",   required_argument,    nullptr,    't'},
         {"config",    required_argument,    nullptr,    'c'},
         {"vtk",       required_argument,    nullptr,    'v'},
+        {"help",      no_argument,          nullptr,    'h'},
     };
 
     while((opt = getopt_long(argc, argv, "x:y:z:s:r:t:c:v:h", long_opts, nullptr)) != -1) {
