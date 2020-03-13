@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <utility>
+#include <getopt.h>
 //---
 #include "anydsl_includes.h"
 #include "initialize.h"
@@ -39,7 +40,20 @@
 #endif
 
 void print_usage(char *name) {
-    std::cout << "Usage: " << name << " x y z steps runs threads [-vtk directory]" << std::endl;
+    std::cout << "Usage: " << name << " [OPTION]..." << std::endl;
+    std::cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << std::endl << std::endl;
+    std::cout << "Mandatory arguments to long options are also mandatory for short options." << std::endl;
+    std::cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << std::endl;
+    std::cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << std::endl;
+    std::cout << "\t-z, --nz=SIZE             number of unit cells in z dimension (default 32)." << std::endl;
+    std::cout << "\t-s, --timesteps=NUMBER    number of timesteps in the simulation (default 100)." << std::endl;
+    std::cout << "\t-r, --runs=NUMBER         number of test runs (default 1)." << std::endl;
+    std::cout << "\t-t, --threads=NUMBER      number of threads to run (default 1)." << std::endl;
+    std::cout << "\t-c, --config=FILE         walberla configuration file (must be set when walberla load balancing is used)." << std::endl;
+    std::cout << "\t-v, --vtk=DIRECTORY       VTK output directory (for MPI simulations, the rank number is concatenated" << std::endl;
+    std::cout << "\t                          in the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << std::endl;
+    std::cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << std::endl;
+    std::cout << "\t-h                        display this help message." << std::endl;
 }
 
 std::pair<double,double> get_time_statistics(std::vector<double> time) {
@@ -56,32 +70,67 @@ int main(int argc, char **argv) {
     _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
 #endif
 
-    if(argc != 7 && argc != 9) {
-        print_usage(argv[0]);
-        return EXIT_FAILURE;
-    }
+    int gridsize[3] = {32, 32, 32};
+    int steps = 100;
+    int runs = 1;
+    int nthreads = 1;
+    std::string config_file;
+    std::string vtk_directory;
 
-    bool vtk = false;
+    int opt = 0;
+    struct option long_opts[] = {
+        {"nx",        required_argument,    nullptr,    'x'},
+        {"ny",        required_argument,    nullptr,    'y'},
+        {"nz",        required_argument,    nullptr,    'z'},
+        {"timesteps", required_argument,    nullptr,    's'},
+        {"runs",      required_argument,    nullptr,    'r'},
+        {"threads",   required_argument,    nullptr,    't'},
+        {"config",    required_argument,    nullptr,    'c'},
+        {"vtk",       required_argument,    nullptr,    'v'},
+    };
 
-    if(argc == 9) {
-        std::string argument(argv[7]);
+    while((opt = getopt_long(argc, argv, "x:y:z:s:r:t:c:v:h", long_opts, nullptr)) != -1) {
+        switch(opt) {
+            case 'x':
+                gridsize[0] = atoi(optarg);
+                break;
 
-        if(argument != "-vtk") {
-            print_usage(argv[0]);
-            return EXIT_FAILURE;
-        } else {
-            vtk = true;
+            case 'y':
+                gridsize[1] = atoi(optarg);
+                break;
+
+            case 'z':
+                gridsize[2] = atoi(optarg);
+                break;
+
+            case 's':
+                steps = atoi(optarg);
+                break;
+
+            case 'r':
+                runs = atoi(optarg);
+                break;
+
+            case 't':
+                nthreads = atoi(optarg);
+                break;
+
+            case 'c':
+                config_file = std::string(optarg);
+                break;
+
+            case 'v':
+                vtk_directory = std::string(optarg);
+                break;
+
+            case 'h':
+            case '?':
+            default:
+                print_usage(argv[0]);
+                return EXIT_FAILURE;
         }
     }
 
-    int gridsize[3];
-    gridsize[0] = atoi(argv[1]);
-    gridsize[1] = atoi(argv[2]);
-    gridsize[2] = atoi(argv[3]);
-    int const steps = atoi(argv[4]);
-    int const runs = atoi(argv[5]);
-    int const nthreads = atoi(argv[6]);
-    std::string output_directory;
     double dt = 1e-3;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
@@ -90,6 +139,7 @@ int main(int argc, char **argv) {
     double potential_minimum = 1.6796;
     AABB aabb;
     double spacing[3];
+    bool vtk = !vtk_directory.empty();
 
 #ifdef BODY_COLLISION_TEST
     AABB aabb1, aabb2;
@@ -163,6 +213,16 @@ int main(int argc, char **argv) {
     auto is_within_domain = std::bind(is_within_aabb, _1, _2, _3, rank_aabb);
 #endif
 
+    if(md_get_world_rank() == 0) {
+        std::cout << "Simulation settings:" << std::endl;
+        std::cout << "- Unit cells (x, y, z): " << gridsize[0] << ", " << gridsize[1] << ", " << gridsize[2] << std::endl;
+        std::cout << "- Number of timesteps: " << steps << std::endl;
+        std::cout << "- Number of runs: " << runs << std::endl;
+        std::cout << "- Number of threads: " << nthreads << std::endl;
+        std::cout << "- Walberla configuration file: " << (config_file.empty() ? "none" : config_file) << std::endl;
+        std::cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << std::endl << std::endl;
+    }
+
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
@@ -201,9 +261,9 @@ int main(int argc, char **argv) {
         std::vector<Vector3D> forces(size);
 
         if(vtk) {
-            output_directory = std::string(argv[8]) + std::to_string(md_get_world_rank()) + "/";
+            vtk_directory += std::to_string(md_get_world_rank()) + "/";
             md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
-            write_vtk_to_file(output_directory + "particles_0.vtk", masses, positions, velocities, forces);
+            write_vtk_to_file(vtk_directory + "particles_0.vtk", masses, positions, velocities, forces);
         }
 
         for(int j = 0; j < steps; ++j) {
@@ -269,7 +329,7 @@ int main(int argc, char **argv) {
 
                     md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
 
-                    std::string filename(output_directory + "particles_");
+                    std::string filename(vtk_directory + "particles_");
                     filename += std::to_string(j+1);
                     filename += ".vtk";
                     write_vtk_to_file(filename, masses, positions, velocities, forces);
