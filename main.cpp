@@ -86,7 +86,6 @@ int main(int argc, char **argv) {
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
-    double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
     //double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
     double potential_minimum = 1.6796;
     AABB aabb;
@@ -95,7 +94,6 @@ int main(int argc, char **argv) {
 #ifdef BODY_COLLISION_TEST
     AABB aabb1, aabb2;
 
-    // Body Collision Test
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
         aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
@@ -109,19 +107,21 @@ int main(int argc, char **argv) {
     double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
     aabb2.min[1] -= shift;
     aabb2.max[1] -= shift;
-#endif
 
     for(int i = 0; i < 3; ++i) {
-#ifdef BODY_COLLISION_TEST
         aabb.min[i] = std::min(aabb1.min[i], aabb2.min[i]) - 20;
         aabb.max[i] = std::max(aabb1.max[i], aabb2.max[i]) + 20;
         spacing[i] = potential_minimum;
+    }
 #else
+    double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
+
+    for(int i = 0; i < 3; ++i) {
         aabb.min[i] = 0;
         aabb.max[i] = gridsize[i] * potential_minimum;
         spacing[i] = potential_minimum / spacing_div_factor[i];
-#endif
     }
+#endif
 
     std::vector<double> grid_initialization_time(runs, 0);
     std::vector<double> copy_data_to_accelerator_time(runs, 0);
