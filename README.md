@@ -40,14 +40,15 @@ Currently, one testcase has been implemented based on miniMD setup. Particles ar
 
 Available options are:
 
-- **-x, --nx=SIZE:** Number of unit cells in x dimension.
-- **-y, --ny=SIZE:** Number of unit cells in y dimension.
-- **-z, --nz=SIZE:** Number of unit cells in z dimension.
-- **-s, --timesteps=NUMBER:** Number of time steps to be simulated.
-- **-r, --runs=NUMBER:** Number of test runs.
-- **-t, --threads=NUMBER:** Number of threads used for parallelization   
+- **-x, --nx=SIZE:** Number of unit cells in x dimension (default 32).
+- **-y, --ny=SIZE:** Number of unit cells in y dimension (default 32).
+- **-z, --nz=SIZE:** Number of unit cells in z dimension (default 32).
+- **-s, --timesteps=NUMBER:** Number of time steps to be simulated (default 100).
+- **-r, --runs=NUMBER:** Number of test runs (default 1).
+- **-t, --threads=NUMBER:** Number of threads used for parallelization (default 1).
 - **-c, --config=FILE:** Walberla configuration file (must be specified when using walberla load balancing).
 - **-v, --vtk=DIRECTORY:** If this argument is provided, vtk output files are created in the specified directory (it must exist). For MPI simulations, the rank number is concatenated in the end of this directory name. For example, if you use "--vtk output" in a simulation with 4 MPI ranks, then directories "output[0-3]" are used.
+- **-h, --help:** Display help message.
 
 Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4.
 
