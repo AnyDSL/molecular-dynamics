@@ -62,6 +62,53 @@ std::pair<double,double> get_time_statistics(std::vector<double> time) {
     return std::make_pair(mean, stdev);
 }
 
+#ifdef USE_WALBERLA_LOAD_BALANCING
+class NeighborhoodKey {
+    public:
+        NeighborhoodKey(walberla::uint_t rank_, walberla::uint_t pbc_x_, walberla::uint_t pbc_y_, walberla::uint_t pbc_z_) :
+        rank(rank_), pbc_x(pbc_x_), pbc_y(pbc_y_), pbc_z(pbc_z_) {}
+
+        walberla::uint_t getRank() const { return rank; }
+        walberla::uint_t getPbcX() const { return pbc_x; }
+        walberla::uint_t getPbcY() const { return pbc_y; }
+        walberla::uint_t getPbcZ() const { return pbc_z; }
+
+        bool operator<(const NeighborhoodKey& rhs) const {
+            return rank < rhs.getRank() || pbc_x < rhs.getPbcX() || pbc_y < rhs.getPbcY() || pbc_z < rhs.getPbcZ();
+        }
+
+    private:
+        walberla::uint_t rank, pbc_x, pbc_y, pbc_z;
+};
+
+auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> forest) {
+    std::map<NeighborhoodKey, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> neighborhood;
+    auto me = walberla::mpi::MPIManager::instance()->rank();
+
+    for(auto& iblock: *forest) {
+        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+
+        for(uint neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
+            auto neighbor_rank = walberla::int_c(block->getNeighborProcess(neigh));
+
+            if(neighbor_rank != me) {
+                NeighborhoodKey map_index(neighbor_rank, 0, 0, 0);
+                const walberla::BlockID& neighbor_block = block->getNeighborId(neigh);
+                walberla::math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
+                auto begin = neighborhood[map_index].begin();
+                auto end = neighborhood[map_index].end();
+
+                if(std::find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh.first == neighbor_block; }) == end) {
+                    neighborhood[map_index].push_back(std::make_pair(neighbor_block, neighbor_aabb));
+                }
+            }
+        }
+    }
+
+    return neighborhood;
+}
+#endif
+
 int main(int argc, char **argv) {
     using namespace std::placeholders;
 
@@ -202,11 +249,12 @@ int main(int argc, char **argv) {
         walberla::real_t(aabb.max[0]), walberla::real_t(aabb.max[1]), walberla::real_t(aabb.max[2]));
 
     auto forest = walberla::blockforest::createBlockForest(
-        domain, walberla::Vector3<walberla::uint_t>(1, 1, 1), walberla::Vector3<bool>(true, true, true),
+        domain, walberla::Vector3<walberla::uint_t>(1, 2, 8), walberla::Vector3<bool>(true, true, true),
         mpiManager->numProcesses(), walberla::uint_t(0));
 
     auto rank_aabb = get_rank_aabb_from_block_forest(forest);
     auto is_within_domain = std::bind(is_within_block_forest, _1, _2, _3, forest);
+    auto neighborhood = get_neighborhood_from_block_forest(forest);
 #else
     md_mpi_initialize();
 
