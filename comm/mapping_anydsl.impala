@@ -701,8 +701,8 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
                 let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
 
                 pos.x += pbc(0) as real_t * grid.xlength;
-                pos.y += pbc(1) as real_t * grid.xlength;
-                pos.z += pbc(2) as real_t * grid.xlength;
+                pos.y += pbc(1) as real_t * grid.ylength;
+                pos.z += pbc(2) as real_t * grid.zlength;
 
                 if iexchg >= comm_offsets.send_capacity {
                     resize_send_capacity(comm_offsets, iexchg * 2);
