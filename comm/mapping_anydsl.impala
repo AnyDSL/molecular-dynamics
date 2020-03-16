@@ -60,7 +60,7 @@ fn @get_initial_maximum_neighbor_ranks() -> i32 { 30 }
 
 // Types for condition and communication functions
 type CondFunc = fn(Vector3D, &Grid) -> bool;
-type CommFunc = fn(i32, i32, [i32 * 3], CondFunc) -> ();
+type CommFunc = fn(i32, i32, CondFunc) -> ();
 
 // Communication pattern using 6-stencil neighbors
 fn communication_ranks(body: CommFunc) -> () {
@@ -68,18 +68,18 @@ fn communication_ranks(body: CommFunc) -> () {
         // TODO: code for communication using walberla
     } else {
         if gx > 1 {
-            body(xnext, xprev, [select(myloc(0) == gx - 1, -1, 0), 0, 0], |p, g| { p.x > g.aabb.xmax - g.spacing * 2.0 });
-            body(xprev, xnext, [select(myloc(0) == 0, 1, 0), 0, 0],       |p, g| { p.x < g.aabb.xmin + g.spacing * 2.0 });
+            body(xnext, xprev, |p, g| { p.x > g.aabb.xmax - g.spacing * 2.0 });
+            body(xprev, xnext, |p, g| { p.x < g.aabb.xmin + g.spacing * 2.0 });
         }
 
         if gy > 1 {
-            body(ynext, yprev, [0, select(myloc(1) == gy - 1, -1, 0), 0], |p, g| { p.y > g.aabb.ymax - g.spacing * 2.0 });
-            body(yprev, ynext, [0, select(myloc(1) == 0, 1, 0), 0],       |p, g| { p.y < g.aabb.ymin + g.spacing * 2.0 });
+            body(ynext, yprev, |p, g| { p.y > g.aabb.ymax - g.spacing * 2.0 });
+            body(yprev, ynext, |p, g| { p.y < g.aabb.ymin + g.spacing * 2.0 });
         }
 
         if gz > 1 {
-            body(znext, zprev, [0, 0, select(myloc(2) == gz - 1, -1, 0)], |p, g| { p.z > g.aabb.zmax - g.spacing * 2.0 });
-            body(zprev, znext, [0, 0, select(myloc(2) == 0, 1, 0)],       |p, g| { p.z < g.aabb.zmin + g.spacing * 2.0 });
+            body(znext, zprev, |p, g| { p.z > g.aabb.zmax - g.spacing * 2.0 });
+            body(zprev, znext, |p, g| { p.z < g.aabb.zmin + g.spacing * 2.0 });
         }
     }
 }
@@ -665,7 +665,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
 
     grid.nghost = 0;
 
-    communication_ranks(|_, _, _, _| {
+    communication_ranks(|_, _, _| {
         if neigh >= comm_offsets.max_neighs {
             resize_max_neighbors_capacity(comm_offsets, neigh + 8);
         }
@@ -688,21 +688,18 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
     neigh = 0;
 
     // Pack particles in each direction to exchange
-    communication_ranks(|_, _, pbc, check_send_condition| {
+    communication_ranks(|_, _, check_send_condition| {
         let mut particle_index = 0;
 
         exchg_rank_send_offsets(neigh) = iexchg;
 
         while particle_index < grid.nparticles {
-            let mut pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+            let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
 
+            // TODO: check_send_condition must consider PBC in 6-stencil communication
             if check_send_condition(pos, grid) && !is_within_local_domain(pos, grid) {
                 let mass = get_real(particle_index, grid.masses_cpu);
                 let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
-
-                pos.x += pbc(0) as real_t * grid.xlength;
-                pos.y += pbc(1) as real_t * grid.ylength;
-                pos.z += pbc(2) as real_t * grid.zlength;
 
                 if iexchg >= comm_offsets.send_capacity {
                     resize_send_capacity(comm_offsets, iexchg * 2);
@@ -727,27 +724,25 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
     neigh = 0;
 
     // Pack particles in each direction to send at other iterations
-    communication_ranks(|_, _, pbc, check_send_condition| {
+    communication_ranks(|_, _, check_send_condition| {
         send_rank_offsets(neigh) = isend;
 
-        if pbc(0) == 0 && pbc(1) == 0 && pbc(2) == 0 {
-            range(0, grid.nparticles, |particle_index| {
-                let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+        range(0, grid.nparticles, |particle_index| {
+            let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
 
-                if check_send_condition(pos, grid) {
-                    let mass = get_real(particle_index, grid.masses_cpu);
-                    let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
+            if check_send_condition(pos, grid) {
+                let mass = get_real(particle_index, grid.masses_cpu);
+                let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
 
-                    if isend >= comm_offsets.send_capacity {
-                        resize_send_capacity(comm_offsets, isend * 2);
-                    }
-
-                    let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
-                    buffer_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_buffer, buffer_index);
-                    send_offsets(isend++) = particle_index;
+                if isend >= comm_offsets.send_capacity {
+                    resize_send_capacity(comm_offsets, isend * 2);
                 }
-            });
-        }
+
+                let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
+                buffer_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_buffer, buffer_index);
+                send_offsets(isend++) = particle_index;
+            }
+        });
 
         send_rank_lengths(neigh) = isend - send_rank_offsets(neigh);
         neigh++;
@@ -763,7 +758,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
     neigh = 0;
 
     // Exchange particles with other ranks
-    communication_ranks(|send_rank, recv_rank, _, _| {
+    communication_ranks(|send_rank, recv_rank, _| {
         // Rank receive offset
         recv_rank_offsets(neigh) = irecv;
 

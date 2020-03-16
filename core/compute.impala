@@ -55,15 +55,17 @@ fn accelerator_compute_particle_forces(
 }
 
 fn accelerator_pbc(grid: Grid) -> () {
+    let world_aabb = grid.world_aabb;
+
     loop_accelerator(grid, |i, _, _, _| {
         let mut position = get_position(i, grid);
 
-        if position.x < 0.0             { position.x += grid.xlength; }
-        if position.x > grid.aabb.xmax  { position.x -= grid.xlength; }
-        if position.y < 0.0             { position.y += grid.ylength; }
-        if position.y > grid.aabb.ymax  { position.y -= grid.ylength; }
-        if position.z < 0.0             { position.z += grid.zlength; }
-        if position.z > grid.aabb.zmax  { position.z -= grid.zlength; }
+        if position.x < world_aabb.xmin { position.x += grid.xlength; }
+        if position.x > world_aabb.xmax { position.x -= grid.xlength; }
+        if position.y < world_aabb.ymin { position.y += grid.ylength; }
+        if position.y > world_aabb.ymax { position.y -= grid.ylength; }
+        if position.z < world_aabb.zmin { position.z += grid.zlength; }
+        if position.z > world_aabb.zmax { position.z -= grid.zlength; }
 
         set_position(i, grid, position);
     });

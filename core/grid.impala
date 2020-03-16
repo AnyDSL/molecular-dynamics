@@ -9,6 +9,7 @@ struct AABB {
 
 struct Grid {
     aabb: AABB, // grid bounding box
+    world_aabb: AABB, // global grid bounding box
     nx: i32, // number of cells in x dimension
     ny: i32, // number of cells in y dimension
     nz: i32, // number of cells in z dimension
@@ -79,6 +80,7 @@ fn allocate_grid(
 
     let mut grid = Grid {
         aabb: aabb,
+        world_aabb: aabb,
         nx: nx,
         ny: ny,
         nz: nz,

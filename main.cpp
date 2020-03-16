@@ -63,26 +63,8 @@ std::pair<double,double> get_time_statistics(std::vector<double> time) {
 }
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
-class NeighborhoodKey {
-    public:
-        NeighborhoodKey(walberla::uint_t rank_, walberla::uint_t pbc_x_, walberla::uint_t pbc_y_, walberla::uint_t pbc_z_) :
-        rank(rank_), pbc_x(pbc_x_), pbc_y(pbc_y_), pbc_z(pbc_z_) {}
-
-        walberla::uint_t getRank() const { return rank; }
-        walberla::uint_t getPbcX() const { return pbc_x; }
-        walberla::uint_t getPbcY() const { return pbc_y; }
-        walberla::uint_t getPbcZ() const { return pbc_z; }
-
-        bool operator<(const NeighborhoodKey& rhs) const {
-            return rank < rhs.getRank() || pbc_x < rhs.getPbcX() || pbc_y < rhs.getPbcY() || pbc_z < rhs.getPbcZ();
-        }
-
-    private:
-        walberla::uint_t rank, pbc_x, pbc_y, pbc_z;
-};
-
 auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> forest) {
-    std::map<NeighborhoodKey, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> neighborhood;
+    std::map<walberla::uint_t, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> neighborhood;
     auto me = walberla::mpi::MPIManager::instance()->rank();
 
     for(auto& iblock: *forest) {
@@ -92,14 +74,13 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
             auto neighbor_rank = walberla::int_c(block->getNeighborProcess(neigh));
 
             if(neighbor_rank != me) {
-                NeighborhoodKey map_index(neighbor_rank, 0, 0, 0);
                 const walberla::BlockID& neighbor_block = block->getNeighborId(neigh);
                 walberla::math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
-                auto begin = neighborhood[map_index].begin();
-                auto end = neighborhood[map_index].end();
+                auto begin = neighborhood[neighbor_rank].begin();
+                auto end = neighborhood[neighbor_rank].end();
 
                 if(std::find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh.first == neighbor_block; }) == end) {
-                    neighborhood[map_index].push_back(std::make_pair(neighbor_block, neighbor_aabb));
+                    neighborhood[neighbor_rank].push_back(std::make_pair(neighbor_block, neighbor_aabb));
                 }
             }
         }
@@ -232,6 +213,7 @@ int main(int argc, char **argv) {
     std::vector<double> deallocation_time(runs, 0);
     std::vector<double> synchronization_time(runs, 0);
     std::vector<double> exchange_time(runs, 0);
+    std::vector<double> pbc_time(runs, 0);
     std::vector<double> barrier_time(runs, 0);
     double const factor = 1e-6;
     double const verlet_buffer = 0.3;
@@ -342,6 +324,11 @@ int main(int argc, char **argv) {
 
             if(vtk || (j > 0 && j % 20 == 0)) {
                 begin = measure_time();
+                md_pbc();
+                end = measure_time();
+                pbc_time[i] += time_diff(begin, end) * factor;
+
+                begin = measure_time();
                 md_copy_data_from_accelerator();
                 end = measure_time();
                 copy_data_from_accelerator_time[i] += time_diff(begin, end) * factor;
@@ -403,7 +390,7 @@ int main(int argc, char **argv) {
 
     LIKWID_MARKER_CLOSE;
 
-    std::vector<std::pair<double,double>> time_results(12);
+    std::vector<std::pair<double,double>> time_results(13);
 
     time_results[0] = get_time_statistics(grid_initialization_time);
     time_results[1] = get_time_statistics(integration_time);
@@ -416,7 +403,8 @@ int main(int argc, char **argv) {
     time_results[8] = get_time_statistics(copy_data_from_accelerator_time);
     time_results[9] = get_time_statistics(synchronization_time);
     time_results[10] = get_time_statistics(exchange_time);
-    time_results[11] = get_time_statistics(barrier_time);
+    time_results[11] = get_time_statistics(pbc_time);
+    time_results[12] = get_time_statistics(barrier_time);
 
     double mean_sum = 0, stdev_sum = 0;
 
@@ -427,7 +415,7 @@ int main(int argc, char **argv) {
 
     md_report_time(
         mean_sum,
-        time_results[1].first + time_results[5].first,
+        time_results[1].first + time_results[5].first + time_results[11].first,
         time_results[3].first + time_results[4].first,
         time_results[9].first,
         time_results[10].first,
