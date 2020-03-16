@@ -59,15 +59,17 @@ fn accelerator_pbc(grid: Grid) -> () {
 
     loop_accelerator(grid, |i, _, _, _| {
         let mut position = get_position(i, grid);
+        let mut pbc_flags = PBCFlags { x: false, y: false, z: false };
 
-        if position.x < world_aabb.xmin { position.x += grid.xlength; }
-        if position.x > world_aabb.xmax { position.x -= grid.xlength; }
-        if position.y < world_aabb.ymin { position.y += grid.ylength; }
-        if position.y > world_aabb.ymax { position.y -= grid.ylength; }
-        if position.z < world_aabb.zmin { position.z += grid.zlength; }
-        if position.z > world_aabb.zmax { position.z -= grid.zlength; }
+        if position.x < world_aabb.xmin { position.x += grid.xlength; pbc_flags.x = true; }
+        if position.x > world_aabb.xmax { position.x -= grid.xlength; pbc_flags.x = true; }
+        if position.y < world_aabb.ymin { position.y += grid.ylength; pbc_flags.y = true; }
+        if position.y > world_aabb.ymax { position.y -= grid.ylength; pbc_flags.y = true; }
+        if position.z < world_aabb.zmin { position.z += grid.zlength; pbc_flags.z = true; }
+        if position.z > world_aabb.zmax { position.z -= grid.zlength; pbc_flags.z = true; }
 
         set_position(i, grid, position);
+        set_pbc_flags(i, grid, pbc_flags);
     });
 }
 

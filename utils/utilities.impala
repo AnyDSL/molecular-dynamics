@@ -33,6 +33,12 @@ struct Vector3D {
     z: real_t
 }
 
+struct PBCFlags {
+    x: bool,
+    y: bool,
+    z: bool
+}
+
 fn @print_vector(vector: Vector3D) -> () {
     print_f64(vector.x as f64);
     print_string("\t");

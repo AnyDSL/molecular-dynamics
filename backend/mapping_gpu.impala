@@ -182,6 +182,20 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     set_3d_arrays_accelerator(i, grid.forces_accelerator, force);
 }
 
+fn @get_pbc_flags(i: i32, grid: Grid) -> PBCFlags {
+    PBCFlags {
+        x: get_bool_accelerator(i, grid.pbc_flags_x_accelerator),
+        y: get_bool_accelerator(i, grid.pbc_flags_y_accelerator),
+        z: get_bool_accelerator(i, grid.pbc_flags_z_accelerator)
+    }
+}
+
+fn @set_pbc_flags(i: i32, grid: Grid, flags: PBCFlags) -> () {
+    set_bool_accelerator(i, grid.pbc_flags_x_accelerator, flags.x);
+    set_bool_accelerator(i, grid.pbc_flags_y_accelerator, flags.y);
+    set_bool_accelerator(i, grid.pbc_flags_z_accelerator, flags.z);
+}
+
 fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32_accelerator(index, comm_offsets.send_offsets_accelerator)
 }

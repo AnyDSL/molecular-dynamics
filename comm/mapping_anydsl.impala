@@ -59,7 +59,7 @@ fn @use_walberla() -> bool { false }
 fn @get_initial_maximum_neighbor_ranks() -> i32 { 30 }
 
 // Types for condition and communication functions
-type CondFunc = fn(Vector3D, &Grid) -> bool;
+type CondFunc = fn(Vector3D, &Grid, PBCFlags) -> bool;
 type CommFunc = fn(i32, i32, CondFunc) -> ();
 
 // Communication pattern using 6-stencil neighbors
@@ -68,18 +68,18 @@ fn communication_ranks(body: CommFunc) -> () {
         // TODO: code for communication using walberla
     } else {
         if gx > 1 {
-            body(xnext, xprev, |p, g| { p.x > g.aabb.xmax - g.spacing * 2.0 });
-            body(xprev, xnext, |p, g| { p.x < g.aabb.xmin + g.spacing * 2.0 });
+            body(xnext, xprev, |p, g, pbc| { (p.x > g.aabb.xmax - g.spacing * 2.0 && !pbc.x) || (myloc(0) == gx - 1 && pbc.x) });
+            body(xprev, xnext, |p, g, pbc| { (p.x < g.aabb.xmin + g.spacing * 2.0 && !pbc.x) || (myloc(0) == 0      && pbc.x) });
         }
 
         if gy > 1 {
-            body(ynext, yprev, |p, g| { p.y > g.aabb.ymax - g.spacing * 2.0 });
-            body(yprev, ynext, |p, g| { p.y < g.aabb.ymin + g.spacing * 2.0 });
+            body(ynext, yprev, |p, g, pbc| { (p.y > g.aabb.ymax - g.spacing * 2.0 && !pbc.y) || (myloc(1) == gy - 1 && pbc.y) });
+            body(yprev, ynext, |p, g, pbc| { (p.y < g.aabb.ymin + g.spacing * 2.0 && !pbc.y) || (myloc(1) == 0      && pbc.y) });
         }
 
         if gz > 1 {
-            body(znext, zprev, |p, g| { p.z > g.aabb.zmax - g.spacing * 2.0 });
-            body(zprev, znext, |p, g| { p.z < g.aabb.zmin + g.spacing * 2.0 });
+            body(znext, zprev, |p, g, pbc| { (p.z > g.aabb.zmax - g.spacing * 2.0 && !pbc.z) || (myloc(2) == gz - 1 && pbc.z) });
+            body(zprev, znext, |p, g, pbc| { (p.z < g.aabb.zmin + g.spacing * 2.0 && !pbc.z) || (myloc(2) == 0      && pbc.z) });
         }
     }
 }
@@ -695,9 +695,13 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
 
         while particle_index < grid.nparticles {
             let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+            let pbc = PBCFlags {
+                x: get_bool(particle_index, grid.pbc_flags_x_cpu),
+                y: get_bool(particle_index, grid.pbc_flags_y_cpu),
+                z: get_bool(particle_index, grid.pbc_flags_z_cpu)
+            };
 
-            // TODO: check_send_condition must consider PBC in 6-stencil communication
-            if check_send_condition(pos, grid) && !is_within_local_domain(pos, grid) {
+            if check_send_condition(pos, grid, pbc) && !is_within_local_domain(pos, grid) {
                 let mass = get_real(particle_index, grid.masses_cpu);
                 let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
 
@@ -729,8 +733,9 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
 
         range(0, grid.nparticles, |particle_index| {
             let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+            let pbc = PBCFlags { x: false, y: false, z: false };
 
-            if check_send_condition(pos, grid) {
+            if check_send_condition(pos, grid, pbc) {
                 let mass = get_real(particle_index, grid.masses_cpu);
                 let velocity = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
 

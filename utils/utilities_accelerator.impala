@@ -30,6 +30,10 @@ fn @get_array_of_i32_accelerator(buf: Buffer) -> &mut[1][i32] {
     bitcast[&mut[1][i32]](buf.data)
 }
 
+fn @set_bool_accelerator(i: i32, buf: Buffer, value: bool) -> () {
+    bitcast[&mut[1][bool]](buf.data)(i) = value;
+}
+
 fn @get_bool_accelerator(i: i32, buf: Buffer) -> bool {
     bitcast[&[1][bool]](buf.data)(i)
 }

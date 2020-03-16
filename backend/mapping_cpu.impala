@@ -132,6 +132,20 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     set_3d_arrays(i, grid.forces_cpu, force);
 }
 
+fn @get_pbc_flags(i: i32, grid: Grid) -> PBCFlags {
+    PBCFlags {
+        x: get_bool(i, grid.pbc_flags_x_cpu),
+        y: get_bool(i, grid.pbc_flags_y_cpu),
+        z: get_bool(i, grid.pbc_flags_z_cpu)
+    }
+}
+
+fn @set_pbc_flags(i: i32, grid: Grid, flags: PBCFlags) -> () {
+    set_bool(i, grid.pbc_flags_x_cpu, flags.x);
+    set_bool(i, grid.pbc_flags_y_cpu, flags.y);
+    set_bool(i, grid.pbc_flags_z_cpu, flags.z);
+}
+
 fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32(index, comm_offsets.send_offsets)
 }
