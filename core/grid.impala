@@ -398,6 +398,7 @@ fn insert_particle(
     set_3d_arrays(particle_index, grid.velocities_cpu, velocity);
     set_3d_arrays(particle_index, grid.forces_cpu, null_vec);
     set_i32(particle_index, grid.neighbors_sizes_cpu, 0);
+    set_u8(particle_index, grid.pbc_flags_cpu, 0 as u8);
 
     grid.nparticles++;
 }
