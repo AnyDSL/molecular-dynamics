@@ -49,7 +49,6 @@ void print_usage(char *name) {
     std::cout << "\t-s, --timesteps=NUMBER    number of timesteps in the simulation (default 100)." << std::endl;
     std::cout << "\t-r, --runs=NUMBER         number of test runs (default 1)." << std::endl;
     std::cout << "\t-t, --threads=NUMBER      number of threads to run (default 1)." << std::endl;
-    std::cout << "\t-c, --config=FILE         walberla configuration file (must be set when walberla load balancing is used)." << std::endl;
     std::cout << "\t-v, --vtk=DIRECTORY       VTK output directory (for MPI simulations, the rank number is concatenated" << std::endl;
     std::cout << "\t                          at the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << std::endl;
     std::cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << std::endl;
@@ -102,7 +101,6 @@ int main(int argc, char **argv) {
     int steps = 100;
     int runs = 1;
     int nthreads = 1;
-    std::string config_file;
     std::string vtk_directory;
 
     int opt = 0;
@@ -113,7 +111,6 @@ int main(int argc, char **argv) {
         {"timesteps", required_argument,    nullptr,    's'},
         {"runs",      required_argument,    nullptr,    'r'},
         {"threads",   required_argument,    nullptr,    't'},
-        {"config",    required_argument,    nullptr,    'c'},
         {"vtk",       required_argument,    nullptr,    'v'},
         {"help",      no_argument,          nullptr,    'h'},
     };
@@ -142,10 +139,6 @@ int main(int argc, char **argv) {
 
             case 't':
                 nthreads = atoi(optarg);
-                break;
-
-            case 'c':
-                config_file = std::string(optarg);
                 break;
 
             case 'v':
@@ -250,7 +243,6 @@ int main(int argc, char **argv) {
         std::cout << "- Number of timesteps: " << steps << std::endl;
         std::cout << "- Number of runs: " << runs << std::endl;
         std::cout << "- Number of threads: " << nthreads << std::endl;
-        std::cout << "- Walberla configuration file: " << (config_file.empty() ? "none" : config_file) << std::endl;
         std::cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << std::endl << std::endl;
     }
 
