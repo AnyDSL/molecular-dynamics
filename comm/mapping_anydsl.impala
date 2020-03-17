@@ -695,11 +695,7 @@ fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffset
 
         while particle_index < grid.nparticles {
             let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
-            let pbc = PBCFlags {
-                x: get_bool(particle_index, grid.pbc_flags_x_cpu),
-                y: get_bool(particle_index, grid.pbc_flags_y_cpu),
-                z: get_bool(particle_index, grid.pbc_flags_z_cpu)
-            };
+            let pbc = get_pbc_flags(particle_index, *grid);
 
             if check_send_condition(pos, grid, pbc) && !is_within_local_domain(pos, grid) {
                 let mass = get_real(particle_index, grid.masses_cpu);

@@ -182,18 +182,20 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     set_3d_arrays_accelerator(i, grid.forces_accelerator, force);
 }
 
+// PBC flags are always read in the CPU
 fn @get_pbc_flags(i: i32, grid: Grid) -> PBCFlags {
+    let flags = get_u8(i, grid.pbc_flags_cpu);
+
     PBCFlags {
-        x: get_bool_accelerator(i, grid.pbc_flags_x_accelerator),
-        y: get_bool_accelerator(i, grid.pbc_flags_y_accelerator),
-        z: get_bool_accelerator(i, grid.pbc_flags_z_accelerator)
+        x: flags & 0x1,
+        y: flags & 0x2,
+        z: flags & 0x4
     }
 }
 
-fn @set_pbc_flags(i: i32, grid: Grid, flags: PBCFlags) -> () {
-    set_bool_accelerator(i, grid.pbc_flags_x_accelerator, flags.x);
-    set_bool_accelerator(i, grid.pbc_flags_y_accelerator, flags.y);
-    set_bool_accelerator(i, grid.pbc_flags_z_accelerator, flags.z);
+fn @set_pbc_flags(i: i32, grid: Grid, pbc_flags: PBCFlags) -> () {
+    let flags = select(pbc_flags.x != 0, 0x1, 0x0) | select(pbc_flags.y != 0, 0x2, 0x0) | select(pbc_flags.z != 0, 0x4, 0x0);
+    set_u8(i, grid.pbc_flags_accelerator, flags);
 }
 
 fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
