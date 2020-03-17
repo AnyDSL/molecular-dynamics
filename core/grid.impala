@@ -387,18 +387,29 @@ fn insert_particle(
 
     let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let particle_index = grid.nparticles;
+    let world_aabb = grid.world_aabb;
+    let mut pos = position;
+    let mut flags = 0 as u8;
 
     if particle_index >= grid.particle_capacity {
         let new_capacity = grid.particle_capacity + grid.particle_capacity / 10 + 10;
         reallocate_particle_capacity(grid, new_capacity);
     }
 
+    // PBC logic is applied here since particles are exchanged in the beginning
+    if pos.x < world_aabb.xmin { pos.x += grid.xlength; flags |= 0x1 as u8; }
+    if pos.x > world_aabb.xmax { pos.x -= grid.xlength; flags |= 0x1 as u8; }
+    if pos.y < world_aabb.ymin { pos.y += grid.ylength; flags |= 0x2 as u8; }
+    if pos.y > world_aabb.ymax { pos.y -= grid.ylength; flags |= 0x2 as u8; }
+    if pos.z < world_aabb.zmin { pos.z += grid.zlength; flags |= 0x4 as u8; }
+    if pos.z > world_aabb.zmax { pos.z -= grid.zlength; flags |= 0x4 as u8; }
+
     set_real(particle_index, grid.masses_cpu, mass);
-    set_3d_arrays(particle_index, grid.positions_cpu, position);
+    set_3d_arrays(particle_index, grid.positions_cpu, pos);
     set_3d_arrays(particle_index, grid.velocities_cpu, velocity);
     set_3d_arrays(particle_index, grid.forces_cpu, null_vec);
     set_i32(particle_index, grid.neighbors_sizes_cpu, 0);
-    set_u8(particle_index, grid.pbc_flags_cpu, 0 as u8);
+    set_u8(particle_index, grid.pbc_flags_cpu, flags);
 
     grid.nparticles++;
 }
