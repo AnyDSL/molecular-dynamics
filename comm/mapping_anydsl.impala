@@ -68,7 +68,7 @@ fn @get_initial_maximum_neighbor_ranks() -> i32 { 30 }
 type CondFunc = fn(Vector3D, &Grid, PBCFlags) -> bool;
 type CommFunc = fn(i32, i32, CondFunc, CondFunc) -> ();
 
-// Communication pattern using 6-stencil neighbors
+// Communication pattern using walberla or 6-stencil neighbors
 fn communication_ranks(body: CommFunc) -> () {
     if use_walberla() {
         let nranks = get_number_of_neighbor_ranks();
