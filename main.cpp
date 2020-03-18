@@ -87,6 +87,33 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
 
     return neighborhood;
 }
+
+extern "C" {
+    bool use_walberla() { return true; }
+    int get_number_of_neighbor_ranks() {
+        return 0;
+    }
+
+    int get_neighborhood_rank(int index) {
+        return 0;
+    }
+
+    bool in_rank_border(int rank, double x, double y, double z) {
+        return false;
+    }
+
+    bool in_rank_subdomain(int rank, double x, double y, double z) {
+        return false;
+    }
+}
+#else
+extern "C" {
+    bool use_walberla() { return false; }
+    int get_number_of_neighbor_ranks() { return 0; }
+    int get_neighborhood_rank(int index) { return 0; }
+    bool in_rank_border(int rank, double x, double y, double z) { return false; }
+    bool in_rank_subdomain(int rank, double x, double y, double z) { return false; }
+}
 #endif
 
 int main(int argc, char **argv) {
