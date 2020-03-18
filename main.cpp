@@ -110,9 +110,23 @@ extern "C" {
 extern "C" {
     bool use_walberla() { return false; }
     int get_number_of_neighbor_ranks() { return 0; }
-    int get_neighborhood_rank(int index) { return 0; }
-    bool in_rank_border(int rank, double x, double y, double z) { return false; }
-    bool in_rank_subdomain(int rank, double x, double y, double z) { return false; }
+    int get_neighborhood_rank(__attribute__((unused)) int index) { return 0; }
+
+    bool in_rank_border(
+        __attribute__((unused)) int rank,
+        __attribute__((unused)) double x,
+        __attribute__((unused)) double y,
+        __attribute__((unused)) double z) {
+        return false;
+    }
+
+    bool in_rank_subdomain(
+        __attribute__((unused)) int rank,
+        __attribute__((unused)) double x,
+        __attribute__((unused)) double y,
+        __attribute__((unused)) double z) {
+        return false;
+    }
 }
 #endif
 
