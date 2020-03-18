@@ -62,6 +62,8 @@ std::pair<double,double> get_time_statistics(std::vector<double> time) {
 }
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
+std::map<walberla::uint_t, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> *gNeighborhood;
+
 auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> forest) {
     std::map<walberla::uint_t, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> neighborhood;
     auto me = walberla::mpi::MPIManager::instance()->rank();
@@ -88,35 +90,74 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
     return neighborhood;
 }
 
+inline double sqDistanceLineToPoint(const double& pt, const double& min, const double& max) {
+   return (pt < min) ? (min - pt) * (min - pt) :
+          (pt > max) ? (pt - max) * (pt - max) : 0.0;
+}
+
+inline double sqDistancePointToAABB(double x, double y, double z, const walberla::math::AABB& aabb) {
+   return sqDistanceLineToPoint(x, aabb.xMin(), aabb.xMax()) +
+          sqDistanceLineToPoint(y, aabb.yMin(), aabb.yMax()) +
+          sqDistanceLineToPoint(z, aabb.zMin(), aabb.zMax());
+}
+
 extern "C" {
     bool use_walberla() { return true; }
-    int get_number_of_neighbor_ranks() {
-        return 0;
-    }
+    unsigned long int get_number_of_neighbor_ranks() { return gNeighborhood->size(); }
 
     int get_neighborhood_rank(int index) {
-        return 0;
+        int i = 0;
+
+        for(auto iter = gNeighborhood->begin(); iter != gNeighborhood->end(); ++iter, ++i) {
+            if(i == index) {
+                return (int) iter->first;
+            }
+        }
+
+        return -1;
     }
 
-    bool in_rank_border(int rank, double x, double y, double z) {
+    bool in_rank_border(int rank, double x, double y, double z, double cutoff_radius) {
+        auto rank_neighborhood = (*gNeighborhood)[rank];
+
+        for(auto& neighbor_info: rank_neighborhood) {
+            auto aabb = neighbor_info.second;
+            auto distance = sqDistancePointToAABB(x, y, z, aabb);
+
+            if(distance < cutoff_radius * cutoff_radius) {
+                return true;
+            }
+        }
+
         return false;
     }
 
     bool in_rank_subdomain(int rank, double x, double y, double z) {
+        auto rank_neighborhood = (*gNeighborhood)[rank];
+
+        for(auto& neighbor_info: rank_neighborhood) {
+            auto aabb = neighbor_info.second;
+
+            if(aabb.contains(x, y, z)) {
+                return true;
+            }
+        }
+
         return false;
     }
 }
 #else
 extern "C" {
     bool use_walberla() { return false; }
-    int get_number_of_neighbor_ranks() { return 0; }
+    unsigned long int get_number_of_neighbor_ranks() { return 0; }
     int get_neighborhood_rank(__attribute__((unused)) int index) { return 0; }
 
     bool in_rank_border(
         __attribute__((unused)) int rank,
         __attribute__((unused)) double x,
         __attribute__((unused)) double y,
-        __attribute__((unused)) double z) {
+        __attribute__((unused)) double z,
+        __attribute__((unused)) double cutoff_radius) {
         return false;
     }
 
@@ -271,6 +312,8 @@ int main(int argc, char **argv) {
     auto rank_aabb = get_rank_aabb_from_block_forest(forest);
     auto is_within_domain = std::bind(is_within_block_forest, _1, _2, _3, forest);
     auto neighborhood = get_neighborhood_from_block_forest(forest);
+
+    gNeighborhood = &neighborhood;
 #else
     md_mpi_initialize();
 

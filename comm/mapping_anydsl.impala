@@ -52,12 +52,12 @@ static mut ynext: i32;
 static mut zprev: i32;
 static mut znext: i32;
 
-// C functions
+// C functions to call walberla procedures
 extern "C" {
     fn use_walberla() -> bool;
-    fn get_number_of_neighbor_ranks() -> i32;
+    fn get_number_of_neighbor_ranks() -> u32;
     fn get_neighborhood_rank(i32) -> i32;
-    fn in_rank_border(i32, f64, f64, f64) -> bool;
+    fn in_rank_border(i32, f64, f64, f64, f64) -> bool;
     fn in_rank_subdomain(i32, f64, f64, f64) -> bool;
 }
 
@@ -73,9 +73,12 @@ fn communication_ranks(body: CommFunc) -> () {
     if use_walberla() {
         let nranks = get_number_of_neighbor_ranks();
 
-        range(0, nranks, |i| {
+        range(0, nranks as i32, |i| {
             let rank = get_neighborhood_rank(i);
-            body(rank, rank, |p, _, _| { in_rank_border(rank, p.x, p.y, p.z) }, |p, _, _| { in_rank_subdomain(rank, p.x, p.y, p.z) });
+
+            body(rank, rank,
+                |p, g, _| { in_rank_border(rank, p.x, p.y, p.z, g.spacing) },
+                |p, _, _| { in_rank_subdomain(rank, p.x, p.y, p.z) });
         });
     } else {
         if gx > 1 {
