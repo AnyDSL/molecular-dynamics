@@ -90,6 +90,43 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
     return neighborhood;
 }
 
+walberla::Vector3<walberla::uint_t> getBlockConfig(
+    walberla::uint_t num_processes,
+    walberla::uint_t nx,
+    walberla::uint_t ny,
+    walberla::uint_t nz) {
+
+    const walberla::uint_t ax = nx * ny;
+    const walberla::uint_t ay = nx * nz;
+    const walberla::uint_t az = ny * nz;
+
+    walberla::uint_t bestsurf = 2 * (ax + ay + az);
+    walberla::uint_t x = 1;
+    walberla::uint_t y = 1;
+    walberla::uint_t z = 1;
+
+    for(walberla::uint_t i = 1; i < num_processes; ++i) {
+        if(num_processes % i == 0) {
+            const walberla::uint_t rem_yz = num_processes / i;
+
+            for(walberla::uint_t j = 1; j < rem_yz; ++j) {
+                if(rem_yz % j == 0) {
+                    const walberla::uint_t k = rem_yz / j;
+                    const walberla::uint_t surf = (ax / i / j) + (ay / i / k) + (az / j / k);
+
+                    if(surf < bestsurf) {
+                        x = i, y = j, z = k;
+                        bestsurf = surf;
+                    }
+                }
+            }
+        }
+    }
+
+    return walberla::Vector3<walberla::uint_t>(x, y, z);
+}
+
+
 inline double sqDistanceLineToPoint(const double& pt, const double& min, const double& max) {
    return (pt < min) ? (min - pt) * (min - pt) :
           (pt > max) ? (pt - max) * (pt - max) : 0.0;
@@ -306,8 +343,8 @@ int main(int argc, char **argv) {
         walberla::real_t(aabb.max[0]), walberla::real_t(aabb.max[1]), walberla::real_t(aabb.max[2]));
 
     auto forest = walberla::blockforest::createBlockForest(
-        domain, walberla::Vector3<walberla::uint_t>(1, 2, 8), walberla::Vector3<bool>(true, true, true),
-        mpiManager->numProcesses(), walberla::uint_t(0));
+        domain, getBlockConfig(mpiManager->numProcesses(), gridsize[0], gridsize[1], gridsize[2]),
+        walberla::Vector3<bool>(true, true, true), mpiManager->numProcesses(), walberla::uint_t(0));
 
     auto rank_aabb = get_rank_aabb_from_block_forest(forest);
     auto is_within_domain = std::bind(is_within_block_forest, _1, _2, _3, forest);
