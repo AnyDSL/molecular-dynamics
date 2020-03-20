@@ -10,16 +10,6 @@
 #include "initialize.h"
 #include "time.h"
 #include "vtk.h"
-/*
-#ifdef USE_WALBERLA_LOAD_BALANCING
-#include <blockforest/BlockForest.h>
-#include <blockforest/Initialization.h>
-#include <blockforest/loadbalancing/DynamicCurve.h>
-#include <blockforest/loadbalancing/DynamicParMetis.h>
-#include <blockforest/loadbalancing/InfoCollection.h>
-#include <blockforest/loadbalancing/PODPhantomData.h>
-#endif
-*/
 #ifdef LIKWID_PERFMON
 #include <likwid.h>
 #else
