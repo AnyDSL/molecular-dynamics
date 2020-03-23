@@ -74,6 +74,38 @@ extern fn md_get_node_bounding_box(
     rank_max(2) = rank_aabb.zmax;
 }
 
+extern fn md_compute_boundary_weights(
+    xmin: real_t,
+    xmax: real_t,
+    ymin: real_t,
+    ymax: real_t,
+    zmin: real_t,
+    zmax: real_t,
+    computational_weight: &mut u32,
+    communication_weight: &mut u32) -> () {
+
+    let aabb = AABB {
+        xmin: xmin,
+        xmax: xmax,
+        ymin: ymin,
+        ymax: ymax,
+        zmin: zmin,
+        zmax: zmax
+    };
+
+    range(0, grid_.nparticles + grid_.nghost, |particle_index| {
+        let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
+
+        if is_within_domain(pos, aabb) {
+            if particle_index < grid_.nparticles {
+                *computational_weight += 1 as u32;
+            } else {
+                *communication_weight += 1 as u32;
+            }
+        }
+    });
+}
+
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }
 extern fn md_copy_data_from_accelerator() -> () { copy_from_accelerator(grid_); }
 extern fn md_deallocate_grid() -> () { deallocate_grid(grid_); }

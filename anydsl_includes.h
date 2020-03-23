@@ -34,6 +34,7 @@ extern "C" {
     int md_get_world_rank();
     int md_get_number_of_particles();
     void md_get_node_bounding_box(double const *, double const *, double (*)[3], double (*)[3]);
+    void md_compute_boundary_weights(double, double, double, double, double, double, unsigned long int *, unsigned long int *);
     void md_report_iterations();
     void md_report_particles();
     void md_report_time(double, double, double, double, double, double, double);

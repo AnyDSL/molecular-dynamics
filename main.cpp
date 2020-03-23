@@ -80,6 +80,61 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
     return neighborhood;
 }
 
+void updateWeights(std::shared_ptr<walberla::BlockForest> forest, walberla::blockforest::InfoCollection& info) {
+    walberla::mpi::BufferSystem bs(walberla::mpi::MPIManager::instance()->comm(), 756);
+
+    for(auto& iblock: *forest) {
+        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+        auto aabb = block->getAABB();
+        auto block_info = info[block->getId()];
+
+        md_compute_boundary_weights(
+            aabb.xMin(), aabb.xMax(), aabb.yMin(), aabb.yMax(), aabb.zMin(), aabb.zMax(),
+            &(block_info.computationalWeight), &(block_info.communicationWeight));
+
+        for(walberla::uint_t branch = 0; branch < 8; ++branch) {
+            const auto child_id = walberla::BlockID(block->getId(), branch);
+            const auto child_aabb = forest->getAABBFromBlockId(child_id);
+            auto child_info = info[child_id];
+
+            md_compute_boundary_weights(
+                child_aabb.xMin(), child_aabb.xMax(), child_aabb.yMin(), child_aabb.yMax(), child_aabb.zMin(), child_aabb.zMax(),
+                &(child_info.computationalWeight), &(child_info.communicationWeight));
+        }
+    }
+
+    for(auto& iblock: *forest) {
+        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+        auto block_info = info[block->getId()];
+
+        for(walberla::uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
+            bs.sendBuffer(block->getNeighborProcess(neigh)) <<
+                walberla::blockforest::InfoCollection::value_type(block->getId(), block_info);
+        }
+
+        for(walberla::uint_t branch = 0; branch < 8; ++branch) {
+            const auto child_id = walberla::BlockID(block->getId(), branch);
+            auto child_info = info[child_id];
+
+            for(walberla::uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
+                bs.sendBuffer(block->getNeighborProcess(neigh)) <<
+                    walberla::blockforest::InfoCollection::value_type(child_id, child_info);
+            }
+        }
+    }
+
+    bs.setReceiverInfoFromSendBufferState(false, true);
+    bs.sendAll();
+
+    for(auto recv = bs.begin(); recv != bs.end(); ++recv) {
+        while(!recv.buffer().isEmpty()) {
+            walberla::blockforest::InfoCollectionPair val;
+            recv.buffer() >> val;
+            info.insert(val);
+        }
+    }
+}
+
 walberla::Vector3<walberla::uint_t> getBlockConfig(
     walberla::uint_t num_processes,
     walberla::uint_t nx,
