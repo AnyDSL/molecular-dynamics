@@ -83,6 +83,8 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
 void updateWeights(std::shared_ptr<walberla::BlockForest> forest, walberla::blockforest::InfoCollection& info) {
     walberla::mpi::BufferSystem bs(walberla::mpi::MPIManager::instance()->comm(), 756);
 
+    info.clear();
+
     for(auto& iblock: *forest) {
         auto block = static_cast<walberla::blockforest::Block *>(&iblock);
         auto aabb = block->getAABB();
