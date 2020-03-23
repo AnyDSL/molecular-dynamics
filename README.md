@@ -46,7 +46,6 @@ Available options are:
 - **-s, --timesteps=NUMBER:** Number of time steps to be simulated (default 100).
 - **-r, --runs=NUMBER:** Number of test runs (default 1).
 - **-t, --threads=NUMBER:** Number of threads used for parallelization (default 1).
-- **-c, --config=FILE:** Walberla configuration file (must be specified when using walberla load balancing).
 - **-v, --vtk=DIRECTORY:** If this argument is provided, vtk output files are created in the specified directory (it must exist). For MPI simulations, the rank number is concatenated in the end of this directory name. For example, if you use "--vtk output" in a simulation with 4 MPI ranks, then directories "output[0-3]" are used.
 - **-h, --help:** Display help message.
 
