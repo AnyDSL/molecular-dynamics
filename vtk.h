@@ -1,27 +1,36 @@
 #ifndef VTK_H
 #define VTK_H
-void write_vtk_to_file(std::string filename, std::vector<double> const& masses, std::vector<Vector3D>const & positions, std::vector<Vector3D>const & velocities, std::vector<Vector3D>const &forces) {
-		std::ofstream file(filename);
+
+using namespace std;
+
+void write_vtk_to_file(
+    string filename,
+    vector<double> const& masses,
+    vector<Vector3D> const& positions,
+    vector<Vector3D> const& velocities,
+    vector<Vector3D> const& forces) {
+
+		ofstream file(filename);
 		file << "# vtk DataFile Version 2.0\n";
-		file << "Particle data" << std::endl;
-		file << "ASCII" << std::endl;
+		file << "Particle data" << endl;
+		file << "ASCII" << endl;
 		file << "DATASET UNSTRUCTURED_GRID\n";
 		file << "POINTS " << positions.size() << " double\n";
 		for(auto it = positions.begin(); it != positions.end(); ++it) {
-				file << std::fixed << it->x << " ";
-				file << std::fixed << it->y << " ";
-				file << std::fixed << it->z << "\n";
+				file << fixed << it->x << " ";
+				file << fixed << it->y << " ";
+				file << fixed << it->z << "\n";
 		}
 		file << "\n\n";
-		file << "CELLS " << positions.size() << " " << 2 * positions.size() << std::endl;
-		for(std::size_t i = 0; i < positions.size(); ++i) {
-				file << "1 " << i << std::endl;
+		file << "CELLS " << positions.size() << " " << 2 * positions.size() << endl;
+		for(size_t i = 0; i < positions.size(); ++i) {
+				file << "1 " << i << endl;
 		}
 		file << "\n\n";
 
-		file << "CELL_TYPES " << positions.size() << std::endl;
-		for(std::size_t i = 0; i < positions.size(); ++i) {
-				file << "1" << std::endl;
+		file << "CELL_TYPES " << positions.size() << endl;
+		for(size_t i = 0; i < positions.size(); ++i) {
+				file << "1" << endl;
 		}
 		file << "\n\n";
 
@@ -29,54 +38,54 @@ void write_vtk_to_file(std::string filename, std::vector<double> const& masses, 
 
 		file << "SCALARS mass double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < masses.size(); ++i) {
-				file << std::fixed << masses[i] << std::endl;
+		for(size_t i = 0; i < masses.size(); ++i) {
+				file << fixed << masses[i] << endl;
 		}
 
-		file << std::endl;
+		file << endl;
 
 		file << "SCALARS velocity_x double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < velocities.size(); ++i) {
-				file << std::fixed << velocities[i].x << std::endl;
+		for(size_t i = 0; i < velocities.size(); ++i) {
+				file << fixed << velocities[i].x << endl;
 		}
-		file << std::endl;
+		file << endl;
 
 		file << "SCALARS velocity_y double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < velocities.size(); ++i) {
-				file << std::fixed << velocities[i].y << std::endl;
+		for(size_t i = 0; i < velocities.size(); ++i) {
+				file << fixed << velocities[i].y << endl;
 		}
-		file << std::endl;
+		file << endl;
 
 		file << "SCALARS velocity_z double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < velocities.size(); ++i) {
-				file << std::fixed << velocities[i].z << std::endl;
+		for(size_t i = 0; i < velocities.size(); ++i) {
+				file << fixed << velocities[i].z << endl;
 		}
 
-		file << std::endl;
+		file << endl;
                 file << "SCALARS force_x double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < velocities.size(); ++i) {
-				file << std::fixed << forces[i].x << std::endl;
+		for(size_t i = 0; i < velocities.size(); ++i) {
+				file << fixed << forces[i].x << endl;
 		}
-		file << std::endl;
+		file << endl;
 
 		file << "SCALARS force_y double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < velocities.size(); ++i) {
-				file << std::fixed << forces[i].y << std::endl;
+		for(size_t i = 0; i < velocities.size(); ++i) {
+				file << fixed << forces[i].y << endl;
 		}
-		file << std::endl;
+		file << endl;
 
 		file << "SCALARS force_z double\n";
 		file << "LOOKUP_TABLE default\n";
-		for(std::size_t i = 0; i < velocities.size(); ++i) {
-				file << std::fixed << forces[i].z << std::endl;
+		for(size_t i = 0; i < velocities.size(); ++i) {
+				file << fixed << forces[i].z << endl;
 		}
 
-		file << std::endl;
+		file << endl;
 
 		file.close();
 }

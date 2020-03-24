@@ -23,55 +23,60 @@
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
 
-#define time_diff(begin, end)   static_cast<double>(calculate_time_difference<std::chrono::nanoseconds>(begin, end))
+#define time_diff(begin, end)   static_cast<double>(calculate_time_difference<chrono::nanoseconds>(begin, end))
 
 #if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
 #include <x86intrin.h>
 #endif
 
+using namespace std;
+
 void print_usage(char *name) {
-    std::cout << "Usage: " << name << " [OPTION]..." << std::endl;
-    std::cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << std::endl << std::endl;
-    std::cout << "Mandatory arguments to long options are also mandatory for short options." << std::endl;
-    std::cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << std::endl;
-    std::cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << std::endl;
-    std::cout << "\t-z, --nz=SIZE             number of unit cells in z dimension (default 32)." << std::endl;
-    std::cout << "\t-s, --timesteps=NUMBER    number of timesteps in the simulation (default 100)." << std::endl;
-    std::cout << "\t-r, --runs=NUMBER         number of test runs (default 1)." << std::endl;
-    std::cout << "\t-t, --threads=NUMBER      number of threads to run (default 1)." << std::endl;
-    std::cout << "\t-v, --vtk=DIRECTORY       VTK output directory (for MPI simulations, the rank number is concatenated" << std::endl;
-    std::cout << "\t                          at the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << std::endl;
-    std::cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << std::endl;
-    std::cout << "\t-h, --help                display this help message." << std::endl;
+    cout << "Usage: " << name << " [OPTION]..." << endl;
+    cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << endl << endl;
+    cout << "Mandatory arguments to long options are also mandatory for short options." << endl;
+    cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << endl;
+    cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << endl;
+    cout << "\t-z, --nz=SIZE             number of unit cells in z dimension (default 32)." << endl;
+    cout << "\t-s, --timesteps=NUMBER    number of timesteps in the simulation (default 100)." << endl;
+    cout << "\t-r, --runs=NUMBER         number of test runs (default 1)." << endl;
+    cout << "\t-t, --threads=NUMBER      number of threads to run (default 1)." << endl;
+    cout << "\t-a, --algorithm=STRING    load balancing algorithm to use." << endl;
+    cout << "\t-v, --vtk=DIRECTORY       VTK output directory (for MPI simulations, the rank number is concatenated" << endl;
+    cout << "\t                          at the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << endl;
+    cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << endl;
+    cout << "\t-h, --help                display this help message." << endl;
 }
 
-std::pair<double,double> get_time_statistics(std::vector<double> time) {
+pair<double,double> get_time_statistics(vector<double> time) {
     double const mean = compute_mean(time);
     double const stdev = compute_standard_deviation(time, mean);
-    return std::make_pair(mean, stdev);
+    return make_pair(mean, stdev);
 }
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
-std::map<walberla::uint_t, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> *gNeighborhood;
+using namespace walberla;
 
-auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> forest) {
-    std::map<walberla::uint_t, std::vector<std::pair<const walberla::BlockID&, walberla::math::AABB>>> neighborhood;
-    auto me = walberla::mpi::MPIManager::instance()->rank();
+map<uint_t, vector<pair<const BlockID&, math::AABB>>> *gNeighborhood;
+
+auto get_neighborhood_from_block_forest(shared_ptr<BlockForest> forest) {
+    map<uint_t, vector<pair<const BlockID&, math::AABB>>> neighborhood;
+    auto me = mpi::MPIManager::instance()->rank();
 
     for(auto& iblock: *forest) {
-        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+        auto block = static_cast<blockforest::Block *>(&iblock);
 
         for(uint neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
-            auto neighbor_rank = walberla::int_c(block->getNeighborProcess(neigh));
+            auto neighbor_rank = int_c(block->getNeighborProcess(neigh));
 
             if(neighbor_rank != me) {
-                const walberla::BlockID& neighbor_block = block->getNeighborId(neigh);
-                walberla::math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
+                const BlockID& neighbor_block = block->getNeighborId(neigh);
+                math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
                 auto begin = neighborhood[neighbor_rank].begin();
                 auto end = neighborhood[neighbor_rank].end();
 
-                if(std::find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh.first == neighbor_block; }) == end) {
-                    neighborhood[neighbor_rank].push_back(std::make_pair(neighbor_block, neighbor_aabb));
+                if(find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh.first == neighbor_block; }) == end) {
+                    neighborhood[neighbor_rank].push_back(make_pair(neighbor_block, neighbor_aabb));
                 }
             }
         }
@@ -80,13 +85,13 @@ auto get_neighborhood_from_block_forest(std::shared_ptr<walberla::BlockForest> f
     return neighborhood;
 }
 
-void updateWeights(std::shared_ptr<walberla::BlockForest> forest, walberla::blockforest::InfoCollection& info) {
-    walberla::mpi::BufferSystem bs(walberla::mpi::MPIManager::instance()->comm(), 756);
+void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& info) {
+    mpi::BufferSystem bs(mpi::MPIManager::instance()->comm(), 756);
 
     info.clear();
 
     for(auto& iblock: *forest) {
-        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+        auto block = static_cast<blockforest::Block *>(&iblock);
         auto aabb = block->getAABB();
         auto block_info = info[block->getId()];
 
@@ -94,8 +99,8 @@ void updateWeights(std::shared_ptr<walberla::BlockForest> forest, walberla::bloc
             aabb.xMin(), aabb.xMax(), aabb.yMin(), aabb.yMax(), aabb.zMin(), aabb.zMax(),
             &(block_info.computationalWeight), &(block_info.communicationWeight));
 
-        for(walberla::uint_t branch = 0; branch < 8; ++branch) {
-            const auto child_id = walberla::BlockID(block->getId(), branch);
+        for(uint_t branch = 0; branch < 8; ++branch) {
+            const auto child_id = BlockID(block->getId(), branch);
             const auto child_aabb = forest->getAABBFromBlockId(child_id);
             auto child_info = info[child_id];
 
@@ -106,21 +111,21 @@ void updateWeights(std::shared_ptr<walberla::BlockForest> forest, walberla::bloc
     }
 
     for(auto& iblock: *forest) {
-        auto block = static_cast<walberla::blockforest::Block *>(&iblock);
+        auto block = static_cast<blockforest::Block *>(&iblock);
         auto block_info = info[block->getId()];
 
-        for(walberla::uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
+        for(uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
             bs.sendBuffer(block->getNeighborProcess(neigh)) <<
-                walberla::blockforest::InfoCollection::value_type(block->getId(), block_info);
+                blockforest::InfoCollection::value_type(block->getId(), block_info);
         }
 
-        for(walberla::uint_t branch = 0; branch < 8; ++branch) {
-            const auto child_id = walberla::BlockID(block->getId(), branch);
+        for(uint_t branch = 0; branch < 8; ++branch) {
+            const auto child_id = BlockID(block->getId(), branch);
             auto child_info = info[child_id];
 
-            for(walberla::uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
+            for(uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
                 bs.sendBuffer(block->getNeighborProcess(neigh)) <<
-                    walberla::blockforest::InfoCollection::value_type(child_id, child_info);
+                    blockforest::InfoCollection::value_type(child_id, child_info);
             }
         }
     }
@@ -130,36 +135,36 @@ void updateWeights(std::shared_ptr<walberla::BlockForest> forest, walberla::bloc
 
     for(auto recv = bs.begin(); recv != bs.end(); ++recv) {
         while(!recv.buffer().isEmpty()) {
-            walberla::blockforest::InfoCollectionPair val;
+            blockforest::InfoCollectionPair val;
             recv.buffer() >> val;
             info.insert(val);
         }
     }
 }
 
-walberla::Vector3<walberla::uint_t> getBlockConfig(
-    walberla::uint_t num_processes,
-    walberla::uint_t nx,
-    walberla::uint_t ny,
-    walberla::uint_t nz) {
+Vector3<uint_t> getBlockConfig(
+    uint_t num_processes,
+    uint_t nx,
+    uint_t ny,
+    uint_t nz) {
 
-    const walberla::uint_t ax = nx * ny;
-    const walberla::uint_t ay = nx * nz;
-    const walberla::uint_t az = ny * nz;
+    const uint_t ax = nx * ny;
+    const uint_t ay = nx * nz;
+    const uint_t az = ny * nz;
 
-    walberla::uint_t bestsurf = 2 * (ax + ay + az);
-    walberla::uint_t x = 1;
-    walberla::uint_t y = 1;
-    walberla::uint_t z = 1;
+    uint_t bestsurf = 2 * (ax + ay + az);
+    uint_t x = 1;
+    uint_t y = 1;
+    uint_t z = 1;
 
-    for(walberla::uint_t i = 1; i < num_processes; ++i) {
+    for(uint_t i = 1; i < num_processes; ++i) {
         if(num_processes % i == 0) {
-            const walberla::uint_t rem_yz = num_processes / i;
+            const uint_t rem_yz = num_processes / i;
 
-            for(walberla::uint_t j = 1; j < rem_yz; ++j) {
+            for(uint_t j = 1; j < rem_yz; ++j) {
                 if(rem_yz % j == 0) {
-                    const walberla::uint_t k = rem_yz / j;
-                    const walberla::uint_t surf = (ax / i / j) + (ay / i / k) + (az / j / k);
+                    const uint_t k = rem_yz / j;
+                    const uint_t surf = (ax / i / j) + (ay / i / k) + (az / j / k);
 
                     if(surf < bestsurf) {
                         x = i, y = j, z = k;
@@ -170,7 +175,7 @@ walberla::Vector3<walberla::uint_t> getBlockConfig(
         }
     }
 
-    return walberla::Vector3<walberla::uint_t>(x, y, z);
+    return Vector3<uint_t>(x, y, z);
 }
 
 
@@ -179,7 +184,7 @@ inline double sqDistanceLineToPoint(const double& pt, const double& min, const d
           (pt > max) ? (pt - max) * (pt - max) : 0.0;
 }
 
-inline double sqDistancePointToAABB(double x, double y, double z, const walberla::math::AABB& aabb) {
+inline double sqDistancePointToAABB(double x, double y, double z, const math::AABB& aabb) {
    return sqDistanceLineToPoint(x, aabb.xMin(), aabb.xMax()) +
           sqDistanceLineToPoint(y, aabb.yMin(), aabb.yMax()) +
           sqDistanceLineToPoint(z, aabb.zMin(), aabb.zMax());
@@ -256,7 +261,7 @@ extern "C" {
 #endif
 
 int main(int argc, char **argv) {
-    using namespace std::placeholders;
+    using namespace placeholders;
 
     // Force flush to zero mode for denormals
 #if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
@@ -267,7 +272,8 @@ int main(int argc, char **argv) {
     int steps = 100;
     int runs = 1;
     int nthreads = 1;
-    std::string vtk_directory;
+    string algorithm;
+    string vtk_directory;
 
     int opt = 0;
     struct option long_opts[] = {
@@ -277,11 +283,12 @@ int main(int argc, char **argv) {
         {"timesteps", required_argument,    nullptr,    's'},
         {"runs",      required_argument,    nullptr,    'r'},
         {"threads",   required_argument,    nullptr,    't'},
+        {"algorithm", required_argument,    nullptr,    'a'},
         {"vtk",       required_argument,    nullptr,    'v'},
         {"help",      no_argument,          nullptr,    'h'},
     };
 
-    while((opt = getopt_long(argc, argv, "x:y:z:s:r:t:c:v:h", long_opts, nullptr)) != -1) {
+    while((opt = getopt_long(argc, argv, "x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
         switch(opt) {
             case 'x':
                 gridsize[0] = atoi(optarg);
@@ -307,8 +314,12 @@ int main(int argc, char **argv) {
                 nthreads = atoi(optarg);
                 break;
 
+            case 'a':
+                algorithm = string(optarg);
+                break;
+
             case 'v':
-                vtk_directory = std::string(optarg);
+                vtk_directory = string(optarg);
                 break;
 
             case 'h':
@@ -319,18 +330,19 @@ int main(int argc, char **argv) {
         }
     }
 
+    ::AABB aabb;
     double dt = 1e-3;
     double const cutoff_radius = 2.5;
     double const epsilon = 1.0;
     double const sigma = 1.0;
-    //double potential_minimum = std::pow(2.0, 1.0/6.0) * sigma;
+    //double potential_minimum = pow(2.0, 1.0/6.0) * sigma;
     double potential_minimum = 1.6796;
-    AABB aabb;
     double spacing[3];
     bool vtk = !vtk_directory.empty();
+    bool use_load_balancing = false;
 
 #ifdef BODY_COLLISION_TEST
-    AABB aabb1, aabb2;
+    ::AABB aabb1, aabb2;
 
     for(int i = 0; i < 3; ++i) {
         aabb1.min[i] = 50;
@@ -347,8 +359,8 @@ int main(int argc, char **argv) {
     aabb2.max[1] -= shift;
 
     for(int i = 0; i < 3; ++i) {
-        aabb.min[i] = std::min(aabb1.min[i], aabb2.min[i]) - 20;
-        aabb.max[i] = std::max(aabb1.max[i], aabb2.max[i]) + 20;
+        aabb.min[i] = min(aabb1.min[i], aabb2.min[i]) - 20;
+        aabb.max[i] = max(aabb1.max[i], aabb2.max[i]) + 20;
         spacing[i] = potential_minimum;
     }
 #else
@@ -361,19 +373,19 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    std::vector<double> grid_initialization_time(runs, 0);
-    std::vector<double> copy_data_to_accelerator_time(runs, 0);
-    std::vector<double> copy_data_from_accelerator_time(runs, 0);
-    std::vector<double> integration_time(runs, 0);
-    std::vector<double> redistribution_time(runs, 0);
-    std::vector<double> cluster_initialization_time(runs, 0);
-    std::vector<double> neighborlist_creation_time(runs, 0);
-    std::vector<double> force_computation_time(runs, 0);
-    std::vector<double> deallocation_time(runs, 0);
-    std::vector<double> synchronization_time(runs, 0);
-    std::vector<double> exchange_time(runs, 0);
-    std::vector<double> pbc_time(runs, 0);
-    std::vector<double> barrier_time(runs, 0);
+    vector<double> grid_initialization_time(runs, 0);
+    vector<double> copy_data_to_accelerator_time(runs, 0);
+    vector<double> copy_data_from_accelerator_time(runs, 0);
+    vector<double> integration_time(runs, 0);
+    vector<double> redistribution_time(runs, 0);
+    vector<double> cluster_initialization_time(runs, 0);
+    vector<double> neighborlist_creation_time(runs, 0);
+    vector<double> force_computation_time(runs, 0);
+    vector<double> deallocation_time(runs, 0);
+    vector<double> synchronization_time(runs, 0);
+    vector<double> exchange_time(runs, 0);
+    vector<double> pbc_time(runs, 0);
+    vector<double> barrier_time(runs, 0);
     double const factor = 1e-6;
     double const verlet_buffer = 0.3;
     int size;
@@ -381,37 +393,107 @@ int main(int argc, char **argv) {
     md_set_thread_count(nthreads);
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
-    auto mpiManager = walberla::mpi::MPIManager::instance();
+    auto mpiManager = mpi::MPIManager::instance();
     mpiManager->initializeMPI(&argc, &argv);
     mpiManager->useWorldComm();
 
-    walberla::math::AABB domain(
-        walberla::real_t(aabb.min[0]), walberla::real_t(aabb.min[1]), walberla::real_t(aabb.min[2]),
-        walberla::real_t(aabb.max[0]), walberla::real_t(aabb.max[1]), walberla::real_t(aabb.max[2]));
+    math::AABB domain(
+        real_t(aabb.min[0]), real_t(aabb.min[1]), real_t(aabb.min[2]),
+        real_t(aabb.max[0]), real_t(aabb.max[1]), real_t(aabb.max[2]));
 
-    auto forest = walberla::blockforest::createBlockForest(
+    auto forest = blockforest::createBlockForest(
         domain, getBlockConfig(mpiManager->numProcesses(), gridsize[0], gridsize[1], gridsize[2]),
-        walberla::Vector3<bool>(true, true, true), mpiManager->numProcesses(), walberla::uint_t(0));
+        Vector3<bool>(true, true, true), mpiManager->numProcesses(), uint_t(0));
 
+    auto info = make_shared<blockforest::InfoCollection>();
     auto rank_aabb = get_rank_aabb_from_block_forest(forest);
-    auto is_within_domain = std::bind(is_within_block_forest, _1, _2, _3, forest);
+    auto is_within_domain = bind(is_within_block_forest, _1, _2, _3, forest);
     auto neighborhood = get_neighborhood_from_block_forest(forest);
+
+    // Properties
+    map<string, int64_t> integerProperties;
+    map<string, double> realProperties;
+    map<string, string> stringProperties;
+
+    // Load balancing parameters
+    real_t baseWeight = 10.0;
+    real_t metisipc2redist = 1.0;
+    int maxBlocksPerProcess = 100;
+    string metisAlgorithm = "none";
+    string metisWeightsToUse = "none";
+    string metisEdgeSource = "none";
+
+    for_each(algorithm.begin(), algorithm.end(), [](char& c){
+	      c = (char) ::tolower(c);
+    });
+
+    if(algorithm == "morton") {
+        forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::WeightAssignmentFunctor(info, baseWeight));
+        forest->setRefreshPhantomBlockDataPackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+        forest->setRefreshPhantomBlockDataUnpackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+
+        auto prepFunc = blockforest::DynamicCurveBalance<pe::amr::WeightAssignmentFunctor::PhantomBlockWeight>(false, true, false);
+
+        prepFunc.setMaxBlocksPerProcess(maxBlocksPerProcess);
+        forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
+        use_load_balancing = true;
+
+    } else if(algorithm == "hilbert") {
+        forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::WeightAssignmentFunctor(info, baseWeight));
+        forest->setRefreshPhantomBlockDataPackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+        forest->setRefreshPhantomBlockDataUnpackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+
+        auto prepFunc = blockforest::DynamicCurveBalance<pe::amr::WeightAssignmentFunctor::PhantomBlockWeight>(true, true, false);
+
+        prepFunc.setMaxBlocksPerProcess(maxBlocksPerProcess);
+        forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
+        use_load_balancing = true;
+
+    } else if(algorithm == "metis") {
+        auto assFunc = pe::amr::MetisAssignmentFunctor(info, baseWeight);
+        forest->setRefreshPhantomBlockDataAssignmentFunction(assFunc);
+        forest->setRefreshPhantomBlockDataPackFunction(pe::amr::MetisAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+        forest->setRefreshPhantomBlockDataUnpackFunction(pe::amr::MetisAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+
+        auto alg = blockforest::DynamicParMetis::stringToAlgorithm(metisAlgorithm);
+        auto vWeight = blockforest::DynamicParMetis::stringToWeightsToUse(metisWeightsToUse);
+        auto eWeight = blockforest::DynamicParMetis::stringToEdgeSource(metisEdgeSource);
+
+        auto prepFunc = blockforest::DynamicParMetis(alg, vWeight, eWeight);
+        prepFunc.setipc2redist(metisipc2redist);
+        forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
+        use_load_balancing = true;
+
+    } else if(algorithm == "diffusive") {
+        forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::WeightAssignmentFunctor(info, baseWeight));
+        forest->setRefreshPhantomBlockDataPackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+        forest->setRefreshPhantomBlockDataUnpackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
+
+        auto prepFunc = blockforest::DynamicDiffusionBalance<pe::amr::WeightAssignmentFunctor::PhantomBlockWeight>(1, 1, false);
+
+        forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
+        use_load_balancing = true;
+    }
+
+    if(use_load_balancing) {
+        updateWeights(forest, *info);
+    }
 
     gNeighborhood = &neighborhood;
 #else
     md_mpi_initialize();
 
     auto rank_aabb = get_rank_aabb(aabb);
-    auto is_within_domain = std::bind(is_within_aabb, _1, _2, _3, rank_aabb);
+    auto is_within_domain = bind(is_within_aabb, _1, _2, _3, rank_aabb);
 #endif
 
     if(md_get_world_rank() == 0) {
-        std::cout << "Simulation settings:" << std::endl;
-        std::cout << "- Unit cells (x, y, z): " << gridsize[0] << ", " << gridsize[1] << ", " << gridsize[2] << std::endl;
-        std::cout << "- Number of timesteps: " << steps << std::endl;
-        std::cout << "- Number of runs: " << runs << std::endl;
-        std::cout << "- Number of threads: " << nthreads << std::endl;
-        std::cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << std::endl << std::endl;
+        cout << "Simulation settings:" << endl;
+        cout << "- Unit cells (x, y, z): " << gridsize[0] << ", " << gridsize[1] << ", " << gridsize[2] << endl;
+        cout << "- Number of timesteps: " << steps << endl;
+        cout << "- Number of runs: " << runs << endl;
+        cout << "- Number of threads: " << nthreads << endl;
+        cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }
 
     LIKWID_MARKER_INIT;
@@ -428,7 +510,7 @@ int main(int argc, char **argv) {
         grid_initialization_time[i] = time_diff(begin, end) * factor;
 
         if(size == 0) {
-            std::cout << "Zero particles created. Aborting." << std::endl;
+            cout << "Zero particles created. Aborting." << endl;
             return EXIT_FAILURE;
         }
 
@@ -446,13 +528,13 @@ int main(int argc, char **argv) {
         end = measure_time();
         neighborlist_creation_time[i] += time_diff(begin, end) * factor;
 
-        std::vector<double> masses(size);
-        std::vector<Vector3D> positions(size);
-        std::vector<Vector3D> velocities(size);
-        std::vector<Vector3D> forces(size);
+        vector<double> masses(size);
+        vector<Vector3D> positions(size);
+        vector<Vector3D> velocities(size);
+        vector<Vector3D> forces(size);
 
         if(vtk) {
-            vtk_directory += std::to_string(md_get_world_rank()) + "/";
+            vtk_directory += to_string(md_get_world_rank()) + "/";
             md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
             write_vtk_to_file(vtk_directory + "particles_0.vtk", masses, positions, velocities, forces);
         }
@@ -525,8 +607,8 @@ int main(int argc, char **argv) {
 
                     md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
 
-                    std::string filename(vtk_directory + "particles_");
-                    filename += std::to_string(j+1);
+                    string filename(vtk_directory + "particles_");
+                    filename += to_string(j+1);
                     filename += ".vtk";
                     write_vtk_to_file(filename, masses, positions, velocities, forces);
                 }
@@ -550,7 +632,7 @@ int main(int argc, char **argv) {
 
     LIKWID_MARKER_CLOSE;
 
-    std::vector<std::pair<double,double>> time_results(13);
+    vector<pair<double,double>> time_results(13);
 
     time_results[0] = get_time_statistics(grid_initialization_time);
     time_results[1] = get_time_statistics(integration_time);
