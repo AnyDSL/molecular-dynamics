@@ -17,6 +17,7 @@
 #include <blockforest/loadbalancing/DynamicParMetis.h>
 #include <blockforest/loadbalancing/InfoCollection.h>
 #include <blockforest/loadbalancing/PODPhantomData.h>
+#include <pe/amr/level_determination/MinMaxLevelDetermination.h>
 #include <pe/amr/weight_assignment/MetisAssignmentFunctor.h>
 #include <pe/amr/weight_assignment/WeightAssignmentFunctor.h>
 #endif

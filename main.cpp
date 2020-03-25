@@ -143,12 +143,7 @@ void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& 
     }
 }
 
-Vector3<uint_t> getBlockConfig(
-    uint_t num_processes,
-    uint_t nx,
-    uint_t ny,
-    uint_t nz) {
-
+Vector3<uint_t> getBlockConfig(uint_t num_processes, uint_t nx, uint_t ny, uint_t nz) {
     const uint_t ax = nx * ny;
     const uint_t ay = nx * nz;
     const uint_t az = ny * nz;
@@ -427,10 +422,23 @@ int main(int argc, char **argv) {
     // Load balancing parameters
     real_t baseWeight = 10.0;
     real_t metisipc2redist = 1.0;
+    uint_t regridMin = 0;
+    uint_t regridMax = 10;
     int maxBlocksPerProcess = 100;
     string metisAlgorithm = "none";
     string metisWeightsToUse = "none";
     string metisEdgeSource = "none";
+    pe::amr::MinMaxLevelDetermination regrid(info, regridMin, regridMax);
+
+    forest->recalculateBlockLevelsInRefresh(true);
+    forest->alwaysRebalanceInRefresh(true);
+    forest->reevaluateMinTargetLevelsAfterForcedRefinement(true);
+    forest->allowRefreshChangingDepth(true);
+
+    forest->allowMultipleRefreshCycles(true);
+    forest->checkForEarlyOutInRefresh(false);
+    forest->checkForLateOutInRefresh(false);
+    //forest->setRefreshMinTargetLevelDeterminationFunction(regrid);
 
     for_each(algorithm.begin(), algorithm.end(), [](char& c) { c = (char) ::tolower(c); });
 
@@ -457,16 +465,15 @@ int main(int argc, char **argv) {
         use_load_balancing = true;
 
     } else if(algorithm == "metis") {
-        auto assFunc = pe::amr::MetisAssignmentFunctor(info, baseWeight);
-        forest->setRefreshPhantomBlockDataAssignmentFunction(assFunc);
+        forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::MetisAssignmentFunctor(info, baseWeight));
         forest->setRefreshPhantomBlockDataPackFunction(pe::amr::MetisAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
         forest->setRefreshPhantomBlockDataUnpackFunction(pe::amr::MetisAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
 
         auto alg = blockforest::DynamicParMetis::stringToAlgorithm(metisAlgorithm);
         auto vWeight = blockforest::DynamicParMetis::stringToWeightsToUse(metisWeightsToUse);
         auto eWeight = blockforest::DynamicParMetis::stringToEdgeSource(metisEdgeSource);
-
         auto prepFunc = blockforest::DynamicParMetis(alg, vWeight, eWeight);
+
         prepFunc.setipc2redist(metisipc2redist);
         forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
         use_load_balancing = true;
