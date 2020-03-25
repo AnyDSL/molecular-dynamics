@@ -652,7 +652,7 @@ int main(int argc, char **argv) {
 
     LIKWID_MARKER_CLOSE;
 
-    vector<pair<double,double>> time_results(13);
+    vector<pair<double, double>> time_results(13);
 
     time_results[0] = get_time_statistics(grid_initialization_time);
     time_results[1] = get_time_statistics(integration_time);
