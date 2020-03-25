@@ -48,6 +48,20 @@ extern fn md_initialize_grid(
     grid_.nparticles
 }
 
+extern fn md_rescale_grid(min: &[real_t], max: &[real_t]) -> () {
+    let mut aabb = AABB {
+        xmin: min(0),
+        xmax: max(0),
+        ymin: min(1),
+        ymax: max(1),
+        zmin: min(2),
+        zmax: max(2)
+    };
+
+    extend_rank_domain(&mut aabb, grid_.spacing);
+    rescale_grid(&mut grid_, aabb);
+}
+
 extern fn md_get_node_bounding_box(
     min: &[real_t],
     max: &[real_t],

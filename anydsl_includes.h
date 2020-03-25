@@ -11,6 +11,7 @@ extern "C" {
         double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double const *, double const *,
         double, int, int
     );
+    void md_rescale_grid(double const *, double const *);
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
     void md_integration(double);

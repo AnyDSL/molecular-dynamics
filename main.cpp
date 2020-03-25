@@ -55,6 +55,7 @@ pair<double,double> get_time_statistics(vector<double> time) {
 }
 
 #ifdef USE_WALBERLA_LOAD_BALANCING
+
 using namespace walberla;
 
 map<uint_t, vector<pair<const BlockID&, math::AABB>>> *gNeighborhood;
@@ -235,7 +236,9 @@ extern "C" {
         return false;
     }
 }
+
 #else
+
 extern "C" {
     bool use_walberla() { return false; }
     unsigned long int get_number_of_neighbor_ranks() { return 0; }
@@ -258,6 +261,7 @@ extern "C" {
         return false;
     }
 }
+
 #endif
 
 int main(int argc, char **argv) {
@@ -341,7 +345,8 @@ int main(int argc, char **argv) {
     bool vtk = !vtk_directory.empty();
     bool use_load_balancing = false;
 
-#ifdef BODY_COLLISION_TEST
+    #ifdef BODY_COLLISION_TEST
+
     ::AABB aabb1, aabb2;
 
     for(int i = 0; i < 3; ++i) {
@@ -363,7 +368,9 @@ int main(int argc, char **argv) {
         aabb.max[i] = max(aabb1.max[i], aabb2.max[i]) + 20;
         spacing[i] = potential_minimum;
     }
-#else
+
+    #else
+
     double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
 
     for(int i = 0; i < 3; ++i) {
@@ -371,7 +378,8 @@ int main(int argc, char **argv) {
         aabb.max[i] = gridsize[i] * potential_minimum;
         spacing[i] = potential_minimum / spacing_div_factor[i];
     }
-#endif
+
+    #endif
 
     vector<double> grid_initialization_time(runs, 0);
     vector<double> copy_data_to_accelerator_time(runs, 0);
@@ -392,7 +400,8 @@ int main(int argc, char **argv) {
 
     md_set_thread_count(nthreads);
 
-#ifdef USE_WALBERLA_LOAD_BALANCING
+    #ifdef USE_WALBERLA_LOAD_BALANCING
+
     auto mpiManager = mpi::MPIManager::instance();
     mpiManager->initializeMPI(&argc, &argv);
     mpiManager->useWorldComm();
@@ -423,9 +432,7 @@ int main(int argc, char **argv) {
     string metisWeightsToUse = "none";
     string metisEdgeSource = "none";
 
-    for_each(algorithm.begin(), algorithm.end(), [](char& c){
-	      c = (char) ::tolower(c);
-    });
+    for_each(algorithm.begin(), algorithm.end(), [](char& c) { c = (char) ::tolower(c); });
 
     if(algorithm == "morton") {
         forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::WeightAssignmentFunctor(info, baseWeight));
@@ -475,17 +482,16 @@ int main(int argc, char **argv) {
         use_load_balancing = true;
     }
 
-    if(use_load_balancing) {
-        updateWeights(forest, *info);
-    }
-
     gNeighborhood = &neighborhood;
-#else
+
+    #else
+
     md_mpi_initialize();
 
     auto rank_aabb = get_rank_aabb(aabb);
     auto is_within_domain = bind(is_within_aabb, _1, _2, _3, rank_aabb);
-#endif
+
+    #endif
 
     if(md_get_world_rank() == 0) {
         cout << "Simulation settings:" << endl;
@@ -501,11 +507,11 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-#ifdef BODY_COLLISION_TEST
+        #ifdef BODY_COLLISION_TEST
         size = init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
-#else
+        #else
         size = init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
-#endif
+        #endif
         auto end = measure_time();
         grid_initialization_time[i] = time_diff(begin, end) * factor;
 
@@ -524,7 +530,7 @@ int main(int argc, char **argv) {
         copy_data_to_accelerator_time[i] = time_diff(begin, end) * factor;
 
         begin = measure_time();
-        md_assemble_neighborlists(cutoff_radius+verlet_buffer);
+        md_assemble_neighborlists(cutoff_radius + verlet_buffer);
         end = measure_time();
         neighborlist_creation_time[i] += time_diff(begin, end) * factor;
 
@@ -575,6 +581,20 @@ int main(int argc, char **argv) {
                 end = measure_time();
                 copy_data_from_accelerator_time[i] += time_diff(begin, end) * factor;
 
+                #ifdef USE_WALBERLA_LOAD_BALANCING
+
+                if(use_load_balancing && j % 100 == 0) {
+                    updateWeights(forest, *info);
+                    forest->refresh();
+
+                    auto new_aabb = get_rank_aabb_from_block_forest(forest);
+                    neighborhood = get_neighborhood_from_block_forest(forest);
+                    md_rescale_grid(new_aabb.min, new_aabb.max);
+                    gNeighborhood = &neighborhood;
+                }
+
+                #endif
+
                 begin = measure_time();
                 md_exchange_ghost_layer();
                 end = measure_time();
@@ -591,7 +611,7 @@ int main(int argc, char **argv) {
                 copy_data_to_accelerator_time[i] += time_diff(begin, end) * factor;
 
                 begin = measure_time();
-                md_assemble_neighborlists(cutoff_radius+verlet_buffer);
+                md_assemble_neighborlists(cutoff_radius + verlet_buffer);
                 end = measure_time();
                 neighborlist_creation_time[i] += time_diff(begin, end) * factor;
             }
