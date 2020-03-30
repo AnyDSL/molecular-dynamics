@@ -433,7 +433,7 @@ int main(int argc, char **argv) {
     forest->recalculateBlockLevelsInRefresh(true);
     forest->alwaysRebalanceInRefresh(true);
     forest->reevaluateMinTargetLevelsAfterForcedRefinement(true);
-    forest->allowRefreshChangingDepth(true);
+    forest->allowRefreshChangingDepth(false);
 
     forest->allowMultipleRefreshCycles(true);
     forest->checkForEarlyOutInRefresh(false);
@@ -489,6 +489,7 @@ int main(int argc, char **argv) {
         use_load_balancing = true;
     }
 
+    forest->addBlockData(make_shared<MDDataHandling>(), "Interface");
     gNeighborhood = &neighborhood;
 
     #else
@@ -692,9 +693,9 @@ int main(int argc, char **argv) {
         time_results[11].first
     );
 
-#ifndef USE_WALBERLA_LOAD_BALANCING
+    #ifndef USE_WALBERLA_LOAD_BALANCING
     md_mpi_finalize();
-#endif
+    #endif
 
     return EXIT_SUCCESS;
 }

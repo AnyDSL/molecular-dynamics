@@ -7,8 +7,9 @@
 #include <tuple>
 #include <chrono>
 #include <random>
-#include "anydsl_includes.h"
 //---
+#include "anydsl_includes.h"
+
 #ifdef USE_WALBERLA_LOAD_BALANCING
 #include <blockforest/BlockForest.h>
 #include <blockforest/Initialization.h>
@@ -20,6 +21,8 @@
 #include <pe/amr/level_determination/MinMaxLevelDetermination.h>
 #include <pe/amr/weight_assignment/MetisAssignmentFunctor.h>
 #include <pe/amr/weight_assignment/WeightAssignmentFunctor.h>
+//---
+#include "MDDataHandling.h"
 #endif
 
 /* Random function from miniMD (used to validate our results) */

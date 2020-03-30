@@ -120,9 +120,32 @@ extern fn md_compute_boundary_weights(
     });
 }
 
+extern fn md_clear_domain(xmin: real_t, xmax: real_t, ymin: real_t, ymax: real_t, zmin: real_t, zmax: real_t) -> () {
+    let aabb = AABB {
+        xmin: xmin,
+        xmax: xmax,
+        ymin: ymin,
+        ymax: ymax,
+        zmin: zmin,
+        zmax: zmax
+    };
+
+    let mut particle_index = 0;
+
+    while particle_index < grid_.nparticles {
+        let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
+
+        if is_within_domain(pos, aabb) {
+            delete_particle(particle_index, &mut grid_);
+        } else {
+            particle_index++;
+        }
+    }
+}
+
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }
 extern fn md_copy_data_from_accelerator() -> () { copy_from_accelerator(grid_); }
-extern fn md_deallocate_grid() -> () { deallocate_grid(grid_); }
+extern fn md_deallocate_grid() -> () { deallocate_grid(&mut grid_); }
 extern fn md_integration(dt: real_t) -> () { integration_iters = accelerator_integration(grid_, dt); }
 extern fn md_initial_integration(dt: real_t) -> () { integration_iters = accelerator_initial_integration(grid_, dt); }
 extern fn md_final_integration(dt: real_t) -> () { integration_iters = accelerator_final_integration(grid_, dt); }
@@ -170,6 +193,28 @@ extern fn md_synchronize_ghost_layer() -> () { synchronize_ghost_layer_cells(gri
 extern fn md_barrier() -> () { barrier(); }
 extern fn md_get_world_rank() -> i32 { get_process_rank() }
 extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
+
+extern fn md_get_mass(particle_index: i32) -> real_t { get_real(particle_index, grid_.masses_cpu) }
+extern fn md_get_position(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
+    let pos = get_vector_from_3d_arrays(particle_index, grid_.positions_cpu);
+    *x = pos.x;
+    *y = pos.y;
+    *z = pos.z;
+}
+
+extern fn md_get_velocity(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
+    let vel = get_vector_from_3d_arrays(particle_index, grid_.velocities_cpu);
+    *x = vel.x;
+    *y = vel.y;
+    *z = vel.z;
+}
+
+extern fn md_create_particle(mass: real_t, px: real_t, py: real_t, pz: real_t, vx: real_t, vy: real_t, vz: real_t) -> () {
+    let position = Vector3D { x: px, y: py, z: pz };
+    let velocity = Vector3D { x: vx, y: vy, z: vz };
+
+    insert_particle(mass, position, velocity, &mut grid_, alloc_cpu);
+}
 
 extern fn md_report_iterations() -> () {
     let mut res: i64;

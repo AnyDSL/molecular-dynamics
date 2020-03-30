@@ -149,7 +149,10 @@ fn rescale_grid(grid: &mut Grid, aabb: AABB) -> () {
     }
 }
 
-fn deallocate_grid(grid: Grid) -> () {
+fn deallocate_grid(grid: &mut Grid) -> () {
+    grid.nparticles = 0;
+    grid.nghost = 0;
+
     if !use_unified_memory() {
         release(grid.cell_particles_cpu);
         release(grid.cell_sizes_cpu);
