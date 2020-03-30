@@ -528,6 +528,11 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
+        vector<double> masses(size);
+        vector<Vector3D> positions(size);
+        vector<Vector3D> velocities(size);
+        vector<Vector3D> forces(size);
+
         md_exchange_ghost_layer();
         md_distribute_particles();
         md_barrier();
@@ -541,11 +546,6 @@ int main(int argc, char **argv) {
         md_assemble_neighborlists(cutoff_radius + verlet_buffer);
         end = measure_time();
         neighborlist_creation_time[i] += time_diff(begin, end) * factor;
-
-        vector<double> masses(size);
-        vector<Vector3D> positions(size);
-        vector<Vector3D> velocities(size);
-        vector<Vector3D> forces(size);
 
         if(vtk) {
             vtk_directory += to_string(md_get_world_rank()) + "/";
@@ -571,14 +571,14 @@ int main(int argc, char **argv) {
             end = measure_time();
             barrier_time[i] += time_diff(begin, end) * factor;
 
-            if(!vtk && j % 20 != 0) {
+            if(j % 20 != 0) {
                 begin = measure_time();
                 md_synchronize_ghost_layer();
                 end = measure_time();
                 synchronization_time[i] += time_diff(begin, end) * factor;
             }
 
-            if(vtk || (j > 0 && j % 20 == 0)) {
+            if(j > 0 && j % 20 == 0) {
                 begin = measure_time();
                 md_pbc();
                 end = measure_time();
@@ -633,10 +633,11 @@ int main(int argc, char **argv) {
                     velocities.resize(nparticles);
                     forces.resize(nparticles);
 
+                    md_copy_data_from_accelerator();
                     md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
 
                     string filename(vtk_directory + "particles_");
-                    filename += to_string(j+1);
+                    filename += to_string(j + 1);
                     filename += ".vtk";
                     write_vtk_to_file(filename, masses, positions, velocities, forces);
                 }
