@@ -409,10 +409,10 @@ int main(int argc, char **argv) {
         domain, getBlockConfig(mpiManager->numProcesses(), gridsize[0], gridsize[1], gridsize[2]),
         Vector3<bool>(true, true, true), mpiManager->numProcesses(), uint_t(0));
 
-    auto info = make_shared<blockforest::InfoCollection>();
     auto rank_aabb = get_rank_aabb_from_block_forest(forest);
     auto is_within_domain = bind(is_within_block_forest, _1, _2, _3, forest);
     auto neighborhood = get_neighborhood_from_block_forest(forest);
+    auto info = make_shared<blockforest::InfoCollection>();
 
     // Properties
     map<string, int64_t> integerProperties;
@@ -422,13 +422,12 @@ int main(int argc, char **argv) {
     // Load balancing parameters
     real_t baseWeight = 10.0;
     real_t metisipc2redist = 1.0;
-    uint_t regridMin = 0;
-    uint_t regridMax = 10;
+    size_t regridMin = 0;
+    size_t regridMax = 10;
     int maxBlocksPerProcess = 100;
     string metisAlgorithm = "none";
     string metisWeightsToUse = "none";
     string metisEdgeSource = "none";
-    pe::amr::MinMaxLevelDetermination regrid(info, regridMin, regridMax);
 
     forest->recalculateBlockLevelsInRefresh(true);
     forest->alwaysRebalanceInRefresh(true);
@@ -438,7 +437,7 @@ int main(int argc, char **argv) {
     forest->allowMultipleRefreshCycles(true);
     forest->checkForEarlyOutInRefresh(false);
     forest->checkForLateOutInRefresh(false);
-    //forest->setRefreshMinTargetLevelDeterminationFunction(regrid);
+    forest->setRefreshMinTargetLevelDeterminationFunction(pe::amr::MinMaxLevelDetermination(info, regridMin, regridMax));
 
     for_each(algorithm.begin(), algorithm.end(), [](char& c) { c = (char) ::tolower(c); });
 

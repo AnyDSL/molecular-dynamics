@@ -36,7 +36,8 @@ option(BODY_COLLISION_TEST "BODY_COLLISION_TEST" OFF)
 option(USE_WALBERLA_LOAD_BALANCING "USE_WALBERLA_LOAD_BALANCING" OFF)
 
 # Just use -march=native when compiling and executing in the same machine
-set(CLANG_FLAGS -O3 -march=native -ffast-math)
+#set(CLANG_FLAGS -O3 -march=native -ffast-math)
+set(CLANG_FLAGS -O3 -ffast-math)
 set(IMPALA_FLAGS -O3 --log-level warn)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
 
@@ -85,7 +86,7 @@ if(USE_WALBERLA_LOAD_BALANCING)
     waLBerla_add_executable(
         NAME md
         FILES main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_OBJS}
-        DEPENDS blockforest core)
+        DEPENDS blockforest core pe)
 else()
     add_executable(md main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_OBJS})
 endif()
