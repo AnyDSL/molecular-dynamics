@@ -617,7 +617,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
 }
 
 // Synchronize ghost layer cells with neighbor ranks
-fn synchronize_ghost_layer_cells(grid: Grid, comm_offsets: CommOffsets) -> () {
+fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     let mpih = mpi();
     let mut request: MPI_Request;
     let mut status: MPIStatus;
@@ -680,7 +680,7 @@ fn copy_buffer_data_to_grid(buffer: Buffer, buffer_index: i32, grid: &Grid, offs
 
 // Exchange ghost layer particles with neighbor ranks (here the number of
 // particles is also updated)
-fn exchange_ghost_layer_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
+fn exchange_ghost_layer(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let mpih = mpi();
     let mut request: MPI_Request;
     let mut status: MPIStatus;

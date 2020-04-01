@@ -54,6 +54,28 @@ pair<double,double> get_time_statistics(vector<double> time) {
     return make_pair(mean, stdev);
 }
 
+void vtk_write_local_data(string filename) {
+    const int size = md_get_number_of_particles();
+    vector<double> masses(size);
+    vector<Vector3D> positions(size);
+    vector<Vector3D> velocities(size);
+    vector<Vector3D> forces(size);
+
+    md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
+    write_vtk_to_file(filename, masses, positions, velocities, forces);
+}
+
+void vtk_write_ghost_data(string filename) {
+    const int size = md_get_number_of_ghost_particles();
+    vector<double> masses(size);
+    vector<Vector3D> positions(size);
+    vector<Vector3D> velocities(size);
+    vector<Vector3D> forces(size);
+
+    md_write_grid_ghost_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
+    write_vtk_to_file(filename, masses, positions, velocities, forces);
+}
+
 #ifdef USE_WALBERLA_LOAD_BALANCING
 
 using namespace walberla;
@@ -507,6 +529,10 @@ int main(int argc, char **argv) {
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }
 
+    if(vtk) {
+        vtk_directory += to_string(md_get_world_rank()) + "/";
+    }
+
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
@@ -525,11 +551,6 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
-        vector<double> masses(size);
-        vector<Vector3D> positions(size);
-        vector<Vector3D> velocities(size);
-        vector<Vector3D> forces(size);
-
         md_exchange_ghost_layer();
         md_distribute_particles();
         md_barrier();
@@ -544,10 +565,9 @@ int main(int argc, char **argv) {
         end = measure_time();
         neighborlist_creation_time[i] += time_diff(begin, end) * factor;
 
-        if(vtk) {
-            vtk_directory += to_string(md_get_world_rank()) + "/";
-            md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
-            write_vtk_to_file(vtk_directory + "particles_0.vtk", masses, positions, velocities, forces);
+        if(vtk && i == 0) {
+            vtk_write_local_data(vtk_directory + "particles_0.vtk");
+            vtk_write_ghost_data(vtk_directory + "ghost_0.vtk");
         }
 
         for(int j = 0; j < steps; ++j) {
@@ -622,22 +642,8 @@ int main(int argc, char **argv) {
             }
 
             if(vtk && i == 0) {
-                int nparticles = md_get_number_of_particles();
-
-                if(nparticles > 0) {
-                    masses.resize(nparticles);
-                    positions.resize(nparticles);
-                    velocities.resize(nparticles);
-                    forces.resize(nparticles);
-
-                    md_copy_data_from_accelerator();
-                    md_write_grid_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
-
-                    string filename(vtk_directory + "particles_");
-                    filename += to_string(j + 1);
-                    filename += ".vtk";
-                    write_vtk_to_file(filename, masses, positions, velocities, forces);
-                }
+                vtk_write_local_data(vtk_directory + "particles_" + to_string(j + 1) + ".vtk");
+                vtk_write_ghost_data(vtk_directory + "ghost_" + to_string(j + 1) + ".vtk");
             }
         }
 

@@ -159,8 +159,17 @@ extern fn md_write_grid_data_to_arrays(
     write_grid_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
+extern fn md_write_grid_ghost_data_to_arrays(
+    masses: &mut[real_t],
+    positions: &mut [Vector3D],
+    velocities: &mut [Vector3D],
+    forces: &mut [Vector3D]) -> i32 {
+
+    write_grid_ghost_data_to_arrays(masses, positions, velocities, forces, &grid_)
+}
+
 extern fn md_distribute_particles() -> () { distribute_particles(&mut grid_, alloc_cpu); }
-extern fn md_exchange_ghost_layer() -> () { exchange_ghost_layer_particles(&mut grid_, &mut comm_offsets_); }
+extern fn md_exchange_ghost_layer() -> () { exchange_ghost_layer(&mut grid_, &mut comm_offsets_); }
 extern fn md_pbc() -> () { accelerator_pbc(grid_, ); }
 extern fn md_initialize_clusters() -> () { }
 extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () { assemble_neighborlists(&mut grid_, cutoff_distance); }
@@ -189,10 +198,11 @@ extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: rea
 extern fn md_compute_total_kinetic_energy() -> real_t { 0.0 as real_t }
 extern fn md_mpi_initialize() -> () { mpi_initialize(); }
 extern fn md_mpi_finalize() -> () { mpi_finalize(); }
-extern fn md_synchronize_ghost_layer() -> () { synchronize_ghost_layer_cells(grid_, comm_offsets_); }
+extern fn md_synchronize_ghost_layer() -> () { synchronize_ghost_layer(grid_, comm_offsets_); }
 extern fn md_barrier() -> () { barrier(); }
 extern fn md_get_world_rank() -> i32 { get_process_rank() }
 extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
+extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }
 
 extern fn md_get_mass(particle_index: i32) -> real_t { get_real(particle_index, grid_.masses_cpu) }
 extern fn md_get_position(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {

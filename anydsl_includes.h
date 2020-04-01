@@ -18,6 +18,7 @@ extern "C" {
     void md_initial_integration(double);
     void md_final_integration(double);
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
+    int md_write_grid_ghost_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_distribute_particles();
     void md_initialize_clusters();
     void md_assemble_neighborlists(double);
@@ -34,6 +35,7 @@ extern "C" {
     void md_pbc();
     int md_get_world_rank();
     int md_get_number_of_particles();
+    int md_get_number_of_ghost_particles();
     double md_get_mass(int);
     void md_get_position(int, double *, double *, double *);
     void md_get_velocity(int, double *, double *, double *);
