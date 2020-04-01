@@ -191,15 +191,13 @@ extern "C" {
     unsigned long int get_number_of_neighbor_ranks() { return gNeighborhood->size(); }
 
     int get_neighborhood_rank(int index) {
-        int i = 0;
-
-        for(auto iter = gNeighborhood->begin(); iter != gNeighborhood->end(); ++iter, ++i) {
-            if(i == index) {
-                return (int) iter->first;
-            }
+        if(index >= gNeighborhood->size()) {
+            return -1;
         }
 
-        return -1;
+        auto iter = gNeighborhood->begin();
+        advance(iter, index);
+        return (int) iter->first;
     }
 
     bool in_rank_border(int rank, double x, double y, double z, double cutoff_radius) {
