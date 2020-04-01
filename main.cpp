@@ -191,7 +191,7 @@ extern "C" {
     unsigned long int get_number_of_neighbor_ranks() { return gNeighborhood->size(); }
 
     int get_neighborhood_rank(int index) {
-        if(index >= gNeighborhood->size()) {
+        if(index >= (int) gNeighborhood->size()) {
             return -1;
         }
 
