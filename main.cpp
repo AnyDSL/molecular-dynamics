@@ -45,6 +45,14 @@ void print_usage(char *name) {
     cout << "\t-v, --vtk=DIRECTORY       VTK output directory (for MPI simulations, the rank number is concatenated" << endl;
     cout << "\t                          at the end of this name, i.e. output[0-3] when using --vtk=output and 4 ranks)." << endl;
     cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << endl;
+    cout << "\t    --reneigh=NUMBER      timesteps to simulate before reneighboring (default 20)." << endl;
+    cout << "\t    --rebalance=NUMBER    timesteps to simulate before load balancing (default 100)." << endl;
+    cout << "\t    --dt=REAL             timestep size (default 0.001)." << endl;
+    cout << "\t    --cutoff=REAL         cutoff radius (default 2.5)." << endl;
+    cout << "\t    --verlet=REAL         verlet buffer (default 0.3)." << endl;
+    cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones equation (default 1.0)." << endl;
+    cout << "\t    --sigma=REAL          sigma value for Lennard-Jones equation (default 1.0)." << endl;
+    cout << "\t    --potmin=REAL         potential minimum (default 1.6796)." << endl;
     cout << "\t-h, --help                display this help message." << endl;
 }
 
@@ -291,6 +299,15 @@ int main(int argc, char **argv) {
     int steps = 100;
     int runs = 1;
     int nthreads = 1;
+    int reneigh_every = 20;
+    int rebalance_every = 100;
+    double dt = 1e-3;
+    double cutoff_radius = 2.5;
+    double verlet_buffer = 0.3;
+    double epsilon = 1.0;
+    double sigma = 1.0;
+    //double potential_minimum = pow(2.0, 1.0/6.0) * sigma;
+    double potential_minimum = 1.6796;
     string algorithm;
     string vtk_directory;
 
@@ -305,10 +322,50 @@ int main(int argc, char **argv) {
         {"algorithm", required_argument,    nullptr,    'a'},
         {"vtk",       required_argument,    nullptr,    'v'},
         {"help",      no_argument,          nullptr,    'h'},
+        {"reneigh",   required_argument,    nullptr,    0},
+        {"rebalance", required_argument,    nullptr,    1},
+        {"dt",        required_argument,    nullptr,    2},
+        {"cutoff",    required_argument,    nullptr,    3},
+        {"verlet",    required_argument,    nullptr,    4},
+        {"epsilon",   required_argument,    nullptr,    5},
+        {"sigma",     required_argument,    nullptr,    6},
+        {"potmin",    required_argument,    nullptr,    7}
     };
 
     while((opt = getopt_long(argc, argv, "x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
         switch(opt) {
+            case 0:
+                reneigh_every = atoi(optarg);
+                break;
+
+            case 1:
+                rebalance_every = atoi(optarg);
+                break;
+
+            case 2:
+                dt = atof(optarg);
+                break;
+
+            case 3:
+                cutoff_radius = atof(optarg);
+                break;
+
+            case 4:
+                verlet_buffer = atof(optarg);
+                break;
+
+            case 5:
+                epsilon = atof(optarg);
+                break;
+
+            case 6:
+                sigma = atof(optarg);
+                break;
+
+            case 7:
+                potential_minimum = atof(optarg);
+                break;
+
             case 'x':
                 gridsize[0] = atoi(optarg);
                 break;
@@ -349,13 +406,12 @@ int main(int argc, char **argv) {
         }
     }
 
+    if(rebalance_every % reneigh_every != 0) {
+        cerr << "Error: rebalancing timesteps must be multiple of reneighboring timesteps!" << endl;
+        return EXIT_FAILURE;
+    }
+
     ::AABB aabb;
-    double dt = 1e-3;
-    double const cutoff_radius = 2.5;
-    double const epsilon = 1.0;
-    double const sigma = 1.0;
-    //double potential_minimum = pow(2.0, 1.0/6.0) * sigma;
-    double potential_minimum = 1.6796;
     double spacing[3];
     bool vtk = !vtk_directory.empty();
     bool use_load_balancing = false;
@@ -410,7 +466,6 @@ int main(int argc, char **argv) {
     vector<double> pbc_time(runs, 0);
     vector<double> barrier_time(runs, 0);
     double const factor = 1e-6;
-    double const verlet_buffer = 0.3;
     int size;
 
     md_set_thread_count(nthreads);
@@ -526,6 +581,14 @@ int main(int argc, char **argv) {
         cout << "- Number of timesteps: " << steps << endl;
         cout << "- Number of runs: " << runs << endl;
         cout << "- Number of threads: " << nthreads << endl;
+        cout << "- Reneighboring every " << reneigh_every << " timesteps" << endl;
+        cout << "- Rebalancing every " << rebalance_every << " timesteps" << endl;
+        cout << "- Timestep size: " << dt << endl;
+        cout << "- Cutoff radius: " << cutoff_radius << endl;
+        cout << "- Verlet buffer: " << verlet_buffer << endl;
+        cout << "- Epsilon: " << epsilon << endl;
+        cout << "- Sigma: " << sigma << endl;
+        cout << "- Potential minimum: " << potential_minimum << endl;
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }
 
@@ -588,14 +651,7 @@ int main(int argc, char **argv) {
             end = measure_time();
             barrier_time[i] += time_diff(begin, end) * factor;
 
-            if(j % 20 != 0) {
-                begin = measure_time();
-                md_synchronize_ghost_layer();
-                end = measure_time();
-                synchronization_time[i] += time_diff(begin, end) * factor;
-            }
-
-            if(j > 0 && j % 20 == 0) {
+            if(j > 0 && j % reneigh_every == 0) {
                 begin = measure_time();
                 md_pbc();
                 end = measure_time();
@@ -608,7 +664,7 @@ int main(int argc, char **argv) {
 
                 #ifdef USE_WALBERLA_LOAD_BALANCING
 
-                if(use_load_balancing && j % 100 == 0) {
+                if(use_load_balancing && j % rebalance_every == 0) {
                     updateWeights(forest, *info);
                     forest->refresh();
 
@@ -639,6 +695,11 @@ int main(int argc, char **argv) {
                 md_assemble_neighborlists(cutoff_radius + verlet_buffer);
                 end = measure_time();
                 neighborlist_creation_time[i] += time_diff(begin, end) * factor;
+            } else {
+                begin = measure_time();
+                md_synchronize_ghost_layer();
+                end = measure_time();
+                synchronization_time[i] += time_diff(begin, end) * factor;
             }
 
             if(vtk && i == 0) {
