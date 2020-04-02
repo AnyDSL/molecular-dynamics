@@ -46,15 +46,16 @@ Available options are:
 - **-s, --timesteps=NUMBER:** Number of time steps to be simulated (default 100).
 - **-r, --runs=NUMBER:** Number of test runs (default 1).
 - **-t, --threads=NUMBER:** Number of threads used for parallelization (default 1).
+- **-a, --algorithm=STRING:** Load balancing algorithm to use.
 - **-v, --vtk=DIRECTORY:** If this argument is provided, vtk output files are created in the specified directory (it must exist). For MPI simulations, the rank number is concatenated in the end of this directory name. For example, if you use "--vtk output" in a simulation with 4 MPI ranks, then directories "output[0-3]" are used.
--     **--reneigh=NUMBER:** Timesteps to simulate before reneighboring (default 20).
--     **--rebalance=NUMBER:** Timesteps to simulate before load balancing (default 100).
--     **--dt=REAL:** Timestep size (default 0.001).
--     **--cutoff=REAL:** Cutoff radius (default 2.5).
--     **--verlet=REAL:** Verlet buffer (default 0.3).
--     **--epsilon=REAL:** Epsilon value for Lennard-Jones equation (default 1.0).
--     **--sigma=REAL:** Sigma value for Lennard-Jones equation (default 1.0).
--     **--potmin=REAL:** Potential minimum (default 1.6796).
+- **--reneigh=NUMBER:** Timesteps to simulate before reneighboring (default 20).
+- **--rebalance=NUMBER:** Timesteps to simulate before load balancing (default 100).
+- **--dt=REAL:** Timestep size (default 0.001).
+- **--cutoff=REAL:** Cutoff radius (default 2.5).
+- **--verlet=REAL:** Verlet buffer (default 0.3).
+- **--epsilon=REAL:** Epsilon value for Lennard-Jones equation (default 1.0).
+- **--sigma=REAL:** Sigma value for Lennard-Jones equation (default 1.0).
+- **--potmin=REAL:** Potential minimum (default 1.6796).
 - **-h, --help:** Display help message.
 
 Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4.
