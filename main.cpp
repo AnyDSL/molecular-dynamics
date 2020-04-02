@@ -581,14 +581,15 @@ int main(int argc, char **argv) {
         cout << "- Number of timesteps: " << steps << endl;
         cout << "- Number of runs: " << runs << endl;
         cout << "- Number of threads: " << nthreads << endl;
-        cout << "- Reneighboring every " << reneigh_every << " timesteps" << endl;
-        cout << "- Rebalancing every " << rebalance_every << " timesteps" << endl;
+        cout << "- Reneighboring timesteps: " << reneigh_every << endl;
+        cout << "- Rebalancing timesteps: " << rebalance_every << endl;
         cout << "- Timestep size: " << dt << endl;
         cout << "- Cutoff radius: " << cutoff_radius << endl;
         cout << "- Verlet buffer: " << verlet_buffer << endl;
         cout << "- Epsilon: " << epsilon << endl;
         cout << "- Sigma: " << sigma << endl;
         cout << "- Potential minimum: " << potential_minimum << endl;
+        cout << "- Dynamic load balancing algorithm: " << ((use_load_balancing) ? algorithm : "none") << endl;
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }
 
