@@ -82,7 +82,7 @@ fn allocate_grid(
 
     let mut grid = Grid {
         aabb: aabb,
-        world_aabb: aabb,
+        world_aabb: world_aabb,
         nx: nx,
         ny: ny,
         nz: nz,
