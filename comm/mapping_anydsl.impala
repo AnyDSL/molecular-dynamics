@@ -504,49 +504,20 @@ fn @get_node_bounding_box(aabb: AABB) -> AABB {
 
 // Extend domain to include cells for ghost particles
 fn extend_rank_domain(aabb: &mut AABB, cell_spacing: real_t) -> () {
-    if gx > 1 {
+    if use_walberla() || gx > 1 {
         aabb.xmin -= cell_spacing;
         aabb.xmax += cell_spacing;
     }
 
-    if gy > 1 {
+    if use_walberla() || gy > 1 {
         aabb.ymin -= cell_spacing;
         aabb.ymax += cell_spacing;
     }
 
-    if gz > 1 {
+    if use_walberla() || gz > 1 {
         aabb.zmin -= cell_spacing;
         aabb.zmax += cell_spacing;
     }
-}
-
-// Check if position is inside local domain (exclude ghost layer)
-fn is_within_local_domain(position: Vector3D, grid: &Grid) -> bool {
-    let mut aabb = AABB {
-        xmin: grid.aabb.xmin,
-        xmax: grid.aabb.xmax,
-        ymin: grid.aabb.ymin,
-        ymax: grid.aabb.ymax,
-        zmin: grid.aabb.zmin,
-        zmax: grid.aabb.zmax
-    };
-
-    if gx > 1 {
-        aabb.xmin += grid.spacing;
-        aabb.xmax -= grid.spacing;
-    }
-
-    if gy > 1 {
-        aabb.ymin += grid.spacing;
-        aabb.ymax -= grid.spacing;
-    }
-
-    if gz > 1 {
-        aabb.zmin += grid.spacing;
-        aabb.zmax -= grid.spacing;
-    }
-
-    is_within_domain(position, aabb)
 }
 
 // Initialize grid communication
