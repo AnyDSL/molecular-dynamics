@@ -570,6 +570,34 @@ fn write_grid_ghost_data_to_arrays(
     grid.nparticles
 }
 
+fn write_grid_aabb_data_to_arrays(
+    masses: &mut[real_t],
+    positions: &mut [Vector3D],
+    velocities: &mut [Vector3D],
+    forces: &mut [Vector3D],
+    grid: &Grid) -> i32 {
+
+    range(0, 2, |i| {
+        range(0, 2, |j| {
+            range(0, 2, |k| {
+                let index = k * 4 + j * 2 + i;
+
+                masses(index) = 0.0;
+                positions(index) = Vector3D {
+                    x: select(i == 0, grid.aabb.xmin, grid.aabb.xmax),
+                    y: select(j == 0, grid.aabb.ymin, grid.aabb.ymax),
+                    z: select(k == 0, grid.aabb.zmin, grid.aabb.zmax)
+                };
+
+                velocities(index) = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
+                forces(index) = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
+            });
+        });
+    });
+
+    grid.nparticles
+}
+
 fn @compute_cell_position(position: Vector3D, local_only: bool, grid: &Grid) -> [i32 * 3] {
     let mut i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
     let mut j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;

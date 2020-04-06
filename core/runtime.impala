@@ -168,6 +168,15 @@ extern fn md_write_grid_ghost_data_to_arrays(
     write_grid_ghost_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
+extern fn md_write_grid_aabb_data_to_arrays(
+    masses: &mut[real_t],
+    positions: &mut [Vector3D],
+    velocities: &mut [Vector3D],
+    forces: &mut [Vector3D]) -> i32 {
+
+    write_grid_aabb_data_to_arrays(masses, positions, velocities, forces, &grid_)
+}
+
 extern fn md_distribute_particles() -> () { distribute_particles(&mut grid_, alloc_cpu); }
 extern fn md_exchange_ghost_layer() -> () { exchange_ghost_layer(&mut grid_, &mut comm_offsets_); }
 extern fn md_pbc() -> () { accelerator_pbc(grid_, ); }

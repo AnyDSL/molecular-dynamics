@@ -84,6 +84,17 @@ void vtk_write_ghost_data(string filename) {
     write_vtk_to_file(filename, masses, positions, velocities, forces);
 }
 
+void vtk_write_aabb_data(string filename) {
+    const int size = 8;
+    vector<double> masses(size);
+    vector<Vector3D> positions(size);
+    vector<Vector3D> velocities(size);
+    vector<Vector3D> forces(size);
+
+    md_write_grid_aabb_data_to_arrays(masses.data(), positions.data(), velocities.data(), forces.data());
+    write_vtk_to_file(filename, masses, positions, velocities, forces);
+}
+
 #ifdef USE_WALBERLA_LOAD_BALANCING
 
 using namespace walberla;
@@ -629,6 +640,7 @@ int main(int argc, char **argv) {
         if(vtk && i == 0) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
             vtk_write_ghost_data(vtk_directory + "ghost_0.vtk");
+            vtk_write_aabb_data(vtk_directory + "aabb_0.vtk");
         }
 
         for(int j = 0; j < steps; ++j) {
@@ -703,6 +715,7 @@ int main(int argc, char **argv) {
             if(vtk && i == 0) {
                 vtk_write_local_data(vtk_directory + "particles_" + to_string(j + 1) + ".vtk");
                 vtk_write_ghost_data(vtk_directory + "ghost_" + to_string(j + 1) + ".vtk");
+                vtk_write_aabb_data(vtk_directory + "aabb_" + to_string(j + 1) + ".vtk");
             }
         }
 
