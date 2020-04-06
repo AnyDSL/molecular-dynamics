@@ -469,7 +469,6 @@ int main(int argc, char **argv) {
     vector<double> pbc_time(runs, 0);
     vector<double> barrier_time(runs, 0);
     double const factor = 1e-6;
-    int size;
 
     md_set_thread_count(nthreads);
 
@@ -510,7 +509,7 @@ int main(int argc, char **argv) {
     forest->recalculateBlockLevelsInRefresh(true);
     forest->alwaysRebalanceInRefresh(true);
     forest->reevaluateMinTargetLevelsAfterForcedRefinement(true);
-    forest->allowRefreshChangingDepth(false);
+    forest->allowRefreshChangingDepth(true);
 
     forest->allowMultipleRefreshCycles(true);
     forest->checkForEarlyOutInRefresh(false);
@@ -606,17 +605,12 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
         #ifdef BODY_COLLISION_TEST
-        size = init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+        init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         #else
-        size = init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+        init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         #endif
         auto end = measure_time();
         grid_initialization_time[i] = time_diff(begin, end) * factor;
-
-        if(size == 0) {
-            cout << "Zero particles created. Aborting." << endl;
-            return EXIT_FAILURE;
-        }
 
         md_exchange_ghost_layer();
         md_distribute_particles();

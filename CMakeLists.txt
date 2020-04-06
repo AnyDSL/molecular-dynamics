@@ -58,7 +58,6 @@ endif()
 set(MD_SRCS
     core/compute.impala
     core/grid.impala
-    core/lennard_jones.impala
     core/neighborlist.impala
     core/runtime.impala
     utils/atomic.impala

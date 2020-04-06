@@ -4,11 +4,7 @@ extern "C" {
     fn compute_fullneigh(i32, f64, &[f64], &[f64], &[i32], &[i32], i32) -> ();
 }
 
-fn accelerator_compute_particle_forces(
-    grid: Grid,
-    squared_cutoff_distance: real_t,
-    @potential: fn(real_t) -> real_t) -> (i64, i64) {
-
+fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: real_t, sigma: real_t) -> (i64, i64) {
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
 
@@ -18,8 +14,12 @@ fn accelerator_compute_particle_forces(
         let neighbors = get_array_of_i32(grid.neighborlists_cpu);
         let numneigh = get_array_of_i32(grid.neighbors_sizes_cpu);
 
-        compute_fullneigh(grid.nparticles, squared_cutoff_distance, x, f, neighbors, numneigh, grid.neighborlist_capacity);
+        compute_fullneigh(grid.nparticles, rsq_cutoff, x, f, neighbors, numneigh, grid.neighborlist_capacity);
     } else {
+        let square = @|x: real_t| { x * x };
+        let cube = @|x: real_t| { x * x * x };
+        let sigma6 = square(cube(sigma));
+
         loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
             let mut force = Vector3D {
                 x: 0.0 as real_t,
@@ -35,10 +35,10 @@ fn accelerator_compute_particle_forces(
                 let del = vector_sub(pos, pos_neighbor);
                 let rsq = vector_len2(del);
 
-                if rsq < squared_cutoff_distance {
+                if rsq < rsq_cutoff {
                     let sr2 = 1.0 / rsq;
-                    let sr6 = sr2 * sr2 * sr2;
-                    let f = 48.0 * sr6 * (sr6 - 0.5) * sr2;
+                    let sr6 = sr2 * sr2 * sr2 * sigma6;
+                    let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
 
                     force = vector_add(force, vector_scale(f, del));
                     @@add_iterator(&mut rsq_iters);

@@ -189,8 +189,7 @@ extern fn md_print_ghost() -> () {
 }
 
 extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
-    let potential = create_potential(sigma, epsilon);
-    let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance*cutoff_distance, potential);
+    let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance * cutoff_distance, epsilon, sigma);
     force_iters = iforces;
     rsq_iters = irsq;
 }
