@@ -508,10 +508,10 @@ int main(int argc, char **argv) {
     map<string, string> stringProperties;
 
     // Load balancing parameters
-    real_t baseWeight = 10.0;
+    real_t baseWeight = 1.0;
     real_t metisipc2redist = 1.0;
-    size_t regridMin = 0;
-    size_t regridMax = 10;
+    size_t regridMin = 2000;
+    size_t regridMax = 100;
     int maxBlocksPerProcess = 100;
     string metisAlgorithm = "none";
     string metisWeightsToUse = "none";
@@ -522,7 +522,7 @@ int main(int argc, char **argv) {
     forest->reevaluateMinTargetLevelsAfterForcedRefinement(true);
     forest->allowRefreshChangingDepth(true);
 
-    forest->allowMultipleRefreshCycles(true);
+    forest->allowMultipleRefreshCycles(false);
     forest->checkForEarlyOutInRefresh(false);
     forest->checkForLateOutInRefresh(false);
     forest->setRefreshMinTargetLevelDeterminationFunction(pe::amr::MinMaxLevelDetermination(info, regridMin, regridMax));
