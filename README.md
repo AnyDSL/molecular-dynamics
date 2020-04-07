@@ -40,6 +40,7 @@ Currently, one testcase has been implemented based on miniMD setup. Particles ar
 
 Available options are:
 
+- **-b, --benchmark=STRING:** Benchmark to use (options are default and body\_collision).
 - **-x, --nx=SIZE:** Number of unit cells in x dimension (default 32).
 - **-y, --ny=SIZE:** Number of unit cells in y dimension (default 32).
 - **-z, --nz=SIZE:** Number of unit cells in z dimension (default 32).
@@ -58,6 +59,4 @@ Available options are:
 - **--potmin=REAL:** Potential minimum (default 1.6796).
 - **-h, --help:** Display help message.
 
-Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4.
-
-Other simulation parameters are currently hardcoded.
+Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4. For the body collision setup, the number of particles is two times this number.

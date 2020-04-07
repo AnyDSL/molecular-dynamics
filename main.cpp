@@ -35,6 +35,7 @@ void print_usage(char *name) {
     cout << "Usage: " << name << " [OPTION]..." << endl;
     cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << endl << endl;
     cout << "Mandatory arguments to long options are also mandatory for short options." << endl;
+    cout << "\t-b, --benchmark=STRING    benchmark to use (options are default and body_collision)." << endl;
     cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << endl;
     cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << endl;
     cout << "\t-z, --nz=SIZE             number of unit cells in z dimension (default 32)." << endl;
@@ -100,6 +101,40 @@ void vtk_write_aabb_data(string filename) {
 using namespace walberla;
 
 map<uint_t, vector<pair<const BlockID&, math::AABB>>> *gNeighborhood;
+
+void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
+    vector<double> masses;
+    vector<Vector3D> positions;
+    vector<Vector3D> velocities;
+    vector<Vector3D> forces;
+    Vector3D pos_vec, zero_vec;
+
+    zero_vec.x = 0.0;
+    zero_vec.y = 0.0;
+    zero_vec.z = 0.0;
+
+    for(auto& iblock: *forest) {
+        auto block = static_cast<blockforest::Block *>(&iblock);
+        auto aabb = block->getAABB();
+
+        for(int i = 0; i < 2; ++i) {
+            for(int j = 0; j < 2; ++j) {
+                for(int k = 0; k < 2; ++k) {
+                    pos_vec.x = (i == 0) ? aabb.xMin() : aabb.xMax();
+                    pos_vec.y = (j == 0) ? aabb.yMin() : aabb.yMax();
+                    pos_vec.z = (k == 0) ? aabb.zMin() : aabb.zMax();
+
+                    masses.push_back(0.0);
+                    positions.push_back(pos_vec);
+                    velocities.push_back(zero_vec);
+                    forces.push_back(zero_vec);
+                }
+            }
+        }
+    }
+
+    write_vtk_to_file(filename, masses, positions, velocities, forces);
+}
 
 auto get_neighborhood_from_block_forest(shared_ptr<BlockForest> forest) {
     map<uint_t, vector<pair<const BlockID&, math::AABB>>> neighborhood;
@@ -309,6 +344,9 @@ int main(int argc, char **argv) {
     _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
 #endif
 
+    string benchmark = "default";
+    string algorithm;
+    string vtk_directory;
     int gridsize[3] = {32, 32, 32};
     int steps = 100;
     int runs = 1;
@@ -322,11 +360,10 @@ int main(int argc, char **argv) {
     double sigma = 1.0;
     //double potential_minimum = pow(2.0, 1.0/6.0) * sigma;
     double potential_minimum = 1.6796;
-    string algorithm;
-    string vtk_directory;
 
     int opt = 0;
     struct option long_opts[] = {
+        {"benchmark", required_argument,    nullptr,    'b'},
         {"nx",        required_argument,    nullptr,    'x'},
         {"ny",        required_argument,    nullptr,    'y'},
         {"nz",        required_argument,    nullptr,    'z'},
@@ -408,6 +445,10 @@ int main(int argc, char **argv) {
                 algorithm = string(optarg);
                 break;
 
+            case 'b':
+                benchmark = string(optarg);
+                break;
+
             case 'v':
                 vtk_directory = string(optarg);
                 break;
@@ -425,46 +466,46 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    ::AABB aabb;
+    ::AABB aabb, aabb1, aabb2;
     double spacing[3];
     bool vtk = !vtk_directory.empty();
     bool use_load_balancing = false;
 
-    #ifdef BODY_COLLISION_TEST
+    if(benchmark == "body_collision") {
+        for(int i = 0; i < 3; ++i) {
+            aabb1.min[i] = 50;
+            aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
+        }
 
-    ::AABB aabb1, aabb2;
+        for(int i = 0; i < 3; ++i) {
+            aabb2.min[i] = 50;
+            aabb2.max[i] = 50 + gridsize[i] * potential_minimum;
+        }
 
-    for(int i = 0; i < 3; ++i) {
-        aabb1.min[i] = 50;
-        aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
+        double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
+        aabb2.min[1] -= shift;
+        aabb2.max[1] -= shift;
+
+        for(int i = 0; i < 3; ++i) {
+            aabb.min[i] = min(aabb1.min[i], aabb2.min[i]) - 20;
+            aabb.max[i] = max(aabb1.max[i], aabb2.max[i]) + 20;
+            spacing[i] = potential_minimum;
+        }
+    } else {
+        if(benchmark != "default") {
+            cerr << "Invalid benchmark specified: \"" << benchmark << "\"" << endl;
+            cerr << "Available options are default and body_collision" << endl;
+            return EXIT_FAILURE;
+        }
+
+        double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
+
+        for(int i = 0; i < 3; ++i) {
+            aabb.min[i] = 0;
+            aabb.max[i] = gridsize[i] * potential_minimum;
+            spacing[i] = potential_minimum / spacing_div_factor[i];
+        }
     }
-
-    for(int i = 0; i < 3; ++i) {
-        aabb2.min[i] = 50;
-        aabb2.max[i] = 50 + gridsize[i] * potential_minimum;
-    }
-
-    double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
-    aabb2.min[1] -= shift;
-    aabb2.max[1] -= shift;
-
-    for(int i = 0; i < 3; ++i) {
-        aabb.min[i] = min(aabb1.min[i], aabb2.min[i]) - 20;
-        aabb.max[i] = max(aabb1.max[i], aabb2.max[i]) + 20;
-        spacing[i] = potential_minimum;
-    }
-
-    #else
-
-    double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
-
-    for(int i = 0; i < 3; ++i) {
-        aabb.min[i] = 0;
-        aabb.max[i] = gridsize[i] * potential_minimum;
-        spacing[i] = potential_minimum / spacing_div_factor[i];
-    }
-
-    #endif
 
     vector<double> grid_initialization_time(runs, 0);
     vector<double> copy_data_to_accelerator_time(runs, 0);
@@ -590,6 +631,7 @@ int main(int argc, char **argv) {
 
     if(md_get_world_rank() == 0) {
         cout << "Simulation settings:" << endl;
+        cout << "- Benchmark: " << benchmark << endl;
         cout << "- Unit cells (x, y, z): " << gridsize[0] << ", " << gridsize[1] << ", " << gridsize[2] << endl;
         cout << "- Number of timesteps: " << steps << endl;
         cout << "- Number of runs: " << runs << endl;
@@ -615,11 +657,13 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         auto begin = measure_time();
-        #ifdef BODY_COLLISION_TEST
-        init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
-        #else
-        init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
-        #endif
+
+        if(benchmark == "body_collision") {
+            init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+        } else {
+            init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+        }
+
         auto end = measure_time();
         grid_initialization_time[i] = time_diff(begin, end) * factor;
 
@@ -641,6 +685,12 @@ int main(int argc, char **argv) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
             vtk_write_ghost_data(vtk_directory + "ghost_0.vtk");
             vtk_write_aabb_data(vtk_directory + "aabb_0.vtk");
+
+            #ifdef USE_WALBERLA_LOAD_BALANCING
+
+            vtk_write_forest_data(forest, vtk_directory + "forest_0.vtk");
+
+            #endif
         }
 
         for(int j = 0; j < steps; ++j) {
@@ -716,6 +766,12 @@ int main(int argc, char **argv) {
                 vtk_write_local_data(vtk_directory + "particles_" + to_string(j + 1) + ".vtk");
                 vtk_write_ghost_data(vtk_directory + "ghost_" + to_string(j + 1) + ".vtk");
                 vtk_write_aabb_data(vtk_directory + "aabb_" + to_string(j + 1) + ".vtk");
+
+                #ifdef USE_WALBERLA_LOAD_BALANCING
+
+                vtk_write_forest_data(forest, vtk_directory + "forest_" + to_string(j + 1) + ".vtk");
+
+                #endif
             }
         }
 
