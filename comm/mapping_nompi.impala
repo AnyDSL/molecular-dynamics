@@ -29,6 +29,7 @@ fn print_real_vector_with_rank(field: &[u8], value: Vector3D) -> () {
     print_flush();
 }
 
+fn get_world_size() -> i32 { 1 }
 fn get_process_rank() -> i32 { 0 }
 fn barrier() -> () {}
 fn mpi_initialize() -> () {}

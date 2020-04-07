@@ -498,12 +498,10 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
-        double const spacing_div_factor[3] = {2.0, 2.0, 2.0};
-
         for(int i = 0; i < 3; ++i) {
             aabb.min[i] = 0;
             aabb.max[i] = gridsize[i] * potential_minimum;
-            spacing[i] = potential_minimum / spacing_div_factor[i];
+            spacing[i] = potential_minimum * 0.5;
         }
 
         half = benchmark == "half";
@@ -651,7 +649,11 @@ int main(int argc, char **argv) {
     }
 
     if(vtk) {
-        vtk_directory += to_string(md_get_world_rank()) + "/";
+        if(md_get_world_size() > 1) {
+            vtk_directory += to_string(md_get_world_rank());
+        }
+
+        vtk_directory += "/";
     }
 
     LIKWID_MARKER_INIT;

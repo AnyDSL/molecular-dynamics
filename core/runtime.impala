@@ -208,6 +208,7 @@ extern fn md_mpi_initialize() -> () { mpi_initialize(); }
 extern fn md_mpi_finalize() -> () { mpi_finalize(); }
 extern fn md_synchronize_ghost_layer() -> () { synchronize_ghost_layer(grid_, comm_offsets_); }
 extern fn md_barrier() -> () { barrier(); }
+extern fn md_get_world_size() -> i32 { get_world_size() }
 extern fn md_get_world_rank() -> i32 { get_process_rank() }
 extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
 extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }

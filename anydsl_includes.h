@@ -34,6 +34,7 @@ extern "C" {
     void md_synchronize_ghost_layer();
     void md_exchange_ghost_layer();
     void md_pbc();
+    int md_get_world_size();
     int md_get_world_rank();
     int md_get_number_of_particles();
     int md_get_number_of_ghost_particles();

@@ -113,6 +113,15 @@ fn communication_ranks(body: CommFunc) -> () {
     }
 }
 
+// Get world size
+fn get_world_size() -> i32 {
+    let mpih = mpi();
+    let mut world_size: i32;
+
+    mpih.comm_size(mpih.comms.world, &mut world_size);
+    world_size
+}
+
 // Get process rank
 fn get_process_rank() -> i32 {
     let mpih = mpi();
