@@ -35,7 +35,7 @@ void print_usage(char *name) {
     cout << "Usage: " << name << " [OPTION]..." << endl;
     cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << endl << endl;
     cout << "Mandatory arguments to long options are also mandatory for short options." << endl;
-    cout << "\t-b, --benchmark=STRING    benchmark to use (options are default and body_collision)." << endl;
+    cout << "\t-b, --benchmark=STRING    benchmark to use (options are default, half and body_collision)." << endl;
     cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << endl;
     cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << endl;
     cout << "\t-z, --nz=SIZE             number of unit cells in z dimension (default 32)." << endl;
@@ -358,8 +358,8 @@ int main(int argc, char **argv) {
     double verlet_buffer = 0.3;
     double epsilon = 1.0;
     double sigma = 1.0;
-    //double potential_minimum = pow(2.0, 1.0/6.0) * sigma;
     double potential_minimum = 1.6796;
+    bool half = false;
 
     int opt = 0;
     struct option long_opts[] = {
@@ -383,7 +383,7 @@ int main(int argc, char **argv) {
         {"potmin",    required_argument,    nullptr,    7}
     };
 
-    while((opt = getopt_long(argc, argv, "x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
+    while((opt = getopt_long(argc, argv, "b:x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
         switch(opt) {
             case 0:
                 reneigh_every = atoi(optarg);
@@ -417,6 +417,10 @@ int main(int argc, char **argv) {
                 potential_minimum = atof(optarg);
                 break;
 
+            case 'b':
+                benchmark = string(optarg);
+                break;
+
             case 'x':
                 gridsize[0] = atoi(optarg);
                 break;
@@ -443,10 +447,6 @@ int main(int argc, char **argv) {
 
             case 'a':
                 algorithm = string(optarg);
-                break;
-
-            case 'b':
-                benchmark = string(optarg);
                 break;
 
             case 'v':
@@ -492,9 +492,9 @@ int main(int argc, char **argv) {
             spacing[i] = potential_minimum;
         }
     } else {
-        if(benchmark != "default") {
+        if(benchmark != "default" && benchmark != "half") {
             cerr << "Invalid benchmark specified: \"" << benchmark << "\"" << endl;
-            cerr << "Available options are default and body_collision" << endl;
+            cerr << "Available options are default, half and body_collision" << endl;
             return EXIT_FAILURE;
         }
 
@@ -505,6 +505,8 @@ int main(int argc, char **argv) {
             aabb.max[i] = gridsize[i] * potential_minimum;
             spacing[i] = potential_minimum / spacing_div_factor[i];
         }
+
+        half = benchmark == "half";
     }
 
     vector<double> grid_initialization_time(runs, 0);
@@ -551,8 +553,8 @@ int main(int argc, char **argv) {
     // Load balancing parameters
     real_t baseWeight = 1.0;
     real_t metisipc2redist = 1.0;
-    size_t regridMin = 2000;
-    size_t regridMax = 100;
+    size_t regridMin = 2;
+    size_t regridMax = 10;
     int maxBlocksPerProcess = 100;
     string metisAlgorithm = "none";
     string metisWeightsToUse = "none";
@@ -661,7 +663,7 @@ int main(int argc, char **argv) {
         if(benchmark == "body_collision") {
             init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else {
-            init_rectangular_grid(aabb, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            init_rectangular_grid(aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
         auto end = measure_time();
@@ -826,7 +828,9 @@ int main(int argc, char **argv) {
     );
 
     #ifndef USE_WALBERLA_LOAD_BALANCING
+
     md_mpi_finalize();
+
     #endif
 
     return EXIT_SUCCESS;

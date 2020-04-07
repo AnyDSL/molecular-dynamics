@@ -104,8 +104,11 @@ bool is_within_block_forest(double x, double y, double z, shared_ptr<BlockForest
 
 tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_grid(
     ::AABB aabb,
+    bool half,
     double spacing[3],
     double const mass,
+    double const velocity[3],
+    bool fixed_velocity,
     function<bool(double, double, double)> is_within_domain) {
 
     int nvertices[3];
@@ -122,6 +125,7 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
 
     vector<Vector3D> positions;
     vector<Vector3D> velocities;
+    Vector3D pos, vel;
 
     for(size_t d = 0; d < 3; ++d) {
         nvertices[d] = (int)((aabb.max[d] - aabb.min[d]) / spacing[d]);
@@ -142,6 +146,10 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
     klo = max(klo, 0);
     khi = min(khi, nvertices[2] - 1);
 
+    vel.x = velocity[0];
+    vel.y = velocity[1];
+    vel.z = velocity[2];
+
     while(oz * subboxdim <= khi) {
         k = oz * subboxdim + sz;
         j = oy * subboxdim + sy;
@@ -151,29 +159,29 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
            (i >= ilo) && (i <= ihi) &&
            (j >= jlo) && (j <= jhi) &&
            (k >= klo) && (k <= khi)) {
-            Vector3D pos, vel;
-
             pos.x = aabb.min[0] + i * spacing[0];
             pos.y = aabb.min[1] + j * spacing[1];
             pos.z = aabb.min[2] + k * spacing[2];
 
-            if(is_within_domain(pos.x, pos.y, pos.z)) {
-                n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
+            if(is_within_domain(pos.x, pos.y, pos.z) && (!half || pos.y < aabb.min[1] + ((jhi - jlo) / 2) * spacing[1] + 0.00001)) {
+                if(!fixed_velocity) {
+                    n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
 
-                for(m = 0; m < 5; m++) random(&n);
+                    for(m = 0; m < 5; m++) random(&n);
 
-                vel.x = random(&n);
+                    vel.x = random(&n);
 
-                for(m = 0; m < 5; m++) random(&n);
+                    for(m = 0; m < 5; m++) random(&n);
 
-                vel.y = random(&n);
+                    vel.y = random(&n);
 
-                for(m = 0; m < 5; m++) random(&n);
+                    for(m = 0; m < 5; m++) random(&n);
 
-                vel.z = random(&n);
+                    vel.z = random(&n);
+                }
 
-                positions.push_back(pos);
                 velocities.push_back(vel);
+                positions.push_back(pos);
                 size++;
             }
         }
@@ -213,13 +221,15 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
 int init_rectangular_grid(
     ::AABB aabb,
     ::AABB rank_aabb,
+    bool half,
     double spacing[3],
     double cell_spacing,
     int cell_capacity,
     int neighborlist_capacity,
     function<bool(double, double, double)> is_within_domain) {
 
-    auto tuple = generate_rectangular_grid(aabb, spacing, 1.0, is_within_domain);
+    double velocity[3] = {0.0, 0.0, 0.0};
+    auto tuple = generate_rectangular_grid(aabb, half, spacing, 1.0, velocity, false, is_within_domain);
     int size = (int) get<0>(tuple).size();
 
     return md_initialize_grid(
@@ -249,27 +259,18 @@ int init_body_collision(
     int neighborlist_capacity,
     function<bool(double, double, double)> is_within_domain) {
 
+    double const velocity = 1.0;
+    double velocity1[3] = {0.0, -velocity, 0.0};
+    double velocity2[3] = {0.0, velocity,  0.0};
+
     if(aabb1.min[1] < aabb2.max[1]) {
         cerr << "The first bounding box must be located on top of the second!" << endl;
         cerr << "aabb1: " << aabb1.min[1] << " aabb2: " << aabb2.max[1] << endl;
         return 0;
     }
 
-    /*
-    double velocity1[3];
-    double velocity2[3];
-
-    velocity1[0] = 0;
-    velocity1[1] = -velocity;
-    velocity1[2] = 0;
-
-    velocity2[0] = 0;
-    velocity2[1] = velocity;
-    velocity2[2] = 0;
-    */
-
-    auto tuple1 = generate_rectangular_grid(aabb1, spacing, 1.0, is_within_domain);
-    auto tuple2 = generate_rectangular_grid(aabb2, spacing, 1.0, is_within_domain);
+    auto tuple1 = generate_rectangular_grid(aabb1, false, spacing, 1.0, velocity1, true, is_within_domain);
+    auto tuple2 = generate_rectangular_grid(aabb2, false, spacing, 1.0, velocity2, true, is_within_domain);
 
     get<0>(tuple1).insert(get<0>(tuple1).end(), get<0>(tuple2).begin(), get<0>(tuple2).end());
     get<1>(tuple1).insert(get<1>(tuple1).end(), get<1>(tuple2).begin(), get<1>(tuple2).end());
