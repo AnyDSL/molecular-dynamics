@@ -7,7 +7,7 @@ using namespace std;
 template<typename TimeType, typename TimeUnit = chrono::nanoseconds>
 class MultiTimer {
 public:
-    MultiTimer(size_t ntimers, size_t nruns, TimeType _factor) : run(0), factor(_factor) {
+    MultiTimer(size_t ntimers, size_t nruns, TimeType _factor) : factor(_factor), run(0) {
         counters.resize(nruns);
 
         for(auto& run_counter: counters) {
@@ -49,6 +49,6 @@ public:
 private:
     vector<vector<TimeType>> counters;
     chrono::high_resolution_clock::time_point clock;
-    int run;
     TimeType factor;
+    size_t run;
 };
