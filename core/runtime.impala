@@ -236,41 +236,42 @@ extern fn md_create_particle(mass: real_t, px: real_t, py: real_t, pz: real_t, v
 }
 
 extern fn md_report_iterations() -> () {
-    let mut res: i64;
     let is_root = get_process_rank() == 0;
+    let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
+    let reduce_and_print = |t: i64| {
+        let mut res: i64;
+        reduce_i64_sum(t, &mut res);
+        print_i64_cond(is_root, res);
+        print_string_once(" ");
+    };
 
     barrier();
-    print_string_cond(is_root, "ForceIters RsqIters IntegrationIters\n");
+    print_string_once("ForceIters RsqIters IntegrationIters\n");
 
-    reduce_i64_sum(force_iters, &mut res);
-    print_i64_cond(is_root, res);
+    reduce_and_print(force_iters);
+    reduce_and_print(rsq_iters);
+    reduce_and_print(integration_iters);
 
-    reduce_i64_sum(rsq_iters, &mut res);
-    print_string_cond(is_root, " ");
-    print_i64_cond(is_root, res);
-
-    reduce_i64_sum(integration_iters, &mut res);
-    print_string_cond(is_root, " ");
-    print_i64_cond(is_root, res);
-
-    print_string_cond(is_root, "\n");
+    print_string_once("\n");
 }
 
 extern fn md_report_particles() -> () {
-    let mut res: i32;
     let is_root = get_process_rank() == 0;
+    let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
+    let reduce_and_print = |t: i32| {
+        let mut res: i32;
+        reduce_i32_sum(t, &mut res);
+        print_i32_cond(is_root, res);
+        print_string_once(" ");
+    };
 
     barrier();
-    print_string_cond(is_root, "# Local # Ghost\n");
+    print_string_once("# Local # Ghost\n");
 
-    reduce_i32_sum(grid_.nparticles, &mut res);
-    print_i32_cond(is_root, res);
+    reduce_and_print(grid_.nparticles);
+    reduce_and_print(grid_.nghost);
 
-    reduce_i32_sum(grid_.nghost, &mut res);
-    print_string_cond(is_root, " ");
-    print_i32_cond(is_root, res);
-
-    print_string_cond(is_root, "\n");
+    print_string_once("\n");
 }
 
 extern fn md_report_time(
@@ -279,18 +280,17 @@ extern fn md_report_time(
 
     let is_root = get_process_rank() == 0;
     let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
-    let print_f64_once = |x: real_t| { print_f64_cond(is_root, x); };
     let reduce_and_print = |t: f64| {
         let mut res: f64;
         reduce_time(t, &mut res);
-        print_f64_once(res);
+        print_f64_cond(is_root, res);
         print_string_once(" ");
     };
 
     barrier();
     print_string_once("Total Force Neigh Comm Balance Data Other\n");
 
-/*
+    /*
     print_i32(get_process_rank());  print_string("> ");
     print_f64(total_avg);           print_string(", ");
     print_f64(force_avg);           print_string(", ");
@@ -300,7 +300,7 @@ extern fn md_report_time(
     print_f64(data_avg);            print_string(", ");
     print_f64(other_avg);           print_string("\n");
     barrier();
-*/
+    */
 
     reduce_and_print(total_avg);
     reduce_and_print(force_avg);
