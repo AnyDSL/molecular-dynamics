@@ -274,60 +274,41 @@ extern fn md_report_particles() -> () {
 }
 
 extern fn md_report_time(
-    total_avg: f64, force_avg: f64, neigh_avg: f64, sync_avg: f64, exchg_avg: f64, other_avg: f64, barrier_avg: f64) -> () {
+    total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64,
+    lb_avg: f64, data_avg: f64, other_avg: f64) -> () {
 
-    let mut res: f64;
     let is_root = get_process_rank() == 0;
+    let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
+    let print_f64_once = |x: real_t| { print_f64_cond(is_root, x); };
+    let reduce_and_print = |t: f64| {
+        let mut res: f64;
+        reduce_time(t, &mut res);
+        print_f64_once(res);
+        print_string_once(" ");
+    };
 
     barrier();
-    print_string_cond(is_root, "Total Force Neigh Sync Exchg Other Barrier\n");
+    print_string_once("Total Force Neigh Comm Balance Data Other\n");
 
 /*
-    print_i32(get_process_rank());
-    print_string("> ");
-    print_f64(total_avg);
-    print_string(", ");
-    print_f64(force_avg);
-    print_string(", ");
-    print_f64(neigh_avg);
-    print_string(", ");
-    print_f64(sync_avg);
-    print_string(", ");
-    print_f64(exchg_avg);
-    print_string(", ");
-    print_f64(other_avg);
-    print_string(", ");
-    print_f64(barrier_avg);
-    print_string("\n");
+    print_i32(get_process_rank());  print_string("> ");
+    print_f64(total_avg);           print_string(", ");
+    print_f64(force_avg);           print_string(", ");
+    print_f64(neigh_avg);           print_string(", ");
+    print_f64(comm_avg);            print_string(", ");
+    print_f64(lb_avg);              print_string(", ");
+    print_f64(data_avg);            print_string(", ");
+    print_f64(other_avg);           print_string("\n");
     barrier();
 */
 
-    reduce_time(total_avg, &mut res);
-    print_f64_cond(is_root, res);
+    reduce_and_print(total_avg);
+    reduce_and_print(force_avg);
+    reduce_and_print(neigh_avg);
+    reduce_and_print(comm_avg);
+    reduce_and_print(lb_avg);
+    reduce_and_print(data_avg);
+    reduce_and_print(other_avg);
 
-    reduce_time(force_avg, &mut res);
-    print_string_cond(is_root, " ");
-    print_f64_cond(is_root, res);
-
-    reduce_time(neigh_avg, &mut res);
-    print_string_cond(is_root, " ");
-    print_f64_cond(is_root, res);
-
-    reduce_time(sync_avg, &mut res);
-    print_string_cond(is_root, " ");
-    print_f64_cond(is_root, res);
-
-    reduce_time(exchg_avg, &mut res);
-    print_string_cond(is_root, " ");
-    print_f64_cond(is_root, res);
-
-    reduce_time(other_avg, &mut res);
-    print_string_cond(is_root, " ");
-    print_f64_cond(is_root, res);
-
-    reduce_time(barrier_avg, &mut res);
-    print_string_cond(is_root, " ");
-    print_f64_cond(is_root, res);
-
-    print_string_cond(is_root, "\n");
+    print_string_once("\n");
 }

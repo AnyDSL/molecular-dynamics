@@ -8,8 +8,9 @@
 //---
 #include "anydsl_includes.h"
 #include "initialize.h"
-#include "time.h"
 #include "vtk.h"
+//---
+#include "MultiTimer.h"
 #ifdef LIKWID_PERFMON
 #include <likwid.h>
 #else
@@ -22,8 +23,6 @@
 #define LIKWID_MARKER_CLOSE
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
-
-#define time_diff(begin, end)   static_cast<double>(calculate_time_difference<chrono::nanoseconds>(begin, end))
 
 #if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
 #include <x86intrin.h>
@@ -55,12 +54,6 @@ void print_usage(char *name) {
     cout << "\t    --sigma=REAL          sigma value for Lennard-Jones equation (default 1.0)." << endl;
     cout << "\t    --potmin=REAL         potential minimum (default 1.6796)." << endl;
     cout << "\t-h, --help                display this help message." << endl;
-}
-
-pair<double,double> get_time_statistics(vector<double> time) {
-    double const mean = compute_mean(time);
-    double const stdev = compute_standard_deviation(time, mean);
-    return make_pair(mean, stdev);
 }
 
 void vtk_write_local_data(string filename) {
@@ -466,7 +459,18 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    enum timers {
+        TIME_FORCE,
+        TIME_NEIGHBORLISTS,
+        TIME_COMM,
+        TIME_LOAD_BALANCING,
+        TIME_DATA_TRANSFER,
+        TIME_OTHER,
+        NTIMERS
+    };
+
     ::AABB aabb, aabb1, aabb2;
+    MultiTimer<double> timer(NTIMERS, runs, 1e-6);
     double spacing[3];
     bool vtk = !vtk_directory.empty();
     bool use_load_balancing = false;
@@ -506,21 +510,6 @@ int main(int argc, char **argv) {
 
         half = benchmark == "half";
     }
-
-    vector<double> grid_initialization_time(runs, 0);
-    vector<double> copy_data_to_accelerator_time(runs, 0);
-    vector<double> copy_data_from_accelerator_time(runs, 0);
-    vector<double> integration_time(runs, 0);
-    vector<double> redistribution_time(runs, 0);
-    vector<double> cluster_initialization_time(runs, 0);
-    vector<double> neighborlist_creation_time(runs, 0);
-    vector<double> force_computation_time(runs, 0);
-    vector<double> deallocation_time(runs, 0);
-    vector<double> synchronization_time(runs, 0);
-    vector<double> exchange_time(runs, 0);
-    vector<double> pbc_time(runs, 0);
-    vector<double> barrier_time(runs, 0);
-    double const factor = 1e-6;
 
     md_set_thread_count(nthreads);
 
@@ -660,30 +649,17 @@ int main(int argc, char **argv) {
     LIKWID_MARKER_THREADINIT;
 
     for(int i = 0; i < runs; ++i) {
-        auto begin = measure_time();
-
         if(benchmark == "body_collision") {
             init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else {
             init_rectangular_grid(aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
-        auto end = measure_time();
-        grid_initialization_time[i] = time_diff(begin, end) * factor;
-
         md_exchange_ghost_layer();
         md_distribute_particles();
-        md_barrier();
-
-        begin = measure_time();
         md_copy_data_to_accelerator();
-        end = measure_time();
-        copy_data_to_accelerator_time[i] = time_diff(begin, end) * factor;
-
-        begin = measure_time();
         md_assemble_neighborlists(cutoff_radius + verlet_buffer);
-        end = measure_time();
-        neighborlist_creation_time[i] += time_diff(begin, end) * factor;
+        md_barrier();
 
         if(vtk && i == 0) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
@@ -697,34 +673,22 @@ int main(int argc, char **argv) {
             #endif
         }
 
+        timer.startRun();
+
         for(int j = 0; j < steps; ++j) {
             LIKWID_MARKER_START("Force");
-            begin = measure_time();
             md_compute_forces(cutoff_radius, epsilon, sigma);
-            end = measure_time();
             LIKWID_MARKER_STOP("Force");
-            force_computation_time[i] += time_diff(begin, end) * factor;
 
-            begin = measure_time();
             md_integration(dt);
-            end = measure_time();
-            integration_time[i] += time_diff(begin, end) * factor;
-
-            begin = measure_time();
-            //md_barrier();
-            end = measure_time();
-            barrier_time[i] += time_diff(begin, end) * factor;
+            timer.accum(TIME_FORCE);
 
             if(j > 0 && j % reneigh_every == 0) {
-                begin = measure_time();
                 md_pbc();
-                end = measure_time();
-                pbc_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_OTHER);
 
-                begin = measure_time();
                 md_copy_data_from_accelerator();
-                end = measure_time();
-                copy_data_from_accelerator_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_DATA_TRANSFER);
 
                 #ifdef USE_WALBERLA_LOAD_BALANCING
 
@@ -738,32 +702,24 @@ int main(int argc, char **argv) {
                     gNeighborhood = &neighborhood;
                 }
 
+                timer.accum(TIME_LOAD_BALANCING);
+
                 #endif
 
-                begin = measure_time();
                 md_exchange_ghost_layer();
-                end = measure_time();
-                exchange_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_COMM);
 
-                begin = measure_time();
                 md_distribute_particles();
-                end = measure_time();
-                redistribution_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_OTHER);
 
-                begin = measure_time();
                 md_copy_data_to_accelerator();
-                end = measure_time();
-                copy_data_to_accelerator_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_DATA_TRANSFER);
 
-                begin = measure_time();
                 md_assemble_neighborlists(cutoff_radius + verlet_buffer);
-                end = measure_time();
-                neighborlist_creation_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_NEIGHBORLISTS);
             } else {
-                begin = measure_time();
                 md_synchronize_ghost_layer();
-                end = measure_time();
-                synchronization_time[i] += time_diff(begin, end) * factor;
+                timer.accum(TIME_COMM);
             }
 
             if(vtk && i == 0) {
@@ -776,57 +732,29 @@ int main(int argc, char **argv) {
                 vtk_write_forest_data(forest, vtk_directory + "forest_" + to_string(j + 1) + ".vtk");
 
                 #endif
+
+                timer.accum(TIME_OTHER);
             }
         }
 
-        begin = measure_time();
-        md_copy_data_from_accelerator();
-        end = measure_time();
-        copy_data_from_accelerator_time[i] += time_diff(begin, end) * factor;
+        timer.finishRun();
 
+        md_copy_data_from_accelerator();
         md_report_iterations();
         md_report_particles();
-
-        begin = measure_time();
         md_deallocate_grid();
-        end = measure_time();
-
-        deallocation_time[i] = time_diff(begin, end) * factor;
     }
 
     LIKWID_MARKER_CLOSE;
 
-    vector<pair<double, double>> time_results(13);
-
-    time_results[0] = get_time_statistics(grid_initialization_time);
-    time_results[1] = get_time_statistics(integration_time);
-    time_results[2] = get_time_statistics(redistribution_time);
-    time_results[3] = get_time_statistics(cluster_initialization_time);
-    time_results[4] = get_time_statistics(neighborlist_creation_time);
-    time_results[5] = get_time_statistics(force_computation_time);
-    time_results[6] = get_time_statistics(deallocation_time);
-    time_results[7] = get_time_statistics(copy_data_to_accelerator_time);
-    time_results[8] = get_time_statistics(copy_data_from_accelerator_time);
-    time_results[9] = get_time_statistics(synchronization_time);
-    time_results[10] = get_time_statistics(exchange_time);
-    time_results[11] = get_time_statistics(pbc_time);
-    time_results[12] = get_time_statistics(barrier_time);
-
-    double mean_sum = 0, stdev_sum = 0;
-
-    for(size_t i = 1; i < time_results.size() - 1; ++i) {
-        mean_sum += time_results[i].first;
-        stdev_sum += time_results[i].second;
-    }
-
     md_report_time(
-        mean_sum,
-        time_results[1].first + time_results[5].first + time_results[11].first,
-        time_results[3].first + time_results[4].first,
-        time_results[9].first,
-        time_results[10].first,
-        time_results[2].first + time_results[6].first + time_results[7].first + time_results[8].first,
-        time_results[11].first
+        timer.getRunsTotalAverage(),
+        timer.getRunsAverage(TIME_FORCE),
+        timer.getRunsAverage(TIME_NEIGHBORLISTS),
+        timer.getRunsAverage(TIME_COMM),
+        timer.getRunsAverage(TIME_LOAD_BALANCING),
+        timer.getRunsAverage(TIME_DATA_TRANSFER),
+        timer.getRunsAverage(TIME_OTHER)
     );
 
     #ifndef USE_WALBERLA_LOAD_BALANCING
