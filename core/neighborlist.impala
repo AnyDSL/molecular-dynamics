@@ -55,9 +55,7 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
             neighbors_sizes(particle_index) = 0;
 
             neighbor_cells(cell_index, nx, ny, ncells, |neighboring_cell_index| {
-                let same_cell = cell_index == neighboring_cell_index;
-
-                if same_cell == false {
+                if cell_index != neighboring_cell_index {
                     let neighbor_cell_offset = get_cell_offset(neighboring_cell_index, const_grid);
                     let neighbor_cell_size = cell_sizes(neighboring_cell_index);
 
