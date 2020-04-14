@@ -659,7 +659,6 @@ int main(int argc, char **argv) {
         md_distribute_particles();
         md_copy_data_to_accelerator();
         md_assemble_neighborlists(cutoff_radius + verlet_buffer);
-        md_barrier();
 
         if(vtk && i == 0) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
@@ -673,6 +672,7 @@ int main(int argc, char **argv) {
             #endif
         }
 
+        md_barrier();
         timer.startRun();
 
         for(int j = 0; j < steps; ++j) {
