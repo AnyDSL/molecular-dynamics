@@ -335,10 +335,7 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
 }
 
 fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32) -> () {
-    print_string("begin resize_max_neighbors_capacity(");
-    print_i32(max_neighs);
-    print_string(")\n");
-    print_flush();
+    print_i32_with_rank("resize_max_neighbors_capacity()", max_neighs);
 
     reallocate_buffer(&mut comm_offsets.send_neighbors, max_neighs, sizeof[i32](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.send_rank_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
@@ -351,16 +348,10 @@ fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32
     reallocate_buffer(&mut comm_offsets.exchg_rank_send_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
 
     comm_offsets.max_neighs = max_neighs;
-
-    print_string("end resize_max_neighbors_capacity\n");
-    print_flush();
 }
 
 fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> () {
-    print_string("begin resize_send_capacity(");
-    print_i32(send_capacity);
-    print_string(")\n");
-    print_flush();
+    print_i32_with_rank("resize_send_capacity()", send_capacity);
 
     reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, cpu_allocate);
@@ -375,16 +366,10 @@ fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> (
 
     assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
     assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
-
-    print_string("end resize_send_capacity\n");
-    print_flush();
 }
 
 fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> () {
-    print_string("begin resize_recv_capacity(");
-    print_i32(recv_capacity);
-    print_string(")\n");
-    print_flush();
+    print_i32_with_rank("resize_recv_capacity()", recv_capacity);
 
     reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.recv_offsets, recv_capacity, sizeof[i32](), true, cpu_allocate);
@@ -399,9 +384,6 @@ fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> (
 
     assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
     assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
-
-    print_string("end resize_recv_capacity\n");
-    print_flush();
 }
 
 // Get configuration for nodes according to world size and number of
