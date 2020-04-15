@@ -616,13 +616,11 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
         let recv_offset = recv_rank_offsets(neigh) * 3 * sizeof[real_t]();
 
         mpih.irecv(
-            bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
-            recv_rank_lengths(neigh) * 3,
+            &comm_offsets.recv_buffer.data(recv_offset) as MPI_MutBuf, recv_rank_lengths(neigh) * 3,
             mpih.double_t, recv_neighbors(neigh), 0, mpih.comms.world, &mut request);
 
         mpih.send(
-            bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
-            send_rank_lengths(neigh) * 3,
+            &comm_offsets.send_buffer.data(send_offset) as MPI_MutBuf, send_rank_lengths(neigh) * 3,
             mpih.double_t, send_neighbors(neigh), 0, mpih.comms.world);
 
         mpih.wait(&request, &mut status);
@@ -790,13 +788,11 @@ fn exchange_ghost_layer(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
         // Send and receive data
         mpih.irecv(
-            bitcast[&mut[real_t]](&comm_offsets.recv_buffer.data(recv_offset)) as MPI_MutBuf,
-            recv_rank_lengths(neigh) * 7,
+            &comm_offsets.recv_buffer.data(recv_offset) as MPI_MutBuf, recv_rank_lengths(neigh) * 7,
             mpih.double_t, recv_rank, 0, mpih.comms.world, &mut request);
 
         mpih.send(
-            bitcast[&mut[real_t]](&comm_offsets.send_buffer.data(send_offset)) as MPI_MutBuf,
-            send_rank_lengths(neigh) * 7,
+            &comm_offsets.send_buffer.data(send_offset) as MPI_MutBuf, send_rank_lengths(neigh) * 7,
             mpih.double_t, send_rank, 0, mpih.comms.world);
 
         mpih.wait(&request, &mut status);
@@ -813,13 +809,11 @@ fn exchange_ghost_layer(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
         // Exchange data
         mpih.irecv(
-            bitcast[&mut[real_t]](&comm_offsets.recv_exchg_buffer.data(exchg_recv_offset)) as MPI_MutBuf,
-            exchg_rank_recv_lengths(neigh) * 7,
+            &comm_offsets.recv_exchg_buffer.data(exchg_recv_offset) as MPI_MutBuf, exchg_rank_recv_lengths(neigh) * 7,
             mpih.double_t, recv_rank, 0, mpih.comms.world, &mut request);
 
         mpih.send(
-            bitcast[&mut[real_t]](&comm_offsets.send_exchg_buffer.data(exchg_send_offset)) as MPI_MutBuf,
-            exchg_rank_send_lengths(neigh) * 7,
+            &comm_offsets.send_exchg_buffer.data(exchg_send_offset) as MPI_MutBuf, exchg_rank_send_lengths(neigh) * 7,
             mpih.double_t, send_rank, 0, mpih.comms.world);
 
         mpih.wait(&request, &mut status);
