@@ -540,8 +540,8 @@ int main(int argc, char **argv) {
     // Load balancing parameters
     real_t baseWeight = 1.0;
     real_t metisipc2redist = 1.0;
-    size_t regridMin = 2;
-    size_t regridMax = 10;
+    size_t regridMin = 10;
+    size_t regridMax = 50;
     int maxBlocksPerProcess = 100;
     string metisAlgorithm = "none";
     string metisWeightsToUse = "none";
