@@ -163,7 +163,7 @@ void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& 
     for(auto& iblock: *forest) {
         auto block = static_cast<blockforest::Block *>(&iblock);
         auto aabb = block->getAABB();
-        auto block_info = info[block->getId()];
+        auto& block_info = info[block->getId()];
 
         md_compute_boundary_weights(
             aabb.xMin(), aabb.xMax(), aabb.yMin(), aabb.yMax(), aabb.zMin(), aabb.zMax(),
@@ -182,7 +182,7 @@ void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& 
 
     for(auto& iblock: *forest) {
         auto block = static_cast<blockforest::Block *>(&iblock);
-        auto block_info = info[block->getId()];
+        auto& block_info = info[block->getId()];
 
         for(uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
             bs.sendBuffer(block->getNeighborProcess(neigh)) <<
