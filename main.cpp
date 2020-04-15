@@ -541,7 +541,7 @@ int main(int argc, char **argv) {
     real_t baseWeight = 1.0;
     real_t metisipc2redist = 1.0;
     size_t regridMin = 10;
-    size_t regridMax = 50;
+    size_t regridMax = 100;
     int maxBlocksPerProcess = 100;
     string metisAlgorithm = "none";
     string metisWeightsToUse = "none";
