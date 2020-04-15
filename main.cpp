@@ -213,9 +213,9 @@ void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& 
 }
 
 Vector3<uint_t> getBlockConfig(uint_t num_processes, uint_t nx, uint_t ny, uint_t nz) {
-    const uint_t bx_factor = 2;
-    const uint_t by_factor = 2;
-    const uint_t bz_factor = 2;
+    const uint_t bx_factor = 1;
+    const uint_t by_factor = 1;
+    const uint_t bz_factor = 1;
     const uint_t ax = nx * ny;
     const uint_t ay = nx * nz;
     const uint_t az = ny * nz;
