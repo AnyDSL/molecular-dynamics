@@ -83,10 +83,10 @@ if(USE_WALBERLA_LOAD_BALANCING)
 
     waLBerla_add_executable(
         NAME md
-        FILES main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_OBJS}
+        FILES main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS}
         DEPENDS blockforest core pe)
 else()
-    add_executable(md main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h time.h vtk.h ${MD_OBJS})
+    add_executable(md main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS})
 endif()
 
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})

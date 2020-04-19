@@ -28,16 +28,14 @@ extern fn md_initialize_grid(
         zmax: max(2)
     };
 
-    let mut rank_aabb = AABB {
-        xmin: rank_min(0),
-        xmax: rank_max(0),
-        ymin: rank_min(1),
-        ymax: rank_max(1),
-        zmin: rank_min(2),
-        zmax: rank_max(2)
+    let rank_aabb = AABB {
+        xmin: rank_min(0) - cell_spacing,
+        xmax: rank_max(0) + cell_spacing,
+        ymin: rank_min(1) - cell_spacing,
+        ymax: rank_max(1) + cell_spacing,
+        zmin: rank_min(2) - cell_spacing,
+        zmax: rank_max(2) + cell_spacing
     };
-
-    extend_rank_domain(&mut rank_aabb, cell_spacing);
 
     grid_ = allocate_grid(world_aabb, rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
@@ -49,16 +47,15 @@ extern fn md_initialize_grid(
 }
 
 extern fn md_rescale_grid(min: &[real_t], max: &[real_t]) -> () {
-    let mut aabb = AABB {
-        xmin: min(0),
-        xmax: max(0),
-        ymin: min(1),
-        ymax: max(1),
-        zmin: min(2),
-        zmax: max(2)
+    let aabb = AABB {
+        xmin: min(0) - grid_.spacing,
+        xmax: max(0) + grid_.spacing,
+        ymin: min(1) - grid_.spacing,
+        ymax: max(1) + grid_.spacing,
+        zmin: min(2) - grid_.spacing,
+        zmax: max(2) + grid_.spacing
     };
 
-    extend_rank_domain(&mut aabb, grid_.spacing);
     rescale_grid(&mut grid_, aabb);
 }
 
@@ -178,7 +175,8 @@ extern fn md_write_grid_aabb_data_to_arrays(
 }
 
 extern fn md_distribute_particles() -> () { distribute_particles(&mut grid_, alloc_cpu); }
-extern fn md_exchange_ghost_layer() -> () { exchange_ghost_layer(&mut grid_, &mut comm_offsets_); }
+extern fn md_borders() -> () { borders(&mut grid_, &mut comm_offsets_); }
+extern fn md_exchange_particles() -> () { exchange_particles(&mut grid_, &mut comm_offsets_); }
 extern fn md_pbc() -> () { accelerator_pbc(grid_, ); }
 extern fn md_initialize_clusters() -> () { }
 extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () { assemble_neighborlists(&mut grid_, cutoff_distance); }

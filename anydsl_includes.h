@@ -32,7 +32,8 @@ extern "C" {
     void md_mpi_initialize();
     void md_mpi_finalize();
     void md_synchronize_ghost_layer();
-    void md_exchange_ghost_layer();
+    void md_borders();
+    void md_exchange_particles();
     void md_pbc();
     int md_get_world_size();
     int md_get_world_rank();

@@ -655,7 +655,8 @@ int main(int argc, char **argv) {
             init_rectangular_grid(aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
-        md_exchange_ghost_layer();
+        md_exchange_particles();
+        md_borders();
         md_distribute_particles();
         md_copy_data_to_accelerator();
         md_assemble_neighborlists(cutoff_radius + verlet_buffer);
@@ -706,7 +707,8 @@ int main(int argc, char **argv) {
 
                 #endif
 
-                md_exchange_ghost_layer();
+                md_exchange_particles();
+                md_borders();
                 timer.accum(TIME_COMM);
 
                 md_distribute_particles();
