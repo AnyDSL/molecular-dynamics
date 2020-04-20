@@ -377,11 +377,11 @@ fn insert_particle(
 
     // PBC logic is applied here since particles are exchanged in the beginning
     if pos.x < world_aabb.xmin { pos.x += grid.xlength; flags |= 0x1 as u8; }
-    if pos.x > world_aabb.xmax { pos.x -= grid.xlength; flags |= 0x1 as u8; }
-    if pos.y < world_aabb.ymin { pos.y += grid.ylength; flags |= 0x2 as u8; }
-    if pos.y > world_aabb.ymax { pos.y -= grid.ylength; flags |= 0x2 as u8; }
-    if pos.z < world_aabb.zmin { pos.z += grid.zlength; flags |= 0x4 as u8; }
-    if pos.z > world_aabb.zmax { pos.z -= grid.zlength; flags |= 0x4 as u8; }
+    if pos.x > world_aabb.xmax { pos.x -= grid.xlength; flags |= 0x2 as u8; }
+    if pos.y < world_aabb.ymin { pos.y += grid.ylength; flags |= 0x4 as u8; }
+    if pos.y > world_aabb.ymax { pos.y -= grid.ylength; flags |= 0x8 as u8; }
+    if pos.z < world_aabb.zmin { pos.z += grid.zlength; flags |= 0x10 as u8; }
+    if pos.z > world_aabb.zmax { pos.z -= grid.zlength; flags |= 0x20 as u8; }
 
     set_real(particle_index, grid.masses_cpu, mass);
     set_3d_arrays(particle_index, grid.positions_cpu, pos);

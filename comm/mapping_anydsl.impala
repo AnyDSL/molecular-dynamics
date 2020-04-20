@@ -85,28 +85,28 @@ fn communication_ranks(body: CommFunc) -> () {
         });
     } else {
         body(xnext, xprev,
-            |p, g, pbc| { p.x > g.aabb.xmax - g.spacing * 2.0 && myloc(0) < gx - 1 },
-            |p, g, pbc| { (pbc.x && myloc(0) == gx - 1) || (p.x > g.aabb.xmax - g.spacing) });
+            |p, g, pbc| { p.x > g.aabb.xmax - g.spacing * 2.0 },
+            |p, g, pbc| { (pbc.x < 0 as i8) || (p.x > g.aabb.xmax - g.spacing) });
 
         body(xprev, xnext,
-            |p, g, pbc| { p.x < g.aabb.xmin + g.spacing * 2.0 && myloc(0) > 0 },
-            |p, g, pbc| { (pbc.x && myloc(0) == 0)      || (p.x < g.aabb.xmin + g.spacing) });
+            |p, g, pbc| { p.x < g.aabb.xmin + g.spacing * 2.0 },
+            |p, g, pbc| { (pbc.x > 0 as i8) || (p.x < g.aabb.xmin + g.spacing) });
 
         body(ynext, yprev,
-            |p, g, pbc| { p.y > g.aabb.ymax - g.spacing * 2.0 && myloc(1) < gy - 1 },
-            |p, g, pbc| { (pbc.y && myloc(1) == gy - 1) || (p.y > g.aabb.ymax - g.spacing) });
+            |p, g, pbc| { p.y > g.aabb.ymax - g.spacing * 2.0 },
+            |p, g, pbc| { (pbc.y < 0 as i8) || (p.y > g.aabb.ymax - g.spacing) });
 
         body(yprev, ynext,
-            |p, g, pbc| { p.y < g.aabb.ymin + g.spacing * 2.0 && myloc(1) > 0 },
-            |p, g, pbc| { (pbc.y && myloc(1) == 0)      || (p.y < g.aabb.ymin + g.spacing) });
+            |p, g, pbc| { p.y < g.aabb.ymin + g.spacing * 2.0 },
+            |p, g, pbc| { (pbc.y > 0 as i8) || (p.y < g.aabb.ymin + g.spacing) });
 
         body(znext, zprev,
-            |p, g, pbc| { p.z > g.aabb.zmax - g.spacing * 2.0 && myloc(2) < gz - 1 },
-            |p, g, pbc| { (pbc.z && myloc(2) == gz - 1) || (p.z > g.aabb.zmax - g.spacing) });
+            |p, g, pbc| { p.z > g.aabb.zmax - g.spacing * 2.0 },
+            |p, g, pbc| { (pbc.z < 0 as i8) || (p.z > g.aabb.zmax - g.spacing) });
 
         body(zprev, znext,
-            |p, g, pbc| { p.z < g.aabb.zmin + g.spacing * 2.0 && myloc(2) > 0 },
-            |p, g, pbc| { (pbc.z && myloc(2) == 0)      || (p.z < g.aabb.zmin + g.spacing) });
+            |p, g, pbc| { p.z < g.aabb.zmin + g.spacing * 2.0 },
+            |p, g, pbc| { (pbc.z > 0 as i8) || (p.z < g.aabb.zmin + g.spacing) });
     }
 }
 
@@ -753,7 +753,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
         range(0, grid.nparticles, |particle_index| {
             let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
-            let pbc = PBCFlags { x: false, y: false, z: false };
+            let pbc = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
 
             if check_border(pos, grid, pbc) {
                 let mass = get_real(particle_index, grid.masses_cpu);

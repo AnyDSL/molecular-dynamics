@@ -134,17 +134,32 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
 
 fn @get_pbc_flags(i: i32, grid: Grid) -> PBCFlags {
     let flags = get_u8(i, grid.pbc_flags_cpu);
+    let mut xoff = 0 as i8;
+    let mut yoff = 0 as i8;
+    let mut zoff = 0 as i8;
+
+    if(flags & 0x1  as u8 != 0 as u8) { xoff =  1 as i8; }
+    if(flags & 0x2  as u8 != 0 as u8) { xoff = -1 as i8; }
+    if(flags & 0x4  as u8 != 0 as u8) { yoff =  1 as i8; }
+    if(flags & 0x8  as u8 != 0 as u8) { yoff = -1 as i8; }
+    if(flags & 0x10 as u8 != 0 as u8) { zoff =  1 as i8; }
+    if(flags & 0x20 as u8 != 0 as u8) { zoff = -1 as i8; }
 
     PBCFlags {
-        x: (flags & 0x1 as u8) != 0 as u8,
-        y: (flags & 0x2 as u8) != 0 as u8,
-        z: (flags & 0x4 as u8) != 0 as u8
+        x: xoff,
+        y: yoff,
+        z: zoff
     }
 }
 
 fn @set_pbc_flags(i: i32, grid: Grid, pbc_flags: PBCFlags) -> () {
-    let flags = select(pbc_flags.x, 0x1, 0x0) | select(pbc_flags.y, 0x2, 0x0) | select(pbc_flags.z, 0x4, 0x0);
-    set_u8(i, grid.pbc_flags_cpu, flags as u8);
+    let mut flags = 0 as u8;
+
+    if pbc_flags.x != 0 as i8 { flags |= select(pbc_flags.x > 0 as i8, 0x1  as u8, 0x2  as u8); }
+    if pbc_flags.y != 0 as i8 { flags |= select(pbc_flags.y > 0 as i8, 0x4  as u8, 0x8  as u8); }
+    if pbc_flags.z != 0 as i8 { flags |= select(pbc_flags.z > 0 as i8, 0x10 as u8, 0x20 as u8); }
+
+    set_u8(i, grid.pbc_flags_cpu, flags);
 }
 
 fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {

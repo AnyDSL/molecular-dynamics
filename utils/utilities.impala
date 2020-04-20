@@ -34,9 +34,9 @@ struct Vector3D {
 }
 
 struct PBCFlags {
-    x: bool,
-    y: bool,
-    z: bool
+    x: i8,
+    y: i8,
+    z: i8
 }
 
 fn @print_vector(vector: Vector3D) -> () {
