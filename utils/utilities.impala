@@ -99,6 +99,10 @@ fn @get_array_of_i32(buf: Buffer) -> &mut[i32] {
     bitcast[&mut[i32]](buf.data)
 }
 
+fn @get_array_of_i8(buf: Buffer) -> &mut[i8] {
+    bitcast[&mut[i8]](buf.data)
+}
+
 fn @get_bool(i: i32, buf: Buffer) -> bool {
     bitcast[&[bool]](buf.data)(i)
 }

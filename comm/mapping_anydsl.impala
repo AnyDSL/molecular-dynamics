@@ -9,6 +9,7 @@ struct CommOffsets {
     send_rank_offsets: Buffer,
     send_rank_lengths: Buffer,
     send_offsets: Buffer,
+    send_pbc: Buffer,
     send_capacity: i32,
     send_noffsets: i32,
 
@@ -31,6 +32,7 @@ struct CommOffsets {
     // Accelerator send data
     send_buffer_accelerator: Buffer,
     send_offsets_accelerator: Buffer,
+    send_pbc_accelerator: Buffer,
 
     // Accelerator receive data
     recv_buffer_accelerator: Buffer,
@@ -63,6 +65,10 @@ extern "C" {
     fn in_rank_border(i32, f64, f64, f64, f64) -> bool;
     fn in_rank_subdomain(i32, f64, f64, f64) -> bool;
 }
+
+// Does the PBC changes in particle positions must be performed before checking
+// their border condition?
+fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false) }
 
 // Maximum number of neighbor ranks
 fn @get_initial_maximum_neighbor_ranks() -> i32 { select(use_walberla(), 30, 6) }
@@ -108,6 +114,20 @@ fn communication_ranks(body: CommFunc) -> () {
             |p, g, pbc| { p.z < g.aabb.zmin + g.spacing * 2.0 },
             |p, g, pbc| { (pbc.z > 0 as i8) || (p.z < g.aabb.zmin + g.spacing) });
     }
+}
+
+// Get PBC conditions according to particle position
+fn @get_pbc_flags_from_position(position: Vector3D, grid: &Grid) -> PBCFlags {
+    let mut pbc = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
+
+    if position.x < grid.world_aabb.xmin + grid.spacing { pbc.x =  1 as i8; };
+    if position.x > grid.world_aabb.xmax - grid.spacing { pbc.x = -1 as i8; };
+    if position.y < grid.world_aabb.ymin + grid.spacing { pbc.y =  1 as i8; };
+    if position.y > grid.world_aabb.ymax - grid.spacing { pbc.y = -1 as i8; };
+    if position.z < grid.world_aabb.zmin + grid.spacing { pbc.z =  1 as i8; };
+    if position.z > grid.world_aabb.zmax - grid.spacing { pbc.z = -1 as i8; };
+
+    pbc
 }
 
 // Get world size
@@ -303,8 +323,9 @@ fn mpi_finalize() -> () {
 fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     if !use_unified_memory() {
         release(comm_offsets.send_buffer);
-        release(comm_offsets.recv_buffer);
         release(comm_offsets.send_offsets);
+        release(comm_offsets.send_pbc);
+        release(comm_offsets.recv_buffer);
         release(comm_offsets.recv_offsets);
     }
 
@@ -314,6 +335,7 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.send_rank_lengths);
         release(comm_offsets.send_buffer_accelerator);
         release(comm_offsets.send_offsets_accelerator);
+        release(comm_offsets.send_pbc_accelerator);
         release(comm_offsets.send_exchg_buffer);
         release(comm_offsets.exchg_rank_send_lengths);
     }
@@ -352,17 +374,21 @@ fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> (
 
     reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_pbc, send_capacity * 3, sizeof[i8](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.send_exchg_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
 
     release(comm_offsets.send_buffer_accelerator);
     release(comm_offsets.send_offsets_accelerator);
+    release(comm_offsets.send_pbc_accelerator);
 
     comm_offsets.send_buffer_accelerator = accelerator_allocate(send_capacity * 3 * sizeof[real_t]());
     comm_offsets.send_offsets_accelerator = accelerator_allocate(send_capacity * sizeof[i32]());
+    comm_offsets.send_pbc_accelerator = accelerator_allocate(send_capacity * 3 * sizeof[i8]());
     comm_offsets.send_capacity = send_capacity;
 
     assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
     assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
+    assign_accelerator_buffer(&mut comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
 }
 
 fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> () {
@@ -505,6 +531,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             send_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
             send_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
             send_offsets: cpu_allocate(send_capacity * sizeof[i32]()),
+            send_pbc: cpu_allocate(send_capacity * 3 * sizeof[i8]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
@@ -527,6 +554,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             // Accelerator send data
             send_buffer_accelerator: accelerator_allocate(send_capacity * 3 * sizeof[real_t]()),
             send_offsets_accelerator: accelerator_allocate(send_capacity * sizeof[i32]()),
+            send_pbc_accelerator: accelerator_allocate(send_capacity * 3 * sizeof[i8]()),
 
             // Accelerator receive data
             recv_buffer_accelerator: accelerator_allocate(recv_capacity * 3 * sizeof[real_t]()),
@@ -539,6 +567,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
 
         assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
+        assign_accelerator_buffer(&mut comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
     }
@@ -752,8 +781,21 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         send_rank_offsets(neigh) = isend;
 
         range(0, grid.nparticles, |particle_index| {
-            let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
-            let pbc = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
+            let mut pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
+            let mut pbc: PBCFlags;
+
+            // When it is not necessary to apply PBC before border check, we want to avoid calculating
+            // PBC coordinates for particles that do not need to be communicated
+            let apply_pbc_if = |condition: bool| {
+                if condition {
+                    pbc = get_pbc_flags_from_position(pos, grid);
+                    pos.x += grid.xlength * pbc.x as real_t;
+                    pos.y += grid.ylength * pbc.y as real_t;
+                    pos.z += grid.zlength * pbc.z as real_t;
+                }
+            };
+
+            apply_pbc_if(apply_pbc_before_border_check());
 
             if check_border(pos, grid, pbc) {
                 let mass = get_real(particle_index, grid.masses_cpu);
@@ -764,6 +806,14 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 }
 
                 let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
+                let send_pbc = get_array_of_i8(comm_offsets.send_pbc);
+
+                apply_pbc_if(!apply_pbc_before_border_check());
+
+                send_pbc(isend * 3 + 0) = pbc.x;
+                send_pbc(isend * 3 + 1) = pbc.y;
+                send_pbc(isend * 3 + 2) = pbc.z;
+
                 buffer_index = copy_particle_data_to_buffer(mass, pos, velocity, comm_offsets.send_buffer, buffer_index);
                 send_offsets(isend++) = particle_index;
             }
@@ -840,6 +890,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     comm_offsets.recv_noffsets = irecv;
     transfer_between_devices(comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
     transfer_between_devices(comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
+    transfer_between_devices(comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
     comm_offsets.neighs = neigh;
 }
 
