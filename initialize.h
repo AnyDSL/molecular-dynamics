@@ -70,7 +70,7 @@ bool is_within_aabb(double x, double y, double z, ::AABB aabb) {
 #ifdef USE_WALBERLA_LOAD_BALANCING
 using namespace walberla;
 
-::AABB get_rank_aabb_from_block_forest(shared_ptr<BlockForest> forest) {
+::AABB getBlockForestAABB(shared_ptr<BlockForest> forest) {
     ::AABB rank_aabb;
     auto aabb_union = forest->begin()->getAABB();
 
@@ -89,7 +89,7 @@ using namespace walberla;
     return rank_aabb;
 }
 
-bool is_within_block_forest(double x, double y, double z, shared_ptr<BlockForest> forest) {
+bool isWithinBlockForest(double x, double y, double z, shared_ptr<BlockForest> forest) {
     for(auto& iblock: *forest) {
         auto block = static_cast<blockforest::Block *>(&iblock);
 

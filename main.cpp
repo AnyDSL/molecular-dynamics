@@ -129,7 +129,7 @@ void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
     write_vtk_to_file(filename, masses, positions, velocities, forces);
 }
 
-auto get_neighborhood_from_block_forest(shared_ptr<BlockForest> forest) {
+auto getNeighborhoodFromBlockForest(shared_ptr<BlockForest> forest) {
     map<uint_t, vector<pair<const BlockID&, math::AABB>>> neighborhood;
     auto me = mpi::MPIManager::instance()->rank();
 
@@ -527,9 +527,9 @@ int main(int argc, char **argv) {
         domain, getBlockConfig(mpiManager->numProcesses(), gridsize[0], gridsize[1], gridsize[2]),
         Vector3<bool>(true, true, true), mpiManager->numProcesses(), uint_t(0));
 
-    auto rank_aabb = get_rank_aabb_from_block_forest(forest);
-    auto is_within_domain = bind(is_within_block_forest, _1, _2, _3, forest);
-    auto neighborhood = get_neighborhood_from_block_forest(forest);
+    auto rank_aabb = getBlockForestAABB(forest);
+    auto is_within_domain = bind(isWithinBlockForest, _1, _2, _3, forest);
+    auto neighborhood = getNeighborhoodFromBlockForest(forest);
     auto info = make_shared<blockforest::InfoCollection>();
 
     // Properties
@@ -697,8 +697,8 @@ int main(int argc, char **argv) {
                     updateWeights(forest, *info);
                     forest->refresh();
 
-                    auto new_aabb = get_rank_aabb_from_block_forest(forest);
-                    neighborhood = get_neighborhood_from_block_forest(forest);
+                    auto new_aabb = getBlockForestAABB(forest);
+                    neighborhood = getNeighborhoodFromBlockForest(forest);
                     md_rescale_grid(new_aabb.min, new_aabb.max);
                     gNeighborhood = &neighborhood;
                 }
