@@ -221,12 +221,23 @@ fn @get_comm_recv_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> 
     get_i32_accelerator(index, comm_offsets.recv_offsets_accelerator)
 }
 
+fn @get_comm_send_pbc(index: i32, comm_offsets: CommOffsets) -> PBCFlags {
+    PBCFlags {
+        x: get_i8_accelerator(index * 3 + 0, comm_offsets.send_pbc_accelerator),
+        y: get_i8_accelerator(index * 3 + 1, comm_offsets.send_pbc_accelerator),
+        z: get_i8_accelerator(index * 3 + 2, comm_offsets.send_pbc_accelerator)
+    }
+}
+
 fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let grid_size  = (round_up(comm_offsets.send_noffsets, block_size(0)), 1, 1);
     let buffer = comm_offsets.send_buffer_accelerator;
     let noffsets = comm_offsets.send_noffsets;
+    let xlength = grid.xlength;
+    let ylength = grid.ylength;
+    let zlength = grid.zlength;
 
     if noffsets > 0 {
         for work_item in acc.exec(grid_size, block_size) {
@@ -234,11 +245,12 @@ fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
 
             if th_idx < noffsets {
                 let offset = get_comm_send_offsets_accelerator(th_idx, comm_offsets);
+                let pbc = get_comm_send_pbc(i, comm_offsets);
                 let pos = get_position(offset, grid);
 
-                set_real_accelerator(th_idx * 3, buffer, pos.x);
-                set_real_accelerator(th_idx * 3 + 1, buffer, pos.y);
-                set_real_accelerator(th_idx * 3 + 2, buffer, pos.z);
+                set_real_accelerator(th_idx * 3 + 0, buffer, pos.x + xlength * pbc.x as real_t);
+                set_real_accelerator(th_idx * 3 + 1, buffer, pos.y + ylength * pbc.y as real_t);
+                set_real_accelerator(th_idx * 3 + 2, buffer, pos.z + zlength * pbc.z as real_t);
             }
         }
 
