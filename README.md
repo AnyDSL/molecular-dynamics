@@ -40,7 +40,7 @@ Currently, one testcase has been implemented based on miniMD setup. Particles ar
 
 Available options are:
 
-- **-b, --benchmark=STRING:** Benchmark to use (options are default and body\_collision).
+- **-b, --benchmark=STRING:** Benchmark to use (options are default, half and body\_collision).
 - **-x, --nx=SIZE:** Number of unit cells in x dimension (default 32).
 - **-y, --ny=SIZE:** Number of unit cells in y dimension (default 32).
 - **-z, --nz=SIZE:** Number of unit cells in z dimension (default 32).
