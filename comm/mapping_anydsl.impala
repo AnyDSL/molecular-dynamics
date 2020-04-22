@@ -43,13 +43,7 @@ struct CommOffsets {
     neighs: i32
 };
 
-// Number of nodes in each dimension
-static mut gx: i32;
-static mut gy: i32;
-static mut gz: i32;
-
 // Cartesian info
-static mut myloc: [i32 * 3];
 static mut xprev: i32;
 static mut xnext: i32;
 static mut yprev: i32;
@@ -119,16 +113,16 @@ fn communication_ranks(body: CommFunc) -> () {
 
 // Get PBC conditions according to particle position
 fn @get_pbc_flags_from_position(position: &Vector3D, pbc_check: [bool * 3], grid: &Grid) -> PBCFlags {
-    let mut pbc = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
+    let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
 
-    if pbc_check(0) && position.x < grid.world_aabb.xmin + grid.spacing { pbc.x =  1 as i8; };
-    if pbc_check(0) && position.x > grid.world_aabb.xmax - grid.spacing { pbc.x = -1 as i8; };
-    if pbc_check(1) && position.y < grid.world_aabb.ymin + grid.spacing { pbc.y =  1 as i8; };
-    if pbc_check(1) && position.y > grid.world_aabb.ymax - grid.spacing { pbc.y = -1 as i8; };
-    if pbc_check(2) && position.z < grid.world_aabb.zmin + grid.spacing { pbc.z =  1 as i8; };
-    if pbc_check(2) && position.z > grid.world_aabb.zmax - grid.spacing { pbc.z = -1 as i8; };
+    if pbc_check(0) && position.x < grid.world_aabb.xmin + grid.spacing { pbc_flags.x =  1 as i8; };
+    if pbc_check(0) && position.x > grid.world_aabb.xmax - grid.spacing { pbc_flags.x = -1 as i8; };
+    if pbc_check(1) && position.y < grid.world_aabb.ymin + grid.spacing { pbc_flags.y =  1 as i8; };
+    if pbc_check(1) && position.y > grid.world_aabb.ymax - grid.spacing { pbc_flags.y = -1 as i8; };
+    if pbc_check(2) && position.z < grid.world_aabb.zmin + grid.spacing { pbc_flags.z =  1 as i8; };
+    if pbc_check(2) && position.z > grid.world_aabb.zmax - grid.spacing { pbc_flags.z = -1 as i8; };
 
-    pbc
+    pbc_flags
 }
 
 // Generate position variants according to PBC checking
@@ -482,13 +476,9 @@ fn get_node_config(xlength: real_t, ylength: real_t, zlength: real_t, destx: &mu
 // Get bounding box for current node
 fn @get_node_bounding_box(aabb: AABB) -> AABB {
     let mpih = mpi();
-
-    let mut xmin: real_t;
-    let mut xmax: real_t;
-    let mut ymin: real_t;
-    let mut ymax: real_t;
-    let mut zmin: real_t;
-    let mut zmax: real_t;
+    let mut gx: i32;
+    let mut gy: i32;
+    let mut gz: i32;
 
     // Number of cells in each dimension
     let xtotallength = aabb.xmax - aabb.xmin;
@@ -510,18 +500,13 @@ fn @get_node_bounding_box(aabb: AABB) -> AABB {
     // 3D cartesian position of current rank
     mpih.cart(gx, gy, gz, &mut locx, &mut locy, &mut locz, &mut xprev, &mut xnext, &mut yprev, &mut ynext, &mut zprev, &mut znext);
 
-    // Location for my rank
-    myloc(0) = locx;
-    myloc(1) = locy;
-    myloc(2) = locz;
-
     // Calculate boundaries using lengths in each dimension
-    xmin = aabb.xmin + xlength * (myloc(0) as real_t);
-    xmax = xmin + xlength;
-    ymin = aabb.ymin + ylength * (myloc(1) as real_t);
-    ymax = ymin + ylength;
-    zmin = aabb.zmin + zlength * (myloc(2) as real_t);
-    zmax = zmin + zlength;
+    let xmin = aabb.xmin + xlength * locx as real_t;
+    let xmax = xmin + xlength;
+    let ymin = aabb.ymin + ylength * locy as real_t;
+    let ymax = ymin + ylength;
+    let zmin = aabb.zmin + zlength * locz as real_t;
+    let zmax = zmin + zlength;
 
     AABB {
         xmin: xmin,
