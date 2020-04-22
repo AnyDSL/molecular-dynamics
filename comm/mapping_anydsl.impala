@@ -755,8 +755,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     });
 
     // Unpack received particles
-    let exchg_start = grid.nparticles;
-    if iexchg > 0 { add_local_slots(iexchg, grid); }
+    let exchg_start = add_local_slots(iexchg, grid);
 
     exchg_index = 0;
     range(0, iexchg, |i| {
@@ -896,7 +895,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         neigh++;
     });
 
-    if irecv > 0 { add_ghost_slots(irecv, grid); }
+    add_ghost_slots(irecv, grid);
 
     buffer_index = 0;
     range(0, irecv, |i| {

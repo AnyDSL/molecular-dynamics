@@ -398,7 +398,7 @@ fn delete_particle(particle_index: i32, grid: &mut Grid) -> () {
     grid.nparticles--;
 }
 
-fn add_local_slots(slots: i32, grid: &mut Grid) -> () {
+fn add_local_slots(slots: i32, grid: &mut Grid) -> i32 {
     let first_particle_index = grid.nparticles;
 
     if grid.nghost > 0 {
@@ -411,9 +411,10 @@ fn add_local_slots(slots: i32, grid: &mut Grid) -> () {
     }
 
     grid.nparticles += slots;
+    first_particle_index
 }
 
-fn add_ghost_slots(slots: i32, grid: &mut Grid) -> () {
+fn add_ghost_slots(slots: i32, grid: &mut Grid) -> i32 {
     let first_particle_index = grid.nparticles + grid.nghost;
 
     if first_particle_index + slots > grid.particle_capacity {
@@ -422,6 +423,7 @@ fn add_ghost_slots(slots: i32, grid: &mut Grid) -> () {
     }
 
     grid.nghost += slots;
+    first_particle_index
 }
 
 // Particles must be at the same cell
