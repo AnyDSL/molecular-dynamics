@@ -93,7 +93,7 @@ void vtk_write_aabb_data(string filename) {
 
 using namespace walberla;
 
-map<uint_t, vector<pair<const BlockID&, math::AABB>>> *gNeighborhood;
+map<uint_t, vector<math::AABB>> *gNeighborhood;
 
 void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
     vector<double> masses;
@@ -130,7 +130,9 @@ void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
 }
 
 auto getNeighborhoodFromBlockForest(shared_ptr<BlockForest> forest) {
-    map<uint_t, vector<pair<const BlockID&, math::AABB>>> neighborhood;
+    map<uint_t, vector<math::AABB>> neighborhood;
+    map<uint_t, vector<BlockID>> blocks_pushed;
+
     auto me = mpi::MPIManager::instance()->rank();
 
     for(auto& iblock: *forest) {
@@ -142,11 +144,12 @@ auto getNeighborhoodFromBlockForest(shared_ptr<BlockForest> forest) {
             if(neighbor_rank != me) {
                 const BlockID& neighbor_block = block->getNeighborId(neigh);
                 math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
-                auto begin = neighborhood[neighbor_rank].begin();
-                auto end = neighborhood[neighbor_rank].end();
+                auto begin = blocks_pushed[neighbor_rank].begin();
+                auto end = blocks_pushed[neighbor_rank].end();
 
-                if(find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh.first == neighbor_block; }) == end) {
-                    neighborhood[neighbor_rank].push_back(make_pair(neighbor_block, neighbor_aabb));
+                if(find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh == neighbor_block; }) == end) {
+                    neighborhood[neighbor_rank].push_back(neighbor_aabb);
+                    blocks_pushed[neighbor_rank].push_back(neighbor_block);
                 }
             }
         }
@@ -275,11 +278,8 @@ extern "C" {
     bool in_rank_border(int rank, double x, double y, double z, double cutoff_radius) {
         auto rank_neighborhood = (*gNeighborhood)[rank];
 
-        for(auto& neighbor_info: rank_neighborhood) {
-            auto aabb = neighbor_info.second;
-            auto distance = sqDistancePointToAABB(x, y, z, aabb);
-
-            if(distance < cutoff_radius * cutoff_radius) {
+        for(auto& aabb: rank_neighborhood) {
+            if(sqDistancePointToAABB(x, y, z, aabb) < cutoff_radius * cutoff_radius) {
                 return true;
             }
         }
@@ -290,9 +290,7 @@ extern "C" {
     bool in_rank_subdomain(int rank, double x, double y, double z) {
         auto rank_neighborhood = (*gNeighborhood)[rank];
 
-        for(auto& neighbor_info: rank_neighborhood) {
-            auto aabb = neighbor_info.second;
-
+        for(auto& aabb: rank_neighborhood) {
             if(aabb.contains(x, y, z)) {
                 return true;
             }
