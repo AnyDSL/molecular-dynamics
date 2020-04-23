@@ -331,9 +331,9 @@ int main(int argc, char **argv) {
     using namespace placeholders;
 
     // Force flush to zero mode for denormals
-#if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
+    #if defined(__x86_64__) || defined(__amd64__) || defined(_M_X64)
     _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
-#endif
+    #endif
 
     string benchmark = "default";
     string algorithm;
@@ -527,8 +527,10 @@ int main(int argc, char **argv) {
 
     auto rank_aabb = getBlockForestAABB(forest);
     auto is_within_domain = bind(isWithinBlockForest, _1, _2, _3, forest);
-    auto neighborhood = getNeighborhoodFromBlockForest(forest);
     auto info = make_shared<blockforest::InfoCollection>();
+
+    // Neighborhood
+    map<uint_t, vector<math::AABB>> neighborhood;
 
     // Properties
     map<string, int64_t> integerProperties;
@@ -605,7 +607,6 @@ int main(int argc, char **argv) {
     }
 
     forest->addBlockData(make_shared<MDDataHandling>(), "Interface");
-    gNeighborhood = &neighborhood;
 
     #else
 
@@ -652,6 +653,21 @@ int main(int argc, char **argv) {
         } else {
             init_rectangular_grid(aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
+
+        #ifdef USE_WALBERLA_LOAD_BALANCING
+
+        if(use_load_balancing) {
+            updateWeights(forest, *info);
+            forest->refresh();
+
+            auto new_aabb = getBlockForestAABB(forest);
+            md_rescale_grid(new_aabb.min, new_aabb.max);
+        }
+
+        neighborhood = getNeighborhoodFromBlockForest(forest);
+        gNeighborhood = &neighborhood;
+
+        #endif
 
         md_exchange_particles();
         md_borders();
