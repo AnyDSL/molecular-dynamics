@@ -632,6 +632,7 @@ int main(int argc, char **argv) {
         cout << "- Epsilon: " << epsilon << endl;
         cout << "- Sigma: " << sigma << endl;
         cout << "- Potential minimum: " << potential_minimum << endl;
+        cout << "- Walberla domain partitioning: " << (use_walberla() ? "yes" : "no") << endl;
         cout << "- Dynamic load balancing algorithm: " << ((use_load_balancing) ? algorithm : "none") << endl;
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }
