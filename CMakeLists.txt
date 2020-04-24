@@ -21,13 +21,6 @@ else()
     set(MAPPING_FILE backend/mapping_cpu.impala)
 endif()
 
-set(COMM_MAPPING ${COMM_MAPPING} CACHE STRING "select the MPI mapping from the following: anydsl, nompi")
-if(NOT COMM_MAPPING)
-    set(COMM_MAPPING anydsl CACHE STRING "select the MPI mapping from the following: anydsl, nompi" FORCE)
-endif()
-
-set(COMM_MAPPING_FILE comm/mapping_${COMM_MAPPING}.impala)
-
 option(USE_SOA "USE_SOA" ON)
 option(USE_MPI "USE_MPI" ON)
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
@@ -46,11 +39,11 @@ else()
     set(DATA_LAYOUT_FILE data_layout/mapping_aos.impala)
 endif()
 
-if(COMM_MAPPING STREQUAL "anydsl")
-    set(MPI_FILES comm/mpi.impala)
+if(USE_MPI)
+    set(MPI_FILE comm/mpi.impala)
     set(MPI_CPP comm/mpi.cpp)
 else()
-    set(MPI_FILES "")
+    set(MPI_FILE comm/no_mpi.impala)
     set(MPI_CPP "")
 endif()
 
@@ -59,15 +52,15 @@ set(MD_SRCS
     core/grid.impala
     core/neighborlist.impala
     core/runtime.impala
+    comm/comm.impala
     utils/atomic.impala
     utils/definitions.impala
     utils/utilities.impala
     utils/utilities_accelerator.impala
+    ${MPI_FILE}
     ${DATA_LAYOUT_FILE}
     ${BACKEND_FILE}
-    ${MAPPING_FILE}
-    ${COMM_MAPPING_FILE}
-    ${MPI_FILES})
+    ${MAPPING_FILE})
 
 anydsl_runtime_wrap(MD_OBJS
     CLANG_FLAGS ${CLANG_FLAGS}

@@ -17,7 +17,7 @@ cmake .. -DAnyDSL_runtime_DIR="/path_to/anydsl/runtime/build/share/anydsl/cmake"
 There are several CMake options you can adjust before compilation, the most important ones are listed as follows:
 
 - **BACKEND:** Backend to compile the application, please use the following: cpu, avx, avx512 or nvvm (default is cpu).
-- **COMM\_MAPPING:** MPI variant, please use the following: anydsl or nompi (default is anydsl).
+- **USE\_MPI:** Use MPI library, just turn it off if there is no MPI library available (default is ON).
 - **USE\_SOA:** Set this option to OFF if you want to use the Array of Structs (AoS) data layout for particle positions, velocities and forces (default is ON).
 - **MONITOR\_ONLY\_FORCE\_COMPUTATION:** If you intend to use Likwid to instrument the force computation kernel and do performance monitoring, use this option to include the markers (default is OFF).
 - **USE\_WALBERLA\_LOAD\_BALANCING:** Enable this option to use the load balancing mechanism from Walberla, it must be installed (default is OFF).
@@ -59,4 +59,4 @@ Available options are:
 - **--potmin=REAL:** Potential minimum (default 1.6796).
 - **-h, --help:** Display help message.
 
-Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4. For the body collision setup, the number of particles is two times this number.
+Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4. For the body collision setup, the number of particles is two times this number. For the half setup, the number of particles is roughly the half of this number, and these particles fill just half of the grid, providing a good test case for the load balancing.
