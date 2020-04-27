@@ -25,6 +25,7 @@ extern "C" {
     void md_assemble_neighborlists(double);
     void md_deallocate_grid();
     void md_print_grid();
+    void md_print_ghost();
     void md_compute_forces(double, double, double);
     double md_compute_total_kinetic_energy();
     uint64_t get_number_of_flops();
