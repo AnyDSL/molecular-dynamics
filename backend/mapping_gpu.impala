@@ -118,6 +118,26 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> 
     acc.sync();
 }
 
+fn @reset_resize(grid: Grid) -> () {
+    bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(0) = 0;
+
+    if !use_unified_memory() {
+        copy(grid.resize_buffer_cpu, grid.resize_buffer_accelerator);
+    }
+}
+
+fn @get_resize(grid: Grid) -> i32 {
+    if !use_unified_memory() {
+        copy(grid.resize_buffer_accelerator, grid.resize_buffer_cpu);
+    }
+
+    bitcast[&[i32]](grid.resize_buffer_cpu.data)(0)
+}
+
+fn @get_resize_buffer(grid: Grid) -> &mut[1][i32] {
+    get_array_of_i32_accelerator(grid.resize_buffer_accelerator)
+}
+
 fn @get_particles_cell(grid: Grid) -> &mut[1][i32] {
     get_array_of_i32_accelerator(grid.particles_cell_accelerator)
 }

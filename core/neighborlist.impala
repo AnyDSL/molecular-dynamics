@@ -16,13 +16,16 @@ fn neighbor_cells(index: i32, nx: i32, ny: i32, ncells: i32, body: fn(i32) -> ()
     });
 }
 
-fn append_neighbor(grid: Grid, particle_index: i32, neighbor_index: i32, resize: &mut i32) -> () {
+fn append_neighbor(grid: Grid, particle_index: i32, neighbor_index: i32) -> () {
     let neighborlists = get_neighborlists(grid);
     let neighbors_sizes = get_neighbors_sizes(grid);
     let nb_list_size = neighbors_sizes(particle_index);
+    let resize_buf = get_resize_buffer(grid);
 
     if nb_list_size >= grid.neighborlist_capacity {
-        *resize = math.max(*resize, nb_list_size);
+        if resize_buf(0) < nb_list_size {
+            resize_buf(0) = nb_list_size;
+        }
     } else {
         neighborlists(get_neighborlist_index(particle_index, nb_list_size, grid)) = neighbor_index;
     }
@@ -46,7 +49,7 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
         let ny = grid.ny;
         let squared_cutoff_distance = cutoff_distance * cutoff_distance;
 
-        resize = 0;
+        reset_resize(const_grid);
 
         loop_accelerator(const_grid, |particle_index, neighborlists, nb_list_size, nb_list_offset| {
             let pos = get_position(particle_index, const_grid);
@@ -66,7 +69,7 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
                         let rsq = vector_len2(del);
 
                         if rsq <= squared_cutoff_distance {
-                            @@append_neighbor(const_grid, particle_index, neighbor_particle_index, &mut resize);
+                            @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
                         }
                     });
                 } else {
@@ -82,13 +85,15 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
                             let rsq = vector_len2(del);
 
                             if rsq <= squared_cutoff_distance {
-                                @@append_neighbor(const_grid, particle_index, neighbor_particle_index, &mut resize);
+                                @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
                             }
                         }
                     });
                 }
             });
         });
+
+        resize = get_resize(const_grid);
 
         if resize > 0 {
             reallocate_neighborlist_capacity(grid, resize * 2);

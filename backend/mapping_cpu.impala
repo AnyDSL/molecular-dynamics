@@ -62,6 +62,18 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     });
 }
 
+fn @reset_resize(grid: Grid) -> () {
+    bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(0) = 0;
+}
+
+fn @get_resize(grid: Grid) -> i32 {
+    bitcast[&[i32]](grid.resize_buffer_cpu.data)(0)
+}
+
+fn @get_resize_buffer(grid: Grid) -> &mut[i32] {
+    get_array_of_i32(grid.resize_buffer_cpu)
+}
+
 fn @get_cell_particles(grid: Grid) -> &mut[i32] {
     get_array_of_i32(grid.cell_particles_cpu)
 }

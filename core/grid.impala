@@ -37,6 +37,7 @@ struct Grid {
     pbc_flags_cpu: Buffer, // pbc flags of all particles on the CPU [u8]
     neighbors_sizes_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
+    resize_buffer_cpu: Buffer, // resize buffer on the CPU: [i32]
 
     cell_particles_accelerator: Buffer, // particles in each cell [i32]
     cell_sizes_accelerator: Buffer, // sizes of each cell [i32]
@@ -47,7 +48,8 @@ struct Grid {
     forces_accelerator: Array3D, // forces of all particles on the accelerator: [Vector3D]
     pbc_flags_accelerator: Buffer, // pbc flags of all particles on the accelerator [u8]
     neighbors_sizes_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
-    neighborlists_accelerator: Buffer // neighborlists on the accelerator: [i32]
+    neighborlists_accelerator: Buffer, // neighborlists on the accelerator: [i32]
+    resize_buffer_accelerator: Buffer // resize buffer on the accelerator: [i32]
 }
 
 fn @sort_particles() -> bool { false }
@@ -110,6 +112,7 @@ fn allocate_grid(
         pbc_flags_cpu: cpu_allocate(particle_capacity * sizeof[u8]()),
         neighbors_sizes_cpu: cpu_allocate(particle_capacity * sizeof[i32]()),
         neighborlists_cpu: cpu_allocate(neighbors_capacity * sizeof[i32]()),
+        resize_buffer_cpu: cpu_allocate(sizeof[i32]()),
 
         cell_particles_accelerator: accelerator_allocate(ncells_capacity * cell_capacity * sizeof[i32]()),
         cell_sizes_accelerator: accelerator_allocate(ncells_capacity * sizeof[i32]()),
@@ -120,7 +123,8 @@ fn allocate_grid(
         forces_accelerator: accelerator_allocate_3d_arrays(particle_capacity),
         pbc_flags_accelerator: accelerator_allocate(particle_capacity * sizeof[u8]()),
         neighbors_sizes_accelerator: accelerator_allocate(particle_capacity * sizeof[i32]()),
-        neighborlists_accelerator: accelerator_allocate(neighbors_capacity * sizeof[i32]())
+        neighborlists_accelerator: accelerator_allocate(neighbors_capacity * sizeof[i32]()),
+        resize_buffer_accelerator: accelerator_allocate(sizeof[i32]())
     };
 
     assign_accelerator_buffer(&mut grid.cell_particles_cpu, grid.cell_particles_accelerator);
@@ -133,6 +137,7 @@ fn allocate_grid(
     assign_accelerator_buffer(&mut grid.pbc_flags_cpu, grid.pbc_flags_accelerator);
     assign_accelerator_buffer(&mut grid.neighbors_sizes_cpu, grid.neighbors_sizes_accelerator);
     assign_accelerator_buffer(&mut grid.neighborlists_cpu, grid.neighborlists_accelerator);
+    assign_accelerator_buffer(&mut grid.resize_buffer_cpu, grid.resize_buffer_accelerator);
 
     grid
 }
@@ -166,6 +171,7 @@ fn deallocate_grid(grid: &mut Grid) -> () {
         release(grid.pbc_flags_cpu);
         release(grid.neighbors_sizes_cpu);
         release(grid.neighborlists_cpu);
+        release(grid.resize_buffer_cpu);
     }
 
     release(grid.cell_particles_accelerator);
@@ -178,6 +184,7 @@ fn deallocate_grid(grid: &mut Grid) -> () {
     release(grid.pbc_flags_accelerator);
     release(grid.neighbors_sizes_accelerator);
     release(grid.neighborlists_accelerator);
+    release(grid.resize_buffer_accelerator);
 }
 
 fn reallocate_buffer(buffer: &mut Buffer, size: i32, elem_size: i32, preserve: bool, allocate: fn(i32) -> Buffer) -> () {
