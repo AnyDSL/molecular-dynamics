@@ -548,9 +548,9 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
 
             // Host send data
             send_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
-            send_neighbors: cpu_allocate(max_neighs * sizeof[i32]()),
-            send_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
-            send_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
+            send_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
+            send_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
+            send_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
             send_offsets: cpu_allocate(send_capacity * sizeof[i32]()),
             send_pbc: cpu_allocate(send_capacity * 3 * sizeof[i8]()),
             send_capacity: send_capacity,
@@ -558,9 +558,9 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
 
             // Host receive data
             recv_buffer: cpu_allocate(recv_capacity * 7 * sizeof[real_t]()),
-            recv_neighbors: cpu_allocate(max_neighs * sizeof[i32]()),
-            recv_rank_offsets: cpu_allocate(max_neighs * sizeof[i32]()),
-            recv_rank_lengths: cpu_allocate(max_neighs * sizeof[i32]()),
+            recv_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
+            recv_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
+            recv_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
             recv_offsets: cpu_allocate(recv_capacity * sizeof[i32]()),
             recv_capacity: recv_capacity,
             recv_noffsets: 0,

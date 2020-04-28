@@ -230,7 +230,7 @@ fn @set_pbc_flags(i: i32, grid: Grid, pbc_flags: PBCFlags) -> () {
     if pbc_flags.y != 0 as i8 { flags |= select(pbc_flags.y > 0 as i8, 0x4  as u8, 0x8  as u8); }
     if pbc_flags.z != 0 as i8 { flags |= select(pbc_flags.z > 0 as i8, 0x10 as u8, 0x20 as u8); }
 
-    set_u8(i, grid.pbc_flags_accelerator, flags);
+    set_u8_accelerator(i, grid.pbc_flags_accelerator, flags);
 }
 
 fn @get_comm_send_offsets_accelerator(index: i32, comm_offsets: CommOffsets) -> i32 {
