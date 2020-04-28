@@ -245,7 +245,7 @@ fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
 
             if th_idx < noffsets {
                 let offset = get_comm_send_offsets_accelerator(th_idx, comm_offsets);
-                let pbc = get_comm_send_pbc(i, comm_offsets);
+                let pbc = get_comm_send_pbc(th_idx, comm_offsets);
                 let pos = get_position(offset, grid);
 
                 set_real_accelerator(th_idx * 3 + 0, buffer, pos.x + xlength * pbc.x as real_t);
