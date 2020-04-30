@@ -700,9 +700,6 @@ int main(int argc, char **argv) {
             timer.accum(TIME_FORCE);
 
             if(j > 0 && j % reneigh_every == 0) {
-                md_pbc();
-                timer.accum(TIME_OTHER);
-
                 md_copy_data_from_accelerator();
                 timer.accum(TIME_DATA_TRANSFER);
 

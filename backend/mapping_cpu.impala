@@ -62,6 +62,26 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     });
 }
 
+fn recv_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, &[1][real_t]) -> ()) -> () {
+    let recv_data = get_array_of_reals(comm_offsets.recv_buffer);
+
+    range(0, noffsets, |index| {
+        @@body(index, recv_data);
+    });
+}
+
+fn @set_counter(value: i32, comm_offsets: &CommOffsets) -> () {
+    bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0) = value;
+}
+
+fn @get_counter(comm_offsets: &CommOffsets) -> i32 {
+    bitcast[&[i32]](comm_offsets.counter_buffer.data)(0)
+}
+
+fn @add_counter(comm_offsets: &CommOffsets) -> i32 {
+    bitcast[&mut[i32]](comm_offsets.counter_buffer)(0)++
+}
+
 fn @reset_resize(grid: Grid) -> () {
     bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(0) = 0;
 }
@@ -144,34 +164,12 @@ fn @add_to_force(i: i32, grid: Grid, dF_x: real_t, dF_y: real_t, dF_z: real_t) -
     set_3d_arrays(i, grid.forces_cpu, force);
 }
 
-fn @get_pbc_flags(i: i32, grid: Grid) -> PBCFlags {
-    let flags = get_u8(i, grid.pbc_flags_cpu);
-    let mut xoff = 0 as i8;
-    let mut yoff = 0 as i8;
-    let mut zoff = 0 as i8;
-
-    if(flags & 0x1  as u8 != 0 as u8) { xoff =  1 as i8; }
-    if(flags & 0x2  as u8 != 0 as u8) { xoff = -1 as i8; }
-    if(flags & 0x4  as u8 != 0 as u8) { yoff =  1 as i8; }
-    if(flags & 0x8  as u8 != 0 as u8) { yoff = -1 as i8; }
-    if(flags & 0x10 as u8 != 0 as u8) { zoff =  1 as i8; }
-    if(flags & 0x20 as u8 != 0 as u8) { zoff = -1 as i8; }
-
-    PBCFlags {
-        x: xoff,
-        y: yoff,
-        z: zoff
-    }
+fn @get_send_buffer(comm_offsets: &CommOffsets) -> &mut[real_t] {
+    get_array_of_reals(comm_offsets.send_buffer)
 }
 
-fn @set_pbc_flags(i: i32, grid: Grid, pbc_flags: PBCFlags) -> () {
-    let mut flags = 0 as u8;
-
-    if pbc_flags.x != 0 as i8 { flags |= select(pbc_flags.x > 0 as i8, 0x1  as u8, 0x2  as u8); }
-    if pbc_flags.y != 0 as i8 { flags |= select(pbc_flags.y > 0 as i8, 0x4  as u8, 0x8  as u8); }
-    if pbc_flags.z != 0 as i8 { flags |= select(pbc_flags.z > 0 as i8, 0x10 as u8, 0x20 as u8); }
-
-    set_u8(i, grid.pbc_flags_cpu, flags);
+fn @get_send_offsets(comm_offsets: &CommOffsets) -> &mut[i32] {
+    get_array_of_i32(comm_offsets.send_offsets)
 }
 
 fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {

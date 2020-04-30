@@ -54,25 +54,6 @@ fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: 
     (total_iters, rsq_iters)
 }
 
-fn accelerator_pbc(grid: Grid) -> () {
-    let world_aabb = grid.world_aabb;
-
-    loop_accelerator(grid, |i, _, _, _| {
-        let mut position = get_position(i, grid);
-        let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
-
-        if position.x < world_aabb.xmin { position.x += grid.xlength; pbc_flags.x =  1 as i8; }
-        if position.x > world_aabb.xmax { position.x -= grid.xlength; pbc_flags.x = -1 as i8; }
-        if position.y < world_aabb.ymin { position.y += grid.ylength; pbc_flags.y =  1 as i8; }
-        if position.y > world_aabb.ymax { position.y -= grid.ylength; pbc_flags.y = -1 as i8; }
-        if position.z < world_aabb.zmin { position.z += grid.zlength; pbc_flags.z =  1 as i8; }
-        if position.z > world_aabb.zmax { position.z -= grid.zlength; pbc_flags.z = -1 as i8; }
-
-        set_position(i, grid, position);
-        set_pbc_flags(i, grid, pbc_flags);
-    });
-}
-
 fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
 

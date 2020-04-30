@@ -22,6 +22,9 @@ struct CommOffsets {
     recv_capacity: i32,
     recv_noffsets: i32,
 
+    // Host counter buffer
+    counter_buffer: Buffer,
+
     // Accelerator send data
     send_buffer_accelerator: Buffer,
     send_offsets_accelerator: Buffer,
@@ -30,6 +33,9 @@ struct CommOffsets {
     // Accelerator receive data
     recv_buffer_accelerator: Buffer,
     recv_offsets_accelerator: Buffer,
+
+    // Host counter buffer
+    counter_buffer_accelerator: Buffer,
 
     // Maximun and current number of neighbors
     max_neighs: i32,
@@ -46,12 +52,14 @@ static mut znext: i32;
 
 // C functions to call walberla procedures
 extern "C" {
-    fn use_walberla() -> bool;
     fn get_number_of_neighbor_ranks() -> u32;
     fn get_neighborhood_rank(i32) -> i32;
     fn in_rank_border(i32, f64, f64, f64, f64) -> bool;
     fn in_rank_subdomain(i32, f64, f64, f64) -> bool;
 }
+
+// Use walberla domain partitioning
+fn @use_walberla() -> bool { false }
 
 // Does the PBC changes in particle positions must be performed before checking
 // their border condition?
@@ -61,9 +69,8 @@ fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false
 fn @get_initial_maximum_neighbor_ranks() -> i32 { select(use_walberla(), 30, 6) }
 
 // Types for condition and communication functions
-type BorderCondFunc = fn(Vector3D, &Grid) -> bool;
-type ExchangeCondFunc = fn(Vector3D, &Grid, PBCFlags) -> bool;
-type CommFunc = fn(i32, i32, [i32 * 3], BorderCondFunc, ExchangeCondFunc) -> ();
+type CondFunc = fn(Vector3D, &Grid) -> bool;
+type CommFunc = fn(i32, i32, [i32 * 3], CondFunc, CondFunc) -> ();
 
 // Communication pattern using walberla or 6-stencil neighbors
 fn communication_ranks(body: CommFunc) -> () {
@@ -74,33 +81,33 @@ fn communication_ranks(body: CommFunc) -> () {
             let rank = get_neighborhood_rank(i);
 
             body(rank, rank, [0, 0, 0],
-                |p, g|    { in_rank_border(rank, p.x, p.y, p.z, g.spacing) },
-                |p, _, _| { in_rank_subdomain(rank, p.x, p.y, p.z) });
+                |p, g| { in_rank_border(rank, p.x, p.y, p.z, g.spacing) },
+                |p, _| { in_rank_subdomain(rank, p.x, p.y, p.z) });
         });
     } else {
         body(xnext, xprev, [-1, 0, 0],
-            |p, g|      { p.x > g.aabb.xmax - g.spacing * 2.0 },
-            |p, g, pbc| { (pbc.x < 0 as i8) || (p.x > g.aabb.xmax - g.spacing) });
+            |p, g| { p.x > g.aabb.xmax - g.spacing * 2.0 },
+            |p, g| { p.x > g.aabb.xmax - g.spacing });
 
         body(xprev, xnext, [1, 0, 0],
-            |p, g|      { p.x < g.aabb.xmin + g.spacing * 2.0 },
-            |p, g, pbc| { (pbc.x > 0 as i8) || (p.x < g.aabb.xmin + g.spacing) });
+            |p, g| { p.x < g.aabb.xmin + g.spacing * 2.0 },
+            |p, g| { p.x < g.aabb.xmin + g.spacing });
 
         body(ynext, yprev, [0, -1, 0],
-            |p, g|      { p.y > g.aabb.ymax - g.spacing * 2.0 },
-            |p, g, pbc| { (pbc.y < 0 as i8) || (p.y > g.aabb.ymax - g.spacing) });
+            |p, g| { p.y > g.aabb.ymax - g.spacing * 2.0 },
+            |p, g| { p.y > g.aabb.ymax - g.spacing });
 
         body(yprev, ynext, [0, 1, 0],
-            |p, g|      { p.y < g.aabb.ymin + g.spacing * 2.0 },
-            |p, g, pbc| { (pbc.y > 0 as i8) || (p.y < g.aabb.ymin + g.spacing) });
+            |p, g| { p.y < g.aabb.ymin + g.spacing * 2.0 },
+            |p, g| { p.y < g.aabb.ymin + g.spacing });
 
         body(znext, zprev, [0, 0, -1],
-            |p, g|      { p.z > g.aabb.zmax - g.spacing * 2.0 },
-            |p, g, pbc| { (pbc.z < 0 as i8) || (p.z > g.aabb.zmax - g.spacing) });
+            |p, g| { p.z > g.aabb.zmax - g.spacing * 2.0 },
+            |p, g| { p.z > g.aabb.zmax - g.spacing });
 
         body(zprev, znext, [0, 0, 1],
-            |p, g|      { p.z < g.aabb.zmin + g.spacing * 2.0 },
-            |p, g, pbc| { (pbc.z > 0 as i8) || (p.z < g.aabb.zmin + g.spacing) });
+            |p, g| { p.z < g.aabb.zmin + g.spacing * 2.0 },
+            |p, g| { p.z < g.aabb.zmin + g.spacing });
     }
 }
 
@@ -386,6 +393,9 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.recv_buffer_accelerator);
         release(comm_offsets.recv_offsets_accelerator);
     }
+
+    release(comm_offsets.counter_buffer);
+    release(comm_offsets.counter_buffer_accelerator);
 }
 
 fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32) -> () {
@@ -565,14 +575,20 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
+            // Host counter buffer
+            counter_buffer: cpu_allocate(sizeof[i32]()),
+
             // Accelerator send data
-            send_buffer_accelerator: accelerator_allocate(send_capacity * 3 * sizeof[real_t]()),
+            send_buffer_accelerator: accelerator_allocate(send_capacity * 7 * sizeof[real_t]()),
             send_offsets_accelerator: accelerator_allocate(send_capacity * sizeof[i32]()),
-            send_pbc_accelerator: accelerator_allocate(send_capacity * 3 * sizeof[i8]()),
+            send_pbc_accelerator: accelerator_allocate(send_capacity * 7 * sizeof[i8]()),
 
             // Accelerator receive data
-            recv_buffer_accelerator: accelerator_allocate(recv_capacity * 3 * sizeof[real_t]()),
+            recv_buffer_accelerator: accelerator_allocate(recv_capacity * 7 * sizeof[real_t]()),
             recv_offsets_accelerator: accelerator_allocate(recv_capacity * sizeof[i32]()),
+
+            // Accelerator counter buffer
+            counter_buffer_accelerator: accelerator_allocate(sizeof[i32]()),
 
             // Maximum and current number of neighbor ranks
             max_neighs: max_neighs,
@@ -630,11 +646,11 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
 // particles is also updated)
 fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let mpih = mpi();
+    let const_grid = *grid;
     let mut request: MPI_Request;
     let mut status: MPIStatus;
     let mut iexchg = 0;
     let mut neigh = 0;
-    let mut exchg_index = 0;
 
     grid.nghost = 0;
 
@@ -648,6 +664,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         neigh++;
     });
 
+    let world_aabb = grid.world_aabb;
     let exchg_rank_send_offsets = get_array_of_i32(comm_offsets.send_rank_offsets);
     let exchg_rank_send_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let exchg_rank_recv_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
@@ -660,38 +677,74 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
         // Makes no sense to exchange data with myself, right?
         if exchg_rank != comm_offsets.me {
-            let mut particle_index = 0;
+            let mut resize = 1;
 
-            while particle_index < grid.nparticles {
-                // TODO: apply PBC correction for particle here and directly get PBC flags
-                let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
-                let pbc = get_pbc_flags(particle_index, *grid);
+            while resize > 0 {
+                set_counter(iexchg, comm_offsets);
+                reset_resize(const_grid);
 
-                if check_exchange(pos, grid, pbc) {
-                    let mass = get_real(particle_index, grid.masses_cpu);
-                    let vel = get_vector_from_3d_arrays(particle_index, grid.velocities_cpu);
+                loop_accelerator(const_grid, |i, _, _, _| {
+                    let masses = get_masses(const_grid);
+                    let resize_buf = get_resize_buffer(const_grid);
+                    let buffer = get_send_buffer(comm_offsets);
+                    let send_offsets = get_send_offsets(comm_offsets);
+                    let mut pos = get_position(i, const_grid);
 
-                    if iexchg >= comm_offsets.send_capacity {
-                        resize_send_capacity(comm_offsets, iexchg * 2);
+                    let adjust_pbc = @|condition: bool, pos: &mut Vector3D| {
+                        if condition {
+                            if pos.x < world_aabb.xmin { pos.x += grid.xlength; }
+                            if pos.x > world_aabb.xmax { pos.x -= grid.xlength; }
+                            if pos.y < world_aabb.ymin { pos.y += grid.ylength; }
+                            if pos.y > world_aabb.ymax { pos.y -= grid.ylength; }
+                            if pos.z < world_aabb.zmin { pos.z += grid.zlength; }
+                            if pos.z > world_aabb.zmax { pos.z -= grid.zlength; }
+                        }
+                    };
+
+                    adjust_pbc(apply_pbc_before_border_check(), &mut pos);
+
+                    if check_exchange(pos, grid) {
+                        let counter = add_counter(comm_offsets);
+
+                        if counter >= comm_offsets.send_capacity {
+                            if resize_buf(0) < counter {
+                                resize_buf(0) = counter;
+                            }
+                        } else {
+                            let vel = get_velocity(i, const_grid);
+                            let index = counter * 7;
+
+                            adjust_pbc(!apply_pbc_before_border_check(), &mut pos);
+
+                            buffer(index + 0) = masses(i);
+                            buffer(index + 1) = pos.x;
+                            buffer(index + 2) = pos.y;
+                            buffer(index + 3) = pos.z;
+                            buffer(index + 4) = vel.x;
+                            buffer(index + 5) = vel.y;
+                            buffer(index + 6) = vel.z;
+                            send_offsets(counter) = i;
+                        }
                     }
+                });
 
-                    let buffer = comm_offsets.send_buffer;
+                resize = get_resize(const_grid);
 
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = mass;
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = pos.x;
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = pos.y;
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = pos.z;
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = vel.x;
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = vel.y;
-                    bitcast[&mut[real_t]](buffer.data)(exchg_index++) = vel.z;
-
-                    delete_particle(particle_index, grid);
-                    particle_index--;
-                    iexchg++;
+                if resize > 0 {
+                    resize_send_capacity(comm_offsets, resize * 2);
                 }
-
-                particle_index++;
             }
+
+            let counter = get_counter(comm_offsets);
+            let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
+
+            transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
+
+            range(0, counter, |i| {
+                delete_particle(send_offsets(iexchg + i), grid);
+            });
+
+            iexchg += counter;
         }
 
         exchg_rank_send_lengths(neigh) = iexchg - exchg_rank_send_offsets(neigh);
@@ -700,6 +753,8 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     iexchg = 0;
     neigh = 0;
+
+    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
 
     // Exchange particles with other ranks
     communication_ranks(|send_rank, recv_rank, _, _, _| {
@@ -734,31 +789,29 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         neigh++;
     });
 
+    transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+
     // Unpack received particles
-    let buffer = comm_offsets.recv_buffer;
     let exchg_start = add_local_slots(iexchg, grid);
 
-    exchg_index = 0;
-    range(0, iexchg, |i| {
-        let offset = exchg_start + i;
+    recv_buffer_iterate(comm_offsets, iexchg, |exchg_index, recv_data| {
+        let offset = exchg_start + exchg_index;
+        let masses = get_masses(const_grid);
+        let position = Vector3D {
+            x: recv_data(exchg_index + 1),
+            y: recv_data(exchg_index + 2),
+            z: recv_data(exchg_index + 3)
+        };
 
-        copy_offset(
-            buffer, exchg_index * sizeof[real_t](),
-            grid.masses_cpu, offset * sizeof[real_t](), sizeof[real_t]());
+        let velocity = Vector3D {
+            x: recv_data(exchg_index + 4),
+            y: recv_data(exchg_index + 5),
+            z: recv_data(exchg_index + 6)
+        };
 
-        exchg_index++;
-
-        copy_buffer_to_3d_arrays(
-            buffer, exchg_index * sizeof[real_t](),
-            grid.positions_cpu, offset * sizeof[real_t](), sizeof[real_t]());
-
-        exchg_index += 3;
-
-        copy_buffer_to_3d_arrays(
-            buffer, exchg_index * sizeof[real_t](),
-            grid.velocities_cpu, offset * sizeof[real_t](), sizeof[real_t]());
-
-        exchg_index += 3;
+        masses(offset) = recv_data(exchg_index);
+        set_position(offset, const_grid, position);
+        set_velocity(offset, const_grid, velocity);
     });
 }
 

@@ -34,7 +34,6 @@ struct Grid {
     positions_copy_cpu: Array3D, // copy positions of all particles on the CPU: [Vector3D]
     velocities_copy_cpu: Array3D, // copy velocities of all particles on the CPU: [Vector3D]
     forces_cpu: Array3D, // forces of all particles on the CPU: [Vector3D]
-    pbc_flags_cpu: Buffer, // pbc flags of all particles on the CPU [u8]
     neighbors_sizes_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
     resize_buffer_cpu: Buffer, // resize buffer on the CPU: [i32]
@@ -46,7 +45,6 @@ struct Grid {
     positions_accelerator: Array3D, // positions of all particles on the accelerator: [Vector3D]
     velocities_accelerator: Array3D, // velocities of all particles on the accelerator: [Vector3D]
     forces_accelerator: Array3D, // forces of all particles on the accelerator: [Vector3D]
-    pbc_flags_accelerator: Buffer, // pbc flags of all particles on the accelerator [u8]
     neighbors_sizes_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
     neighborlists_accelerator: Buffer, // neighborlists on the accelerator: [i32]
     resize_buffer_accelerator: Buffer // resize buffer on the accelerator: [i32]
@@ -109,7 +107,6 @@ fn allocate_grid(
         positions_copy_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
         velocities_copy_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
         forces_cpu: allocate_3d_arrays(particle_capacity, cpu_allocate),
-        pbc_flags_cpu: cpu_allocate(particle_capacity * sizeof[u8]()),
         neighbors_sizes_cpu: cpu_allocate(particle_capacity * sizeof[i32]()),
         neighborlists_cpu: cpu_allocate(neighbors_capacity * sizeof[i32]()),
         resize_buffer_cpu: cpu_allocate(sizeof[i32]()),
@@ -121,7 +118,6 @@ fn allocate_grid(
         positions_accelerator: accelerator_allocate_3d_arrays(particle_capacity),
         velocities_accelerator: accelerator_allocate_3d_arrays(particle_capacity),
         forces_accelerator: accelerator_allocate_3d_arrays(particle_capacity),
-        pbc_flags_accelerator: accelerator_allocate(particle_capacity * sizeof[u8]()),
         neighbors_sizes_accelerator: accelerator_allocate(particle_capacity * sizeof[i32]()),
         neighborlists_accelerator: accelerator_allocate(neighbors_capacity * sizeof[i32]()),
         resize_buffer_accelerator: accelerator_allocate(sizeof[i32]())
@@ -134,7 +130,6 @@ fn allocate_grid(
     assign_accelerator_3d_arrays(&mut grid.positions_cpu, grid.positions_accelerator);
     assign_accelerator_3d_arrays(&mut grid.velocities_cpu, grid.velocities_accelerator);
     assign_accelerator_3d_arrays(&mut grid.forces_cpu, grid.forces_accelerator);
-    assign_accelerator_buffer(&mut grid.pbc_flags_cpu, grid.pbc_flags_accelerator);
     assign_accelerator_buffer(&mut grid.neighbors_sizes_cpu, grid.neighbors_sizes_accelerator);
     assign_accelerator_buffer(&mut grid.neighborlists_cpu, grid.neighborlists_accelerator);
     assign_accelerator_buffer(&mut grid.resize_buffer_cpu, grid.resize_buffer_accelerator);
@@ -168,7 +163,6 @@ fn deallocate_grid(grid: &mut Grid) -> () {
         deallocate_3d_arrays(grid.positions_copy_cpu);
         deallocate_3d_arrays(grid.velocities_copy_cpu);
         deallocate_3d_arrays(grid.forces_cpu);
-        release(grid.pbc_flags_cpu);
         release(grid.neighbors_sizes_cpu);
         release(grid.neighborlists_cpu);
         release(grid.resize_buffer_cpu);
@@ -181,7 +175,6 @@ fn deallocate_grid(grid: &mut Grid) -> () {
     deallocate_3d_arrays(grid.positions_accelerator);
     deallocate_3d_arrays(grid.velocities_accelerator);
     deallocate_3d_arrays(grid.forces_accelerator);
-    release(grid.pbc_flags_accelerator);
     release(grid.neighbors_sizes_accelerator);
     release(grid.neighborlists_accelerator);
     release(grid.resize_buffer_accelerator);
@@ -285,7 +278,6 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     reallocate_3d_arrays(&mut grid.positions_copy_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
     reallocate_3d_arrays(&mut grid.velocities_copy_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
     reallocate_3d_arrays(&mut grid.forces_cpu, capacity, grid.particle_capacity, true, cpu_allocate);
-    reallocate_buffer(&mut grid.pbc_flags_cpu, capacity, sizeof[u8](), true, cpu_allocate);
     reallocate_buffer(&mut grid.neighbors_sizes_cpu, capacity, sizeof[i32](), true, cpu_allocate);
 
     release(grid.particles_cell_accelerator);
@@ -293,7 +285,6 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     deallocate_3d_arrays(grid.positions_accelerator);
     deallocate_3d_arrays(grid.velocities_accelerator);
     deallocate_3d_arrays(grid.forces_accelerator);
-    release(grid.pbc_flags_accelerator);
     release(grid.neighbors_sizes_accelerator);
     release(grid.neighborlists_cpu);
     release(grid.neighborlists_accelerator);
@@ -303,7 +294,6 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     grid.positions_accelerator = accelerator_allocate_3d_arrays(capacity);
     grid.velocities_accelerator = accelerator_allocate_3d_arrays(capacity);
     grid.forces_accelerator = accelerator_allocate_3d_arrays(capacity);
-    grid.pbc_flags_accelerator = accelerator_allocate(capacity * sizeof[u8]());
     grid.neighbors_sizes_accelerator = accelerator_allocate(capacity * sizeof[i32]());
 
     grid.neighborlists_cpu = cpu_allocate(capacity * grid.neighborlist_capacity * sizeof[i32]());
@@ -314,7 +304,6 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     assign_accelerator_3d_arrays(&mut grid.positions_cpu, grid.positions_accelerator);
     assign_accelerator_3d_arrays(&mut grid.velocities_cpu, grid.velocities_accelerator);
     assign_accelerator_3d_arrays(&mut grid.forces_cpu, grid.forces_accelerator);
-    assign_accelerator_buffer(&mut grid.pbc_flags_cpu, grid.pbc_flags_accelerator);
     assign_accelerator_buffer(&mut grid.neighbors_sizes_cpu, grid.neighbors_sizes_accelerator);
     assign_accelerator_buffer(&mut grid.neighborlists_cpu, grid.neighborlists_accelerator);
 
@@ -374,28 +363,17 @@ fn insert_particle(
     let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let particle_index = grid.nparticles;
     let world_aabb = grid.world_aabb;
-    let mut pos = position;
-    let mut flags = 0 as u8;
 
     if particle_index >= grid.particle_capacity {
         let new_capacity = grid.particle_capacity + grid.particle_capacity / 10 + 10;
         reallocate_particle_capacity(grid, new_capacity);
     }
 
-    // PBC logic is applied here since particles are exchanged in the beginning
-    if pos.x < world_aabb.xmin { pos.x += grid.xlength; flags |= 0x1 as u8; }
-    if pos.x > world_aabb.xmax { pos.x -= grid.xlength; flags |= 0x2 as u8; }
-    if pos.y < world_aabb.ymin { pos.y += grid.ylength; flags |= 0x4 as u8; }
-    if pos.y > world_aabb.ymax { pos.y -= grid.ylength; flags |= 0x8 as u8; }
-    if pos.z < world_aabb.zmin { pos.z += grid.zlength; flags |= 0x10 as u8; }
-    if pos.z > world_aabb.zmax { pos.z -= grid.zlength; flags |= 0x20 as u8; }
-
     set_real(particle_index, grid.masses_cpu, mass);
-    set_3d_arrays(particle_index, grid.positions_cpu, pos);
+    set_3d_arrays(particle_index, grid.positions_cpu, position);
     set_3d_arrays(particle_index, grid.velocities_cpu, velocity);
     set_3d_arrays(particle_index, grid.forces_cpu, null_vec);
     set_i32(particle_index, grid.neighbors_sizes_cpu, 0);
-    set_u8(particle_index, grid.pbc_flags_cpu, flags);
 
     grid.nparticles++;
 }
@@ -516,7 +494,6 @@ fn copy_from_accelerator(grid: &Grid) -> () {
     transfer_3d_arrays_between_devices(grid.positions_accelerator, grid.positions_cpu);
     transfer_3d_arrays_between_devices(grid.velocities_accelerator, grid.velocities_cpu);
     transfer_3d_arrays_between_devices(grid.forces_accelerator, grid.forces_cpu);
-    transfer_between_devices(grid.pbc_flags_accelerator, grid.pbc_flags_cpu);
 }
 
 fn write_grid_data_to_arrays(
