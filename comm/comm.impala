@@ -735,26 +735,25 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 }
             }
 
-            let counter = get_counter(comm_offsets);
-            let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
-
-            transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
-
-            range(0, counter, |i| {
-                delete_particle(send_offsets(iexchg + i), grid);
-            });
-
-            iexchg += counter;
+            iexchg = get_counter(comm_offsets);
         }
 
         exchg_rank_send_lengths(neigh) = iexchg - exchg_rank_send_offsets(neigh);
         neigh++;
     });
 
+    let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
+
+    transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
+    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+
+    // TODO: order may vary for GPU
+    range_rev(iexchg, 0, |i| {
+        delete_particle(send_offsets(i - 1), grid);
+    });
+
     iexchg = 0;
     neigh = 0;
-
-    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
 
     // Exchange particles with other ranks
     communication_ranks(|send_rank, recv_rank, _, _, _| {
@@ -794,22 +793,23 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     // Unpack received particles
     let exchg_start = add_local_slots(iexchg, grid);
 
-    recv_buffer_iterate(comm_offsets, iexchg, |exchg_index, recv_data| {
-        let offset = exchg_start + exchg_index;
+    recv_buffer_iterate(comm_offsets, iexchg, |index, recv_data| {
+        let buffer_index = index * 7;
+        let offset = exchg_start + index;
         let masses = get_masses(const_grid);
         let position = Vector3D {
-            x: recv_data(exchg_index + 1),
-            y: recv_data(exchg_index + 2),
-            z: recv_data(exchg_index + 3)
+            x: recv_data(buffer_index + 1),
+            y: recv_data(buffer_index + 2),
+            z: recv_data(buffer_index + 3)
         };
 
         let velocity = Vector3D {
-            x: recv_data(exchg_index + 4),
-            y: recv_data(exchg_index + 5),
-            z: recv_data(exchg_index + 6)
+            x: recv_data(buffer_index + 4),
+            y: recv_data(buffer_index + 5),
+            z: recv_data(buffer_index + 6)
         };
 
-        masses(offset) = recv_data(exchg_index);
+        masses(offset) = recv_data(buffer_index);
         set_position(offset, const_grid, position);
         set_velocity(offset, const_grid, velocity);
     });
