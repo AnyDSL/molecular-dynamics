@@ -262,7 +262,6 @@ inline double sqDistancePointToAABB(double x, double y, double z, const math::AA
 }
 
 extern "C" {
-    bool use_walberla() { return true; }
     unsigned long int get_number_of_neighbor_ranks() { return gNeighborhood->size(); }
 
     int get_neighborhood_rank(int index) {
@@ -303,7 +302,6 @@ extern "C" {
 #else
 
 extern "C" {
-    bool use_walberla() { return false; }
     unsigned long int get_number_of_neighbor_ranks() { return 0; }
     int get_neighborhood_rank(__attribute__((unused)) int index) { return 0; }
 
@@ -351,6 +349,7 @@ int main(int argc, char **argv) {
     double sigma = 1.0;
     double potential_minimum = 1.6796;
     bool half = false;
+    bool use_walberla = false;
 
     int opt = 0;
     struct option long_opts[] = {
@@ -513,6 +512,8 @@ int main(int argc, char **argv) {
 
     #ifdef USE_WALBERLA_LOAD_BALANCING
 
+    use_walberla = true;
+
     auto mpiManager = mpi::MPIManager::instance();
     mpiManager->initializeMPI(&argc, &argv);
     mpiManager->useWorldComm();
@@ -632,7 +633,7 @@ int main(int argc, char **argv) {
         cout << "- Epsilon: " << epsilon << endl;
         cout << "- Sigma: " << sigma << endl;
         cout << "- Potential minimum: " << potential_minimum << endl;
-        cout << "- Walberla domain partitioning: " << (use_walberla() ? "yes" : "no") << endl;
+        cout << "- Walberla domain partitioning: " << (use_walberla ? "yes" : "no") << endl;
         cout << "- Dynamic load balancing algorithm: " << ((use_load_balancing) ? algorithm : "none") << endl;
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }

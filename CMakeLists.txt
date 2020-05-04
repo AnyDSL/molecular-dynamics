@@ -39,6 +39,12 @@ else()
     set(DATA_LAYOUT_FILE data_layout/mapping_aos.impala)
 endif()
 
+if(USE_WALBERLA_LOAD_BALANCING)
+    set(WALBERLA_FILE walberla/on.impala)
+else()
+    set(WALBERLA_FILE walberla/off.impala)
+endif()
+
 if(USE_MPI)
     set(MPI_FILE comm/mpi.impala)
     set(MPI_CPP comm/mpi.cpp)
@@ -60,7 +66,8 @@ set(MD_SRCS
     ${MPI_FILE}
     ${DATA_LAYOUT_FILE}
     ${BACKEND_FILE}
-    ${MAPPING_FILE})
+    ${MAPPING_FILE}
+    ${WALBERLA_FILE})
 
 anydsl_runtime_wrap(MD_OBJS
     CLANG_FLAGS ${CLANG_FLAGS}

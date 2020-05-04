@@ -60,9 +60,6 @@ extern "C" {
     fn in_rank_subdomain(i32, f64, f64, f64) -> bool;
 }
 
-// Use walberla domain partitioning
-fn @use_walberla() -> bool { false }
-
 // Does the PBC changes in particle positions must be performed before checking
 // their border condition?
 fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false) }
@@ -694,8 +691,6 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 set_counter(iexchg, comm_offsets);
                 reset_resize(const_grid);
 
-                print_i32_with_rank("const_grid.nparticles", const_grid.nparticles);
-
                 loop_accelerator(const_grid, |i, _, _, _| {
                     let masses = get_masses(const_grid);
                     let resize_buf = get_resize_buffer(const_grid);
@@ -794,8 +789,6 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
             grid.nparticles -= packed;
             iexchg = counter;
-
-            print_i32_with_rank("grid.nparticles", grid.nparticles);
         }
 
         exchg_rank_send_lengths(neigh) = iexchg - exchg_rank_send_offsets(neigh);
@@ -808,7 +801,6 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Exchange particles with other ranks
-    print_string_with_rank("comm start");
     communication_ranks(|send_rank, recv_rank, _, _, _| {
         if send_rank != comm_offsets.me {
             let exchg_send_offset = exchg_rank_send_offsets(neigh) * 7 * sizeof[real_t]();
