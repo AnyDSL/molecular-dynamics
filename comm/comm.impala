@@ -10,6 +10,7 @@ struct CommOffsets {
     send_rank_lengths: Buffer,
     send_offsets: Buffer,
     send_pbc: Buffer,
+    copy_list: Buffer,
     send_capacity: i32,
     send_noffsets: i32,
 
@@ -29,6 +30,7 @@ struct CommOffsets {
     send_buffer_accelerator: Buffer,
     send_offsets_accelerator: Buffer,
     send_pbc_accelerator: Buffer,
+    copy_list_accelerator: Buffer,
 
     // Accelerator receive data
     recv_buffer_accelerator: Buffer,
@@ -375,6 +377,7 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.send_pbc);
         release(comm_offsets.recv_buffer);
         release(comm_offsets.recv_offsets);
+        release(comm_offsets.copy_list);
     }
 
     if comm_offsets.send_capacity > 0 {
@@ -384,6 +387,7 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.send_buffer_accelerator);
         release(comm_offsets.send_offsets_accelerator);
         release(comm_offsets.send_pbc_accelerator);
+        release(comm_offsets.copy_list_accelerator);
     }
 
     if comm_offsets.recv_capacity > 0 {
@@ -417,19 +421,23 @@ fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> (
     reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, cpu_allocate);
     reallocate_buffer(&mut comm_offsets.send_pbc, send_capacity * 3, sizeof[i8](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.copy_list, send_capacity, sizeof[i32](), true, cpu_allocate);
 
     release(comm_offsets.send_buffer_accelerator);
     release(comm_offsets.send_offsets_accelerator);
     release(comm_offsets.send_pbc_accelerator);
+    release(comm_offsets.copy_list_accelerator);
 
     comm_offsets.send_buffer_accelerator = accelerator_allocate(send_capacity * 3 * sizeof[real_t]());
     comm_offsets.send_offsets_accelerator = accelerator_allocate(send_capacity * sizeof[i32]());
     comm_offsets.send_pbc_accelerator = accelerator_allocate(send_capacity * 3 * sizeof[i8]());
+    comm_offsets.copy_list_accelerator = accelerator_allocate(send_capacity * sizeof[i32]());
     comm_offsets.send_capacity = send_capacity;
 
     assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
     assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
     assign_accelerator_buffer(&mut comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
+    assign_accelerator_buffer(&mut comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
 }
 
 fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> () {
@@ -563,6 +571,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             send_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
             send_offsets: cpu_allocate(send_capacity * sizeof[i32]()),
             send_pbc: cpu_allocate(send_capacity * 3 * sizeof[i8]()),
+            copy_list: cpu_allocate(send_capacity * sizeof[i32]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
@@ -582,6 +591,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             send_buffer_accelerator: accelerator_allocate(send_capacity * 7 * sizeof[real_t]()),
             send_offsets_accelerator: accelerator_allocate(send_capacity * sizeof[i32]()),
             send_pbc_accelerator: accelerator_allocate(send_capacity * 7 * sizeof[i8]()),
+            copy_list_accelerator: accelerator_allocate(send_capacity * sizeof[i32]()),
 
             // Accelerator receive data
             recv_buffer_accelerator: accelerator_allocate(recv_capacity * 7 * sizeof[real_t]()),
@@ -646,7 +656,6 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
 // particles is also updated)
 fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let mpih = mpi();
-    let const_grid = *grid;
     let mut request: MPI_Request;
     let mut status: MPIStatus;
     let mut iexchg = 0;
@@ -680,12 +689,17 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             let mut resize = 1;
 
             while resize > 0 {
+                let const_grid = *grid;
+
                 set_counter(iexchg, comm_offsets);
                 reset_resize(const_grid);
+
+                print_i32_with_rank("const_grid.nparticles", const_grid.nparticles);
 
                 loop_accelerator(const_grid, |i, _, _, _| {
                     let masses = get_masses(const_grid);
                     let resize_buf = get_resize_buffer(const_grid);
+                    let send_flags = get_send_flags(const_grid);
                     let buffer = get_send_buffer(comm_offsets);
                     let send_offsets = get_send_offsets(comm_offsets);
                     let mut pos = get_position(i, const_grid);
@@ -702,6 +716,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                     };
 
                     adjust_pbc(apply_pbc_before_border_check(), &mut pos);
+                    send_flags(i) = 0 as i8;
 
                     if check_exchange(pos, grid) {
                         let counter = add_counter(comm_offsets);
@@ -723,7 +738,9 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                             buffer(index + 4) = vel.x;
                             buffer(index + 5) = vel.y;
                             buffer(index + 6) = vel.z;
-                            send_offsets(counter) = i;
+
+                            send_offsets(counter - iexchg) = i;
+                            send_flags(i) = 1 as i8;
                         }
                     }
                 });
@@ -735,27 +752,63 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 }
             }
 
-            iexchg = get_counter(comm_offsets);
+            transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
+            transfer_between_devices(grid.send_flags_accelerator, grid.send_flags_cpu);
+
+            let counter = get_counter(comm_offsets);
+            let packed = counter - iexchg;
+            let nparticles = grid.nparticles - packed;
+            let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
+            let send_offsets_host = get_array_of_i32(comm_offsets.send_offsets);
+            let copy_list_host = get_array_of_i32(comm_offsets.copy_list);
+            let mut send_pos = grid.nparticles - 1;
+
+            range(0, packed, |i| {
+                if send_offsets_host(i) < nparticles {
+                    while(send_flags_host(send_pos) == 1 as i8) {
+                        send_pos--;
+                    }
+
+                    copy_list_host(i) = send_pos;
+                    send_pos--;
+                } else {
+                    copy_list_host(i) = -1;
+                }
+            });
+
+            transfer_between_devices(comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
+
+            copy_list_iterate(comm_offsets, packed, |i, copy_list, send_offsets| {
+                let const_grid = *grid;
+                let masses = get_masses(const_grid);
+
+                if copy_list(i) > 0 {
+                    let src = copy_list(i);
+                    let dst = send_offsets(i);
+
+                    masses(dst) = masses(src);
+                    set_position(dst, const_grid, get_position(src, const_grid));
+                    set_velocity(dst, const_grid, get_velocity(src, const_grid));
+                }
+            });
+
+            grid.nparticles -= packed;
+            iexchg = counter;
+
+            print_i32_with_rank("grid.nparticles", grid.nparticles);
         }
 
         exchg_rank_send_lengths(neigh) = iexchg - exchg_rank_send_offsets(neigh);
         neigh++;
     });
 
-    let send_offsets = get_array_of_i32(comm_offsets.send_offsets);
-
-    transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
     transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
-
-    // TODO: order may vary for GPU
-    range_rev(iexchg, 0, |i| {
-        delete_particle(send_offsets(i - 1), grid);
-    });
 
     iexchg = 0;
     neigh = 0;
 
     // Exchange particles with other ranks
+    print_string_with_rank("comm start");
     communication_ranks(|send_rank, recv_rank, _, _, _| {
         if send_rank != comm_offsets.me {
             let exchg_send_offset = exchg_rank_send_offsets(neigh) * 7 * sizeof[real_t]();
@@ -792,6 +845,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     // Unpack received particles
     let exchg_start = add_local_slots(iexchg, grid);
+    let const_grid = *grid;
 
     recv_buffer_iterate(comm_offsets, iexchg, |index, recv_data| {
         let buffer_index = index * 7;

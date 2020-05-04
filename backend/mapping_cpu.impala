@@ -62,6 +62,15 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     });
 }
 
+fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
+    let send_offsets = get_send_offsets(comm_offsets);
+    let copy_list = get_copy_list(comm_offsets);
+
+    range(0, ncopy, |index| {
+        @@body(index, copy_list, send_offsets);
+    });
+}
+
 fn recv_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, &[real_t]) -> ()) -> () {
     let recv_data = get_array_of_reals(comm_offsets.recv_buffer);
 
@@ -88,6 +97,10 @@ fn @reset_resize(grid: Grid) -> () {
 
 fn @get_resize(grid: Grid) -> i32 {
     bitcast[&[i32]](grid.resize_buffer_cpu.data)(0)
+}
+
+fn @get_send_flags(grid: Grid) -> &mut[i8] {
+    get_array_of_i8(grid.send_flags_cpu)
 }
 
 fn @get_resize_buffer(grid: Grid) -> &mut[i32] {
@@ -170,6 +183,10 @@ fn @get_send_buffer(comm_offsets: &CommOffsets) -> &mut[real_t] {
 
 fn @get_send_offsets(comm_offsets: &CommOffsets) -> &mut[i32] {
     get_array_of_i32(comm_offsets.send_offsets)
+}
+
+fn @get_copy_list(comm_offsets: &CommOffsets) -> &mut[i32] {
+    get_array_of_i32(comm_offsets.copy_list)
 }
 
 fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
