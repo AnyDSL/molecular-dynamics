@@ -276,6 +276,10 @@ fn @get_send_offsets(comm_offsets: CommOffsets) -> &mut[1][i32] {
     get_array_of_i32_accelerator(comm_offsets.send_offsets_accelerator)
 }
 
+fn @get_send_pbc(comm_offsets: CommOffsets) -> &mut[1][i8] {
+    get_array_of_i8_accelerator(comm_offsets.send_pbc_accelerator)
+}
+
 fn @get_copy_list(comm_offsets: CommOffsets) -> &mut[1][i32] {
     get_array_of_i32_accelerator(comm_offsets.copy_list_accelerator)
 }

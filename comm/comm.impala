@@ -981,6 +981,8 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     neigh = 0;
 
+    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+
     // Synchronize borders with other ranks
     communication_ranks(*grid, |send_rank, recv_rank, _, _, _, _, _| {
         // Rank receive offset
@@ -1040,6 +1042,9 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     let const_grid = *grid;
     let const_comm_offsets = *comm_offsets;
+
+    transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    transfer_between_devices(comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
 
     recv_buffer_iterate(const_comm_offsets, irecv, |index, recv_data| {
         let buffer_index = index * 4;

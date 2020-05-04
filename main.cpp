@@ -673,11 +673,12 @@ int main(int argc, char **argv) {
 
         md_copy_data_to_accelerator();
         md_exchange_particles();
-        md_copy_data_from_accelerator();
-
         md_borders();
+
+        md_copy_data_from_accelerator();
         md_distribute_particles();
         md_copy_data_to_accelerator();
+
         md_assemble_neighborlists(cutoff_radius + verlet_buffer);
 
         if(vtk && i == 0) {
@@ -704,9 +705,6 @@ int main(int argc, char **argv) {
             timer.accum(TIME_FORCE);
 
             if(j > 0 && j % reneigh_every == 0) {
-                md_copy_data_from_accelerator();
-                timer.accum(TIME_DATA_TRANSFER);
-
                 #ifdef USE_WALBERLA_LOAD_BALANCING
 
                 if(use_load_balancing && j % rebalance_every == 0) {
@@ -726,6 +724,9 @@ int main(int argc, char **argv) {
                 md_exchange_particles();
                 md_borders();
                 timer.accum(TIME_COMM);
+
+                md_copy_data_from_accelerator();
+                timer.accum(TIME_DATA_TRANSFER);
 
                 md_distribute_particles();
                 timer.accum(TIME_OTHER);
