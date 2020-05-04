@@ -185,6 +185,10 @@ fn @get_send_offsets(comm_offsets: &CommOffsets) -> &mut[i32] {
     get_array_of_i32(comm_offsets.send_offsets)
 }
 
+fn @get_send_pbc(comm_offsets: &CommOffsets) -> &mut[i8] {
+    get_array_of_i8(comm_offsets.send_pbc)
+}
+
 fn @get_copy_list(comm_offsets: &CommOffsets) -> &mut[i32] {
     get_array_of_i32(comm_offsets.copy_list)
 }
