@@ -68,11 +68,13 @@ fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false
 fn @get_initial_maximum_neighbor_ranks() -> i32 { select(use_walberla(), 30, 6) }
 
 // Types for condition and communication functions
-type CondFunc = fn(Vector3D, &Grid) -> bool;
+type CondFunc = fn(Vector3D) -> bool;
 type CommFunc = fn(i32, i32, [i32 * 3], CondFunc, CondFunc) -> ();
 
 // Communication pattern using walberla or 6-stencil neighbors
-fn communication_ranks(body: CommFunc) -> () {
+fn communication_ranks(grid: Grid, body: CommFunc) -> () {
+    let spacing = grid.spacing;
+
     if use_walberla() {
         let nranks = get_number_of_neighbor_ranks();
 
@@ -80,33 +82,33 @@ fn communication_ranks(body: CommFunc) -> () {
             let rank = get_neighborhood_rank(i);
 
             body(rank, rank, [0, 0, 0],
-                |p, g| { in_rank_border(rank, p.x, p.y, p.z, g.spacing) },
-                |p, _| { in_rank_subdomain(rank, p.x, p.y, p.z) });
+                |p| { in_rank_border(rank, p.x, p.y, p.z, spacing) },
+                |p| { in_rank_subdomain(rank, p.x, p.y, p.z) });
         });
     } else {
         body(xnext, xprev, [-1, 0, 0],
-            |p, g| { p.x > g.aabb.xmax - g.spacing * 2.0 },
-            |p, g| { p.x > g.aabb.xmax - g.spacing });
+             @|p| { p.x > grid.aabb.xmax - spacing * 2.0 },
+             @|p| { p.x > grid.aabb.xmax - spacing });
 
         body(xprev, xnext, [1, 0, 0],
-            |p, g| { p.x < g.aabb.xmin + g.spacing * 2.0 },
-            |p, g| { p.x < g.aabb.xmin + g.spacing });
+             @|p| { p.x < grid.aabb.xmin + spacing * 2.0 },
+             @|p| { p.x < grid.aabb.xmin + spacing });
 
         body(ynext, yprev, [0, -1, 0],
-            |p, g| { p.y > g.aabb.ymax - g.spacing * 2.0 },
-            |p, g| { p.y > g.aabb.ymax - g.spacing });
+             @|p| { p.y > grid.aabb.ymax - spacing * 2.0 },
+             @|p| { p.y > grid.aabb.ymax - spacing });
 
         body(yprev, ynext, [0, 1, 0],
-            |p, g| { p.y < g.aabb.ymin + g.spacing * 2.0 },
-            |p, g| { p.y < g.aabb.ymin + g.spacing });
+             @|p| { p.y < grid.aabb.ymin + spacing * 2.0 },
+             @|p| { p.y < grid.aabb.ymin + spacing });
 
         body(znext, zprev, [0, 0, -1],
-            |p, g| { p.z > g.aabb.zmax - g.spacing * 2.0 },
-            |p, g| { p.z > g.aabb.zmax - g.spacing });
+             @|p| { p.z > grid.aabb.zmax - spacing * 2.0 },
+             @|p| { p.z > grid.aabb.zmax - spacing });
 
         body(zprev, znext, [0, 0, 1],
-            |p, g| { p.z < g.aabb.zmin + g.spacing * 2.0 },
-            |p, g| { p.z < g.aabb.zmin + g.spacing });
+             @|p| { p.z < grid.aabb.zmin + spacing * 2.0 },
+             @|p| { p.z < grid.aabb.zmin + spacing });
     }
 }
 
@@ -660,7 +662,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     grid.nghost = 0;
 
-    communication_ranks(|_, _, _, _, _| {
+    communication_ranks(*grid, |_, _, _, _, _| {
         if neigh >= comm_offsets.max_neighs {
             resize_max_neighbors_capacity(comm_offsets, neigh + 8);
         }
@@ -677,7 +679,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Pack particles in each direction to exchange
-    communication_ranks(|exchg_rank, _, _, _, check_exchange| {
+    communication_ranks(*grid, |exchg_rank, _, _, _, check_exchange| {
         exchg_rank_send_offsets(neigh) = iexchg;
 
         // Makes no sense to exchange data with myself, right?
@@ -714,7 +716,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
                     adjust_pbc(apply_pbc_before_border_check(), &mut pos);
 
-                    if check_exchange(pos, const_grid) {
+                    if check_exchange(pos) {
                         let counter = add_counter(const_comm_offsets);
 
                         if counter >= const_comm_offsets.send_capacity {
@@ -806,7 +808,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Exchange particles with other ranks
-    communication_ranks(|send_rank, recv_rank, _, _, _| {
+    communication_ranks(*grid, |send_rank, recv_rank, _, _, _| {
         if send_rank != comm_offsets.me {
             let exchg_send_offset = exchg_rank_send_offsets(neigh) * 7 * sizeof[real_t]();
             let exchg_recv_offset = iexchg * 7 * sizeof[real_t]();
@@ -880,7 +882,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     grid.nghost = 0;
 
-    communication_ranks(|_, _, _, _, _| {
+    communication_ranks(*grid, |_, _, _, _, _| {
         if neigh >= comm_offsets.max_neighs {
             resize_max_neighbors_capacity(comm_offsets, neigh + 8);
         }
@@ -900,7 +902,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Pack particles in each direction to send during next iterations
-    communication_ranks(|_, _, pbc_check, check_border, _| {
+    communication_ranks(*grid, |_, _, pbc_check, check_border, _| {
         send_rank_offsets(neigh) = isend;
 
         range(0, grid.nparticles, |particle_index| {
@@ -908,7 +910,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
             // Generate all PBC variants to check border conditions
             pbc_positions(particle_pos, pbc_check, grid, |adjusted_pos, adjusted_pbc| {
-                if check_border(adjusted_pos, grid) {
+                if check_border(adjusted_pos) {
                     let mass = get_real(particle_index, grid.masses_cpu);
                     let mut pos = adjusted_pos;
                     let mut pbc = adjusted_pbc;
@@ -957,7 +959,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Synchronize borders with other ranks
-    communication_ranks(|send_rank, recv_rank, _, _, _| {
+    communication_ranks(*grid, |send_rank, recv_rank, _, _, _| {
         // Rank receive offset
         recv_rank_offsets(neigh) = irecv;
 

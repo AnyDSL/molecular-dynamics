@@ -671,7 +671,10 @@ int main(int argc, char **argv) {
 
         #endif
 
+        md_copy_data_to_accelerator();
         md_exchange_particles();
+        md_copy_data_from_accelerator();
+
         md_borders();
         md_distribute_particles();
         md_copy_data_to_accelerator();
