@@ -26,6 +26,10 @@ fn @set_i8_accelerator(i: i32, buf: Buffer, value: i8) -> () {
     bitcast[&mut[1][i8]](buf.data)(i) = value;
 }
 
+fn @get_array_of_i8_accelerator(buf: Buffer) -> &mut[1][i8] {
+    bitcast[&mut[1][i8]](buf.data)
+}
+
 fn @get_i32_accelerator(i: i32, buf: Buffer) -> i32 {
     bitcast[&[1][i32]](buf.data)(i)
 }

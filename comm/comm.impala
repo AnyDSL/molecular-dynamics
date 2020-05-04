@@ -670,7 +670,6 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         neigh++;
     });
 
-    let world_aabb = grid.world_aabb;
     let exchg_rank_send_offsets = get_array_of_i32(comm_offsets.send_rank_offsets);
     let exchg_rank_send_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let exchg_rank_recv_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
@@ -687,16 +686,19 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
             while resize > 0 {
                 let const_grid = *grid;
+                let const_comm_offsets = *comm_offsets;
+                let const_iexchg = iexchg;
+                let world_aabb = const_grid.world_aabb;
 
-                set_counter(iexchg, comm_offsets);
+                set_counter(iexchg, const_comm_offsets);
                 reset_resize(const_grid);
 
                 loop_accelerator(const_grid, |i, _, _, _| {
                     let masses = get_masses(const_grid);
                     let resize_buf = get_resize_buffer(const_grid);
                     let send_flags = get_send_flags(const_grid);
-                    let buffer = get_send_buffer(comm_offsets);
-                    let send_offsets = get_send_offsets(comm_offsets);
+                    let buffer = get_send_buffer(const_comm_offsets);
+                    let send_offsets = get_send_offsets(const_comm_offsets);
                     let mut pos = get_position(i, const_grid);
 
                     let adjust_pbc = @|condition: bool, pos: &mut Vector3D| {
@@ -711,12 +713,11 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                     };
 
                     adjust_pbc(apply_pbc_before_border_check(), &mut pos);
-                    send_flags(i) = 0 as i8;
 
-                    if check_exchange(pos, grid) {
-                        let counter = add_counter(comm_offsets);
+                    if check_exchange(pos, const_grid) {
+                        let counter = add_counter(const_comm_offsets);
 
-                        if counter >= comm_offsets.send_capacity {
+                        if counter >= const_comm_offsets.send_capacity {
                             if resize_buf(0) < counter {
                                 resize_buf(0) = counter;
                             }
@@ -734,9 +735,11 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                             buffer(index + 5) = vel.y;
                             buffer(index + 6) = vel.z;
 
-                            send_offsets(counter - iexchg) = i;
+                            send_offsets(counter - const_iexchg) = i;
                             send_flags(i) = 1 as i8;
                         }
+                    } else {
+                        send_flags(i) = 0 as i8;
                     }
                 });
 
@@ -750,7 +753,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
             transfer_between_devices(grid.send_flags_accelerator, grid.send_flags_cpu);
 
-            let counter = get_counter(comm_offsets);
+            let counter = get_counter(*comm_offsets);
             let packed = counter - iexchg;
             let nparticles = grid.nparticles - packed;
             let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
@@ -773,8 +776,10 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
             transfer_between_devices(comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
 
-            copy_list_iterate(comm_offsets, packed, |i, copy_list, send_offsets| {
-                let const_grid = *grid;
+            let const_comm_offsets = *comm_offsets;
+            let const_grid = *grid;
+
+            copy_list_iterate(const_comm_offsets, packed, |i, copy_list, send_offsets| {
                 let masses = get_masses(const_grid);
 
                 if copy_list(i) > 0 {
@@ -838,8 +843,9 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     // Unpack received particles
     let exchg_start = add_local_slots(iexchg, grid);
     let const_grid = *grid;
+    let const_comm_offsets = *comm_offsets;
 
-    recv_buffer_iterate(comm_offsets, iexchg, |index, recv_data| {
+    recv_buffer_iterate(const_comm_offsets, iexchg, |index, recv_data| {
         let buffer_index = index * 7;
         let offset = exchg_start + index;
         let masses = get_masses(const_grid);
