@@ -502,6 +502,7 @@ fn copy_to_accelerator(grid: &Grid) -> () {
 }
 
 fn copy_from_accelerator(grid: &Grid) -> () {
+    transfer_between_devices(grid.masses_accelerator, grid.masses_cpu);
     transfer_3d_arrays_between_devices(grid.positions_accelerator, grid.positions_cpu);
     transfer_3d_arrays_between_devices(grid.velocities_accelerator, grid.velocities_cpu);
     transfer_3d_arrays_between_devices(grid.forces_accelerator, grid.forces_cpu);

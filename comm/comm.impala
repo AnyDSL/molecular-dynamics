@@ -1048,7 +1048,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     recv_buffer_iterate(const_comm_offsets, irecv, |index, recv_data| {
         let buffer_index = index * 4;
-        let offset = grid.nparticles + index;
+        let offset = const_grid.nparticles + index;
         let masses = get_masses(const_grid);
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
