@@ -115,9 +115,9 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> 
                 @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
             }
         });
-    }
 
-    acc.sync();
+        acc.sync();
+    }
 }
 
 fn copy_list_iterate(comm_offsets: CommOffsets, ncopy: i32, body: fn(i32, &[1][i32], &[1][i32]) -> ()) -> () {
