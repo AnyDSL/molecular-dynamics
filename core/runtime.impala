@@ -271,9 +271,7 @@ extern fn md_report_particles() -> () {
     print_string_once("\n");
 }
 
-extern fn md_report_time(
-    total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64,
-    lb_avg: f64, data_avg: f64, other_avg: f64) -> () {
+extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64, lb_avg: f64, other_avg: f64) -> () {
 
     let is_root = get_process_rank() == 0;
     let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
@@ -285,7 +283,7 @@ extern fn md_report_time(
     };
 
     barrier();
-    print_string_once("Total Force Neigh Comm Balance Data Other\n");
+    print_string_once("Total Force Neigh Comm Balance Other\n");
 
     /*
     print_i32(get_process_rank());  print_string("> ");
@@ -294,7 +292,6 @@ extern fn md_report_time(
     print_f64(neigh_avg);           print_string(", ");
     print_f64(comm_avg);            print_string(", ");
     print_f64(lb_avg);              print_string(", ");
-    print_f64(data_avg);            print_string(", ");
     print_f64(other_avg);           print_string("\n");
     barrier();
     */
@@ -304,7 +301,6 @@ extern fn md_report_time(
     reduce_and_print(neigh_avg);
     reduce_and_print(comm_avg);
     reduce_and_print(lb_avg);
-    reduce_and_print(data_avg);
     reduce_and_print(other_avg);
 
     print_string_once("\n");

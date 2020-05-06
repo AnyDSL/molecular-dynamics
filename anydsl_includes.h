@@ -48,7 +48,7 @@ extern "C" {
     void md_clear_domain(double, double, double, double, double, double);
     void md_report_iterations();
     void md_report_particles();
-    void md_report_time(double, double, double, double, double, double, double);
+    void md_report_time(double, double, double, double, double, double);
     void md_report_memory_allocation();
     void md_barrier();
 }

@@ -83,7 +83,7 @@ fn recv_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, 
     });
 }
 
-fn atomic_add_i32(ptr: &mut i32, value: i32) -> i32 {
+fn @atomic_add_i32(ptr: &mut i32, value: i32) -> i32 {
     *ptr += value;
     *ptr - value
 }
