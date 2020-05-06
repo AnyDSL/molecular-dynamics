@@ -461,7 +461,6 @@ int main(int argc, char **argv) {
         TIME_NEIGHBORLISTS,
         TIME_COMM,
         TIME_LOAD_BALANCING,
-        TIME_DATA_TRANSFER,
         TIME_OTHER,
         NTIMERS
     };
@@ -674,11 +673,7 @@ int main(int argc, char **argv) {
         md_copy_data_to_accelerator();
         md_exchange_particles();
         md_borders();
-
-        md_copy_data_from_accelerator();
         md_distribute_particles();
-        md_copy_data_to_accelerator();
-
         md_assemble_neighborlists(cutoff_radius + verlet_buffer);
 
         if(vtk && i == 0) {
@@ -706,6 +701,7 @@ int main(int argc, char **argv) {
 
             if(j > 0 && j % reneigh_every == 0) {
                 #ifdef USE_WALBERLA_LOAD_BALANCING
+                md_copy_data_from_accelerator();
 
                 if(use_load_balancing && j % rebalance_every == 0) {
                     updateWeights(forest, *info);
@@ -717,22 +713,16 @@ int main(int argc, char **argv) {
                     gNeighborhood = &neighborhood;
                 }
 
+                md_copy_data_to_accelerator();
                 timer.accum(TIME_LOAD_BALANCING);
-
                 #endif
 
                 md_exchange_particles();
                 md_borders();
                 timer.accum(TIME_COMM);
 
-                md_copy_data_from_accelerator();
-                timer.accum(TIME_DATA_TRANSFER);
-
                 md_distribute_particles();
                 timer.accum(TIME_OTHER);
-
-                md_copy_data_to_accelerator();
-                timer.accum(TIME_DATA_TRANSFER);
 
                 md_assemble_neighborlists(cutoff_radius + verlet_buffer);
                 timer.accum(TIME_NEIGHBORLISTS);
@@ -772,7 +762,6 @@ int main(int argc, char **argv) {
         timer.getRunsAverage(TIME_NEIGHBORLISTS),
         timer.getRunsAverage(TIME_COMM),
         timer.getRunsAverage(TIME_LOAD_BALANCING),
-        timer.getRunsAverage(TIME_DATA_TRANSFER),
         timer.getRunsAverage(TIME_OTHER)
     );
 
