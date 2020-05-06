@@ -430,31 +430,48 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
 }
 
 fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
-    let mut cell_particles = get_array_of_i32(grid.cell_particles_cpu);
-    let particles_cell = get_array_of_i32(grid.particles_cell_cpu);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
+    let mut resize = 1;
 
-    range(0, grid.ncells, |cell_index| { cell_sizes(cell_index) = 0; });
+    while resize > 0 {
+        let const_grid = *grid;
 
-    range(0, nparticles, |particle_index| {
-        let pos = get_vector_from_3d_arrays(particle_index, grid.positions_cpu);
-        let cell_index = compute_cell_position(pos, true, grid);
-        let flat_index = flatten_index(cell_index, grid);
-        let cell_size = cell_sizes(flat_index);
+        reset_resize(const_grid);
 
-        if cell_size >= grid.cell_capacity {
-            reallocate_cell_capacity(grid, grid.cell_capacity * 2);
-            cell_particles = get_array_of_i32(grid.cell_particles_cpu);
+        iterate_cells(const_grid, |cell_index| {
+            let cell_sizes = get_cell_sizes(const_grid);
+            cell_sizes(cell_index) = 0;
+        });
+
+        loop_accelerator(const_grid, |i, _, _, _| {
+            let pos = get_position(i, const_grid);
+            let cell_particles = get_cell_particles(const_grid);
+            let particles_cell = get_particles_cell(const_grid);
+            let cell_sizes = get_cell_sizes(const_grid);
+            let resize_buf = get_resize_buffer(const_grid);
+            let cell_index = compute_cell_position(pos, true, const_grid);
+            let flat_index = flatten_index(cell_index, const_grid);
+            let cell_particle_index = atomic_add_i32(&mut cell_sizes(flat_index), 1);
+
+            if cell_particle_index >= const_grid.cell_capacity {
+                if resize_buf(0) < cell_particle_index {
+                    resize_buf(0) = cell_particle_index;
+                }
+            } else {
+                let cell_offset = get_cell_offset(flat_index, const_grid);
+                cell_particles(cell_offset + cell_particle_index) = i;
+                particles_cell(i) = flat_index;
+            }
+        });
+
+        resize = get_resize(const_grid);
+
+        if resize > 0 {
+            reallocate_cell_capacity(grid, resize * 2);
         }
-
-        let cell_offset = get_cell_offset(flat_index, grid);
-        particles_cell(particle_index) = flat_index;
-        cell_particles(cell_offset + cell_size) = particle_index;
-        cell_sizes(flat_index)++;
-    });
+    }
 }
 
-fn distribute_particles(grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
+fn distribute_particles(grid: &mut Grid) -> () {
     if sort_particles() && !use_unified_memory() {
         fill_cells(grid, grid.nparticles);
 
@@ -571,7 +588,7 @@ fn write_grid_aabb_data_to_arrays(
     grid.nparticles
 }
 
-fn @compute_cell_position(position: Vector3D, local_only: bool, grid: &Grid) -> [i32 * 3] {
+fn @compute_cell_position(position: Vector3D, local_only: bool, grid: Grid) -> [i32 * 3] {
     let mut i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
     let mut j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
     let mut k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;

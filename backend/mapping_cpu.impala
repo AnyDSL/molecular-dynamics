@@ -62,6 +62,10 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     });
 }
 
+fn iterate_cells(grid: Grid, body: fn(i32) -> ()) -> () {
+    range(0, grid.ncells, body);
+}
+
 fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     let send_offsets = get_send_offsets(comm_offsets);
     let copy_list = get_copy_list(comm_offsets);
@@ -77,6 +81,11 @@ fn recv_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, 
     range(0, noffsets, |index| {
         @@body(index, recv_data);
     });
+}
+
+fn atomic_add_i32(ptr: &mut i32, value: i32) -> i32 {
+    *ptr += value;
+    *ptr - value
 }
 
 fn @set_counter(value: i32, comm_offsets: &CommOffsets) -> () {

@@ -174,7 +174,7 @@ extern fn md_write_grid_aabb_data_to_arrays(
     write_grid_aabb_data_to_arrays(masses, positions, velocities, forces, &grid_)
 }
 
-extern fn md_distribute_particles() -> () { distribute_particles(&mut grid_, alloc_cpu); }
+extern fn md_distribute_particles() -> () { distribute_particles(&mut grid_); }
 extern fn md_borders() -> () { borders(&mut grid_, &mut comm_offsets_); }
 extern fn md_exchange_particles() -> () { exchange_particles(&mut grid_, &mut comm_offsets_); }
 extern fn md_initialize_clusters() -> () { }
