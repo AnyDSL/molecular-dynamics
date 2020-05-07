@@ -4,7 +4,7 @@ struct CommOffsets {
     me: i32,
 
     // Local offsets
-    local_noffsets: i32,
+    local_start: i32,
 
     // Host send data
     send_buffer: Buffer,
@@ -579,7 +579,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             me: world_rank,
 
             // Local offsets
-            local_noffsets: 0,
+            local_start: 0,
 
             // Host send data
             send_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
@@ -641,7 +641,7 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
     let send_rank_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
-    let nlocal = comm_offsets.send_noffsets - comm_offsets.local_noffsets;
+    let nlocal = comm_offsets.send_noffsets - comm_offsets.local_start;
 
     comm_buffer_iterate(comm_offsets, comm_offsets.send_noffsets, |index, send_data, _| {
         let buffer_index = index * 3;
@@ -655,7 +655,9 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
         send_data(buffer_index + 2) = position.z + grid.zlength * send_pbc(buffer_index + 2) as real_t;
     });
 
-    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+    if comm_offsets.local_start > 0 {
+        transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+    }
 
     range(0, comm_offsets.neighs, |neigh| {
         if send_neighbors(neigh) != comm_offsets.me {
@@ -674,7 +676,9 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
         }
     });
 
-    transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    if comm_offsets.recv_noffsets > 0 {
+        transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    }
 
     comm_buffer_iterate(comm_offsets, comm_offsets.recv_noffsets, |index, _, recv_data| {
         let offset = grid.nparticles + index;
@@ -688,7 +692,7 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     });
 
     comm_buffer_iterate(comm_offsets, nlocal, |index, send_data, _| {
-        let buffer_index = (comm_offsets.local_noffsets + index) * 3;
+        let buffer_index = (comm_offsets.local_start + index) * 3;
         let offset = grid.nparticles + comm_offsets.recv_noffsets + index;
         let position = Vector3D {
             x: send_data(buffer_index + 0),
@@ -926,11 +930,12 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let mut ilocal = 0;
     let mut isend = 0;
     let mut irecv = 0;
+    let mut nremote = 0;
     let mut neigh = 0;
 
     grid.nghost = 0;
 
-    communication_ranks(*grid, |_, _, _, _, _, _, _| {
+    communication_ranks(*grid, |send_rank, _, _, _, _, _, _| {
         if neigh >= comm_offsets.max_neighs {
             resize_max_neighbors_capacity(comm_offsets, neigh + 8);
         }
@@ -940,6 +945,10 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
         send_rank_offsets(neigh) = -1;
         recv_rank_offsets(neigh) = -1;
+
+        if send_rank != comm_offsets.me {
+            nremote++;
+        }
 
         neigh++;
     });
@@ -1029,7 +1038,10 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let recv_neighbors = get_array_of_i32(comm_offsets.recv_neighbors);
 
     neigh = 0;
-    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+
+    if nremote > 0 {
+        transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+    }
 
     // Synchronize borders with other ranks
     communication_remote(comm_offsets.me, *grid, |send_rank, recv_rank, _, _, _, _, _| {
@@ -1075,7 +1087,10 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let nlocal = isend - ilocal;
 
     add_ghost_slots(irecv + nlocal, grid);
-    transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+
+    if irecv > 0 {
+        transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    }
 
     comm_buffer_iterate(const_comm_offsets, irecv, |index, _, recv_data| {
         let buffer_index = index * 4;
@@ -1105,7 +1120,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         set_position(offset, const_grid, position);
     });
 
-    comm_offsets.local_noffsets = ilocal;
+    comm_offsets.local_start = ilocal;
     comm_offsets.send_noffsets = isend;
     comm_offsets.recv_noffsets = irecv;
     comm_offsets.neighs = neigh;
