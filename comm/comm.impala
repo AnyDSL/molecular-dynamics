@@ -1070,6 +1070,8 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
     let const_grid = *grid;
     let const_comm_offsets = *comm_offsets;
+    let const_ilocal = ilocal;
+    let const_irecv = irecv;
     let nlocal = isend - ilocal;
 
     add_ghost_slots(irecv + nlocal, grid);
@@ -1090,8 +1092,8 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     });
 
     comm_buffer_iterate(const_comm_offsets, nlocal, |index, send_data, _| {
-        let buffer_index = (ilocal + index) * 4;
-        let offset = const_grid.nparticles + irecv + index;
+        let buffer_index = (const_ilocal + index) * 4;
+        let offset = const_grid.nparticles + const_irecv + index;
         let masses = get_masses(const_grid);
         let position = Vector3D {
             x: send_data(buffer_index + 1),

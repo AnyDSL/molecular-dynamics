@@ -159,10 +159,11 @@ fn copy_list_iterate(comm_offsets: CommOffsets, ncopy: i32, body: fn(i32, &[1][i
     }
 }
 
-fn recv_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &[1][real_t]) -> ()) -> () {
+fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &mut[1][real_t], &[1][real_t]) -> ()) -> () {
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let grid_size = (round_up(noffsets, block_size(0)), 1, 1);
+    let send_data = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
     let recv_data = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
 
     if noffsets > 0 {
@@ -170,7 +171,7 @@ fn recv_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
             let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
 
             if index < noffsets {
-                @@body(index, recv_data);
+                @@body(index, send_data, recv_data);
             }
         });
 
