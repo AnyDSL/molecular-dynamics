@@ -75,11 +75,12 @@ fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32
     });
 }
 
-fn recv_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, &[real_t]) -> ()) -> () {
+fn comm_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, &mut [real_t], &[real_t]) -> ()) -> () {
+    let send_data = get_array_of_reals(comm_offsets.send_buffer);
     let recv_data = get_array_of_reals(comm_offsets.recv_buffer);
 
     range(0, noffsets, |index| {
-        @@body(index, recv_data);
+        @@body(index, send_data, recv_data);
     });
 }
 
@@ -200,43 +201,4 @@ fn @get_send_pbc(comm_offsets: &CommOffsets) -> &mut[i8] {
 
 fn @get_copy_list(comm_offsets: &CommOffsets) -> &mut[i32] {
     get_array_of_i32(comm_offsets.copy_list)
-}
-
-fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
-    get_i32(index, comm_offsets.send_offsets)
-}
-
-fn @get_comm_send_pbc(index: i32, comm_offsets: CommOffsets) -> PBCFlags {
-    PBCFlags {
-        x: get_i8(index * 3 + 0, comm_offsets.send_pbc),
-        y: get_i8(index * 3 + 1, comm_offsets.send_pbc),
-        z: get_i8(index * 3 + 2, comm_offsets.send_pbc)
-    }
-}
-
-fn gather_data(grid: Grid, comm_offsets: CommOffsets) -> () {
-    let buffer = comm_offsets.send_buffer;
-    let noffsets = comm_offsets.send_noffsets;
-    let mut index = 0;
-
-    outer_loop_cpu(0, noffsets, |i| {
-        let offset = get_comm_send_offsets(i, comm_offsets);
-        let pbc = get_comm_send_pbc(i, comm_offsets);
-        let pos = get_vector_from_3d_arrays(offset, grid.positions_cpu);
-
-        bitcast[&mut[real_t]](buffer.data)(index++) = pos.x + grid.xlength * pbc.x as real_t;
-        bitcast[&mut[real_t]](buffer.data)(index++) = pos.y + grid.ylength * pbc.y as real_t;
-        bitcast[&mut[real_t]](buffer.data)(index++) = pos.z + grid.zlength * pbc.z as real_t;
-    });
-}
-
-fn scatter_data(grid: Grid, comm_offsets: CommOffsets) -> () {
-    let buffer = comm_offsets.recv_buffer;
-    let noffsets = comm_offsets.recv_noffsets;
-    let mut index = 0;
-
-    outer_loop_cpu(0, noffsets, |i| {
-        let offset = grid.nparticles + i;
-        @@copy_buffer_to_3d_array(buffer, &mut index, grid.positions_cpu, offset);
-    });
 }

@@ -3,6 +3,9 @@ struct CommOffsets {
     // Rank of current process
     me: i32,
 
+    // Local offsets
+    local_noffsets: i32,
+
     // Host send data
     send_buffer: Buffer,
     send_neighbors: Buffer,
@@ -110,8 +113,29 @@ fn communication_ranks(grid: Grid, body: CommFunc) -> () {
     }
 }
 
+fn @communication_local(me: i32, grid: Grid, body: CommFunc) -> () {
+    communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange| {
+        if send_rank == me {
+            body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange);
+        }
+    });
+}
+
+fn @communication_remote(me: i32, grid: Grid, body: CommFunc) -> () {
+    communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange| {
+        if send_rank != me {
+            body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange);
+        }
+    });
+}
+
+fn @communication_sep(me: i32, grid: Grid, body: CommFunc) -> () {
+    @@communication_remote(me, grid, body);
+    @@communication_local(me, grid, body);
+}
+
 // Get PBC conditions according to particle position
-fn @get_pbc_flags_from_position(position: Vector3D, @pbc_x: i32, @pbc_y: i32, @pbc_z: i32, grid: Grid) -> PBCFlags {
+fn @get_pbc_flags_from_position(position: Vector3D, pbc_x: i32, pbc_y: i32, pbc_z: i32, grid: Grid) -> PBCFlags {
     let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
     let all = pbc_x == 0 && pbc_y == 0 && pbc_z == 0;
 
@@ -554,6 +578,9 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             // Rank of current process
             me: world_rank,
 
+            // Local offsets
+            local_noffsets: 0,
+
             // Host send data
             send_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
             send_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
@@ -614,14 +641,27 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     let recv_rank_offsets = get_array_of_i32(comm_offsets.recv_rank_offsets);
     let send_rank_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
+    let nlocal = comm_offsets.send_noffsets - comm_offsets.local_noffsets;
 
-    gather_data(grid, comm_offsets);
+    comm_buffer_iterate(comm_offsets, comm_offsets.send_noffsets, |index, send_data, _| {
+        let buffer_index = index * 3;
+        let send_offsets = get_send_offsets(comm_offsets);
+        let send_pbc = get_send_pbc(comm_offsets);
+        let offset = send_offsets(index);
+        let position = get_position(offset, grid);
+
+        send_data(buffer_index + 0) = position.x + grid.xlength * send_pbc(buffer_index + 0) as real_t;
+        send_data(buffer_index + 1) = position.y + grid.ylength * send_pbc(buffer_index + 1) as real_t;
+        send_data(buffer_index + 2) = position.z + grid.zlength * send_pbc(buffer_index + 2) as real_t;
+    });
+
+    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
 
     range(0, comm_offsets.neighs, |neigh| {
-        let send_offset = send_rank_offsets(neigh) * 3 * sizeof[real_t]();
-        let recv_offset = recv_rank_offsets(neigh) * 3 * sizeof[real_t]();
+        if send_neighbors(neigh) != comm_offsets.me {
+            let send_offset = send_rank_offsets(neigh) * 3 * sizeof[real_t]();
+            let recv_offset = recv_rank_offsets(neigh) * 3 * sizeof[real_t]();
 
-        if send_neighbors(neigh) != comm_offsets.me && recv_neighbors(neigh) != comm_offsets.me {
             mpih.irecv(
                 &recv_buffer.data(recv_offset) as MPI_MutBuf, recv_rank_lengths(neigh) * 3,
                 mpih.double_t, recv_neighbors(neigh), 0, mpih.comms.world, &mut request);
@@ -631,12 +671,33 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
                 mpih.double_t, send_neighbors(neigh), 0, mpih.comms.world);
 
             mpih.wait(&request, &mut status);
-        } else {
-            copy_offset(send_buffer, send_offset, recv_buffer, recv_offset, recv_rank_lengths(neigh) * 3 * sizeof[real_t]());
         }
     });
 
-    scatter_data(grid, comm_offsets);
+    transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+
+    comm_buffer_iterate(comm_offsets, comm_offsets.recv_noffsets, |index, _, recv_data| {
+        let offset = grid.nparticles + index;
+        let position = Vector3D {
+            x: recv_data(index * 3 + 0),
+            y: recv_data(index * 3 + 1),
+            z: recv_data(index * 3 + 2),
+        };
+
+        set_position(offset, grid, position);
+    });
+
+    comm_buffer_iterate(comm_offsets, nlocal, |index, send_data, _| {
+        let buffer_index = (comm_offsets.local_noffsets + index) * 3;
+        let offset = grid.nparticles + comm_offsets.recv_noffsets + index;
+        let position = Vector3D {
+            x: send_data(buffer_index + 0),
+            y: send_data(buffer_index + 1),
+            z: send_data(buffer_index + 2),
+        };
+
+        set_position(offset, grid, position);
+    });
 }
 
 // Exchange ghost layer particles with neighbor ranks (here the number of
@@ -835,7 +896,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let const_grid = *grid;
     let const_comm_offsets = *comm_offsets;
 
-    recv_buffer_iterate(const_comm_offsets, iexchg, |index, recv_data| {
+    comm_buffer_iterate(const_comm_offsets, iexchg, |index, _, recv_data| {
         let buffer_index = index * 7;
         let offset = exchg_start + index;
         let masses = get_masses(const_grid);
@@ -862,6 +923,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let mpih = mpi();
     let mut request: MPI_Request;
     let mut status: MPIStatus;
+    let mut ilocal = 0;
     let mut isend = 0;
     let mut irecv = 0;
     let mut neigh = 0;
@@ -888,7 +950,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Pack particles in each direction to send during next iterations
-    communication_ranks(*grid, |_, _, pbc_x, pbc_y, pbc_z, check_border, _| {
+    communication_sep(comm_offsets.me, *grid, |_, _, pbc_x, pbc_y, pbc_z, check_border, _| {
         let mut resize = 1;
 
         send_rank_offsets(neigh) = isend;
@@ -967,11 +1029,10 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let recv_neighbors = get_array_of_i32(comm_offsets.recv_neighbors);
 
     neigh = 0;
-
     transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
 
     // Synchronize borders with other ranks
-    communication_ranks(*grid, |send_rank, recv_rank, _, _, _, _, _| {
+    communication_remote(comm_offsets.me, *grid, |send_rank, recv_rank, _, _, _, _, _| {
         // Rank receive offset
         recv_rank_offsets(neigh) = irecv;
 
@@ -980,53 +1041,41 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         let recv_offset = recv_rank_offsets(neigh) * 4 * sizeof[real_t]();
 
         // Send sizes
-        if send_rank != comm_offsets.me {
-            mpih.send(&send_rank_lengths(neigh) as MPI_Buf, 1, mpih.int_t, send_rank, 0, mpih.comms.world);
-            mpih.recv(&mut recv_rank_lengths(neigh) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, &mut status);
-        } else {
-            recv_rank_lengths(neigh) = send_rank_lengths(neigh);
-        }
+        mpih.send(&send_rank_lengths(neigh) as MPI_Buf, 1, mpih.int_t, send_rank, 0, mpih.comms.world);
+        mpih.recv(&mut recv_rank_lengths(neigh) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, &mut status);
 
         // Readjust receive capacity if it is not enough
         if irecv + recv_rank_lengths(neigh) >= comm_offsets.recv_capacity {
             resize_recv_capacity(comm_offsets, (irecv + recv_rank_lengths(neigh)) * 2);
         }
 
-        // Send and receive buffers
-        let send_buffer = comm_offsets.send_buffer;
-        let recv_buffer = comm_offsets.recv_buffer;
+        mpih.irecv(
+            &comm_offsets.recv_buffer.data(recv_offset) as MPI_MutBuf, recv_rank_lengths(neigh) * 4,
+            mpih.double_t, recv_rank, 0, mpih.comms.world, &mut request);
 
-        // Send and receive data
-        if send_rank != comm_offsets.me {
-            mpih.irecv(
-                &recv_buffer.data(recv_offset) as MPI_MutBuf, recv_rank_lengths(neigh) * 4,
-                mpih.double_t, recv_rank, 0, mpih.comms.world, &mut request);
+        mpih.send(
+            &comm_offsets.send_buffer.data(send_offset) as MPI_Buf, send_rank_lengths(neigh) * 4,
+            mpih.double_t, send_rank, 0, mpih.comms.world);
 
-            mpih.send(
-                &send_buffer.data(send_offset) as MPI_Buf, send_rank_lengths(neigh) * 4,
-                mpih.double_t, send_rank, 0, mpih.comms.world);
-
-            mpih.wait(&request, &mut status);
-        } else {
-            copy_offset(send_buffer, send_offset, recv_buffer, recv_offset, recv_rank_lengths(neigh) * 4 * sizeof[real_t]());
-        }
+        mpih.wait(&request, &mut status);
 
         // Update ranks to send and receive during synchronization
         send_neighbors(neigh) = send_rank;
         recv_neighbors(neigh) = recv_rank;
 
+        ilocal += send_rank_lengths(neigh);
         irecv += recv_rank_lengths(neigh);
         neigh++;
     });
 
-    add_ghost_slots(irecv, grid);
-
     let const_grid = *grid;
     let const_comm_offsets = *comm_offsets;
+    let nlocal = isend - ilocal;
 
+    add_ghost_slots(irecv + nlocal, grid);
     transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
 
-    recv_buffer_iterate(const_comm_offsets, irecv, |index, recv_data| {
+    comm_buffer_iterate(const_comm_offsets, irecv, |index, _, recv_data| {
         let buffer_index = index * 4;
         let offset = const_grid.nparticles + index;
         let masses = get_masses(const_grid);
@@ -1040,6 +1089,21 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         set_position(offset, const_grid, position);
     });
 
+    comm_buffer_iterate(const_comm_offsets, nlocal, |index, send_data, _| {
+        let buffer_index = (ilocal + index) * 4;
+        let offset = const_grid.nparticles + irecv + index;
+        let masses = get_masses(const_grid);
+        let position = Vector3D {
+            x: send_data(buffer_index + 1),
+            y: send_data(buffer_index + 2),
+            z: send_data(buffer_index + 3),
+        };
+
+        masses(offset) = send_data(buffer_index);
+        set_position(offset, const_grid, position);
+    });
+
+    comm_offsets.local_noffsets = ilocal;
     comm_offsets.send_noffsets = isend;
     comm_offsets.recv_noffsets = irecv;
     comm_offsets.neighs = neigh;
