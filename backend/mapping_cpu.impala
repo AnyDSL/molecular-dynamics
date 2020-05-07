@@ -206,10 +206,6 @@ fn @get_comm_send_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
     get_i32(index, comm_offsets.send_offsets)
 }
 
-fn @get_comm_recv_offsets(index: i32, comm_offsets: CommOffsets) -> i32 {
-    get_i32(index, comm_offsets.recv_offsets)
-}
-
 fn @get_comm_send_pbc(index: i32, comm_offsets: CommOffsets) -> PBCFlags {
     PBCFlags {
         x: get_i8(index * 3 + 0, comm_offsets.send_pbc),
@@ -240,7 +236,7 @@ fn scatter_data(grid: Grid, comm_offsets: CommOffsets) -> () {
     let mut index = 0;
 
     outer_loop_cpu(0, noffsets, |i| {
-        let offset = get_comm_recv_offsets(i, comm_offsets);
+        let offset = grid.nparticles + i;
         @@copy_buffer_to_3d_array(buffer, &mut index, grid.positions_cpu, offset);
     });
 }

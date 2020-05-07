@@ -19,7 +19,6 @@ struct CommOffsets {
     recv_neighbors: Buffer,
     recv_rank_offsets: Buffer,
     recv_rank_lengths: Buffer,
-    recv_offsets: Buffer,
     recv_capacity: i32,
     recv_noffsets: i32,
 
@@ -34,7 +33,6 @@ struct CommOffsets {
 
     // Accelerator receive data
     recv_buffer_accelerator: Buffer,
-    recv_offsets_accelerator: Buffer,
 
     // Host counter buffer
     counter_buffer_accelerator: Buffer,
@@ -375,7 +373,6 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.send_offsets);
         release(comm_offsets.send_pbc);
         release(comm_offsets.recv_buffer);
-        release(comm_offsets.recv_offsets);
         release(comm_offsets.copy_list);
     }
 
@@ -394,7 +391,6 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
         release(comm_offsets.recv_rank_offsets);
         release(comm_offsets.recv_rank_lengths);
         release(comm_offsets.recv_buffer_accelerator);
-        release(comm_offsets.recv_offsets_accelerator);
     }
 
     release(comm_offsets.counter_buffer);
@@ -443,17 +439,12 @@ fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> (
     print_i32_with_rank("resize_recv_capacity()", recv_capacity);
 
     reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.recv_offsets, recv_capacity, sizeof[i32](), true, cpu_allocate);
-
     release(comm_offsets.recv_buffer_accelerator);
-    release(comm_offsets.recv_offsets_accelerator);
 
     comm_offsets.recv_buffer_accelerator = accelerator_allocate(recv_capacity * 3 * sizeof[real_t]());
-    comm_offsets.recv_offsets_accelerator = accelerator_allocate(recv_capacity * sizeof[i32]());
     comm_offsets.recv_capacity = recv_capacity;
 
     assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
-    assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
 }
 
 // Get configuration for nodes according to world size and number of
@@ -579,7 +570,6 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             recv_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
             recv_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
             recv_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
-            recv_offsets: cpu_allocate(recv_capacity * sizeof[i32]()),
             recv_capacity: recv_capacity,
             recv_noffsets: 0,
 
@@ -594,7 +584,6 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
 
             // Accelerator receive data
             recv_buffer_accelerator: accelerator_allocate(recv_capacity * 7 * sizeof[real_t]()),
-            recv_offsets_accelerator: accelerator_allocate(recv_capacity * sizeof[i32]()),
 
             // Accelerator counter buffer
             counter_buffer_accelerator: accelerator_allocate(sizeof[i32]()),
@@ -608,7 +597,6 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
         assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
         assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
-        assign_accelerator_buffer(&mut comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
     }
 }
 
@@ -977,7 +965,6 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
     let send_neighbors = get_array_of_i32(comm_offsets.send_neighbors);
     let recv_neighbors = get_array_of_i32(comm_offsets.recv_neighbors);
-    let mut recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
 
     neigh = 0;
 
@@ -1003,7 +990,6 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         // Readjust receive capacity if it is not enough
         if irecv + recv_rank_lengths(neigh) >= comm_offsets.recv_capacity {
             resize_recv_capacity(comm_offsets, (irecv + recv_rank_lengths(neigh)) * 2);
-            recv_offsets = get_array_of_i32(comm_offsets.recv_offsets);
         }
 
         // Send and receive buffers
@@ -1029,11 +1015,6 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         send_neighbors(neigh) = send_rank;
         recv_neighbors(neigh) = recv_rank;
 
-        // Adjust receive offset data
-        range(irecv, irecv + recv_rank_lengths(neigh), |i| {
-            recv_offsets(i) = grid.nparticles + i;
-        });
-
         irecv += recv_rank_lengths(neigh);
         neigh++;
     });
@@ -1044,7 +1025,6 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     let const_comm_offsets = *comm_offsets;
 
     transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
-    transfer_between_devices(comm_offsets.recv_offsets, comm_offsets.recv_offsets_accelerator);
 
     recv_buffer_iterate(const_comm_offsets, irecv, |index, recv_data| {
         let buffer_index = index * 4;
