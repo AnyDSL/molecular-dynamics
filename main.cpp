@@ -249,6 +249,18 @@ Vector3<uint_t> getBlockConfig(uint_t num_processes, uint_t nx, uint_t ny, uint_
     return Vector3<uint_t>(x * bx_factor, y * by_factor, z * bz_factor);
 }
 
+uint_t getInitialRefinementLevel(uint_t num_processes) {
+    uint_t splitFactor = 8;
+    uint_t blocks = splitFactor;
+    uint_t refinementLevel = 1;
+
+    while(blocks < num_processes) {
+        refinementLevel++;
+        blocks *= splitFactor;
+    }
+
+    return refinementLevel;
+}
 
 inline double sqDistanceLineToPoint(const double& pt, const double& min, const double& max) {
    return (pt < min) ? (min - pt) * (min - pt) :
@@ -522,8 +534,8 @@ int main(int argc, char **argv) {
         real_t(aabb.max[0]), real_t(aabb.max[1]), real_t(aabb.max[2]));
 
     auto forest = blockforest::createBlockForest(
-        domain, getBlockConfig(mpiManager->numProcesses(), gridsize[0], gridsize[1], gridsize[2]),
-        Vector3<bool>(true, true, true), mpiManager->numProcesses(), uint_t(0));
+        domain, Vector3<uint_t>(1, 1, 1), Vector3<bool>(true, true, true),
+        mpiManager->numProcesses(), getInitialRefinementLevel(mpiManager->numProcesses()));
 
     auto rank_aabb = getBlockForestAABB(forest);
     auto is_within_domain = bind(isWithinBlockForest, _1, _2, _3, forest);
