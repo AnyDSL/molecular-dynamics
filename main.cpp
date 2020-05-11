@@ -34,7 +34,7 @@ void print_usage(char *name) {
     cout << "Usage: " << name << " [OPTION]..." << endl;
     cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << endl << endl;
     cout << "Mandatory arguments to long options are also mandatory for short options." << endl;
-    cout << "\t-b, --benchmark=STRING    benchmark to use (options are default, half and body_collision)." << endl;
+    cout << "\t-b, --benchmark=STRING    benchmark to use (options are default, half, body_collision and granular_gas)." << endl;
     cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << endl;
     cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << endl;
     cout << "\t-z, --nz=SIZE             number of unit cells in z dimension (default 32)." << endl;
@@ -504,7 +504,7 @@ int main(int argc, char **argv) {
             spacing[i] = potential_minimum;
         }
     } else {
-        if(benchmark != "default" && benchmark != "half") {
+        if(benchmark != "default" && benchmark != "half" && benchmark != "granular_gas") {
             cerr << "Invalid benchmark specified: \"" << benchmark << "\"" << endl;
             cerr << "Available options are default, half and body_collision" << endl;
             return EXIT_FAILURE;
@@ -663,6 +663,8 @@ int main(int argc, char **argv) {
     for(int i = 0; i < runs; ++i) {
         if(benchmark == "body_collision") {
             init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+        } else if(benchmark == "granular_gas") {
+            init_granular_gas(aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else {
             init_rectangular_grid(aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }

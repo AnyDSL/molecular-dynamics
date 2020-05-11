@@ -247,6 +247,80 @@ int init_rectangular_grid(
     );
 }
 
+int init_granular_gas(
+    ::AABB aabb,
+    ::AABB rank_aabb,
+    double cell_spacing,
+    int cell_capacity,
+    int neighborlist_capacity,
+    function<bool(double, double, double)> is_within_domain) {
+
+    vector<double> masses;
+    vector<Vector3D> positions;
+    vector<Vector3D> velocities;
+    Vector3D center;
+    Vector3D normal;
+    Vector3D shift;
+    double spacing = 1.0;
+
+    center.x = aabb.min[0] + (aabb.max[0] - aabb.min[0]) * 0.5;
+    center.y = aabb.min[1] + (aabb.max[1] - aabb.min[1]) * 0.5;
+    center.z = aabb.min[2] + (aabb.max[2] - aabb.min[2]) * 0.5;
+
+    normal.x = 1.0;
+    normal.y = 1.0;
+    normal.z = 1.0;
+
+    shift.x = 0.01;
+    shift.y = 0.01;
+    shift.z = 0.01;
+
+    uint_t nx = (uint_t)((aabb.max[0] - aabb.min[0]) / spacing);
+    uint_t ny = (uint_t)((aabb.max[1] - aabb.min[1]) / spacing);
+    uint_t nz = (uint_t)((aabb.max[2] - aabb.min[2]) / spacing);
+
+    for(uint_t x = 0; x < nx; x++) {
+        for(uint_t y = 0; y < ny; y++) {
+            for(uint_t z = 0; z < nz; z++) {
+                Vector3D pos;
+                Vector3D vel;
+                Vector3D dis;
+
+                pos.x = aabb.min[0] + (double) x * spacing + spacing * 0.5 + shift.x;
+                pos.y = aabb.min[1] + (double) y * spacing + spacing * 0.5 + shift.y;
+                pos.z = aabb.min[2] + (double) z * spacing + spacing * 0.5 + shift.z;
+
+                vel.x = 0.0;
+                vel.y = 0.0;
+                vel.z = 0.0;
+
+                dis.x = pos.x - center.x;
+                dis.y = pos.y - center.y;
+                dis.z = pos.z - center.z;
+
+                if(is_within_domain(pos.x, pos.y, pos.z) && dis.x * normal.x + dis.y * normal.y + dis.z * normal.z < 0.0) {
+                    masses.push_back(1.0);
+                    positions.push_back(pos);
+                    velocities.push_back(vel);
+                }
+            }
+        }
+    }
+
+    return md_initialize_grid(
+        masses.data(),
+        positions.data(),
+        velocities.data(),
+        (int) positions.size(),
+        aabb.min,
+        aabb.max,
+        rank_aabb.min,
+        rank_aabb.max,
+        cell_spacing,
+        cell_capacity,
+        neighborlist_capacity
+    );
+}
 
 int init_body_collision(
     ::AABB aabb,
