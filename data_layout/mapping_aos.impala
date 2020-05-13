@@ -64,18 +64,6 @@ fn @get_vector_from_3d_arrays_accelerator(i: i32, arrays: Buffer) -> Vector3D {
     }
 }
 
-fn get_x_component(i: i32, arrays: Buffer) -> real_t {
-    bitcast[&mut[real_t]](arrays.data)(i * 3)
-}
-
-fn get_y_component(i: i32, arrays: Buffer) -> real_t {
-    bitcast[&mut[real_t]](arrays.data)(i * 3 + 1)
-}
-
-fn get_z_component(i: i32, arrays: Buffer) -> real_t {
-    bitcast[&mut[real_t]](arrays.data)(i * 3 + 2)
-}
-
 fn copy_3d_arrays(i: i32, j: i32, src: Buffer, dest: Buffer) -> () {
     let src_idx = i * 3;
     let dest_idx = j * 3;
@@ -105,40 +93,3 @@ fn swap_3d_arrays(i: i32, j: i32, arrays: Buffer) -> () {
 fn @_transfer_3d_arrays_between_devices(src: Buffer, dest: Buffer) -> () {
     copy(src, dest);
 }
-
-fn copy_3d_array_to_buffer(source: Buffer, offset_source: i32, dest: Buffer, offset_dest: &mut i32) -> () {
-    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.data)(offset_source * 3);
-    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.data)(offset_source * 3 + 1);
-    bitcast[&mut[real_t]](dest.data)((*offset_dest)++) = bitcast[&mut[real_t]](source.data)(offset_source * 3 + 2);
-}
-
-fn copy_buffer_to_3d_array(source: Buffer, offset_source: &mut i32, dest: Buffer, offset_dest: i32) -> () {
-    bitcast[&mut[real_t]](dest.data)(offset_dest * 3) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
-    bitcast[&mut[real_t]](dest.data)(offset_dest * 3 + 1) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
-    bitcast[&mut[real_t]](dest.data)(offset_dest * 3 + 2) = bitcast[&mut[real_t]](source.data)((*offset_source)++);
-}
-
-fn copy_3d_arrays_to_buffer(
-    source: Buffer,
-    offset_source: i32,
-    dest: Buffer,
-    offset_dest: i32,
-    length: i32) -> i32 {
-
-    copy_offset(source, offset_source * 3, dest, offset_dest, length * 3);
-
-    length * 3
-}
-
-fn copy_buffer_to_3d_arrays(
-    source: Buffer,
-    offset_source: i32,
-    dest: Buffer,
-    offset_dest: i32,
-    length: i32) -> i32 {
-
-    copy_offset(source, offset_source, dest, offset_dest * 3, length * 3);
-
-    length * 3
-}
-
