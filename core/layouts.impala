@@ -126,6 +126,20 @@ fn get_array_value(array: Array, index: i32) -> Vector3D {
     }
 }
 
+fn set_array_value_accelerator(array: Array, index: i32, vector: Vector3D) -> () {
+    map_over_vector(vector, @|v, value| {
+        bitcast[&mut[1][real_t]](array.buffer.data)(array_index(array, index, v)) = value;
+    });
+}
+
+fn get_array_value_accelerator(array: Array, index: i32) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[1][real_t]](array.buffer.data)(array_index(array, index, 0)),
+        y: bitcast[&mut[1][real_t]](array.buffer.data)(array_index(array, index, 1)),
+        z: bitcast[&mut[1][real_t]](array.buffer.data)(array_index(array, index, 2))
+    }
+}
+
 fn copy_array_value(i: i32, j: i32, src: Array, dest: Array) -> () {
     bitcast[&mut[real_t]](src.buffer.data)(array_index(dest, j, 0)) = bitcast[&[real_t]](src.buffer.data)(array_index(src, i, 0));
     bitcast[&mut[real_t]](src.buffer.data)(array_index(dest, j, 1)) = bitcast[&[real_t]](src.buffer.data)(array_index(src, i, 1));
