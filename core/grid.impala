@@ -233,28 +233,6 @@ fn reallocate_cell_buffer(
     *buffer = new_buffer;
 }
 
-fn reallocate_cell_3d_arrays(
-    grid: &Grid,
-    array: &mut Array3D,
-    size: i32,
-    cell_capacity: i32,
-    allocate: fn(i32) -> Buffer) -> () {
-
-    let new_array = allocate_3d_arrays(size, allocate);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-
-    range(0, grid.ncells, |cell_index| {
-        let cell_offset = get_cell_offset(cell_index, grid);
-        let cell_size = cell_sizes(cell_index);
-        let new_offset = cell_index * cell_capacity;
-
-        copy_offset_3d_arrays(*array, cell_offset, new_array, new_offset, cell_size);
-    });
-
-    deallocate_3d_arrays(*array);
-    *array = new_array;
-}
-
 // Do not preserve data in buffers
 fn reallocate_ncells_capacity(grid: &mut Grid, capacity: i32) -> () {
     print_i32_with_rank("reallocate_ncells_capacity()", capacity);
