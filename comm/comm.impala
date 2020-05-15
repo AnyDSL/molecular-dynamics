@@ -88,32 +88,32 @@ fn communication_ranks(grid: Grid, body: CommFunc) -> () {
         });
     } else {
         body(xnext, xprev, -1, 0, 0,
-             @|p| { p.x > grid.aabb.xmax - spacing * 2.0 },
-             @|p| { p.x > grid.aabb.xmax - spacing });
+             |p| { p.x > grid.aabb.xmax - spacing * 2.0 },
+             |p| { p.x > grid.aabb.xmax - spacing });
 
         body(xprev, xnext, 1, 0, 0,
-             @|p| { p.x < grid.aabb.xmin + spacing * 2.0 },
-             @|p| { p.x < grid.aabb.xmin + spacing });
+             |p| { p.x < grid.aabb.xmin + spacing * 2.0 },
+             |p| { p.x < grid.aabb.xmin + spacing });
 
         body(ynext, yprev, 0, -1, 0,
-             @|p| { p.y > grid.aabb.ymax - spacing * 2.0 },
-             @|p| { p.y > grid.aabb.ymax - spacing });
+             |p| { p.y > grid.aabb.ymax - spacing * 2.0 },
+             |p| { p.y > grid.aabb.ymax - spacing });
 
         body(yprev, ynext, 0, 1, 0,
-             @|p| { p.y < grid.aabb.ymin + spacing * 2.0 },
-             @|p| { p.y < grid.aabb.ymin + spacing });
+             |p| { p.y < grid.aabb.ymin + spacing * 2.0 },
+             |p| { p.y < grid.aabb.ymin + spacing });
 
         body(znext, zprev, 0, 0, -1,
-             @|p| { p.z > grid.aabb.zmax - spacing * 2.0 },
-             @|p| { p.z > grid.aabb.zmax - spacing });
+             |p| { p.z > grid.aabb.zmax - spacing * 2.0 },
+             |p| { p.z > grid.aabb.zmax - spacing });
 
         body(zprev, znext, 0, 0, 1,
-             @|p| { p.z < grid.aabb.zmin + spacing * 2.0 },
-             @|p| { p.z < grid.aabb.zmin + spacing });
+             |p| { p.z < grid.aabb.zmin + spacing * 2.0 },
+             |p| { p.z < grid.aabb.zmin + spacing });
     }
 }
 
-fn @communication_local(me: i32, grid: Grid, body: CommFunc) -> () {
+fn communication_local(me: i32, grid: Grid, body: CommFunc) -> () {
     communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange| {
         if send_rank == me {
             body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange);
@@ -121,7 +121,7 @@ fn @communication_local(me: i32, grid: Grid, body: CommFunc) -> () {
     });
 }
 
-fn @communication_remote(me: i32, grid: Grid, body: CommFunc) -> () {
+fn communication_remote(me: i32, grid: Grid, body: CommFunc) -> () {
     communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange| {
         if send_rank != me {
             body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange);
@@ -129,7 +129,7 @@ fn @communication_remote(me: i32, grid: Grid, body: CommFunc) -> () {
     });
 }
 
-fn @communication_sep(me: i32, grid: Grid, body: CommFunc) -> () {
+fn communication_sep(me: i32, grid: Grid, body: CommFunc) -> () {
     @@communication_remote(me, grid, body);
     @@communication_local(me, grid, body);
 }
@@ -500,7 +500,7 @@ fn get_node_config(xlength: real_t, ylength: real_t, zlength: real_t, destx: &mu
 }
 
 // Get bounding box for current node
-fn @get_node_bounding_box(aabb: AABB) -> AABB {
+fn get_node_bounding_box(aabb: AABB) -> AABB {
     let mpih = mpi();
     let mut gx: i32;
     let mut gy: i32;

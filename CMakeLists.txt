@@ -49,6 +49,7 @@ endif()
 set(MD_SRCS
     core/compute.impala
     core/grid.impala
+    core/layouts.impala
     core/neighborlist.impala
     core/runtime.impala
     comm/comm.impala
@@ -56,7 +57,6 @@ set(MD_SRCS
     utils/definitions.impala
     utils/utilities.impala
     utils/utilities_accelerator.impala
-    data_layout/layouts.impala
     ${MPI_FILE}
     ${BACKEND_FILE}
     ${MAPPING_FILE}
