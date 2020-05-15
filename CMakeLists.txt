@@ -21,7 +21,6 @@ else()
     set(MAPPING_FILE backend/mapping_cpu.impala)
 endif()
 
-option(USE_SOA "USE_SOA" ON)
 option(USE_MPI "USE_MPI" ON)
 option(COUNT_FLOPS "COUNT_FLOPS" OFF)
 option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" OFF)
@@ -32,12 +31,6 @@ option(USE_WALBERLA_LOAD_BALANCING "USE_WALBERLA_LOAD_BALANCING" OFF)
 set(CLANG_FLAGS -O3 -ffast-math)
 set(IMPALA_FLAGS -O3 --log-level warn)
 set(ANYDSL_RUNTIME_LIBRARIES ${AnyDSL_runtime_LIBRARIES})
-
-if(USE_SOA)
-    set(DATA_LAYOUT_FILE data_layout/mapping_soa.impala)
-else()
-    set(DATA_LAYOUT_FILE data_layout/mapping_aos.impala)
-endif()
 
 if(USE_WALBERLA_LOAD_BALANCING)
     set(WALBERLA_FILE walberla/on.impala)
@@ -63,8 +56,8 @@ set(MD_SRCS
     utils/definitions.impala
     utils/utilities.impala
     utils/utilities_accelerator.impala
+    data_layout/layouts.impala
     ${MPI_FILE}
-    ${DATA_LAYOUT_FILE}
     ${BACKEND_FILE}
     ${MAPPING_FILE}
     ${WALBERLA_FILE})

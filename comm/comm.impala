@@ -392,13 +392,11 @@ fn mpi_finalize() -> () {
 
 // Release communication buffers
 fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
-    if !use_unified_memory() {
-        release(comm_offsets.send_buffer);
-        release(comm_offsets.send_offsets);
-        release(comm_offsets.send_pbc);
-        release(comm_offsets.recv_buffer);
-        release(comm_offsets.copy_list);
-    }
+    release(comm_offsets.send_buffer);
+    release(comm_offsets.send_offsets);
+    release(comm_offsets.send_pbc);
+    release(comm_offsets.recv_buffer);
+    release(comm_offsets.copy_list);
 
     if comm_offsets.send_capacity > 0 {
         release(comm_offsets.send_neighbors);
@@ -424,12 +422,12 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
 fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32) -> () {
     print_i32_with_rank("resize_max_neighbors_capacity()", max_neighs);
 
-    reallocate_buffer(&mut comm_offsets.send_neighbors, max_neighs, sizeof[i32](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.send_rank_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.send_rank_lengths, max_neighs, sizeof[i32](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.recv_neighbors, max_neighs, sizeof[i32](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.recv_rank_offsets, max_neighs, sizeof[i32](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.recv_rank_lengths, max_neighs, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_neighbors, max_neighs, sizeof[i32](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.send_rank_offsets, max_neighs, sizeof[i32](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.send_rank_lengths, max_neighs, sizeof[i32](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.recv_neighbors, max_neighs, sizeof[i32](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.recv_rank_offsets, max_neighs, sizeof[i32](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.recv_rank_lengths, max_neighs, sizeof[i32](), true, alloc_cpu);
 
     comm_offsets.max_neighs = max_neighs;
 }
@@ -437,10 +435,10 @@ fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32
 fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> () {
     print_i32_with_rank("resize_send_capacity()", send_capacity);
 
-    reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.send_pbc, send_capacity * 3, sizeof[i8](), true, cpu_allocate);
-    reallocate_buffer(&mut comm_offsets.copy_list, send_capacity, sizeof[i32](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.send_pbc, send_capacity * 3, sizeof[i8](), true, alloc_cpu);
+    reallocate_buffer(&mut comm_offsets.copy_list, send_capacity, sizeof[i32](), true, alloc_cpu);
 
     release(comm_offsets.send_buffer_accelerator);
     release(comm_offsets.send_offsets_accelerator);
@@ -452,23 +450,16 @@ fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> (
     comm_offsets.send_pbc_accelerator = accelerator_allocate(send_capacity * 3 * sizeof[i8]());
     comm_offsets.copy_list_accelerator = accelerator_allocate(send_capacity * sizeof[i32]());
     comm_offsets.send_capacity = send_capacity;
-
-    assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
-    assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
-    assign_accelerator_buffer(&mut comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
-    assign_accelerator_buffer(&mut comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
 }
 
 fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> () {
     print_i32_with_rank("resize_recv_capacity()", recv_capacity);
 
-    reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, cpu_allocate);
+    reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, alloc_cpu);
     release(comm_offsets.recv_buffer_accelerator);
 
     comm_offsets.recv_buffer_accelerator = accelerator_allocate(recv_capacity * 3 * sizeof[real_t]());
     comm_offsets.recv_capacity = recv_capacity;
-
-    assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
 }
 
 // Get configuration for nodes according to world size and number of
@@ -582,18 +573,18 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             local_start: 0,
 
             // Host send data
-            send_buffer: cpu_allocate(send_capacity * 7 * sizeof[real_t]()),
+            send_buffer: alloc_cpu(send_capacity * 7 * sizeof[real_t]()),
             send_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
             send_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
             send_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
-            send_offsets: cpu_allocate(send_capacity * sizeof[i32]()),
-            send_pbc: cpu_allocate(send_capacity * 3 * sizeof[i8]()),
-            copy_list: cpu_allocate(send_capacity * sizeof[i32]()),
+            send_offsets: alloc_cpu(send_capacity * sizeof[i32]()),
+            send_pbc: alloc_cpu(send_capacity * 3 * sizeof[i8]()),
+            copy_list: alloc_cpu(send_capacity * sizeof[i32]()),
             send_capacity: send_capacity,
             send_noffsets: 0,
 
             // Host receive data
-            recv_buffer: cpu_allocate(recv_capacity * 7 * sizeof[real_t]()),
+            recv_buffer: alloc_cpu(recv_capacity * 7 * sizeof[real_t]()),
             recv_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
             recv_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
             recv_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
@@ -601,7 +592,7 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             recv_noffsets: 0,
 
             // Host counter buffer
-            counter_buffer: cpu_allocate(sizeof[i32]()),
+            counter_buffer: alloc_cpu(sizeof[i32]()),
 
             // Accelerator send data
             send_buffer_accelerator: accelerator_allocate(send_capacity * 7 * sizeof[real_t]()),
@@ -619,11 +610,6 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
             max_neighs: max_neighs,
             neighs: 0
         };
-
-        assign_accelerator_buffer(&mut comm_offsets.send_buffer, comm_offsets.send_buffer_accelerator);
-        assign_accelerator_buffer(&mut comm_offsets.send_offsets, comm_offsets.send_offsets_accelerator);
-        assign_accelerator_buffer(&mut comm_offsets.send_pbc, comm_offsets.send_pbc_accelerator);
-        assign_accelerator_buffer(&mut comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
     }
 }
 
@@ -656,7 +642,7 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     });
 
     if comm_offsets.local_start > 0 {
-        transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+        transfer(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
     }
 
     range(0, comm_offsets.neighs, |neigh| {
@@ -677,7 +663,7 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     });
 
     if comm_offsets.recv_noffsets > 0 {
-        transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+        transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
     }
 
     comm_buffer_iterate(comm_offsets, comm_offsets.recv_noffsets, |index, _, recv_data| {
@@ -805,8 +791,8 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 }
             }
 
-            transfer_between_devices(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
-            transfer_between_devices(grid.send_flags_accelerator, grid.send_flags_cpu);
+            transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
+            transfer(grid.send_flags_accelerator, grid.send_flags_cpu);
 
             let counter = get_counter(*comm_offsets);
             let packed = counter - iexchg;
@@ -829,7 +815,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 }
             });
 
-            transfer_between_devices(comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
+            transfer(comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
 
             let const_comm_offsets = *comm_offsets;
             let const_grid = *grid;
@@ -855,7 +841,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         neigh++;
     });
 
-    transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+    transfer(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
 
     iexchg = 0;
     neigh = 0;
@@ -893,7 +879,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         neigh++;
     });
 
-    transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
 
     // Unpack received particles
     let exchg_start = add_local_slots(iexchg, grid);
@@ -1040,7 +1026,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     if nremote > 0 {
-        transfer_between_devices(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+        transfer(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
     }
 
     // Synchronize borders with other ranks
@@ -1089,7 +1075,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     add_ghost_slots(irecv + nlocal, grid);
 
     if irecv > 0 {
-        transfer_between_devices(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+        transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
     }
 
     comm_buffer_iterate(const_comm_offsets, irecv, |index, _, recv_data| {

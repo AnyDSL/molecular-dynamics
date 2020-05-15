@@ -1,55 +1,48 @@
-fn @use_cpp_kernel() -> bool { false }
-
-extern "C" {
-    fn compute_fullneigh(i32, f64, &[f64], &[f64], &[i32], &[i32], i32) -> ();
+fn @(?n) pow(x: real_t, n: i32) -> real_t {
+    if n == 1 {
+        x
+    } else if n % 2 == 0 {
+        let y = pow(x, n / 2);
+        y * y
+    } else {
+        x * pow(x, n - 1)
+    }
 }
 
 fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: real_t, sigma: real_t) -> (i64, i64) {
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
+    let sigma6 = pow(sigma, 6);
 
-    if use_cpp_kernel() && use_aos() {
-        let x = get_array_of_reals(array_3d_to_buffer(grid.positions_cpu));
-        let f = get_array_of_reals(array_3d_to_buffer(grid.forces_cpu));
-        let neighbors = get_array_of_i32(grid.neighborlists_cpu);
-        let numneigh = get_array_of_i32(grid.neighbors_sizes_cpu);
+    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+        let mut force = Vector3D {
+            x: 0.0 as real_t,
+            y: 0.0 as real_t,
+            z: 0.0 as real_t
+        };
 
-        compute_fullneigh(grid.nparticles, rsq_cutoff, x, f, neighbors, numneigh, grid.neighborlist_capacity);
-    } else {
-        let square = @|x: real_t| { x * x };
-        let cube = @|x: real_t| { x * x * x };
-        let sigma6 = square(cube(sigma));
+        let pos = get_position(i, grid);
 
-        loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
-            let mut force = Vector3D {
-                x: 0.0 as real_t,
-                y: 0.0 as real_t,
-                z: 0.0 as real_t
-            };
+        for n in range(0, nb_list_size) {
+            let neighbor_index = neighborlists(get_neighborlist_index(i, n, grid));
+            let pos_neighbor = get_position(neighbor_index, grid);
+            let del = vector_sub(pos, pos_neighbor);
+            let rsq = vector_len2(del);
 
-            let pos = get_position(i, grid);
+            if rsq < rsq_cutoff {
+                let sr2 = 1.0 / rsq;
+                let sr6 = sr2 * sr2 * sr2 * sigma6;
+                let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
 
-            for n in range(0, nb_list_size) {
-                let neighbor_index = neighborlists(@@get_neighborlist_index(i, n, grid));
-                let pos_neighbor = get_position(neighbor_index, grid);
-                let del = vector_sub(pos, pos_neighbor);
-                let rsq = vector_len2(del);
-
-                if rsq < rsq_cutoff {
-                    let sr2 = 1.0 / rsq;
-                    let sr6 = sr2 * sr2 * sr2 * sigma6;
-                    let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
-
-                    force = vector_add(force, vector_scale(f, del));
-                    @@add_iterator(&mut rsq_iters);
-                }
-
-                @@add_iterator(&mut total_iters);
+                force = vector_add(force, vector_scale(f, del));
+                add_iterator(&mut rsq_iters);
             }
 
-            set_force(i, grid, force);
-        });
-    }
+            add_iterator(&mut total_iters);
+        }
+
+        set_force(i, grid, force);
+    });
 
     (total_iters, rsq_iters)
 }
@@ -75,7 +68,7 @@ fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
         set_velocity(i, grid, velocity);
         set_position(i, grid, position);
 
-        @@add_iterator(&mut iters);
+        add_iterator(&mut iters);
     });
 
     iters

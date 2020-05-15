@@ -275,13 +275,13 @@ int init_granular_gas(
     shift.y = 0.01;
     shift.z = 0.01;
 
-    uint_t nx = (uint_t)((aabb.max[0] - aabb.min[0]) / spacing);
-    uint_t ny = (uint_t)((aabb.max[1] - aabb.min[1]) / spacing);
-    uint_t nz = (uint_t)((aabb.max[2] - aabb.min[2]) / spacing);
+    int nx = (int)((aabb.max[0] - aabb.min[0]) / spacing);
+    int ny = (int)((aabb.max[1] - aabb.min[1]) / spacing);
+    int nz = (int)((aabb.max[2] - aabb.min[2]) / spacing);
 
-    for(uint_t x = 0; x < nx; x++) {
-        for(uint_t y = 0; y < ny; y++) {
-            for(uint_t z = 0; z < nz; z++) {
+    for(int x = 0; x < nx; x++) {
+        for(int y = 0; y < ny; y++) {
+            for(int z = 0; z < nz; z++) {
                 Vector3D pos;
                 Vector3D vel;
                 Vector3D dis;

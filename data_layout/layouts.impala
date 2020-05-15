@@ -1,0 +1,133 @@
+struct Array {
+    buffer: Buffer,
+    size_x: i32,
+    size_y: i32,
+    cluster_size: i32,
+    shift: i32,
+    mask: i32,
+    layout: i32
+};
+
+fn @get_shift_size(cluster_size: i32) -> i32 {
+    let mut cluster = cluster_size;
+    let mut shift = 0;
+
+    while cluster > 0 {
+        shift++;
+        cluster >>= 1;
+    }
+
+    shift
+}
+
+fn @null_array() -> Array {
+    let null_buf = Buffer {
+        device: 0,
+        data: 0 as &[i8],
+        size: 0 as i64
+    };
+
+    Array {
+        buffer: null_buf,
+        size_x: 0,
+        size_y: 0,
+        cluster_size: 0,
+        shift: 0,
+        mask: 0,
+        layout: 0
+    }
+}
+
+fn allocate_array(layout: i32, size_x: i32, size_y: i32, elem_size: i32, cluster_size: i32, allocate: fn(i32) -> Buffer) -> Array {
+    let mask = cluster_size - 1;
+    let shift = get_shift_size(cluster_size);
+
+    Array {
+        buffer: allocate(size_x * size_y * elem_size),
+        size_x: size_x,
+        size_y: size_y,
+        cluster_size: cluster_size,
+        shift: shift,
+        mask: mask,
+        layout: layout
+    }
+}
+
+fn @column_major_order_array(size_x: i32, size_y: i32, elem_size: i32, allocate: fn(i32) -> Buffer) -> Array {
+    allocate_array(1, size_x, size_y, elem_size, 0, allocate)
+}
+
+fn @row_major_order_array(size_x: i32, size_y: i32, elem_size: i32, allocate: fn(i32) -> Buffer) -> Array {
+    allocate_array(2, size_x, size_y, elem_size, 0, allocate)
+}
+
+fn @clustered_array(size_x: i32, size_y: i32, elem_size: i32, cluster_size: i32, allocate: fn(i32) -> Buffer) -> Array {
+    allocate_array(3, size_x, size_y, elem_size, cluster_size, allocate)
+}
+
+fn array_index(array: Array, x: i32, y: i32) -> i32 {
+    if array.layout == 1 {
+        x * array.size_y + y
+    } else if array.layout == 2 {
+        y * array.size_x + x
+    } else if array.layout == 3 {
+        let i = x >> array.shift;
+        let j = x & array.mask;
+        array.cluster_size * (i * array.size_y + y) + j
+    } else {
+        0
+    }
+}
+
+fn reallocate_array(array: &mut Array, size_x: i32, size_y: i32, elem_size: i32, @preserve: bool, allocate: fn(i32) -> Buffer) -> () {
+    let new_buffer = allocate(size_x * size_y * elem_size);
+
+    if preserve {
+        copy(array.buffer, new_buffer);
+    }
+
+    release(array.buffer);
+
+    (*array).buffer = new_buffer;
+    (*array).size_x = size_x;
+    (*array).size_y = size_y;
+}
+
+fn release_array(array: Array) -> () { release(array.buffer); }
+fn transfer_array(array_from: Array, array_to: Array) -> () { transfer(array_from.buffer, array_to.buffer); }
+
+fn map_over_vector(vector: Vector3D, func: fn(i32, real_t) -> ()) -> () {
+    func(0, vector.x);
+    func(1, vector.y);
+    func(2, vector.z);
+}
+
+fn swap_array_value(i: i32, j: i32, array: Array) -> () {
+    range(0, array.size_y, |y| {
+        let index_i = array_index(array, i, y);
+        let index_j = array_index(array, j, y);
+        let tmp = bitcast[&[real_t]](array.buffer.data)(index_i);
+        bitcast[&mut[real_t]](array.buffer.data)(index_i) = bitcast[&[real_t]](array.buffer.data)(index_j);
+        bitcast[&mut[real_t]](array.buffer.data)(index_j) = tmp;
+    });
+}
+
+fn set_array_value(array: Array, index: i32, vector: Vector3D) -> () {
+    map_over_vector(vector, @|v, value| {
+        bitcast[&mut[real_t]](array.buffer.data)(array_index(array, index, v)) = value;
+    });
+}
+
+fn get_array_value(array: Array, index: i32) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[real_t]](array.buffer.data)(array_index(array, index, 0)),
+        y: bitcast[&mut[real_t]](array.buffer.data)(array_index(array, index, 1)),
+        z: bitcast[&mut[real_t]](array.buffer.data)(array_index(array, index, 2))
+    }
+}
+
+fn copy_array_value(i: i32, j: i32, src: Array, dest: Array) -> () {
+    bitcast[&mut[real_t]](src.buffer.data)(array_index(dest, j, 0)) = bitcast[&[real_t]](src.buffer.data)(array_index(src, i, 0));
+    bitcast[&mut[real_t]](src.buffer.data)(array_index(dest, j, 1)) = bitcast[&[real_t]](src.buffer.data)(array_index(src, i, 1));
+    bitcast[&mut[real_t]](src.buffer.data)(array_index(dest, j, 2)) = bitcast[&[real_t]](src.buffer.data)(array_index(src, i, 2));
+}
