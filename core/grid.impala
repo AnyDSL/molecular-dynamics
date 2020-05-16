@@ -221,8 +221,8 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     };
 
     let realloc_arr = |arr, arr_acc| {
-        //reallocate_array_data(arr, capacity, 3, sizeof[real_t](), true, alloc_cpu);
-        //reallocate_array_data(arr_acc, capacity, 3, sizeof[real_t](), false, accelerator_allocate);
+        reallocate_array(arr, capacity, 3, sizeof[real_t](), true, alloc_cpu);
+        reallocate_array(arr_acc, capacity, 3, sizeof[real_t](), false, accelerator_allocate);
     };
 
     realloc_buf(&mut grid.particles_cell_cpu, &mut grid.particles_cell_accelerator, capacity, sizeof[i32](), false);
