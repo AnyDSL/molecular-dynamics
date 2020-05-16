@@ -135,12 +135,12 @@ fn get_cell_sizes(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(gri
 fn get_neighbors_sizes(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.neighbors_sizes_accelerator) }
 fn get_neighborlists(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.neighborlists_accelerator) }
 fn get_masses(grid: Grid) -> &mut[1][real_t] { get_array_of_reals_accelerator(grid.masses_accelerator) }
-fn get_position(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(grid.positions_accelerator, i) }
-fn set_position(i: i32, grid: Grid, position: Vector3D) -> () { set_array_value_accelerator(grid.positions_accelerator, i, position) }
-fn get_velocity(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(grid.velocities_accelerator, i) }
-fn set_velocity(i: i32, grid: Grid, velocity: Vector3D) -> () { set_array_value_accelerator(grid.velocities_accelerator, i, velocity) }
-fn get_force(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(grid.forces_accelerator, i) }
-fn set_force(i: i32, grid: Grid, force: Vector3D) -> () { set_array_value_accelerator(grid.forces_accelerator, i, force) }
+fn get_position(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(ParticleDataLayout(), grid.positions_accelerator, i) }
+fn set_position(i: i32, grid: Grid, position: Vector3D) -> () { set_array_value_accelerator(ParticleDataLayout(), grid.positions_accelerator, i, position) }
+fn get_velocity(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(ParticleDataLayout(), grid.velocities_accelerator, i) }
+fn set_velocity(i: i32, grid: Grid, velocity: Vector3D) -> () { set_array_value_accelerator(ParticleDataLayout(), grid.velocities_accelerator, i, velocity) }
+fn get_force(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(ParticleDataLayout(), grid.forces_accelerator, i) }
+fn set_force(i: i32, grid: Grid, force: Vector3D) -> () { set_array_value_accelerator(ParticleDataLayout(), grid.forces_accelerator, i, force) }
 fn get_send_buffer(comm_offsets: CommOffsets) -> &mut[1][real_t] { get_array_of_reals_accelerator(comm_offsets.send_buffer_accelerator) }
 fn get_send_offsets(comm_offsets: CommOffsets) -> &mut[1][i32] { get_array_of_i32_accelerator(comm_offsets.send_offsets_accelerator) }
 fn get_send_pbc(comm_offsets: CommOffsets) -> &mut[1][i8] { get_array_of_i8_accelerator(comm_offsets.send_pbc_accelerator) }

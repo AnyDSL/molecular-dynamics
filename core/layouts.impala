@@ -121,6 +121,20 @@ fn get_array_value(@layout: ArrayLayout, array: ArrayData, index: i32) -> Vector
     }
 }
 
+fn set_array_value_accelerator(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
+    map_over_vector(vector, @|v, value| {
+        bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, v)) = value;
+    });
+}
+
+fn get_array_value_accelerator(@layout: ArrayLayout, array: ArrayData, index: i32) -> Vector3D {
+    Vector3D {
+        x: bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, 0)),
+        y: bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, 1)),
+        z: bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, 2))
+    }
+}
+
 fn copy_array_value(@layout: ArrayLayout, src: ArrayData, dest: ArrayData, i: i32, j: i32) -> () {
     bitcast[&mut[real_t]](dest.buffer.data)(layout.index(dest, j, 0)) = bitcast[&[real_t]](src.buffer.data)(layout.index(src, i, 0));
     bitcast[&mut[real_t]](dest.buffer.data)(layout.index(dest, j, 1)) = bitcast[&[real_t]](src.buffer.data)(layout.index(src, i, 1));
