@@ -1,7 +1,9 @@
 struct ArrayData {
     buffer: Buffer,
+    buffer_host: Buffer,
     size_x: i32,
-    size_y: i32
+    size_y: i32,
+    host_mirror: bool
 };
 
 struct ArrayLayout {
@@ -25,16 +27,23 @@ fn @null_array() -> ArrayData {
 
     ArrayData {
         buffer: null_buf,
+        buffer_host: null_buf,
         size_x: 0,
-        size_y: 0
+        size_y: 0,
+        host_mirror: false
     }
 }
 
-fn allocate_array(size_x: i32, size_y: i32, elem_size: i32, allocate: fn(i32) -> Buffer) -> ArrayData {
+fn allocate_array(size_x: i32, size_y: i32, elem_size: i32, host_mirror: bool) -> ArrayData {
+    let dev = device();
+    let buffer = dev.alloc(size_x * size_y * elem_size);
+
     ArrayData {
-        buffer: allocate(size_x * size_y * elem_size),
+        buffer: buffer,
+        buffer_host: dev.alloc_mirror(buffer, size_x * size_y * elem_size),
         size_x: size_x,
         size_y: size_y,
+        host_mirror: host_mirror
     }
 }
 
@@ -67,76 +76,93 @@ fn @clustered_array(cluster_size: i32) -> ArrayLayout {
     }
 }
 
-fn reallocate_array(
-    array: &mut ArrayData,
-    size_x: i32,
-    size_y: i32,
-    elem_size: i32,
-    @preserve: bool,
-    allocate: fn(i32) -> Buffer) -> () {
-
-    let new_buffer = allocate(size_x * size_y * elem_size);
+fn reallocate_array(array: &mut ArrayData, size_x: i32, size_y: i32, elem_size: i32, @preserve: bool) -> () {
+    let dev = device();
+    let new_buffer = dev.alloc(size_x * size_y * elem_size);
+    let new_buffer_host = dev.alloc_mirror(new_buffer, size_x * size_y * elem_size);
 
     if preserve {
-        copy(array.buffer, new_buffer);
+        copy(array.buffer_host, new_buffer_host);
+        dev.transfer(new_buffer_host, new_buffer);
     }
 
-    release(array.buffer);
+    release_array(*array);
 
     (*array).buffer = new_buffer;
+    (*array).buffer_host = new_buffer_host;
     (*array).size_x = size_x;
     (*array).size_y = size_y;
 }
 
-fn release_array(array: ArrayData) -> () { release(array.buffer); }
-fn transfer_array(array_from: ArrayData, array_to: ArrayData) -> () { transfer(array_from.buffer, array_to.buffer); }
+fn release_array(array: ArrayData) -> () {
+    if !device().cpu_target() {
+        release(array.buffer);
+    }
 
-fn map_over_vector(vector: Vector3D, func: fn(i32, real_t) -> ()) -> () {
+    release(array.buffer_host);
+}
+
+fn @transfer_array_to_device(array: ArrayData) -> () { device().transfer(array.buffer_host, array.buffer); }
+fn @transfer_array_to_host(array: ArrayData) -> () { device().transfer(array.buffer, array.buffer_host); }
+
+fn @map_over_vector(vector: Vector3D, func: fn(i32, real_t) -> ()) -> () {
     func(0, vector.x);
     func(1, vector.y);
     func(2, vector.z);
 }
 
-fn swap_array_value(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> () {
+fn @array_data(array: ArrayData, @host: bool) -> &mut[real_t] {
+    if host {
+        get_host_mut_array_real(array.buffer_host)
+    } else {
+        device().get_mut_array_real(array.buffer)
+    }
+}
+
+fn @array_swp_op(@host: bool, @layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> () {
+    let data = array_data(array, host);
+
     range(0, array.size_y, |y| {
         let index_i = layout.index(array, i, y);
         let index_j = layout.index(array, j, y);
-        let tmp = bitcast[&[real_t]](array.buffer.data)(index_i);
-        bitcast[&mut[real_t]](array.buffer.data)(index_i) = bitcast[&[real_t]](array.buffer.data)(index_j);
-        bitcast[&mut[real_t]](array.buffer.data)(index_j) = tmp;
+        let tmp = data(index_i);
+        data(index_i) = data(index_j);
+        data(index_j) = tmp;
     });
 }
 
-fn set_array_value(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
+fn @array_set_op(@host: bool, @layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
+    let data = array_data(array, host);
+
     map_over_vector(vector, @|v, value| {
-        bitcast[&mut[real_t]](array.buffer.data)(layout.index(array, index, v)) = value;
+        data(layout.index(array, index, v)) = value;
     });
 }
 
-fn get_array_value(@layout: ArrayLayout, array: ArrayData, index: i32) -> Vector3D {
+fn @array_get_op(@host: bool, @layout: ArrayLayout, array: ArrayData, index: i32) -> Vector3D {
+    let data = array_data(array, host);
+
     Vector3D {
-        x: bitcast[&mut[real_t]](array.buffer.data)(layout.index(array, index, 0)),
-        y: bitcast[&mut[real_t]](array.buffer.data)(layout.index(array, index, 1)),
-        z: bitcast[&mut[real_t]](array.buffer.data)(layout.index(array, index, 2))
+        x: data(layout.index(array, index, 0)),
+        y: data(layout.index(array, index, 1)),
+        z: data(layout.index(array, index, 2))
     }
 }
 
-fn set_array_value_accelerator(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
-    map_over_vector(vector, @|v, value| {
-        bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, v)) = value;
-    });
+fn @array_cpy_op(@host: bool, @layout: ArrayLayout, src: ArrayData, dest: ArrayData, i: i32, j: i32) -> () {
+    let src_data = array_data(src, host);
+    let dest_data = array_data(dest, host);
+
+    dest_data(layout.index(dest, j, 0)) = src_data(layout.index(src, i, 0));
+    dest_data(layout.index(dest, j, 1)) = src_data(layout.index(src, i, 1));
+    dest_data(layout.index(dest, j, 2)) = src_data(layout.index(src, i, 2));
 }
 
-fn get_array_value_accelerator(@layout: ArrayLayout, array: ArrayData, index: i32) -> Vector3D {
-    Vector3D {
-        x: bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, 0)),
-        y: bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, 1)),
-        z: bitcast[&mut[1][real_t]](array.buffer.data)(layout.index(array, index, 2))
-    }
-}
-
-fn copy_array_value(@layout: ArrayLayout, src: ArrayData, dest: ArrayData, i: i32, j: i32) -> () {
-    bitcast[&mut[real_t]](dest.buffer.data)(layout.index(dest, j, 0)) = bitcast[&[real_t]](src.buffer.data)(layout.index(src, i, 0));
-    bitcast[&mut[real_t]](dest.buffer.data)(layout.index(dest, j, 1)) = bitcast[&[real_t]](src.buffer.data)(layout.index(src, i, 1));
-    bitcast[&mut[real_t]](dest.buffer.data)(layout.index(dest, j, 2)) = bitcast[&[real_t]](src.buffer.data)(layout.index(src, i, 2));
-}
+fn @array_swap(lyt: ArrayLayout, arr: ArrayData, i: i32, j: i32) -> ()                  { array_swp_op(false, lyt, arr, i, j); }
+fn @array_swap_host(lyt: ArrayLayout, arr: ArrayData, i: i32, j: i32) -> ()             { array_swp_op(true,  lyt, arr, i, j); }
+fn @array_set(lyt: ArrayLayout, arr: ArrayData, i: i32, v: Vector3D) -> ()              { array_set_op(false, lyt, arr, i, v); }
+fn @array_set_host(lyt: ArrayLayout, arr: ArrayData, i: i32, v: Vector3D) -> ()         { array_set_op(true,  lyt, arr, i, v); }
+fn @array_get(lyt: ArrayLayout, arr: ArrayData, i: i32) -> Vector3D                     { array_get_op(false, lyt, arr, i) }
+fn @array_get_host(lyt: ArrayLayout, arr: ArrayData, i: i32) -> Vector3D                { array_get_op(true,  lyt, arr, i) }
+fn @array_copy(lyt: ArrayLayout, s: ArrayData, d: ArrayData, i: i32, j: i32) -> ()      { array_cpy_op(false, lyt, s, d, i, j); }
+fn @array_copy_host(lyt: ArrayLayout, s: ArrayData, d: ArrayData, i: i32, j: i32) -> () { array_cpy_op(true,  lyt, s, d, i, j); }

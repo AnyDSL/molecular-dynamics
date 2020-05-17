@@ -47,6 +47,7 @@ else()
 endif()
 
 set(MD_SRCS
+    backend/device.impala
     core/compute.impala
     core/grid.impala
     core/layouts.impala

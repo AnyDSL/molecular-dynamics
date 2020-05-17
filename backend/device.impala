@@ -1,0 +1,15 @@
+struct Device {
+    cpu_target: fn() -> bool,
+    warmup: fn() -> (),
+    alloc: fn(i32) -> Buffer,
+    alloc_mirror: fn(Buffer, i32) -> Buffer,
+    transfer: fn(Buffer, Buffer) -> (),
+    get_array_i8: fn(Buffer) -> &[i8],
+    get_mut_array_i8: fn(Buffer) -> &mut[i8],
+    get_array_i32: fn(Buffer) -> &[i32],
+    get_mut_array_i32: fn(Buffer) -> &mut[i32],
+    get_array_real: fn(Buffer) -> &[real_t],
+    get_mut_array_real: fn(Buffer) -> &mut[real_t],
+    add_iterator: fn(&mut i64) -> (),
+    atomic_add_i32: fn(&mut i32, i32) -> i32
+};

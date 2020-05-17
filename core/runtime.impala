@@ -41,7 +41,7 @@ extern fn md_initialize_grid(
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm_offsets(grid_, &mut comm_offsets_);
 
-    warmup();
+    device().warmup();
 
     grid_.nparticles
 }
@@ -105,7 +105,7 @@ extern fn md_compute_boundary_weights(
     };
 
     range(0, grid_.nparticles + grid_.nghost, |particle_index| {
-        let pos = get_array_value(ParticleDataLayout(), grid_.positions_cpu, particle_index);
+        let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
 
         if is_within_domain(pos, aabb) {
             if particle_index < grid_.nparticles {
@@ -130,7 +130,7 @@ extern fn md_clear_domain(xmin: real_t, xmax: real_t, ymin: real_t, ymax: real_t
     let mut particle_index = 0;
 
     while particle_index < grid_.nparticles {
-        let pos = get_array_value(ParticleDataLayout(), grid_.positions_cpu, particle_index);
+        let pos = array_get(ParticleDataLayout(), grid_.positions, particle_index);
 
         if is_within_domain(pos, aabb) {
             delete_particle(particle_index, &mut grid_);
@@ -182,14 +182,14 @@ extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () { assemble_ne
 
 extern fn md_print_grid() -> () {
     range(0, grid_.nparticles, |particle_index| {
-        let pos = get_array_value(ParticleDataLayout(), grid_.positions_cpu, particle_index);
+        let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
         print_real_vector_with_rank("pos_local", pos);
     });
 }
 
 extern fn md_print_ghost() -> () {
     range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
-        let pos = get_array_value(ParticleDataLayout(), grid_.positions_cpu, particle_index);
+        let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
         print_real_vector_with_rank("pos_ghost", pos);
     });
 }
@@ -212,14 +212,14 @@ extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }
 
 extern fn md_get_mass(particle_index: i32) -> real_t { get_real(particle_index, grid_.masses_cpu) }
 extern fn md_get_position(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
-    let pos = get_array_value(ParticleDataLayout(), grid_.positions_cpu, particle_index);
+    let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
     *x = pos.x;
     *y = pos.y;
     *z = pos.z;
 }
 
 extern fn md_get_velocity(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
-    let vel = get_array_value(ParticleDataLayout(), grid_.velocities_cpu, particle_index);
+    let vel = array_get_host(ParticleDataLayout(), grid_.velocities, particle_index);
     *x = vel.x;
     *y = vel.y;
     *z = vel.z;

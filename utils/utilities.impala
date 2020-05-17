@@ -15,17 +15,9 @@ fn @outer_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
     }
 }
 
-fn @middle_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    range(lower, upper, body)
-}
-
-fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    range(lower, upper, body)
-}
-
-fn @release_host(buf: Buffer) -> () {
-    runtime_release_host(buf.device, buf.data)
-}
+fn @middle_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range(lower, upper, body) }
+fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range(lower, upper, body) }
+fn @release_host(buf: Buffer) -> () { runtime_release_host(buf.device, buf.data) }
 
 struct Vector3D {
     x: real_t,
@@ -59,69 +51,24 @@ fn @swap_real(i: i32, j: i32, buf: Buffer) -> () {
     set_real(j, buf, tmp);
 }
 
-fn @get_real(i: i32, buf: Buffer) -> real_t {
-    bitcast[&[real_t]](buf.data)(i)
-}
-
-fn @set_real(i: i32, buf: Buffer, value: real_t) -> () { 
-    bitcast[&mut[real_t]](buf.data)(i) = value;
-}
-
-fn @get_array_of_reals(buf: Buffer) -> &mut[real_t] {
-    bitcast[&mut[real_t]](buf.data)
-}
-
-fn @get_u8(i: i32, buf: Buffer) -> u8 {
-    bitcast[&[u8]](buf.data)(i)
-}
-
-fn @set_u8(i: i32, buf: Buffer, value: u8) -> () {
-    bitcast[&mut[u8]](buf.data)(i) = value;
-}
-
-fn @get_i8(i: i32, buf: Buffer) -> i8 {
-    bitcast[&[i8]](buf.data)(i)
-}
-
-fn @set_i8(i: i32, buf: Buffer, value: i8) -> () {
-    bitcast[&mut[i8]](buf.data)(i) = value;
-}
-
-fn @get_i32(i: i32, buf: Buffer) -> i32 {
-    bitcast[&[i32]](buf.data)(i)
-}
-
-fn @set_i32(i: i32, buf: Buffer, value: i32) -> () {
-    bitcast[&mut[i32]](buf.data)(i) = value;
-}
-
-fn @get_i64(i: i32, buf: Buffer) -> i64 {
-    bitcast[&[i64]](buf.data)(i)
-}
-
-fn @set_i64(i: i32, buf: Buffer, value: i64) -> () {
-    bitcast[&mut[i64]](buf.data)(i) = value;
-}
-
-fn @get_array_of_i32(buf: Buffer) -> &mut[i32] {
-    bitcast[&mut[i32]](buf.data)
-}
-
-fn @get_array_of_i8(buf: Buffer) -> &mut[i8] {
-    bitcast[&mut[i8]](buf.data)
-}
-
-fn @get_bool(i: i32, buf: Buffer) -> bool {
-    bitcast[&[bool]](buf.data)(i)
-}
-
-fn @set_bool(i: i32, buf: Buffer, value: bool) -> () { 
-    bitcast[&mut[bool]](buf.data)(i) = value;
-}
-
-fn @min_i32(a: i32, b: i32) -> i32 {
-    if(a < b) {a} else {b}
-}
+fn get_host_array_real(buf: Buffer) -> &[real_t] { bitcast[&[real_t]](buf.data) }
+fn get_host_mut_array_real(buf: Buffer) -> &mut[real_t] { bitcast[&mut[real_t]](buf.data) }
+fn get_real(i: i32, buf: Buffer) -> real_t { bitcast[&[real_t]](buf.data)(i) }
+fn set_real(i: i32, buf: Buffer, value: real_t) -> () { bitcast[&mut[real_t]](buf.data)(i) = value; }
+fn get_array_of_reals(buf: Buffer) -> &mut[real_t] { bitcast[&mut[real_t]](buf.data) }
+fn get_u8(i: i32, buf: Buffer) -> u8 { bitcast[&[u8]](buf.data)(i) }
+fn set_u8(i: i32, buf: Buffer, value: u8) -> () { bitcast[&mut[u8]](buf.data)(i) = value; }
+fn get_i8(i: i32, buf: Buffer) -> i8 { bitcast[&[i8]](buf.data)(i) }
+fn set_i8(i: i32, buf: Buffer, value: i8) -> () { bitcast[&mut[i8]](buf.data)(i) = value; }
+fn get_i32(i: i32, buf: Buffer) -> i32 { bitcast[&[i32]](buf.data)(i) }
+fn set_i32(i: i32, buf: Buffer, value: i32) -> () { bitcast[&mut[i32]](buf.data)(i) = value; }
+fn get_i64(i: i32, buf: Buffer) -> i64 { bitcast[&[i64]](buf.data)(i) }
+fn set_i64(i: i32, buf: Buffer, value: i64) -> () { bitcast[&mut[i64]](buf.data)(i) = value; }
+fn get_array_of_i32(buf: Buffer) -> &mut[i32] { bitcast[&mut[i32]](buf.data) }
+fn get_array_of_i8(buf: Buffer) -> &mut[i8] { bitcast[&mut[i8]](buf.data) }
+fn get_bool(i: i32, buf: Buffer) -> bool { bitcast[&[bool]](buf.data)(i) }
+fn set_bool(i: i32, buf: Buffer, value: bool) -> () { bitcast[&mut[bool]](buf.data)(i) = value; }
+fn @min_i32(a: i32, b: i32) -> i32 { if(a < b) {a} else {b} }
 
 fn @vector_map(a: Vector3D, f: fn (real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x), y: f(a.y), z: f(a.z) } }
 fn @vector_zip(a: Vector3D, b: Vector3D, f: fn (real_t, real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }
