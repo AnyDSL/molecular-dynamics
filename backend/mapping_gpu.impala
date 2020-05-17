@@ -3,16 +3,28 @@ fn @is_sse() -> bool { false }
 fn @is_avx() -> bool { false }
 fn @is_avx2() -> bool { false }
 
-fn add_iterator(iterator: &mut i64) -> () {}
-fn transfer(from: Buffer, to: Buffer) -> () { copy(from, to); }
-fn accelerator_allocate(size: i32) -> Buffer { accelerator(device_id).alloc(size) }
+fn @device() -> Device {
+    Device {
+        cpu_target: @|| { false },
+        warmup: || {
+            let acc = accelerator(device_id);
+            let grid_size = (32, 1, 1);
+            let block_size = (32, 1, 1);
 
-fn warmup() -> () {
-    let acc = accelerator(device_id);
-    let grid_size = (32, 1, 1);
-    let block_size = (32, 1, 1);
-
-    acc.exec(grid_size, block_size, |work_item| {});
+            acc.exec(grid_size, block_size, |work_item| {});
+        },
+        alloc: |size| { accelerator(device_id).alloc(size) },
+        alloc_mirror: |buf, size| { alloc_cpu(size) },
+        transfer: |from, to| { copy(from, to); },
+        get_array_i8: |buffer| { bitcast[&[i8]](buffer.data) },
+        get_mut_array_i8: |buffer| { bitcast[&mut[i8]](buffer.data) },
+        get_array_i32: |buffer| { bitcast[&[i32]](buffer.data) },
+        get_mut_array_i32: |buffer| { bitcast[&mut[i32]](buffer.data) },
+        get_array_real: |buffer| { bitcast[&[real_t]](buffer.data) },
+        get_mut_array_real: |buffer| { bitcast[&mut[real_t]](buffer.data) },
+        add_iterator: |iterator| {},
+        atomic_add_i32: @|ptr, value| { nvvm_atomic_add_global(ptr as &mut[1]i32, value) }
+    }
 }
 
 fn loop_accelerator(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> () {
@@ -100,8 +112,6 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
     }
 }
 
-fn atomic_add_i32(ptr: &mut[1]i32, value: i32) -> i32 { nvvm_atomic_add_global(ptr as &mut[1]i32, value) }
-
 fn set_counter(value: i32, comm_offsets: CommOffsets) -> () {
     bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0) = value;
     copy(comm_offsets.counter_buffer, comm_offsets.counter_buffer_accelerator);
@@ -131,16 +141,16 @@ fn get_resize_buffer(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(
 fn get_send_flags(grid: Grid) -> &mut[1][i8] { get_array_of_i8_accelerator(grid.send_flags_accelerator) }
 fn get_particles_cell(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.particles_cell_accelerator) }
 fn get_cell_particles(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.cell_particles_accelerator) }
-fn get_cell_sizes(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.cell_sizes_accelerator) }
+fn get_cell_sizes(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_sizes_accelerator) }
 fn get_neighbors_sizes(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.neighbors_sizes_accelerator) }
 fn get_neighborlists(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.neighborlists_accelerator) }
 fn get_masses(grid: Grid) -> &mut[1][real_t] { get_array_of_reals_accelerator(grid.masses_accelerator) }
-fn get_position(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(ParticleDataLayout(), grid.positions_accelerator, i) }
-fn set_position(i: i32, grid: Grid, position: Vector3D) -> () { set_array_value_accelerator(ParticleDataLayout(), grid.positions_accelerator, i, position) }
-fn get_velocity(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(ParticleDataLayout(), grid.velocities_accelerator, i) }
-fn set_velocity(i: i32, grid: Grid, velocity: Vector3D) -> () { set_array_value_accelerator(ParticleDataLayout(), grid.velocities_accelerator, i, velocity) }
-fn get_force(i: i32, grid: Grid) -> Vector3D { get_array_value_accelerator(ParticleDataLayout(), grid.forces_accelerator, i) }
-fn set_force(i: i32, grid: Grid, force: Vector3D) -> () { set_array_value_accelerator(ParticleDataLayout(), grid.forces_accelerator, i, force) }
+fn get_position(i: i32, grid: Grid) -> Vector3D { array_get(ParticleDataLayout(), grid.positions, i) }
+fn set_position(i: i32, grid: Grid, position: Vector3D) -> () { array_set(ParticleDataLayout(), grid.positions, i, position) }
+fn get_velocity(i: i32, grid: Grid) -> Vector3D { array_get(ParticleDataLayout(), grid.velocities, i) }
+fn set_velocity(i: i32, grid: Grid, velocity: Vector3D) -> () { array_set(ParticleDataLayout(), grid.velocities, i, velocity) }
+fn get_force(i: i32, grid: Grid) -> Vector3D { array_get(ParticleDataLayout(), grid.forces, i) }
+fn set_force(i: i32, grid: Grid, force: Vector3D) -> () { array_set(ParticleDataLayout(), grid.forces, i, force) }
 fn get_send_buffer(comm_offsets: CommOffsets) -> &mut[1][real_t] { get_array_of_reals_accelerator(comm_offsets.send_buffer_accelerator) }
 fn get_send_offsets(comm_offsets: CommOffsets) -> &mut[1][i32] { get_array_of_i32_accelerator(comm_offsets.send_offsets_accelerator) }
 fn get_send_pbc(comm_offsets: CommOffsets) -> &mut[1][i8] { get_array_of_i8_accelerator(comm_offsets.send_pbc_accelerator) }
