@@ -4,12 +4,12 @@ struct Device {
     alloc: fn(i32) -> Buffer,
     alloc_mirror: fn(Buffer, i32) -> Buffer,
     transfer: fn(Buffer, Buffer) -> (),
-    get_array_i8: fn(Buffer) -> &[i8],
-    get_mut_array_i8: fn(Buffer) -> &mut[i8],
-    get_array_i32: fn(Buffer) -> &[i32],
-    get_mut_array_i32: fn(Buffer) -> &mut[i32],
-    get_array_real: fn(Buffer) -> &[real_t],
-    get_mut_array_real: fn(Buffer) -> &mut[real_t],
+    get_array_i8: fn(Buffer) -> dev_i8_arr,
+    get_mut_array_i8: fn(Buffer) -> dev_mut_i8_arr,
+    get_array_i32: fn(Buffer) -> dev_i32_arr,
+    get_mut_array_i32: fn(Buffer) -> dev_mut_i32_arr,
+    get_array_real: fn(Buffer) -> dev_real_arr,
+    get_mut_array_real: fn(Buffer) -> dev_mut_real_arr,
     add_iterator: fn(&mut i64) -> (),
-    atomic_add_i32: fn(&mut i32, i32) -> i32
+    atomic_add_i32: fn(dev_i32_ptr, i32) -> i32
 };
