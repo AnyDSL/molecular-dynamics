@@ -4,6 +4,14 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
+type dev_i8_arr       = &[i8];
+type dev_mut_i8_arr   = &[i8];
+type dev_i32_arr      = &[i32];
+type dev_mut_i32_arr  = &mut [i32];
+type dev_i32_ptr      = &mut i32;
+type dev_real_arr     = &[real_t];
+type dev_mut_real_arr = &mut[real_t];
+
 fn @device() -> Device {
     Device {
         cpu_target: @|| { true },
