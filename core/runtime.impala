@@ -192,11 +192,11 @@ extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
 extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }
 extern fn md_get_send_buffer_value(index: i32) -> real_t { get_real(index, comm_offsets_.send_offsets) }
 
-extern fn md_serialize_particles(aabb: AABB, c_aabb: AABB, child: bool) -> u32 {
+extern fn md_serialize_particles(aabb: AABB, c_aabb: AABB, child: bool) -> i32 {
     serialize_particles(&mut grid_, &mut comm_offsets_, aabb, c_aabb, child)
 }
 
-extern fn md_deserialize_particles(buffer: &[real_t], nparticles: u32) -> () {
+extern fn md_deserialize_particles(buffer: &[real_t], nparticles: i32) -> () {
     deserialize_particles(&mut grid_, &mut comm_offsets_, buffer, nparticles);
 }
 

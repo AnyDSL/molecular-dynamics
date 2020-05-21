@@ -1,4 +1,4 @@
-fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AABB, c_aabb: AABB, check_child: bool) -> u32 {
+fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AABB, c_aabb: AABB, check_child: bool) -> i32 {
     if check_child {
         serialize_and_remove(grid, comm_offsets, @|p| {
             p.x > aabb.xmin && p.x < aabb.xmax && p.y > aabb.ymin && p.y < aabb.ymax && p.y > aabb.zmin && p.z < aabb.zmax &&
@@ -11,7 +11,7 @@ fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AA
     }
 }
 
-fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: fn(Vector3D) -> bool) -> u32 {
+fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: fn(Vector3D) -> bool) -> i32 {
     let dev = device();
     let mut resize = 1;
 
@@ -108,16 +108,16 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     });
 
     grid.nparticles -= packed;
-    packed as u32
+    packed
 }
 
-fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, array: &[real_t], nparticles: u32) -> () {
+fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, array: &[real_t], nparticles: i32) -> () {
     grid.nghost = 0;
 
-    let start = add_local_slots(nparticles as i32, grid);
+    let start = add_local_slots(nparticles, grid);
     let const_grid = *grid;
 
-    array_iterate(array, nparticles as i32, |index, data| {
+    array_iterate(array, nparticles, |index, data| {
         let buffer_index = index * 7 + 1; 
         let offset = start + index;
         let masses = get_masses(const_grid);

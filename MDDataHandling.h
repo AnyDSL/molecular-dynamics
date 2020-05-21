@@ -75,7 +75,7 @@ private:
         const auto aabb = block->getAABB();
         auto ptr = buffer.allocate<uint_t>();
         double aabb_check[6], aabb_child_check[6];
-        unsigned long int nparticles;
+        int nparticles;
 
         aabb_check[0] = aabb.xMin();
         aabb_check[1] = aabb.xMax();
@@ -102,13 +102,13 @@ private:
             buffer << md_get_send_buffer_value(i);
         }
 
-        *ptr = nparticles;
+        *ptr = (uint_t) nparticles;
     }
 
     void deserializeImpl(IBlock *const, const BlockDataID&, mpi::RecvBuffer& buffer) {
         uint_t nparticles;
         buffer >> nparticles;
-        md_deserialize_particles((double *) buffer.ptr(), nparticles);
+        md_deserialize_particles((double *) buffer.ptr(), (int) nparticles);
     }
 };
 
