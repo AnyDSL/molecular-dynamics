@@ -10,7 +10,7 @@ class ParticleDeleter {
 
 public:
     ParticleDeleter(const math::AABB& aabb) : aabb_(aabb) {}
-    ~ParticleDeleter() { md_clear_domain(aabb_.xMin(), aabb_.xMax(), aabb_.yMin(), aabb_.yMax(), aabb_.zMin(), aabb_.zMax()); }
+    ~ParticleDeleter() {}
 
 private:
     math::AABB aabb_;
@@ -32,32 +32,8 @@ public:
         return new internal::ParticleDeleter(block->getAABB());
     }
 
-    virtual void serialize(IBlock *const block, const BlockDataID&, mpi::SendBuffer& buffer) WALBERLA_OVERRIDE {
-        uint_t packed_particles = 0;
-        auto ptr = buffer.allocate<uint_t>();
-
-        for(int i = 0; i < md_get_number_of_particles(); ++i) {
-            double px, py, pz;
-
-            md_get_position(i, &px, &py, &pz);
-
-            if(block->getAABB().contains(px, py, pz)) {
-                double vx, vy, vz;
-
-                md_get_velocity(i, &vx, &vy, &vz);
-
-                buffer << md_get_mass(i);
-                buffer << px;
-                buffer << py;
-                buffer << pz;
-                buffer << vx;
-                buffer << vy;
-                buffer << vz;
-                packed_particles++;
-            }
-        }
-
-        *ptr = packed_particles;
+    virtual void serialize(IBlock *const block, const BlockDataID& id, mpi::SendBuffer& buffer) WALBERLA_OVERRIDE {
+        serializeImpl(static_cast<Block *const>(block), id, buffer, 0, false);
     }
 
     virtual internal::ParticleDeleter* deserialize(IBlock *const block) WALBERLA_OVERRIDE {
@@ -68,68 +44,13 @@ public:
         deserializeImpl(block, id, buffer);
     }
 
-    virtual void serializeCoarseToFine(
-        Block *const block,
-        const BlockDataID&,
-        mpi::SendBuffer& buffer,
-        const uint_t child) WALBERLA_OVERRIDE {
-
-        const auto child_id = BlockID(block->getId(), child);
-        const auto child_aabb = block->getForest().getAABBFromBlockId(child_id);
-        uint_t packed_particles = 0;
-
-        auto ptr = buffer.allocate<uint_t>();
-
-        for(int i = 0; i < md_get_number_of_particles(); ++i) {
-            double px, py, pz;
-
-            md_get_position(i, &px, &py, &pz);
-
-            if(block->getAABB().contains(px, py, pz) && child_aabb.contains(px, py, pz)) {
-                double vx, vy, vz;
-
-                md_get_velocity(i, &vx, &vy, &vz);
-
-                buffer << md_get_mass(i);
-                buffer << px;
-                buffer << py;
-                buffer << pz;
-                buffer << vx;
-                buffer << vy;
-                buffer << vz;
-                packed_particles++;
-            }
-        }
-
-        *ptr = packed_particles;
+    virtual void serializeCoarseToFine(Block *const block, const BlockDataID& id, mpi::SendBuffer& buffer, const uint_t child)
+        WALBERLA_OVERRIDE {
+        serializeImpl(block, id, buffer, child, true);
     }
 
-    virtual void serializeFineToCoarse(Block *const block, const BlockDataID&, mpi::SendBuffer& buffer) WALBERLA_OVERRIDE {
-        uint_t packed_particles = 0;
-        auto ptr = buffer.allocate<uint_t>();
-
-        for(int i = 0; i < md_get_number_of_particles(); ++i) {
-            double px, py, pz;
-
-            md_get_position(i, &px, &py, &pz);
-
-            if(block->getAABB().contains(px, py, pz)) {
-                double vx, vy, vz;
-
-                md_get_velocity(i, &vx, &vy, &vz);
-
-                buffer << md_get_mass(i);
-                buffer << px;
-                buffer << py;
-                buffer << pz;
-                buffer << vx;
-                buffer << vy;
-                buffer << vz;
-                packed_particles++;
-            }
-        }
-
-        *ptr = packed_particles;
+    virtual void serializeFineToCoarse(Block *const block, const BlockDataID& id, mpi::SendBuffer& buffer) WALBERLA_OVERRIDE {
+        serializeImpl(block, id, buffer, 0, false);
     }
 
     virtual internal::ParticleDeleter *deserializeCoarseToFine(Block *const block) WALBERLA_OVERRIDE {
@@ -144,38 +65,43 @@ public:
         deserializeImpl(block, id, buffer);
     }
 
-    virtual void deserializeFineToCoarse(
-        Block *const block,
-        const BlockDataID& id,
-        mpi::RecvBuffer& buffer,
-        const uint_t) WALBERLA_OVERRIDE {
-
+    virtual void deserializeFineToCoarse(Block *const block, const BlockDataID& id, mpi::RecvBuffer& buffer, const uint_t)
+        WALBERLA_OVERRIDE {
         deserializeImpl(block, id, buffer);
     }
 
 private:
-    void deserializeImpl(IBlock *const block, const BlockDataID&, mpi::RecvBuffer& buffer) {
+    void serializeImpl(Block *const block, const BlockDataID&, mpi::SendBuffer& buffer, const uint_t child, bool check_child) {
+        auto ptr = buffer.allocate<uint_t>();
+        double aabb_check[6], aabb_child_check[6];
+        const auto aabb = block->getAABB();
+
+        aabb_check[0] = aabb.xMin();
+        aabb_check[1] = aabb.xMax();
+        aabb_check[2] = aabb.yMin();
+        aabb_check[3] = aabb.yMax();
+        aabb_check[4] = aabb.zMin();
+        aabb_check[5] = aabb.zMax();
+
+        if(check_child) {
+            const auto child_id = BlockID(block->getId(), child);
+            const auto child_aabb = block->getForest().getAABBFromBlockId(child_id);
+
+            aabb_child_check[0] = child_aabb.xMin();
+            aabb_child_check[1] = child_aabb.xMax();
+            aabb_child_check[2] = child_aabb.yMin();
+            aabb_child_check[3] = child_aabb.yMax();
+            aabb_child_check[4] = child_aabb.zMin();
+            aabb_child_check[5] = child_aabb.zMax();
+        }
+
+        *ptr = md_serialize_particles((double *) buffer.ptr(), aabb_check, aabb_child_check, check_child);
+    }
+
+    void deserializeImpl(IBlock *const, const BlockDataID&, mpi::RecvBuffer& buffer) {
         uint_t nparticles;
         buffer >> nparticles;
-
-        while(nparticles > 0) {
-            double mass, px, py, pz, vx, vy, vz;
-
-            buffer >> mass;
-            buffer >> px;
-            buffer >> py;
-            buffer >> pz;
-            buffer >> vx;
-            buffer >> vy;
-            buffer >> vz;
-
-            if(!block->getAABB().contains(px, py, pz)) {
-                WALBERLA_ABORT("deserializeImpl: particle is not within domain!\n");
-            }
-
-            md_create_particle(mass, px, py, pz, vx, vy, vz);
-            --nparticles; 
-        }
+        md_deserialize_particles((double *) buffer.ptr(), nparticles);
     }
 };
 

@@ -86,6 +86,12 @@ fn comm_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, 
     });
 }
 
+fn array_iterate(array: &[real_t], n: i32, body: fn(i32, &[real_t]) -> ()) -> () {
+    range(0, n, |index| {
+        @@body(index, array);
+    });
+}
+
 fn set_counter(value: i32, comm_offsets: &CommOffsets) -> () { bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0) = value; }
 fn get_counter(comm_offsets: &CommOffsets) -> i32 { bitcast[&[i32]](comm_offsets.counter_buffer.data)(0) }
 fn add_counter(comm_offsets: &CommOffsets) -> i32 { bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0)++ }

@@ -54,6 +54,7 @@ set(MD_SRCS
     core/neighborlist.impala
     core/runtime.impala
     comm/comm.impala
+    comm/lb.impala
     utils/atomic.impala
     utils/definitions.impala
     utils/utilities.impala

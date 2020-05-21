@@ -7,37 +7,30 @@ static mut integration_iters : i64;
 extern fn md_set_thread_count(thread_count: i32) -> () { set_thread_count(thread_count); }
 
 extern fn md_initialize_grid(
-    masses: &[real_t],
-    positions: &[Vector3D],
-    velocities: &[Vector3D],
-    nparticles: i32,
-    min: &[real_t],
-    max: &[real_t],
-    rank_min: &[real_t],
-    rank_max: &[real_t],
+    masses: &[real_t], positions: &[Vector3D], velocities: &[Vector3D], nparticles: i32,
+    aabb: &[real_t], rank_aabb: &[real_t],
     cell_spacing: real_t,
-    cell_capacity: i32,
-    neighborlist_capacity: i32) -> i32 {
+    cell_capacity: i32, neighborlist_capacity: i32) -> i32 {
 
     let world_aabb = AABB {
-        xmin: min(0),
-        xmax: max(0),
-        ymin: min(1),
-        ymax: max(1),
-        zmin: min(2),
-        zmax: max(2)
+        xmin: aabb(0),
+        xmax: aabb(1),
+        ymin: aabb(2),
+        ymax: aabb(3),
+        zmin: aabb(4),
+        zmax: aabb(5)
     };
 
-    let rank_aabb = AABB {
-        xmin: rank_min(0) - cell_spacing,
-        xmax: rank_max(0) + cell_spacing,
-        ymin: rank_min(1) - cell_spacing,
-        ymax: rank_max(1) + cell_spacing,
-        zmin: rank_min(2) - cell_spacing,
-        zmax: rank_max(2) + cell_spacing
+    let ext_rank_aabb = AABB {
+        xmin: rank_aabb(0) - cell_spacing,
+        xmax: rank_aabb(1) + cell_spacing,
+        ymin: rank_aabb(2) - cell_spacing,
+        ymax: rank_aabb(3) + cell_spacing,
+        zmin: rank_aabb(4) - cell_spacing,
+        zmax: rank_aabb(5) + cell_spacing
     };
 
-    grid_ = allocate_grid(world_aabb, rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
+    grid_ = allocate_grid(world_aabb, ext_rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm_offsets(grid_, &mut comm_offsets_);
 
@@ -46,54 +39,42 @@ extern fn md_initialize_grid(
     grid_.nparticles
 }
 
-extern fn md_rescale_grid(min: &[real_t], max: &[real_t]) -> () {
+extern fn md_rescale_grid(aabb_data: &[real_t]) -> () {
     let aabb = AABB {
-        xmin: min(0) - grid_.spacing,
-        xmax: max(0) + grid_.spacing,
-        ymin: min(1) - grid_.spacing,
-        ymax: max(1) + grid_.spacing,
-        zmin: min(2) - grid_.spacing,
-        zmax: max(2) + grid_.spacing
+        xmin: aabb_data(0) - grid_.spacing,
+        xmax: aabb_data(1) + grid_.spacing,
+        ymin: aabb_data(2) - grid_.spacing,
+        ymax: aabb_data(3) + grid_.spacing,
+        zmin: aabb_data(4) - grid_.spacing,
+        zmax: aabb_data(5) + grid_.spacing
     };
 
     rescale_grid(&mut grid_, aabb);
 }
 
-extern fn md_get_node_bounding_box(
-    min: &[real_t],
-    max: &[real_t],
-    rank_min: &mut[real_t * 3],
-    rank_max: &mut[real_t * 3]) -> () {
-
+extern fn md_get_node_bounding_box(aabb_data: &[real_t], rank_data: &mut[real_t]) -> () {
     let aabb = AABB {
-        xmin: min(0),
-        xmax: max(0),
-        ymin: min(1),
-        ymax: max(1),
-        zmin: min(2),
-        zmax: max(2)
+        xmin: aabb_data(0),
+        xmax: aabb_data(1),
+        ymin: aabb_data(2),
+        ymax: aabb_data(3),
+        zmin: aabb_data(4),
+        zmax: aabb_data(5)
     };
 
     let rank_aabb = get_node_bounding_box(aabb);
 
-    rank_min(0) = rank_aabb.xmin;
-    rank_min(1) = rank_aabb.ymin;
-    rank_min(2) = rank_aabb.zmin;
-
-    rank_max(0) = rank_aabb.xmax;
-    rank_max(1) = rank_aabb.ymax;
-    rank_max(2) = rank_aabb.zmax;
+    rank_data(0) = rank_aabb.xmin;
+    rank_data(1) = rank_aabb.xmax;
+    rank_data(2) = rank_aabb.ymin;
+    rank_data(3) = rank_aabb.ymax;
+    rank_data(4) = rank_aabb.zmin;
+    rank_data(5) = rank_aabb.zmax;
 }
 
 extern fn md_compute_boundary_weights(
-    xmin: real_t,
-    xmax: real_t,
-    ymin: real_t,
-    ymax: real_t,
-    zmin: real_t,
-    zmax: real_t,
-    computational_weight: &mut u32,
-    communication_weight: &mut u32) -> () {
+    xmin: real_t, xmax: real_t, ymin: real_t, ymax: real_t, zmin: real_t, zmax: real_t,
+    computational_weight: &mut u32, communication_weight: &mut u32) -> () {
 
     let aabb = AABB {
         xmin: xmin,
@@ -209,6 +190,14 @@ extern fn md_get_world_size() -> i32 { get_world_size() }
 extern fn md_get_world_rank() -> i32 { get_process_rank() }
 extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
 extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }
+
+extern fn md_serialize_particles(buffer: &[real_t], aabb: AABB, c_aabb: AABB, child: bool) -> u32 {
+    serialize_particles(&mut grid_, &mut comm_offsets_, buffer, aabb, c_aabb, child)
+}
+
+extern fn md_deserialize_particles(buffer: &[real_t], nparticles: u32) -> () {
+    deserialize_particles(&mut grid_, &mut comm_offsets_, buffer, nparticles);
+}
 
 extern fn md_get_mass(particle_index: i32) -> real_t { get_real(particle_index, grid_.masses_cpu) }
 extern fn md_get_position(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {

@@ -7,11 +7,8 @@ extern "C" {
         double y;
         double z;
     };
-    int md_initialize_grid(
-        double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double const *, double const *,
-        double, int, int
-    );
-    void md_rescale_grid(double const *, double const *);
+    int md_initialize_grid(double const *, Vector3D const *, Vector3D const *, int, double const *, double const *, double, int, int);
+    void md_rescale_grid(double const *);
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
     void md_integration(double);
@@ -35,6 +32,8 @@ extern "C" {
     void md_synchronize_ghost_layer();
     void md_borders();
     void md_exchange_particles();
+    long unsigned int md_serialize_particles(double *, double const *, double const *, bool);
+    void md_deserialize_particles(double *, long unsigned int);
     int md_get_world_size();
     int md_get_world_rank();
     int md_get_number_of_particles();
@@ -43,7 +42,7 @@ extern "C" {
     void md_get_position(int, double *, double *, double *);
     void md_get_velocity(int, double *, double *, double *);
     void md_create_particle(double, double, double, double, double, double, double);
-    void md_get_node_bounding_box(double const *, double const *, double (*)[3], double (*)[3]);
+    void md_get_node_bounding_box(double const *, double (*)[6]);
     void md_compute_boundary_weights(double, double, double, double, double, double, unsigned long int *, unsigned long int *);
     void md_clear_domain(double, double, double, double, double, double);
     void md_report_iterations();

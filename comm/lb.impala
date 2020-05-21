@@ -1,0 +1,139 @@
+fn serialize_particles(
+    grid: &mut Grid, comm_offsets: &mut CommOffsets, buffer: &[real_t],
+    aabb: AABB, c_aabb: AABB, check_child: bool) -> u32 {
+
+    if check_child {
+        serialize_and_remove(grid, comm_offsets, buffer, @|p| {
+            p.x > aabb.xmin && p.x < aabb.xmax && p.y > aabb.ymin && p.y < aabb.ymax && p.y > aabb.zmin && p.z < aabb.zmax &&
+            p.x > c_aabb.xmin && p.x < c_aabb.xmax && p.y > c_aabb.ymin && p.y < c_aabb.ymax && p.y > c_aabb.zmin && p.z < c_aabb.zmax
+        })
+    } else { 
+        serialize_and_remove(grid, comm_offsets, buffer, @|p| {
+            p.x > aabb.xmin && p.x < aabb.xmax && p.y > aabb.ymin && p.y < aabb.ymax && p.z > aabb.zmin && p.z < aabb.zmax
+        })
+    }
+}
+
+fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, buffer: &[real_t], check: fn(Vector3D) -> bool) -> u32 {
+    let dev = device();
+    let mut resize = 1;
+
+    while resize > 0 {
+        let const_grid = *grid;
+        let const_comm_offsets = *comm_offsets;
+        let world_aabb = const_grid.world_aabb;
+
+        set_counter(0, const_comm_offsets);
+        reset_resize(const_grid);
+
+        loop_accelerator(const_grid, |i, _, _, _| {
+            let masses = get_masses(const_grid);
+            let resize_buf = get_resize_buffer(const_grid);
+            let send_flags = get_send_flags(const_grid);
+            let buffer = get_send_buffer(const_comm_offsets);
+            let send_offsets = get_send_offsets(const_comm_offsets);
+            let pos = get_position(i, const_grid);
+
+            if check(pos) {
+                let counter = add_counter(const_comm_offsets);
+
+                if counter >= const_comm_offsets.send_capacity {
+                    if resize_buf(0) < counter {
+                        resize_buf(0) = counter;
+                    }
+                } else {
+                    let vel = get_velocity(i, const_grid);
+                    let index = counter * 7;
+
+                    buffer(index + 0) = masses(i);
+                    buffer(index + 1) = pos.x;
+                    buffer(index + 2) = pos.y;
+                    buffer(index + 3) = pos.z;
+                    buffer(index + 4) = vel.x;
+                    buffer(index + 5) = vel.y;
+                    buffer(index + 6) = vel.z;
+                    send_offsets(counter) = i;
+                    send_flags(i) = 1 as i8;
+                }
+            } else {
+                send_flags(i) = 0 as i8;
+            }
+        });
+
+        resize = get_resize(const_grid);
+
+        if resize > 0 {
+            resize_send_capacity(comm_offsets, resize * 2);
+        }
+    }
+
+    dev.transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
+    dev.transfer(grid.send_flags_accelerator, grid.send_flags_cpu);
+
+    let packed = get_counter(*comm_offsets);
+    let nparticles = grid.nparticles - packed;
+    let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
+    let send_offsets_host = get_array_of_i32(comm_offsets.send_offsets);
+    let copy_list_host = get_array_of_i32(comm_offsets.copy_list);
+    let mut send_pos = grid.nparticles - 1;
+
+    range(0, packed, |i| {
+        if send_offsets_host(i) < nparticles {
+            while(send_flags_host(send_pos) == 1 as i8) {
+                send_pos--;
+            }
+
+            copy_list_host(i) = send_pos;
+            send_pos--;
+        } else {
+            copy_list_host(i) = -1;
+        }
+    });
+
+    dev.transfer(comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
+
+    let const_comm_offsets = *comm_offsets;
+    let const_grid = *grid;
+
+    copy_list_iterate(const_comm_offsets, packed, |i, copy_list, send_offsets| {
+        let masses = get_masses(const_grid);
+
+        if copy_list(i) > 0 {
+            let src = copy_list(i);
+            let dst = send_offsets(i);
+
+            masses(dst) = masses(src);
+            set_position(dst, const_grid, get_position(src, const_grid));
+            set_velocity(dst, const_grid, get_velocity(src, const_grid));
+        }
+    });
+
+    grid.nparticles -= packed;
+    packed as u32
+}
+
+fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, array: &[real_t], nparticles: u32) -> () {
+    let start = add_local_slots(nparticles as i32, grid);
+    let const_grid = *grid;
+
+    array_iterate(array, nparticles as i32, |index, data| {
+        let buffer_index = index * 7 + 1; 
+        let offset = start + index;
+        let masses = get_masses(const_grid);
+        let position = Vector3D {
+            x: data(buffer_index + 1),
+            y: data(buffer_index + 2),
+            z: data(buffer_index + 3) 
+        };
+
+        let velocity = Vector3D {
+            x: data(buffer_index + 4),
+            y: data(buffer_index + 5),
+            z: data(buffer_index + 6) 
+        };
+
+        masses(offset) = data(buffer_index);
+        set_position(offset, const_grid, position);
+        set_velocity(offset, const_grid, velocity);
+    });
+}

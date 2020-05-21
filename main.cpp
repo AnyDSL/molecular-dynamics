@@ -477,31 +477,29 @@ int main(int argc, char **argv) {
         NTIMERS
     };
 
-    ::AABB aabb, aabb1, aabb2;
+    double world_aabb[6], rank_aabb[6], aabb1[6], aabb2[6], new_aabb[6];
     MultiTimer<double> timer(NTIMERS, runs, 1e-6);
     double spacing[3];
     bool vtk = !vtk_directory.empty();
     bool use_load_balancing = false;
 
     if(benchmark == "body_collision") {
-        for(int i = 0; i < 3; ++i) {
-            aabb1.min[i] = 50;
-            aabb1.max[i] = 50 + gridsize[i] * potential_minimum;
+        double shift = potential_minimum * (gridsize[1] + 1);
+
+        for(int d = 0; d < 3; ++d) {
+            aabb1[d * 2 + 0] = 50;
+            aabb1[d * 2 + 1] = 50 + gridsize[d] * potential_minimum;
+            aabb2[d * 2 + 0] = 50;
+            aabb2[d * 2 + 1] = 50 + gridsize[d] * potential_minimum;
         }
 
-        for(int i = 0; i < 3; ++i) {
-            aabb2.min[i] = 50;
-            aabb2.max[i] = 50 + gridsize[i] * potential_minimum;
-        }
+        aabb2[2] -= shift;
+        aabb2[3] -= shift;
 
-        double shift = potential_minimum + (aabb2.max[1] - aabb2.min[1]);
-        aabb2.min[1] -= shift;
-        aabb2.max[1] -= shift;
-
-        for(int i = 0; i < 3; ++i) {
-            aabb.min[i] = min(aabb1.min[i], aabb2.min[i]) - 20;
-            aabb.max[i] = max(aabb1.max[i], aabb2.max[i]) + 20;
-            spacing[i] = potential_minimum;
+        for(int d = 0; d < 3; ++d) {
+            world_aabb[d * 2 + 0] = min(aabb1[d * 2 + 0], aabb2[d * 2 + 0]) - 20;
+            world_aabb[d * 2 + 1] = max(aabb1[d * 2 + 1], aabb2[d * 2 + 1]) + 20;
+            spacing[d] = potential_minimum;
         }
     } else {
         if(benchmark != "default" && benchmark != "half" && benchmark != "granular_gas") {
@@ -510,10 +508,10 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
 
-        for(int i = 0; i < 3; ++i) {
-            aabb.min[i] = 0;
-            aabb.max[i] = gridsize[i] * potential_minimum;
-            spacing[i] = potential_minimum * 0.5;
+        for(int d = 0; d < 3; ++d) {
+            world_aabb[d * 2 + 0] = 0;
+            world_aabb[d * 2 + 1] = gridsize[d] * potential_minimum;
+            spacing[d] = potential_minimum * 0.5;
         }
 
         half = benchmark == "half";
@@ -528,18 +526,14 @@ int main(int argc, char **argv) {
     auto mpiManager = mpi::MPIManager::instance();
     mpiManager->initializeMPI(&argc, &argv);
     mpiManager->useWorldComm();
-
-    math::AABB domain(
-        real_t(aabb.min[0]), real_t(aabb.min[1]), real_t(aabb.min[2]),
-        real_t(aabb.max[0]), real_t(aabb.max[1]), real_t(aabb.max[2]));
-
+    math::AABB domain(world_aabb[0], world_aabb[2], world_aabb[4], world_aabb[1], world_aabb[3], world_aabb[5]);
     auto forest = blockforest::createBlockForest(
         domain, Vector3<uint_t>(1, 1, 1), Vector3<bool>(true, true, true),
         mpiManager->numProcesses(), getInitialRefinementLevel(mpiManager->numProcesses()));
 
-    auto rank_aabb = getBlockForestAABB(forest);
     auto is_within_domain = bind(isWithinBlockForest, _1, _2, _3, forest);
     auto info = make_shared<blockforest::InfoCollection>();
+    getBlockForestAABB(forest, rank_aabb);
 
     // Neighborhood
     map<uint_t, vector<math::AABB>> neighborhood;
@@ -624,7 +618,7 @@ int main(int argc, char **argv) {
 
     md_mpi_initialize();
 
-    auto rank_aabb = get_rank_aabb(aabb);
+    md_get_node_bounding_box(world_aabb, &rank_aabb);
     auto is_within_domain = bind(is_within_aabb, _1, _2, _3, rank_aabb);
 
     #endif
@@ -662,11 +656,11 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         if(benchmark == "body_collision") {
-            init_body_collision(aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            init_body_collision(world_aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else if(benchmark == "granular_gas") {
-            init_granular_gas(aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            init_granular_gas(world_aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else {
-            init_rectangular_grid(aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            init_rectangular_grid(world_aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
         #ifdef USE_WALBERLA_LOAD_BALANCING
@@ -674,9 +668,8 @@ int main(int argc, char **argv) {
         if(use_load_balancing) {
             updateWeights(forest, *info);
             forest->refresh();
-
-            auto new_aabb = getBlockForestAABB(forest);
-            md_rescale_grid(new_aabb.min, new_aabb.max);
+            getBlockForestAABB(forest, new_aabb);
+            md_rescale_grid(new_aabb);
         }
 
         neighborhood = getNeighborhoodFromBlockForest(forest);
@@ -696,9 +689,7 @@ int main(int argc, char **argv) {
             vtk_write_aabb_data(vtk_directory + "aabb_0.vtk");
 
             #ifdef USE_WALBERLA_LOAD_BALANCING
-
             vtk_write_forest_data(forest, vtk_directory + "forest_0.vtk");
-
             #endif
         }
 
@@ -720,10 +711,9 @@ int main(int argc, char **argv) {
                 if(use_load_balancing && j % rebalance_every == 0) {
                     updateWeights(forest, *info);
                     forest->refresh();
-
-                    auto new_aabb = getBlockForestAABB(forest);
+                    getBlockForestAABB(forest, new_aabb);
+                    md_rescale_grid(new_aabb);
                     neighborhood = getNeighborhoodFromBlockForest(forest);
-                    md_rescale_grid(new_aabb.min, new_aabb.max);
                     gNeighborhood = &neighborhood;
                 }
 
