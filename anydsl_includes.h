@@ -32,8 +32,9 @@ extern "C" {
     void md_synchronize_ghost_layer();
     void md_borders();
     void md_exchange_particles();
-    long unsigned int md_serialize_particles(double *, double const *, double const *, bool);
-    void md_deserialize_particles(double *, long unsigned int);
+    double md_get_send_buffer_value(int);
+    unsigned long int md_serialize_particles(double const *, double const *, bool);
+    void md_deserialize_particles(double *, unsigned long int);
     int md_get_world_size();
     int md_get_world_rank();
     int md_get_number_of_particles();

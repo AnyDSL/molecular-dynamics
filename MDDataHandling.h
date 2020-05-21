@@ -72,9 +72,10 @@ public:
 
 private:
     void serializeImpl(Block *const block, const BlockDataID&, mpi::SendBuffer& buffer, const uint_t child, bool check_child) {
+        const auto aabb = block->getAABB();
         auto ptr = buffer.allocate<uint_t>();
         double aabb_check[6], aabb_child_check[6];
-        const auto aabb = block->getAABB();
+        unsigned long int nparticles;
 
         aabb_check[0] = aabb.xMin();
         aabb_check[1] = aabb.xMax();
@@ -95,7 +96,13 @@ private:
             aabb_child_check[5] = child_aabb.zMax();
         }
 
-        *ptr = md_serialize_particles((double *) buffer.ptr(), aabb_check, aabb_child_check, check_child);
+        nparticles = md_serialize_particles(aabb_check, aabb_child_check, check_child);
+
+        for(int i = 0; i < nparticles * 7; ++i) {
+            buffer << md_get_send_buffer_value(i);
+        }
+
+        *ptr = nparticles;
     }
 
     void deserializeImpl(IBlock *const, const BlockDataID&, mpi::RecvBuffer& buffer) {

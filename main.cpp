@@ -617,7 +617,6 @@ int main(int argc, char **argv) {
     #else
 
     md_mpi_initialize();
-
     md_get_node_bounding_box(world_aabb, &rank_aabb);
     auto is_within_domain = bind(is_within_aabb, _1, _2, _3, rank_aabb);
 
@@ -706,8 +705,6 @@ int main(int argc, char **argv) {
 
             if(j > 0 && j % reneigh_every == 0) {
                 #ifdef USE_WALBERLA_LOAD_BALANCING
-                md_copy_data_from_accelerator();
-
                 if(use_load_balancing && j % rebalance_every == 0) {
                     updateWeights(forest, *info);
                     forest->refresh();
@@ -717,7 +714,6 @@ int main(int argc, char **argv) {
                     gNeighborhood = &neighborhood;
                 }
 
-                md_copy_data_to_accelerator();
                 timer.accum(TIME_LOAD_BALANCING);
                 #endif
 

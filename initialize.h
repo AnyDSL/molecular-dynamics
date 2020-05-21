@@ -59,7 +59,7 @@ bool is_within_aabb(double x, double y, double z, double aabb[6]) {
 #ifdef USE_WALBERLA_LOAD_BALANCING
 using namespace walberla;
 
-void getBlockForestAABB(shared_ptr<BlockForest> forest, double *rank_aabb) {
+void getBlockForestAABB(shared_ptr<BlockForest> forest, double (&rank_aabb)[6]) {
     auto aabb_union = forest->begin()->getAABB();
 
     for(auto& iblock: *forest) {
