@@ -93,8 +93,6 @@ void vtk_write_aabb_data(string filename) {
 
 using namespace walberla;
 
-map<uint_t, vector<math::AABB>> *gNeighborhood;
-
 void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
     vector<double> masses;
     vector<Vector3D> positions;
@@ -129,11 +127,14 @@ void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
     write_vtk_to_file(filename, masses, positions, velocities, forces);
 }
 
-auto getNeighborhoodFromBlockForest(shared_ptr<BlockForest> forest) {
+void updateNeighborhood(shared_ptr<BlockForest> forest) {
     map<uint_t, vector<math::AABB>> neighborhood;
     map<uint_t, vector<BlockID>> blocks_pushed;
-
+    vector<int> ranks;
+    vector<int> naabbs;
+    vector<double> aabbs;
     auto me = mpi::MPIManager::instance()->rank();
+    int total_aabbs = 0;
 
     for(auto& iblock: *forest) {
         auto block = static_cast<blockforest::Block *>(&iblock);
@@ -155,7 +156,24 @@ auto getNeighborhoodFromBlockForest(shared_ptr<BlockForest> forest) {
         }
     }
 
-    return neighborhood;
+    for(auto& nbh: neighborhood) {
+        auto rank = nbh.first;
+        auto aabb_list = nbh.second;
+        ranks.push_back((int) rank);
+        naabbs.push_back((int) aabb_list.size());
+
+        for(auto &aabb: aabb_list) {
+            aabbs.push_back(aabb.xMin());
+            aabbs.push_back(aabb.xMax());
+            aabbs.push_back(aabb.yMin());
+            aabbs.push_back(aabb.yMax());
+            aabbs.push_back(aabb.zMin());
+            aabbs.push_back(aabb.zMax());
+            total_aabbs++;
+        }
+    }
+
+    md_update_neighborhood((int) ranks.size(), total_aabbs, ranks.data(), naabbs.data(), aabbs.data());
 }
 
 void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& info) {
@@ -260,79 +278,6 @@ uint_t getInitialRefinementLevel(uint_t num_processes) {
     }
 
     return refinementLevel;
-}
-
-inline double sqDistanceLineToPoint(const double& pt, const double& min, const double& max) {
-   return (pt < min) ? (min - pt) * (min - pt) :
-          (pt > max) ? (pt - max) * (pt - max) : 0.0;
-}
-
-inline double sqDistancePointToAABB(double x, double y, double z, const math::AABB& aabb) {
-   return sqDistanceLineToPoint(x, aabb.xMin(), aabb.xMax()) +
-          sqDistanceLineToPoint(y, aabb.yMin(), aabb.yMax()) +
-          sqDistanceLineToPoint(z, aabb.zMin(), aabb.zMax());
-}
-
-extern "C" {
-    unsigned long int get_number_of_neighbor_ranks() { return gNeighborhood->size(); }
-
-    int get_neighborhood_rank(int index) {
-        if(index >= (int) gNeighborhood->size()) {
-            return -1;
-        }
-
-        auto iter = gNeighborhood->begin();
-        advance(iter, index);
-        return (int) iter->first;
-    }
-
-    bool in_rank_border(int rank, double x, double y, double z, double cutoff_radius) {
-        auto rank_neighborhood = (*gNeighborhood)[rank];
-
-        for(auto& aabb: rank_neighborhood) {
-            if(sqDistancePointToAABB(x, y, z, aabb) < cutoff_radius * cutoff_radius) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    bool in_rank_subdomain(int rank, double x, double y, double z) {
-        auto rank_neighborhood = (*gNeighborhood)[rank];
-
-        for(auto& aabb: rank_neighborhood) {
-            if(aabb.contains(x, y, z)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-}
-
-#else
-
-extern "C" {
-    unsigned long int get_number_of_neighbor_ranks() { return 0; }
-    int get_neighborhood_rank(__attribute__((unused)) int index) { return 0; }
-
-    bool in_rank_border(
-        __attribute__((unused)) int rank,
-        __attribute__((unused)) double x,
-        __attribute__((unused)) double y,
-        __attribute__((unused)) double z,
-        __attribute__((unused)) double cutoff_radius) {
-        return false;
-    }
-
-    bool in_rank_subdomain(
-        __attribute__((unused)) int rank,
-        __attribute__((unused)) double x,
-        __attribute__((unused)) double y,
-        __attribute__((unused)) double z) {
-        return false;
-    }
 }
 
 #endif
@@ -663,7 +608,6 @@ int main(int argc, char **argv) {
         }
 
         #ifdef USE_WALBERLA_LOAD_BALANCING
-
         if(use_load_balancing) {
             updateWeights(forest, *info);
             forest->refresh();
@@ -671,9 +615,7 @@ int main(int argc, char **argv) {
             md_rescale_grid(new_aabb);
         }
 
-        neighborhood = getNeighborhoodFromBlockForest(forest);
-        gNeighborhood = &neighborhood;
-
+        updateNeighborhood(forest);
         #endif
 
         md_copy_data_to_accelerator();
@@ -710,8 +652,7 @@ int main(int argc, char **argv) {
                     forest->refresh();
                     getBlockForestAABB(forest, new_aabb);
                     md_rescale_grid(new_aabb);
-                    neighborhood = getNeighborhoodFromBlockForest(forest);
-                    gNeighborhood = &neighborhood;
+                    updateNeighborhood(forest);
                 }
 
                 timer.accum(TIME_LOAD_BALANCING);

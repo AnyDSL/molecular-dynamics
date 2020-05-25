@@ -33,6 +33,7 @@ extern fn md_initialize_grid(
     grid_ = allocate_grid(world_aabb, ext_rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm_offsets(grid_, &mut comm_offsets_);
+    initialize_neighborhood();
 
     device().warmup();
 
@@ -98,32 +99,13 @@ extern fn md_compute_boundary_weights(
     });
 }
 
-extern fn md_clear_domain(xmin: real_t, xmax: real_t, ymin: real_t, ymax: real_t, zmin: real_t, zmax: real_t) -> () {
-    let aabb = AABB {
-        xmin: xmin,
-        xmax: xmax,
-        ymin: ymin,
-        ymax: ymax,
-        zmin: zmin,
-        zmax: zmax
-    };
-
-    let mut particle_index = 0;
-
-    while particle_index < grid_.nparticles {
-        let pos = array_get(ParticleDataLayout(), grid_.positions, particle_index);
-
-        if is_within_domain(pos, aabb) {
-            delete_particle(particle_index, &mut grid_);
-        } else {
-            particle_index++;
-        }
-    }
+extern fn md_deallocate_grid() -> () {
+    release_neighborhood();
+    deallocate_grid(&mut grid_);
 }
 
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }
 extern fn md_copy_data_from_accelerator() -> () { copy_from_accelerator(grid_); }
-extern fn md_deallocate_grid() -> () { deallocate_grid(&mut grid_); }
 extern fn md_integration(dt: real_t) -> () { integration_iters = accelerator_integration(grid_, dt); }
 extern fn md_initial_integration(dt: real_t) -> () { integration_iters = accelerator_initial_integration(grid_, dt); }
 extern fn md_final_integration(dt: real_t) -> () { integration_iters = accelerator_final_integration(grid_, dt); }

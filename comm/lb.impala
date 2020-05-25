@@ -1,3 +1,115 @@
+struct Neighborhood {
+    nranks: i32,
+    ranks: Buffer,
+    naabbs: Buffer,
+    offsets: Buffer,
+    aabbs_cpu: Buffer,
+    aabbs_dev: Buffer,
+    rank_capacity: i32,
+    aabb_capacity: i32
+};
+
+static mut neighborhood : Neighborhood;
+
+fn @get_number_of_neighbor_ranks() -> i32 { neighborhood.nranks }
+fn @get_neighborhood_rank(index: i32) -> i32 { bitcast[&[i32]](neighborhood.ranks.data)(index) }
+fn @get_rank_number_of_aabbs(index: i32) -> i32 { bitcast[&[i32]](neighborhood.naabbs.data)(index) }
+fn @get_rank_offset(index: i32) -> i32 { bitcast[&[i32]](neighborhood.offsets.data)(index) }
+fn @get_neighborhood_aabb(index: i32) -> AABB {
+    let aabbs = device().get_array_real(neighborhood.aabbs_cpu);
+
+    AABB {
+        xmin: aabbs(index * 6 + 0),
+        xmax: aabbs(index * 6 + 1),
+        ymin: aabbs(index * 6 + 2),
+        ymax: aabbs(index * 6 + 3),
+        zmin: aabbs(index * 6 + 4),
+        zmax: aabbs(index * 6 + 5)
+    }
+}
+
+fn initialize_neighborhood() -> () {
+    let rank_capacity = get_initial_maximum_neighbor_ranks();
+    let aabb_capacity = rank_capacity * 8;
+
+    neighborhood = Neighborhood {
+        nranks: 0,
+        ranks: alloc_cpu(rank_capacity * sizeof[i32]()),
+        naabbs: alloc_cpu(rank_capacity * sizeof[i32]()),
+        offsets: alloc_cpu(rank_capacity * sizeof[i32]()),
+        aabbs_cpu: alloc_cpu(aabb_capacity * 6 * sizeof[real_t]()),
+        aabbs_dev: device().alloc(aabb_capacity * 6 * sizeof[real_t]()),
+        rank_capacity: rank_capacity,
+        aabb_capacity: aabb_capacity
+    };
+}
+
+fn release_neighborhood() -> () {
+    release(neighborhood.ranks);
+    release(neighborhood.naabbs);
+    release(neighborhood.offsets);
+    release(neighborhood.aabbs_cpu);
+    release(neighborhood.aabbs_dev);
+}
+
+extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], naabbs: &[i32], aabbs: &[real_t]) -> () {
+    let dev = device();
+    let mut offset = 0;
+
+    neighborhood.nranks = nranks;
+
+    if nranks > neighborhood.rank_capacity {
+        let new_capacity = nranks + 10;
+        release(neighborhood.ranks);
+        release(neighborhood.naabbs);
+        release(neighborhood.offsets);
+        neighborhood.ranks = alloc_cpu(new_capacity * sizeof[i32]());
+        neighborhood.naabbs = alloc_cpu(new_capacity * sizeof[i32]());
+        neighborhood.offsets = alloc_cpu(new_capacity * sizeof[i32]());
+        neighborhood.rank_capacity = new_capacity;
+    }
+
+    if total_aabbs > neighborhood.aabb_capacity {
+        let new_capacity = total_aabbs + 10;
+        release(neighborhood.aabbs_cpu);
+        release(neighborhood.aabbs_dev);
+        neighborhood.aabbs_cpu = alloc_cpu(new_capacity * 6 * sizeof[real_t]());
+        neighborhood.aabbs_dev = dev.alloc(new_capacity * 6 * sizeof[real_t]());
+        neighborhood.aabb_capacity = new_capacity;
+    }
+
+    range(0, nranks, |r| {
+        bitcast[&mut[i32]](neighborhood.ranks.data)(r) = ranks(r);
+        bitcast[&mut[i32]](neighborhood.naabbs.data)(r) = naabbs(r);
+        bitcast[&mut[i32]](neighborhood.offsets.data)(r) = offset;
+        offset += naabbs(r);
+    });
+
+    range(0, total_aabbs * 6, |i| {
+        bitcast[&mut[real_t]](neighborhood.aabbs_cpu.data)(i) = aabbs(i);
+    });
+
+    dev.transfer(neighborhood.aabbs_cpu, neighborhood.aabbs_dev);
+}
+
+fn distance_point_line(point: real_t, min: real_t, max: real_t) -> real_t {
+    let square = @|x: real_t| { x * x };
+
+    if point < min {
+        square(min - point)
+    } else if point > max {
+        square(point - max)
+    } else {
+        0.0
+    }
+}
+
+fn distance_point_aabb(point: Vector3D, aabb: AABB) -> real_t {
+    distance_point_line(point.x, aabb.xmin, aabb.xmax) +
+    distance_point_line(point.y, aabb.ymin, aabb.ymax) +
+    distance_point_line(point.z, aabb.zmin, aabb.zmax)
+}
+
 fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AABB, c_aabb: AABB, check_child: bool) -> i32 {
     if check_child {
         serialize_and_remove(grid, comm_offsets, @|p| {

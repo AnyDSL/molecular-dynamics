@@ -45,7 +45,7 @@ extern "C" {
     void md_create_particle(double, double, double, double, double, double, double);
     void md_get_node_bounding_box(double const *, double (*)[6]);
     void md_compute_boundary_weights(double, double, double, double, double, double, unsigned long int *, unsigned long int *);
-    void md_clear_domain(double, double, double, double, double, double);
+    void md_update_neighborhood(int, int, int const *, int const *, double const *);
     void md_report_iterations();
     void md_report_particles();
     void md_report_time(double, double, double, double, double, double);

@@ -53,14 +53,6 @@ static mut ynext: i32;
 static mut zprev: i32;
 static mut znext: i32;
 
-// C functions to call walberla procedures
-extern "C" {
-    fn get_number_of_neighbor_ranks() -> u32;
-    fn get_neighborhood_rank(i32) -> i32;
-    fn in_rank_border(i32, f64, f64, f64, f64) -> bool;
-    fn in_rank_subdomain(i32, f64, f64, f64) -> bool;
-}
-
 // Does the PBC changes in particle positions must be performed before checking
 // their border condition?
 fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false) }
@@ -81,10 +73,33 @@ fn communication_ranks(grid: Grid, body: CommFunc) -> () {
 
         range(0, nranks as i32, |i| {
             let rank = get_neighborhood_rank(i);
+            let naabbs = get_rank_number_of_aabbs(i);
+            let offset = get_rank_offset(i);
 
             body(rank, rank, 0, 0, 0,
-                |p| { in_rank_border(rank, p.x, p.y, p.z, spacing) },
-                |p| { in_rank_subdomain(rank, p.x, p.y, p.z) });
+                |p| {
+                    let mut cond = false;
+
+                    range(0, naabbs, |i| {
+                        if distance_point_aabb(p, get_neighborhood_aabb(offset + i)) < spacing * spacing {
+                            cond = true;
+                        }
+                    });
+
+                    cond
+                },
+                |p| {
+                    let mut cond = false;
+
+                    range(0, naabbs, |i| {
+                        if is_within_domain(p, get_neighborhood_aabb(offset + i)) {
+                            cond = true;
+                        }
+                    });
+
+                    cond
+                }
+            );
         });
     } else {
         body(xnext, xprev, -1, 0, 0,
