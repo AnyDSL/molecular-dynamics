@@ -77,6 +77,7 @@ extern fn md_compute_boundary_weights(
     xmin: real_t, xmax: real_t, ymin: real_t, ymax: real_t, zmin: real_t, zmax: real_t,
     computational_weight: &mut u32, communication_weight: &mut u32) -> () {
 
+    let sum = @|a: i32, b: i32| { a + b };
     let aabb = AABB {
         xmin: xmin,
         xmax: xmax,
@@ -86,17 +87,15 @@ extern fn md_compute_boundary_weights(
         zmax: zmax
     };
 
-    range(0, grid_.nparticles + grid_.nghost, |particle_index| {
-        let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
+    *computational_weight = reduce_i32(grid_.nparticles, 0, sum, |i| {
+        let pos = array_get(ParticleDataLayout(), grid_.positions, i);
+        select(is_within_domain(pos, aabb), 1, 0)
+    }) as u32;
 
-        if is_within_domain(pos, aabb) {
-            if particle_index < grid_.nparticles {
-                *computational_weight += 1 as u32;
-            } else {
-                *communication_weight += 1 as u32;
-            }
-        }
-    });
+    *communication_weight = reduce_i32(grid_.nghost, 0, sum, |i| {
+        let pos = array_get(ParticleDataLayout(), grid_.positions, grid_.nparticles + i);
+        select(is_within_domain(pos, aabb), 1, 0)
+    }) as u32;
 }
 
 extern fn md_deallocate_grid() -> () {
