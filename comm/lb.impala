@@ -137,7 +137,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         set_counter(0, const_comm_offsets);
         reset_resize(const_grid);
 
-        loop_accelerator(const_grid, |i, _, _, _| {
+        particles(const_grid, |i, _, _, _| {
             let masses = get_masses(const_grid);
             let resize_buf = get_resize_buffer(const_grid);
             let send_flags = get_send_flags(const_grid);

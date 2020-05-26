@@ -15,7 +15,7 @@ fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: 
     let mut rsq_iters = 0 as i64;
     let sigma6 = pow(sigma, 6);
 
-    loop_accelerator(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+    particles(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
@@ -52,7 +52,7 @@ fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
     let dev = device();
     let mut iters = 0 as i64;
 
-    loop_accelerator(grid, |i, _, _, _| {
+    particles(grid, |i, _, _, _| {
         let masses = get_masses(grid);
         let inverse_mass = 1.0 as real_t / masses(i);
         let mut position = get_position(i, grid);
@@ -81,7 +81,7 @@ fn accelerator_initial_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
-    loop_accelerator(grid, |i, _, _, _| {
+    particles(grid, |i, _, _, _| {
         let mut position = get_position(i, grid);
         let mut velocity = get_velocity(i, grid);
         let force = get_force(i, grid);
@@ -108,7 +108,7 @@ fn accelerator_final_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
-    loop_accelerator(grid, |i, _, _, _| {
+    particles(grid, |i, _, _, _| {
         let mut velocity = get_velocity(i, grid);
         let force = get_force(i, grid);
 

@@ -339,12 +339,12 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
 
         reset_resize(const_grid);
 
-        iterate_cells(const_grid, |cell_index| {
+        cells(const_grid, |cell_index| {
             let cell_sizes = get_cell_sizes(const_grid);
             cell_sizes(cell_index) = 0;
         });
 
-        loop_accelerator(const_grid, |i, _, _, _| {
+        particles(const_grid, |i, _, _, _| {
             let pos = get_position(i, const_grid);
             let cell_particles = get_cell_particles(const_grid);
             let particles_cell = get_particles_cell(const_grid);

@@ -52,7 +52,7 @@ fn @vectorized_range(vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> (
     }
 }
 
-fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
+fn particles(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
     let dev = device();
     let cell_sizes = dev.get_array_i32(grid.cell_sizes_cpu);
     let neighbors_sizes = dev.get_array_i32(grid.neighbors_sizes_cpu);
@@ -67,7 +67,7 @@ fn loop_accelerator(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () 
     });
 }
 
-fn iterate_cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
+fn cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
 fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     let send_offsets = get_send_offsets(comm_offsets);
     let copy_list = get_copy_list(comm_offsets);

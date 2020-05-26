@@ -51,7 +51,7 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
 
         reset_resize(const_grid);
 
-        loop_accelerator(const_grid, |particle_index, neighborlists, nb_list_size, nb_list_offset| {
+        particles(const_grid, |particle_index, neighborlists, nb_list_size, nb_list_offset| {
             let pos = get_position(particle_index, const_grid);
             let cell_index = particles_cell(particle_index);
 
