@@ -57,7 +57,7 @@ struct Grid {
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array() }
 
 fn @sort_particles() -> bool { false }
-fn @sparse_cell_list() -> bool { false }
+fn @sparse_cell_list() -> bool { true }
 fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
 fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) -> i32 {
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)
@@ -184,22 +184,6 @@ fn reallocate_buffer(buffer: &mut Buffer, size: i32, elem_size: i32, @preserve: 
     *buffer = new_buffer;
 }
 
-fn reallocate_cell_buffer(grid: &Grid, buffer: &mut Buffer, capacity: i32, elem_size: i32, allocate: fn(i32) -> Buffer) -> () {
-    let new_buffer = allocate(capacity * grid.ncells_capacity * elem_size);
-    let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-
-    range(0, grid.ncells, |cell_index| {
-        let cell_offset = get_cell_offset(cell_index, grid);
-        let cell_size = cell_sizes(cell_index);
-        let new_offset = cell_index * capacity;
-
-        copy_offset(*buffer, cell_offset * elem_size, new_buffer, new_offset * elem_size, cell_size * elem_size);
-    });
-
-    release(*buffer);
-    *buffer = new_buffer;
-}
-
 // Do not preserve data in buffers
 fn reallocate_ncells_capacity(grid: &mut Grid, capacity: i32) -> () {
     print_i32_with_rank("reallocate_ncells_capacity()", capacity);
@@ -250,8 +234,9 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     print_i32_with_rank("reallocate_cell_capacity()", capacity);
 
     let dev = device();
-    reallocate_cell_buffer(grid, &mut grid.cell_particles_cpu, capacity, sizeof[i32](), alloc_cpu);
+    release(grid.cell_particles_cpu);
     release(grid.cell_particles_accelerator);
+    grid.cell_particles_cpu = alloc_cpu(capacity * grid.ncells_capacity * sizeof[i32]());
     grid.cell_particles_accelerator = dev.alloc(capacity * grid.ncells_capacity * sizeof[i32]());
     grid.cell_capacity = capacity;
 }
@@ -389,12 +374,12 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
         resize_cell = get_resize(const_grid);
         resize_ncells = get_resize2(const_grid);
 
-        if resize_cell > 0 {
-            reallocate_cell_capacity(grid, resize_cell * 2);
-        }
-
         if resize_ncells > 0 {
             reallocate_ncells_capacity(grid, resize_ncells * 2);
+        }
+
+        if resize_cell > 0 {
+            reallocate_cell_capacity(grid, resize_cell * 2);
         }
     }
 
