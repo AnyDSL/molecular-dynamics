@@ -38,6 +38,7 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
 
     while resize > 0 {
         let const_grid = *grid; // This ugly const reference is necessary to avoid compilation errors
+        let cell_list = get_cell_list(const_grid);
         let cell_particles = get_cell_particles(const_grid);
         let cell_sizes = get_cell_sizes(const_grid);
         let particles_cell = get_particles_cell(const_grid);
@@ -51,47 +52,110 @@ fn assemble_neighborlists(grid: &mut Grid, cutoff_distance: real_t) -> () {
 
         reset_resize(const_grid);
 
-        particles(const_grid, |particle_index, neighborlists, nb_list_size, nb_list_offset| {
-            let pos = get_position(particle_index, const_grid);
-            let cell_index = particles_cell(particle_index);
+        if sparse_cell_list() {
+            cells(const_grid, |cell_index| {
+                let cell_place = cell_list(cell_index);
+                let cell_size = cell_sizes(cell_index);
+                let cell_offset = get_cell_offset(cell_index, const_grid);
 
-            neighbors_sizes(particle_index) = 0;
+                range(0, cell_size, |cell_particle_index| {
+                    let particle_index = cell_particles(cell_offset + cell_particle_index);
+                    neighbors_sizes(particle_index) = 0;
+                });
 
-            neighbor_cells(cell_index, nx, ny, ncells, |neighboring_cell_index| {
-                if cell_index != neighboring_cell_index {
-                    let neighbor_cell_offset = get_cell_offset(neighboring_cell_index, const_grid);
-                    let neighbor_cell_size = cell_sizes(neighboring_cell_index);
+                neighbor_cells(cell_place, nx, ny, ncells, |nbr_cell_place| {
+                    let nbr_cell_index = get_cell_index_from_place(const_grid, nbr_cell_place, false);
 
-                    range(0, neighbor_cell_size, |neighbor_cell_particle_index| {
-                        let neighbor_particle_index = cell_particles(neighbor_cell_offset + neighbor_cell_particle_index);
-                        let pos_neighbor = get_position(neighbor_particle_index, const_grid);
-                        let del = vector_sub(pos, pos_neighbor);
-                        let rsq = vector_len2(del);
+                    if cell_index != nbr_cell_index {
+                        if nbr_cell_index != -1 {
+                            let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
+                            let neighbor_cell_size = cell_sizes(nbr_cell_index);
 
-                        if rsq <= squared_cutoff_distance {
-                            @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
+                            range(0, cell_size, |cell_particle_index| {
+                                let particle_index = cell_particles(cell_offset + cell_particle_index);
+                                let pos = get_position(particle_index, const_grid);
+
+                                range(0, neighbor_cell_size, |neighbor_cell_particle_index| {
+                                    let neighbor_particle_index = cell_particles(neighbor_cell_offset + neighbor_cell_particle_index);
+                                    let pos_neighbor = get_position(neighbor_particle_index, const_grid);
+                                    let del = vector_sub(pos, pos_neighbor);
+                                    let rsq = vector_len2(del);
+
+                                    if rsq <= squared_cutoff_distance {
+                                        @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
+                                    }
+                                });
+                            });
                         }
-                    });
-                } else {
-                    let cell_offset = get_cell_offset(cell_index, const_grid);
-                    let cell_size = cell_sizes(cell_index);
+                    } else {
+                        range(0, cell_size, |cell_particle_index| {
+                            let particle_index = cell_particles(cell_offset + cell_particle_index);
+                            let pos = get_position(particle_index, const_grid);
 
-                    range(0, cell_size, |neighbor_cell_particle_index| {
-                        let neighbor_particle_index = cell_particles(cell_offset + neighbor_cell_particle_index);
+                            range(0, cell_size, |neighbor_cell_particle_index| {
+                                if cell_particle_index != neighbor_cell_particle_index {
+                                    let neighbor_particle_index = cell_particles(cell_offset + neighbor_cell_particle_index);
+                                    let pos_neighbor = get_position(neighbor_particle_index, const_grid);
+                                    let del = vector_sub(pos, pos_neighbor);
+                                    let rsq = vector_len2(del);
 
-                        if particle_index != neighbor_particle_index {
-                            let pos_neighbor = get_position(neighbor_particle_index, const_grid);
-                            let del = vector_sub(pos, pos_neighbor);
-                            let rsq = vector_len2(del);
-
-                            if rsq <= squared_cutoff_distance {
-                                @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
-                            }
-                        }
-                    });
-                }
+                                    if rsq <= squared_cutoff_distance {
+                                        @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
+                                    }
+                                }
+                            });
+                        });
+                    }
+                });
             });
-        });
+        } else {
+            particles(const_grid, |particle_index, _, _, _| {
+                let pos = get_position(particle_index, const_grid);
+                let cell_place = particles_cell(particle_index);
+                let cell_index = get_cell_index_from_place(const_grid, cell_place, false);
+
+                neighbors_sizes(particle_index) = 0;
+
+                neighbor_cells(cell_place, nx, ny, ncells, |nbr_cell_place| {
+                    let nbr_cell_index = get_cell_index_from_place(const_grid, nbr_cell_place, false);
+
+                    if cell_index != nbr_cell_index {
+                        if nbr_cell_index != -1 {
+                            let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
+                            let neighbor_cell_size = cell_sizes(nbr_cell_index);
+
+                            range(0, neighbor_cell_size, |neighbor_cell_particle_index| {
+                                let neighbor_particle_index = cell_particles(neighbor_cell_offset + neighbor_cell_particle_index);
+                                let pos_neighbor = get_position(neighbor_particle_index, const_grid);
+                                let del = vector_sub(pos, pos_neighbor);
+                                let rsq = vector_len2(del);
+
+                                if rsq <= squared_cutoff_distance {
+                                    @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
+                                }
+                            });
+                        }
+                    } else {
+                        let cell_offset = get_cell_offset(cell_index, const_grid);
+                        let cell_size = cell_sizes(cell_index);
+
+                        range(0, cell_size, |neighbor_cell_particle_index| {
+                            let neighbor_particle_index = cell_particles(cell_offset + neighbor_cell_particle_index);
+
+                            if particle_index != neighbor_particle_index {
+                                let pos_neighbor = get_position(neighbor_particle_index, const_grid);
+                                let del = vector_sub(pos, pos_neighbor);
+                                let rsq = vector_len2(del);
+
+                                if rsq <= squared_cutoff_distance {
+                                    @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        }
 
         resize = get_resize(const_grid);
 

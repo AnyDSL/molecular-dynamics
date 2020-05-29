@@ -120,18 +120,18 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
     }
 }
 
-fn set_counter(value: i32, comm_offsets: CommOffsets) -> () {
-    bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0) = value;
-    copy(comm_offsets.counter_buffer, comm_offsets.counter_buffer_accelerator);
+fn set_counter(value: i32, grid: Grid) -> () {
+    bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0) = value;
+    copy(grid.counter_buffer, grid.counter_buffer_accelerator);
 }
 
 fn get_counter(comm_offsets: CommOffsets) -> i32 {
-    copy(comm_offsets.counter_buffer_accelerator, comm_offsets.counter_buffer);
-    bitcast[&[i32]](comm_offsets.counter_buffer.data)(0)
+    copy(grid.counter_buffer_accelerator, grid.counter_buffer);
+    bitcast[&[i32]](grid.counter_buffer_cpu.data)(0)
 }
 
 fn add_counter(comm_offsets: CommOffsets) -> i32 {
-    let counter = bitcast[&mut[i32]](comm_offsets.counter_buffer_accelerator.data);
+    let counter = bitcast[&mut[i32]](grid.counter_buffer_accelerator.data);
     nvvm_atomic_add_global(&mut counter(0) as &mut[1]i32, 1)
 }
 

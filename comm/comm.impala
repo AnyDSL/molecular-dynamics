@@ -751,7 +751,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 let const_iexchg = iexchg;
                 let world_aabb = const_grid.world_aabb;
 
-                set_counter(iexchg, const_comm_offsets);
+                set_counter(iexchg, const_grid);
                 reset_resize(const_grid);
 
                 particles(const_grid, |i, _, _, _| {
@@ -776,7 +776,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                     adjust_pbc(apply_pbc_before_border_check(), &mut pos);
 
                     if check_exchange(pos) {
-                        let counter = add_counter(const_comm_offsets);
+                        let counter = add_counter(const_grid);
 
                         if counter >= const_comm_offsets.send_capacity {
                             if resize_buf(0) < counter {
@@ -814,7 +814,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             dev.transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
             dev.transfer(grid.send_flags_accelerator, grid.send_flags_cpu);
 
-            let counter = get_counter(*comm_offsets);
+            let counter = get_counter(*grid);
             let packed = counter - iexchg;
             let nparticles = grid.nparticles - packed;
             let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
@@ -976,7 +976,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             let const_comm_offsets = *comm_offsets;
             let const_isend = isend;
 
-            set_counter(isend, const_comm_offsets);
+            set_counter(isend, const_grid);
             reset_resize(const_grid);
 
             particles(const_grid, |i, _, _, _| {
@@ -991,7 +991,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 // Generate all PBC variants to check border conditions
                 pbc_positions(particle_pos, pbc_x, pbc_y, pbc_z, const_grid, |adjusted_pos, adjusted_pbc| {
                     if check_border(adjusted_pos) {
-                        let counter = add_counter(const_comm_offsets);
+                        let counter = add_counter(const_grid);
                         let mut pos = adjusted_pos;
                         let mut pbc = adjusted_pbc;
 
@@ -1034,7 +1034,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             }
         }
 
-        isend = get_counter(*comm_offsets);
+        isend = get_counter(*grid);
         send_rank_lengths(neigh) = isend - send_rank_offsets(neigh);
         neigh++;
     });

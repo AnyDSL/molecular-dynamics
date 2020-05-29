@@ -67,7 +67,7 @@ fn particles(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
     });
 }
 
-fn cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
+fn cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.nlist, body); }
 fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     let send_offsets = get_send_offsets(comm_offsets);
     let copy_list = get_copy_list(comm_offsets);
@@ -102,13 +102,47 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
     red
 }
 
-fn set_counter(value: i32, comm_offsets: &CommOffsets) -> () { bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0) = value; }
-fn get_counter(comm_offsets: &CommOffsets) -> i32 { bitcast[&[i32]](comm_offsets.counter_buffer.data)(0) }
-fn add_counter(comm_offsets: &CommOffsets) -> i32 { bitcast[&mut[i32]](comm_offsets.counter_buffer.data)(0)++ }
-fn reset_resize(grid: Grid) -> () { bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(0) = 0; }
+fn @get_cell_index_from_place(grid: Grid, place: i32, create: bool, ret: fn(i32) -> !) -> ! {
+    if sparse_cell_list() {
+        let cell_list = get_array_of_i32(grid.cell_list_cpu);
+        let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
+        let resize_buf = get_resize_buffer(grid);
+        let list_size = get_counter(grid);
+
+        range(0, list_size, |index| {
+            if cell_list(index) == place {
+                ret(index)
+            }
+        });
+
+        if create {
+            if list_size >= grid.ncells_capacity {
+                if resize_buf(1) < list_size {
+                    resize_buf(1) = list_size;
+                }
+            } else {
+                cell_list(list_size) = place;
+                cell_sizes(list_size) = 0;
+                add_counter(grid);
+                ret(list_size)
+            }
+        }
+
+        ret(-1)
+    } else {
+        ret(place)
+    }
+}
+
+fn set_counter(value: i32, grid: Grid) -> () { bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0) = value; }
+fn get_counter(grid: Grid) -> i32 { bitcast[&[i32]](grid.counter_buffer_cpu.data)(0) }
+fn add_counter(grid: Grid) -> i32 { bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0)++ }
+fn reset_resize(grid: Grid) -> () { range(0, 2, |i| { bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(i) = 0; }); }
 fn get_resize(grid: Grid) -> i32 { bitcast[&[i32]](grid.resize_buffer_cpu.data)(0) }
+fn get_resize2(grid: Grid) -> i32 { bitcast[&[i32]](grid.resize_buffer_cpu.data)(1) }
 fn get_send_flags(grid: Grid) -> &mut[i8] { get_array_of_i8(grid.send_flags_cpu) }
 fn get_resize_buffer(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.resize_buffer_cpu) }
+fn get_cell_list(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_list_cpu) }
 fn get_cell_particles(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_particles_cpu) }
 fn get_cell_sizes(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_sizes_cpu) }
 fn get_particles_cell(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.particles_cell_cpu) }

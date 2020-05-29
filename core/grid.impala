@@ -20,6 +20,7 @@ struct Grid {
     ncells: i32, // number of cells in the grid
     nparticles: i32, // number of particles in the grid
     nghost: i32, // number of ghost particles in the grid
+    nlist: i32, // number of elements in the cell list
     xlength: real_t, // grid length in x dimension for PBC correction
     ylength: real_t, // grid length in y dimension for PBC correction
     zlength: real_t, // grid length in z dimension for PBC correction
@@ -36,8 +37,10 @@ struct Grid {
     forces: ArrayData, // forces of all particles on the CPU: [Vector3D]
     neighbors_sizes_cpu: Buffer, // neighbors per cluster on the CPU: [i32]
     neighborlists_cpu: Buffer, // neighborlists on the CPU: [i32]
-    resize_buffer_cpu: Buffer, // resize buffer on the CPU: [i32]
     send_flags_cpu: Buffer, // send flag for particle [i8]
+    cell_list_cpu: Buffer, // cell list on the CPU [i32]
+    counter_buffer_cpu: Buffer, // counter buffer on the CPU: [i32]
+    resize_buffer_cpu: Buffer, // resize buffer on the CPU: [i32]
 
     cell_particles_accelerator: Buffer, // particles in each cell [i32]
     cell_sizes_accelerator: Buffer, // sizes of each cell [i32]
@@ -45,15 +48,18 @@ struct Grid {
     masses_accelerator: Buffer, // masses of all particles on the accelerator: [real_t]
     neighbors_sizes_accelerator: Buffer, // neighbors per cluster on the accelerator: [i32]
     neighborlists_accelerator: Buffer, // neighborlists on the accelerator: [i32]
-    resize_buffer_accelerator: Buffer, // resize buffer on the accelerator: [i32]
-    send_flags_accelerator: Buffer //send flag for particle on accelerator [i8]
+    send_flags_accelerator: Buffer, //send flag for particle on accelerator [i8]
+    cell_list_accelerator: Buffer, // cell list on the accelerator [i32]
+    counter_buffer_accelerator: Buffer, // counter buffer on the accelerator: [i32]
+    resize_buffer_accelerator: Buffer // resize buffer on the accelerator: [i32]
 }
 
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array() }
 
 fn @sort_particles() -> bool { false }
-fn get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
-fn get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) -> i32 {
+fn @sparse_cell_list() -> bool { false }
+fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
+fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) -> i32 {
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)
 }
 
@@ -88,6 +94,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         ncells: ncells,
         nparticles: 0,
         nghost: 0,
+        nlist: 0,
         xlength: world_aabb.xmax - world_aabb.xmin,
         ylength: world_aabb.ymax - world_aabb.ymin,
         zlength: world_aabb.zmax - world_aabb.zmin,
@@ -95,6 +102,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
 
         cell_particles_cpu: alloc_cpu(ncells_capacity * cell_capacity * sizeof[i32]()),
         cell_sizes_cpu: alloc_cpu(ncells_capacity * sizeof[i32]()),
+        cell_list_cpu: alloc_cpu(ncells_capacity * sizeof[i32]()),
         particles_cell_cpu: alloc_cpu(particle_capacity * sizeof[i32]()),
         masses_cpu: alloc_cpu(particle_capacity * sizeof[real_t]()),
         positions: alloc_array(),
@@ -105,16 +113,19 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         neighbors_sizes_cpu: alloc_cpu(particle_capacity * sizeof[i32]()),
         neighborlists_cpu: alloc_cpu(neighbors_capacity * sizeof[i32]()),
         send_flags_cpu: alloc_cpu(particle_capacity * sizeof[i8]()),
-        resize_buffer_cpu: alloc_cpu(sizeof[i32]()),
+        counter_buffer_cpu: alloc_cpu(sizeof[i32]()),
+        resize_buffer_cpu: alloc_cpu(2 * sizeof[i32]()),
 
         cell_particles_accelerator: dev.alloc(ncells_capacity * cell_capacity * sizeof[i32]()),
         cell_sizes_accelerator: dev.alloc(ncells_capacity * sizeof[i32]()),
+        cell_list_accelerator: dev.alloc(ncells_capacity * sizeof[i32]()),
         particles_cell_accelerator: dev.alloc(particle_capacity * sizeof[i32]()),
         masses_accelerator: dev.alloc(particle_capacity * sizeof[real_t]()),
         neighbors_sizes_accelerator: dev.alloc(particle_capacity * sizeof[i32]()),
         neighborlists_accelerator: dev.alloc(neighbors_capacity * sizeof[i32]()),
         send_flags_accelerator: dev.alloc(particle_capacity * sizeof[i8]()),
-        resize_buffer_accelerator: dev.alloc(sizeof[i32]())
+        counter_buffer_accelerator: dev.alloc(sizeof[i32]()),
+        resize_buffer_accelerator: dev.alloc(2 * sizeof[i32]())
     }
 }
 
@@ -125,7 +136,7 @@ fn rescale_grid(grid: &mut Grid, aabb: AABB) -> () {
     grid.nz = real_floor(((aabb.zmax - aabb.zmin + (grid.spacing / (2.0 as real_t))) / grid.spacing)) as i32 + 1;
     grid.ncells = grid.nx * grid.ny * grid.nz;
 
-    if grid.ncells > grid.ncells_capacity {
+    if !sparse_cell_list() && grid.ncells > grid.ncells_capacity {
         reallocate_ncells_capacity(grid, grid.ncells * 4);
     }
 }
@@ -136,6 +147,7 @@ fn deallocate_grid(grid: &mut Grid) -> () {
 
     release(grid.cell_particles_cpu);
     release(grid.cell_sizes_cpu);
+    release(grid.cell_list_cpu);
     release(grid.particles_cell_cpu);
     release(grid.masses_cpu);
     release_array(grid.positions);
@@ -146,15 +158,18 @@ fn deallocate_grid(grid: &mut Grid) -> () {
     release(grid.neighbors_sizes_cpu);
     release(grid.neighborlists_cpu);
     release(grid.send_flags_cpu);
+    release(grid.counter_buffer_cpu);
     release(grid.resize_buffer_cpu);
 
     release(grid.cell_particles_accelerator);
     release(grid.cell_sizes_accelerator);
+    release(grid.cell_list_accelerator);
     release(grid.particles_cell_accelerator);
     release(grid.masses_accelerator);
     release(grid.send_flags_accelerator);
     release(grid.neighbors_sizes_accelerator);
     release(grid.neighborlists_accelerator);
+    release(grid.counter_buffer_accelerator);
     release(grid.resize_buffer_accelerator);
 }
 
@@ -193,14 +208,16 @@ fn reallocate_ncells_capacity(grid: &mut Grid, capacity: i32) -> () {
 
     release(grid.cell_particles_cpu);
     release(grid.cell_sizes_cpu);
+    release(grid.cell_list_cpu);
     release(grid.cell_particles_accelerator);
     release(grid.cell_sizes_accelerator);
 
     grid.cell_particles_cpu = alloc_cpu(capacity * grid.cell_capacity * sizeof[i32]());
     grid.cell_sizes_cpu = alloc_cpu(capacity * sizeof[i32]());
+    grid.cell_list_cpu = alloc_cpu(capacity * sizeof[i32]());
     grid.cell_particles_accelerator = dev.alloc(capacity * grid.cell_capacity * sizeof[i32]());
     grid.cell_sizes_accelerator = dev.alloc(capacity * sizeof[i32]());
-
+    grid.cell_list_accelerator = dev.alloc(capacity * sizeof[i32]());
     grid.ncells_capacity = capacity;
 }
 
@@ -236,7 +253,6 @@ fn reallocate_cell_capacity(grid: &mut Grid, capacity: i32) -> () {
     reallocate_cell_buffer(grid, &mut grid.cell_particles_cpu, capacity, sizeof[i32](), alloc_cpu);
     release(grid.cell_particles_accelerator);
     grid.cell_particles_accelerator = dev.alloc(capacity * grid.ncells_capacity * sizeof[i32]());
-
     grid.cell_capacity = capacity;
 }
 
@@ -250,7 +266,6 @@ fn reallocate_neighborlist_capacity(grid: &mut Grid, capacity: i32) -> () {
 
     grid.neighborlists_cpu = alloc_cpu(capacity * grid.particle_capacity * sizeof[i32]());
     grid.neighborlists_accelerator = dev.alloc(capacity * grid.particle_capacity * sizeof[i32]());
-
     grid.neighborlist_capacity = capacity;
 }
 
@@ -264,11 +279,13 @@ fn initialize_grid(
 
     let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
 
-    range(0, grid.ncells, |cell_index| { cell_sizes(cell_index) = 0; });
+    range(0, grid.ncells, |cell_index| {
+        cell_sizes(cell_index) = 0;
+    });
 
-    for i in range(0, nparticles) {
+    range(0, nparticles, |i| {
         insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
-    }
+    });
 }
 
 fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
@@ -332,11 +349,15 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
 
 fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
     let dev = device();
-    let mut resize = 1;
+    let mut resize_cell = 1;
+    let mut resize_ncells = 1;
 
-    while resize > 0 {
+    grid.nlist = select(sparse_cell_list(), 0, grid.ncells);
+
+    while resize_cell > 0 || resize_ncells > 0 {
         let const_grid = *grid;
 
+        set_counter(0, const_grid);
         reset_resize(const_grid);
 
         cells(const_grid, |cell_index| {
@@ -350,26 +371,35 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
             let particles_cell = get_particles_cell(const_grid);
             let cell_sizes = get_cell_sizes(const_grid);
             let resize_buf = get_resize_buffer(const_grid);
-            let cell_index = compute_cell_position(pos, true, const_grid);
-            let flat_index = flatten_index(cell_index, const_grid);
-            let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(flat_index), 1);
+            let cell_place = flatten_index(compute_cell_position(pos, true, const_grid), const_grid);
+            let cell_index = get_cell_index_from_place(const_grid, cell_place, true);
+            let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
 
             if cell_particle_index >= const_grid.cell_capacity {
                 if resize_buf(0) < cell_particle_index {
                     resize_buf(0) = cell_particle_index;
                 }
             } else {
-                let cell_offset = get_cell_offset(flat_index, const_grid);
+                let cell_offset = get_cell_offset(cell_index, const_grid);
                 cell_particles(cell_offset + cell_particle_index) = i;
-                particles_cell(i) = flat_index;
+                particles_cell(i) = cell_place;
             }
         });
 
-        resize = get_resize(const_grid);
+        resize_cell = get_resize(const_grid);
+        resize_ncells = get_resize2(const_grid);
 
-        if resize > 0 {
-            reallocate_cell_capacity(grid, resize * 2);
+        if resize_cell > 0 {
+            reallocate_cell_capacity(grid, resize_cell * 2);
         }
+
+        if resize_ncells > 0 {
+            reallocate_ncells_capacity(grid, resize_ncells * 2);
+        }
+    }
+
+    if sparse_cell_list() {
+        grid.nlist = get_counter(*grid);
     }
 }
 

@@ -134,7 +134,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         let const_comm_offsets = *comm_offsets;
         let world_aabb = const_grid.world_aabb;
 
-        set_counter(0, const_comm_offsets);
+        set_counter(0, const_grid);
         reset_resize(const_grid);
 
         particles(const_grid, |i, _, _, _| {
@@ -146,7 +146,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
             let pos = get_position(i, const_grid);
 
             if check(pos) {
-                let counter = add_counter(const_comm_offsets);
+                let counter = add_counter(const_grid);
 
                 if counter >= const_comm_offsets.send_capacity {
                     if resize_buf(0) < counter {
@@ -181,7 +181,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     dev.transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
     dev.transfer(grid.send_flags_accelerator, grid.send_flags_cpu);
 
-    let packed = get_counter(*comm_offsets);
+    let packed = get_counter(*grid);
     let nparticles = grid.nparticles - packed;
     let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
     let send_offsets_host = get_array_of_i32(comm_offsets.send_offsets);
