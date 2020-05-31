@@ -1,6 +1,7 @@
 struct Device {
     cpu_target: fn() -> bool,
-    warmup: fn() -> (),
+    init: fn(Grid) -> (),
+    shutdown: fn() -> (),
     alloc: fn(i32) -> Buffer,
     alloc_mirror: fn(Buffer, i32) -> Buffer,
     transfer: fn(Buffer, Buffer) -> (),

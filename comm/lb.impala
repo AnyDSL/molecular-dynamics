@@ -229,7 +229,7 @@ fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, array:
     let start = add_local_slots(nparticles, grid);
     let const_grid = *grid;
 
-    array_iterate(array, nparticles, |index, data| {
+    array_iterate(array, nparticles, comm_offsets, |index, data| {
         let buffer_index = index * 7 + 1; 
         let offset = start + index;
         let masses = get_masses(const_grid);

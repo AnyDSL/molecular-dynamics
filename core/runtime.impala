@@ -34,8 +34,7 @@ extern fn md_initialize_grid(
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_comm_offsets(grid_, &mut comm_offsets_);
     initialize_neighborhood();
-
-    device().warmup();
+    device().init(grid_);
 
     grid_.nparticles
 }
@@ -101,6 +100,7 @@ extern fn md_compute_boundary_weights(
 extern fn md_deallocate_grid() -> () {
     release_neighborhood();
     deallocate_grid(&mut grid_);
+    device().shutdown();
 }
 
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }

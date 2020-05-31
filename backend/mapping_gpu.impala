@@ -11,15 +11,33 @@ type dev_i32_ptr      = &mut[1]i32;
 type dev_real_arr     = &[1][real_t];
 type dev_mut_real_arr = &mut[1][real_t];
 
+struct ReductionBuffers {
+    buffer_host: Buffer,
+    buffer_gpu: Buffer,
+    capacity: i32
+}
+
+static mut reduction_buffers_: ReductionBuffers;
+
 fn @device() -> Device {
     Device {
         cpu_target: @|| { false },
-        warmup: || {
+        init: |grid| {
             let acc = accelerator(device_id);
             let grid_size = (32, 1, 1);
             let block_size = (32, 1, 1);
 
-            acc.exec(grid_size, block_size, |work_item| {});
+            reduction_buffers_.capacity = 0;
+
+            acc.exec(grid_size, block_size, |work_item| {
+                bitcast[&mut[1][i32]](grid.mutex_accelerator.data)(0) = 0;
+            });
+        },
+        shutdown: || {
+            if reduction_buffers_.capacity > 0 {
+                release(reduction_buffers_.buffer_host);
+                release(reduction_buffers_.buffer_gpu);
+            }
         },
         alloc: |size| { accelerator(device_id).alloc(size) },
         alloc_mirror: |buf, size| { alloc_cpu(size) },
@@ -52,7 +70,6 @@ fn particles(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> () {
             if particle_index < nparticles {
                 let nb_list_offset = neighborlist_capacity * particle_index;
                 let nb_list_size = neighbors_sizes(particle_index);
-
                 @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
             }
         });
@@ -90,7 +107,6 @@ fn copy_list_iterate(comm_offsets: CommOffsets, ncopy: i32, body: fn(i32, &[1][i
     if ncopy > 0 {
         acc.exec(grid_size, block_size, |work_item| {
             let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-
             if index < ncopy {
                 @@body(index, copy_list, send_offsets);
             }
@@ -110,7 +126,6 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
     if noffsets > 0 {
         acc.exec(grid_size, block_size, |work_item| {
             let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-
             if index < noffsets {
                 @@body(index, send_data, recv_data);
             }
@@ -120,23 +135,164 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
     }
 }
 
-fn set_counter(value: i32, grid: Grid) -> () {
-    bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0) = value;
-    copy(grid.counter_buffer, grid.counter_buffer_accelerator);
+fn @array_iterate(array: &[real_t], n: i32, comm_offsets: &mut CommOffsets, body: fn(i32, &[1][real_t]) -> ()) -> () {
+    let acc = accelerator(device_id);
+    let block_size = (64, 1, 1);
+    let grid_size = (round_up(n, block_size(0)), 1, 1);
+    let array_buffer = Buffer {
+        data: array as &[i8],
+        size: (n * 7 + 1) as i64,
+        device: 0
+    };
+
+    if n > 0 {
+        if n > comm_offsets.recv_capacity {
+            resize_recv_capacity(comm_offsets, n * 2);
+        }
+
+        copy(array_buffer, comm_offsets.recv_buffer_accelerator);
+        acc.exec(grid_size, block_size, |work_item| {
+            let array_gpu = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
+            let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
+            if index < n {
+                @@body(index, array_gpu);
+            }
+        });
+    }
 }
 
-fn get_counter(comm_offsets: CommOffsets) -> i32 {
-    copy(grid.counter_buffer_accelerator, grid.counter_buffer);
+fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32) -> i32 {
+    let dev = device();
+    let acc = accelerator(device_id);
+    let block_size = (64, 1, 1);
+    let nblocks = round_up(n, block_size(0));
+    let grid_size = (nblocks, 1, 1);
+    let mut red = b;
+
+    if n > 0 {
+        if reduction_buffers_.capacity < nblocks {
+            let new_capacity = nblocks + 20;
+            release(reduction_buffers_.buffer_host);
+            release(reduction_buffers_.buffer_gpu);
+            reduction_buffers_.buffer_host = alloc_cpu(new_capacity * sizeof[i32]());
+            reduction_buffers_.buffer_gpu = dev.alloc(new_capacity * sizeof[i32]());
+            reduction_buffers_.capacity = new_capacity;
+        }
+
+        let blocks_red_host = get_array_of_i32(reduction_buffers_.buffer_host);
+        let blocks_red_gpu = get_array_of_i32_accelerator(reduction_buffers_.buffer_gpu);
+
+        acc.exec(grid_size, block_size, |work_item| {
+            let sdata = reserve_shared[i32](64);
+            let tid = work_item.tidx();
+            let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
+
+            if index < n {
+                sdata(tid) = reduce(b, body(index));
+            } else {
+                sdata(tid) = b;
+            }
+
+            acc.barrier();
+
+            let mut s = work_item.bdimx() >> 1;
+            while s > 0 {
+                if tid < s {
+                    sdata(tid) = reduce(sdata(tid), sdata(tid + s));
+                }
+
+                acc.barrier();
+                s >>= 1;
+            }
+
+            if tid == 0 {
+                blocks_red_gpu(work_item.bidx()) = sdata(0);
+            }
+        });
+
+        acc.sync();
+        dev.transfer(reduction_buffers_.buffer_gpu, reduction_buffers_.buffer_host);
+
+        range(0, nblocks, |i| {
+            red = reduce(red, blocks_red_host(i));
+        });
+    }
+
+    red
+}
+
+fn @get_cell_index_from_place(grid: Grid, place: i32, create: bool, ret: fn(i32) -> !) -> ! {
+    if sparse_cell_list() {
+        let cell_list = get_array_of_i32_accelerator(grid.cell_list_accelerator);
+        let cell_sizes = get_array_of_i32_accelerator(grid.cell_sizes_accelerator);
+        let counter = get_array_of_i32_accelerator(grid.counter_buffer_accelerator);
+        let mutex = get_array_of_i32_accelerator(grid.mutex_accelerator);
+        let resize_buf = get_resize_buffer(grid);
+        let list_size = counter(0);
+
+        range(0, list_size, |index| {
+            if cell_list(index) == place {
+                ret(index)
+            }
+        });
+
+        if create {
+            let mut lock = false;
+
+            while !lock {
+                lock = nvvm_atomic_cmpxchg_global(mutex as &mut[1]i32, 0, 1)(1);
+            }
+
+            if counter(0) >= grid.ncells_capacity {
+                if resize_buf(1) < counter(0) {
+                    resize_buf(1) = counter(0);
+                }
+            } else {
+                let list_cur_size = counter(0);
+
+                range(list_size, list_cur_size, |index| {
+                    if cell_list(index) == place {
+                        mutex(0) = 0;
+                        ret(index)
+                    }
+                });
+
+                cell_list(list_cur_size) = place;
+                cell_sizes(list_cur_size) = 0;
+                counter(0)++;
+                mutex(0) = 0;
+                ret(list_cur_size)
+            }
+
+            mutex(0) = 0;
+        }
+
+        ret(-1)
+    } else {
+        ret(place)
+    }
+}
+
+fn set_counter(value: i32, grid: Grid) -> () {
+    bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0) = value;
+    copy(grid.counter_buffer_cpu, grid.counter_buffer_accelerator);
+}
+
+fn get_counter(grid: Grid) -> i32 {
+    copy(grid.counter_buffer_accelerator, grid.counter_buffer_cpu);
     bitcast[&[i32]](grid.counter_buffer_cpu.data)(0)
 }
 
-fn add_counter(comm_offsets: CommOffsets) -> i32 {
+fn add_counter(grid: Grid) -> i32 {
     let counter = bitcast[&mut[i32]](grid.counter_buffer_accelerator.data);
     nvvm_atomic_add_global(&mut counter(0) as &mut[1]i32, 1)
 }
 
 fn reset_resize(grid: Grid) -> () {
-    bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(0) = 0;
+    range(0, 2, |i| {
+        bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(i) = 0;
+    });
+
     copy(grid.resize_buffer_cpu, grid.resize_buffer_accelerator);
 }
 
@@ -145,9 +301,15 @@ fn get_resize(grid: Grid) -> i32 {
     bitcast[&[i32]](grid.resize_buffer_cpu.data)(0)
 }
 
+fn get_resize2(grid: Grid) -> i32 {
+    copy(grid.resize_buffer_accelerator, grid.resize_buffer_cpu);
+    bitcast[&[i32]](grid.resize_buffer_cpu.data)(1)
+}
+
 fn get_resize_buffer(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.resize_buffer_accelerator) }
 fn get_send_flags(grid: Grid) -> &mut[1][i8] { get_array_of_i8_accelerator(grid.send_flags_accelerator) }
 fn get_particles_cell(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.particles_cell_accelerator) }
+fn get_cell_list(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_list_accelerator) }
 fn get_cell_particles(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.cell_particles_accelerator) }
 fn get_cell_sizes(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.cell_sizes_accelerator) }
 fn get_neighbors_sizes(grid: Grid) -> &mut[1][i32] { get_array_of_i32_accelerator(grid.neighbors_sizes_accelerator) }

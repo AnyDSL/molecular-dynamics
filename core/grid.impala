@@ -51,13 +51,14 @@ struct Grid {
     send_flags_accelerator: Buffer, //send flag for particle on accelerator [i8]
     cell_list_accelerator: Buffer, // cell list on the accelerator [i32]
     counter_buffer_accelerator: Buffer, // counter buffer on the accelerator: [i32]
-    resize_buffer_accelerator: Buffer // resize buffer on the accelerator: [i32]
+    resize_buffer_accelerator: Buffer, // resize buffer on the accelerator: [i32]
+    mutex_accelerator: Buffer // mutex buffer on the accelerator: [i32]
 }
 
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array() }
 
 fn @sort_particles() -> bool { false }
-fn @sparse_cell_list() -> bool { true }
+fn @sparse_cell_list() -> bool { false }
 fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
 fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) -> i32 {
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)
@@ -125,7 +126,8 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         neighborlists_accelerator: dev.alloc(neighbors_capacity * sizeof[i32]()),
         send_flags_accelerator: dev.alloc(particle_capacity * sizeof[i8]()),
         counter_buffer_accelerator: dev.alloc(sizeof[i32]()),
-        resize_buffer_accelerator: dev.alloc(2 * sizeof[i32]())
+        resize_buffer_accelerator: dev.alloc(2 * sizeof[i32]()),
+        mutex_accelerator: dev.alloc(sizeof[i32]()),
     }
 }
 
@@ -171,6 +173,7 @@ fn deallocate_grid(grid: &mut Grid) -> () {
     release(grid.neighborlists_accelerator);
     release(grid.counter_buffer_accelerator);
     release(grid.resize_buffer_accelerator);
+    release(grid.mutex_accelerator);
 }
 
 fn reallocate_buffer(buffer: &mut Buffer, size: i32, elem_size: i32, @preserve: bool, allocate: fn(i32) -> Buffer) -> () {
@@ -358,16 +361,19 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
             let resize_buf = get_resize_buffer(const_grid);
             let cell_place = flatten_index(compute_cell_position(pos, true, const_grid), const_grid);
             let cell_index = get_cell_index_from_place(const_grid, cell_place, true);
-            let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
 
-            if cell_particle_index >= const_grid.cell_capacity {
-                if resize_buf(0) < cell_particle_index {
-                    resize_buf(0) = cell_particle_index;
+            if cell_index != -1 {
+                let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
+
+                if cell_particle_index >= const_grid.cell_capacity {
+                    if resize_buf(0) < cell_particle_index {
+                        resize_buf(0) = cell_particle_index;
+                    }
+                } else {
+                    let cell_offset = get_cell_offset(cell_index, const_grid);
+                    cell_particles(cell_offset + cell_particle_index) = i;
+                    particles_cell(i) = cell_place;
                 }
-            } else {
-                let cell_offset = get_cell_offset(cell_index, const_grid);
-                cell_particles(cell_offset + cell_particle_index) = i;
-                particles_cell(i) = cell_place;
             }
         });
 
