@@ -15,7 +15,8 @@ type dev_mut_real_arr = &mut[real_t];
 fn @device() -> Device {
     Device {
         cpu_target: @|| { true },
-        warmup: || {},
+        init: |grid| {},
+        shutdown: || {},
         alloc: |size| { alloc_cpu(size) },
         alloc_mirror: |buf, size| { buf },
         transfer: |from, to| {},
@@ -86,7 +87,7 @@ fn comm_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, 
     });
 }
 
-fn @array_iterate(array: &[real_t], n: i32, body: fn(i32, &[real_t]) -> ()) -> () {
+fn @array_iterate(array: &[real_t], n: i32, comm_offsets: &mut CommOffsets, body: fn(i32, &[real_t]) -> ()) -> () {
     range(0, n, |index| {
         @@body(index, array);
     });
