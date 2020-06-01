@@ -15,8 +15,8 @@ fn @get_number_of_neighbor_ranks() -> i32 { neighborhood.nranks }
 fn @get_neighborhood_rank(index: i32) -> i32 { bitcast[&[i32]](neighborhood.ranks.data)(index) }
 fn @get_rank_number_of_aabbs(index: i32) -> i32 { bitcast[&[i32]](neighborhood.naabbs.data)(index) }
 fn @get_rank_offset(index: i32) -> i32 { bitcast[&[i32]](neighborhood.offsets.data)(index) }
-fn @get_neighborhood_aabb(index: i32) -> AABB {
-    let aabbs = device().get_array_real(neighborhood.aabbs_cpu);
+fn @get_neighborhood_aabb(nbh: Neighborhood, index: i32) -> AABB {
+    let aabbs = get_neighborhood_aabb_buffer(nbh);
 
     AABB {
         xmin: aabbs(index * 6 + 0),

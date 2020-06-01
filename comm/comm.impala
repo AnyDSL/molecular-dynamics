@@ -66,6 +66,7 @@ type CommFunc = fn(i32, i32, i32, i32, i32, CondFunc, CondFunc) -> ();
 
 // Communication pattern using walberla or 6-stencil neighbors
 fn communication_ranks(grid: Grid, body: CommFunc) -> () {
+    let nbh = neighborhood;
     let spacing = grid.spacing;
 
     if use_walberla() {
@@ -81,7 +82,7 @@ fn communication_ranks(grid: Grid, body: CommFunc) -> () {
                     let mut cond = false;
 
                     range(0, naabbs, |i| {
-                        if distance_point_aabb(p, get_neighborhood_aabb(offset + i)) < spacing * spacing {
+                        if distance_point_aabb(p, get_neighborhood_aabb(nbh, offset + i)) < spacing * spacing {
                             cond = true;
                         }
                     });
@@ -92,7 +93,7 @@ fn communication_ranks(grid: Grid, body: CommFunc) -> () {
                     let mut cond = false;
 
                     range(0, naabbs, |i| {
-                        if is_within_domain(p, get_neighborhood_aabb(offset + i)) {
+                        if is_within_domain(p, get_neighborhood_aabb(nbh, offset + i)) {
                             cond = true;
                         }
                     });

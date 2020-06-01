@@ -160,6 +160,7 @@ fn get_send_buffer(comm_offsets: &CommOffsets) -> &mut[real_t] { get_array_of_re
 fn get_send_offsets(comm_offsets: &CommOffsets) -> &mut[i32] { get_array_of_i32(comm_offsets.send_offsets) }
 fn get_send_pbc(comm_offsets: &CommOffsets) -> &mut[i8] { get_array_of_i8(comm_offsets.send_pbc) }
 fn get_copy_list(comm_offsets: &CommOffsets) -> &mut[i32] { get_array_of_i32(comm_offsets.copy_list) }
+fn @get_neighborhood_aabb_buffer(nbh: Neighborhood) -> &[real_t] { device().get_array_real(nbh.aabbs_cpu) }
 
 fn @get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
     grid.neighborlist_capacity * particle_index + neighbor_index

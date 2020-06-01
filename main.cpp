@@ -480,9 +480,6 @@ int main(int argc, char **argv) {
     auto info = make_shared<blockforest::InfoCollection>();
     getBlockForestAABB(forest, rank_aabb);
 
-    // Neighborhood
-    map<uint_t, vector<math::AABB>> neighborhood;
-
     // Properties
     map<string, int64_t> integerProperties;
     map<string, double> realProperties;
