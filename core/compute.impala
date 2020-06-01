@@ -9,11 +9,10 @@ fn @(?n) pow(x: real_t, n: i32) -> real_t {
     }
 }
 
-fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: real_t, sigma: real_t) -> (i64, i64) {
+fn compute_potential(grid: Grid, rsq_cutoff: real_t, potential: fn(Vector3D, real_t) -> Vector3D) -> (i64, i64) {
     let dev = device();
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
-    let sigma6 = pow(sigma, 6);
 
     particles(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
         let mut force = Vector3D {
@@ -31,11 +30,7 @@ fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: 
             let rsq = vector_len2(del);
 
             if rsq < rsq_cutoff {
-                let sr2 = 1.0 / rsq;
-                let sr6 = sr2 * sr2 * sr2 * sigma6;
-                let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
-
-                force = vector_add(force, vector_scale(f, del));
+                force = vector_add(force, potential(del, rsq));
                 dev.add_iterator(&mut rsq_iters);
             }
 
@@ -48,7 +43,7 @@ fn accelerator_compute_particle_forces(grid: Grid, rsq_cutoff: real_t, epsilon: 
     (total_iters, rsq_iters)
 }
 
-fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
+fn integration(grid: Grid, dt: real_t) -> i64 {
     let dev = device();
     let mut iters = 0 as i64;
 
@@ -76,7 +71,7 @@ fn accelerator_integration(grid: Grid, dt: real_t) -> i64 {
     iters
 }
 
-fn accelerator_initial_integration(grid: Grid, dt: real_t) -> i64 {
+fn initial_integration(grid: Grid, dt: real_t) -> i64 {
     let dev = device();
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
@@ -103,7 +98,7 @@ fn accelerator_initial_integration(grid: Grid, dt: real_t) -> i64 {
     iters
 }
 
-fn accelerator_final_integration(grid: Grid, dt: real_t) -> i64 {
+fn final_integration(grid: Grid, dt: real_t) -> i64 {
     let dev = device();
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;

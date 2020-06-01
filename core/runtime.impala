@@ -106,9 +106,9 @@ extern fn md_deallocate_grid() -> () {
 
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }
 extern fn md_copy_data_from_accelerator() -> () { copy_from_accelerator(grid_); }
-extern fn md_integration(dt: real_t) -> () { integration_iters = accelerator_integration(grid_, dt); }
-extern fn md_initial_integration(dt: real_t) -> () { integration_iters = accelerator_initial_integration(grid_, dt); }
-extern fn md_final_integration(dt: real_t) -> () { integration_iters = accelerator_final_integration(grid_, dt); }
+extern fn md_integration(dt: real_t) -> () { integration_iters = integration(grid_, dt); }
+extern fn md_initial_integration(dt: real_t) -> () { integration_iters = initial_integration(grid_, dt); }
+extern fn md_final_integration(dt: real_t) -> () { integration_iters = final_integration(grid_, dt); }
 
 extern fn md_write_grid_data_to_arrays(
     masses: &mut[real_t],
@@ -158,7 +158,15 @@ extern fn md_print_ghost() -> () {
 }
 
 extern fn md_compute_forces(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
-    let (iforces, irsq) = accelerator_compute_particle_forces(grid_, cutoff_distance * cutoff_distance, epsilon, sigma);
+    let sigma6 = pow(sigma, 6);
+    let (iforces, irsq) = compute_potential(grid_, cutoff_distance * cutoff_distance, @|del, rsq| {
+        let sr2 = 1.0 / rsq;
+        let sr6 = sr2 * sr2 * sr2 * sigma6;
+        let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
+
+        vector_scale(f, del)
+    });
+
     force_iters = iforces;
     rsq_iters = irsq;
 }
