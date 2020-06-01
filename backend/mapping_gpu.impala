@@ -30,7 +30,7 @@ fn @device() -> Device {
             reduction_buffers_.capacity = 0;
 
             acc.exec(grid_size, block_size, |work_item| {
-                bitcast[&mut[1][i32]](grid.mutex_accelerator.data)(0) = 0;
+                nvvm_atomic_xchg_global(grid.mutex_accelerator.data as &mut[1]i32, 0);
             });
         },
         shutdown: || {
@@ -221,7 +221,7 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
     red
 }
 
-fn @get_cell_index_from_place(grid: Grid, place: i32, create: bool, ret: fn(i32) -> !) -> ! {
+fn @get_cell_index_from_place(grid: Grid, place: i32, create: bool) -> i32 {
     if sparse_cell_list() {
         let cell_list = get_array_of_i32_accelerator(grid.cell_list_accelerator);
         let cell_sizes = get_array_of_i32_accelerator(grid.cell_sizes_accelerator);
@@ -229,47 +229,47 @@ fn @get_cell_index_from_place(grid: Grid, place: i32, create: bool, ret: fn(i32)
         let mutex = get_array_of_i32_accelerator(grid.mutex_accelerator);
         let resize_buf = get_resize_buffer(grid);
         let list_size = counter(0);
+        let mut ret = -1;
 
         range(0, list_size, |index| {
             if cell_list(index) == place {
-                ret(index)
+                ret = index;
             }
         });
 
-        if create {
-            let mut lock = false;
+        if create && ret == -1 {
+            while true {
+                if nvvm_atomic_cmpxchg_global(mutex as &mut[1]i32, 0, 1)(0) == 0 {
+                    if counter(0) >= grid.ncells_capacity {
+                        if resize_buf(1) < counter(0) {
+                            resize_buf(1) = counter(0);
+                        }
+                    } else {
+                        let list_cur_size = counter(0);
 
-            while !lock {
-                lock = nvvm_atomic_cmpxchg_global(mutex as &mut[1]i32, 0, 1)(1);
-            }
+                        range(list_size, list_cur_size, |index| {
+                            if cell_list(index) == place {
+                                ret = index;
+                            }
+                        });
 
-            if counter(0) >= grid.ncells_capacity {
-                if resize_buf(1) < counter(0) {
-                    resize_buf(1) = counter(0);
-                }
-            } else {
-                let list_cur_size = counter(0);
-
-                range(list_size, list_cur_size, |index| {
-                    if cell_list(index) == place {
-                        mutex(0) = 0;
-                        ret(index)
+                        if ret == -1 {
+                            cell_list(list_cur_size) = place;
+                            cell_sizes(list_cur_size) = 0;
+                            counter(0)++;
+                            ret = list_cur_size;
+                        }
                     }
-                });
 
-                cell_list(list_cur_size) = place;
-                cell_sizes(list_cur_size) = 0;
-                counter(0)++;
-                mutex(0) = 0;
-                ret(list_cur_size)
+                    nvvm_atomic_xchg_global(mutex as &mut[1]i32, 0);
+                    break()
+                }
             }
-
-            mutex(0) = 0;
         }
 
-        ret(-1)
+        ret
     } else {
-        ret(place)
+        place
     }
 }
 
