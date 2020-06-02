@@ -636,7 +636,7 @@ int main(int argc, char **argv) {
 
         for(int j = 0; j < steps; ++j) {
             LIKWID_MARKER_START("Force");
-            md_compute_forces(cutoff_radius, epsilon, sigma);
+            md_compute_lennard_jones(cutoff_radius, epsilon, sigma);
             LIKWID_MARKER_STOP("Force");
 
             md_integration(dt);

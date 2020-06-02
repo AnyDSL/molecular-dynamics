@@ -9,7 +9,10 @@ fn @(?n) pow(x: real_t, n: i32) -> real_t {
     }
 }
 
-fn compute_potential(grid: Grid, rsq_cutoff: real_t, potential: fn(Vector3D, real_t) -> Vector3D) -> (i64, i64) {
+fn compute_potential(
+    grid: Grid, rsq_cutoff: real_t,
+    potential: fn(i32, i32, Vector3D, Vector3D, Vector3D, real_t) -> Vector3D) -> (i64, i64) {
+
     let dev = device();
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
@@ -30,7 +33,7 @@ fn compute_potential(grid: Grid, rsq_cutoff: real_t, potential: fn(Vector3D, rea
             let rsq = vector_len2(del);
 
             if rsq < rsq_cutoff {
-                force = vector_add(force, potential(del, rsq));
+                force = vector_add(force, potential(i, neighbor_index, pos, pos_neighbor, del, rsq));
                 dev.add_iterator(&mut rsq_iters);
             }
 

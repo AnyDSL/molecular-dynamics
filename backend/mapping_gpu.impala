@@ -42,6 +42,7 @@ fn @device() -> Device {
         alloc: |size| { accelerator(device_id).alloc(size) },
         alloc_mirror: |buf, size| { alloc_cpu(size) },
         transfer: |from, to| { copy(from, to); },
+        sqrt: @|a| { nvvm_intrinsics.sqrt(a) },
         get_array_i8: |buffer| { bitcast[&[1][i8]](buffer.data) },
         get_mut_array_i8: |buffer| { bitcast[&mut[1][i8]](buffer.data) },
         get_array_i32: |buffer| { bitcast[&[1][i32]](buffer.data) },

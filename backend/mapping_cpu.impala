@@ -20,6 +20,7 @@ fn @device() -> Device {
         alloc: |size| { alloc_cpu(size) },
         alloc_mirror: |buf, size| { buf },
         transfer: |from, to| {},
+        sqrt: @|a| { cpu_intrinsics.sqrt(a) },
         get_array_i8: |buffer| { bitcast[&[i8]](buffer.data) },
         get_mut_array_i8: |buffer| { bitcast[&mut[i8]](buffer.data) },
         get_array_i32: |buffer| { bitcast[&[i32]](buffer.data) },

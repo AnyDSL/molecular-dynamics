@@ -23,7 +23,8 @@ extern "C" {
     void md_deallocate_grid();
     void md_print_grid();
     void md_print_ghost();
-    void md_compute_forces(double, double, double);
+    void md_compute_lennard_jones(double, double, double);
+    void md_compute_dem(double, double, double, double, double);
     double md_compute_total_kinetic_energy();
     uint64_t get_number_of_flops();
     void md_set_thread_count(int);
