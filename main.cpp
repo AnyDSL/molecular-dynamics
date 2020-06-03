@@ -53,6 +53,7 @@ void print_usage(char *name) {
     cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones equation (default 1.0)." << endl;
     cout << "\t    --sigma=REAL          sigma value for Lennard-Jones equation (default 1.0)." << endl;
     cout << "\t    --potmin=REAL         potential minimum (default 1.6796)." << endl;
+    cout << "\t    --half_nb             compute with half neighbor list." << endl;
     cout << "\t-h, --help                display this help message." << endl;
 }
 
@@ -306,6 +307,7 @@ int main(int argc, char **argv) {
     double sigma = 1.0;
     double potential_minimum = 1.6796;
     bool half = false;
+    bool half_nb = false;
     bool use_walberla = false;
 
     int opt = 0;
@@ -327,7 +329,8 @@ int main(int argc, char **argv) {
         {"verlet",    required_argument,    nullptr,    4},
         {"epsilon",   required_argument,    nullptr,    5},
         {"sigma",     required_argument,    nullptr,    6},
-        {"potmin",    required_argument,    nullptr,    7}
+        {"potmin",    required_argument,    nullptr,    7},
+        {"half_nb",   no_argument,          nullptr,    8}
     };
 
     while((opt = getopt_long(argc, argv, "b:x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
@@ -362,6 +365,10 @@ int main(int argc, char **argv) {
 
             case 7:
                 potential_minimum = atof(optarg);
+                break;
+
+            case 8:
+                half_nb = true;
                 break;
 
             case 'b':
@@ -579,6 +586,7 @@ int main(int argc, char **argv) {
         cout << "- Epsilon: " << epsilon << endl;
         cout << "- Sigma: " << sigma << endl;
         cout << "- Potential minimum: " << potential_minimum << endl;
+        cout << "- Half neighbor lists: " << (half_nb? "yes" : "no") << endl;
         cout << "- Walberla domain partitioning: " << (use_walberla ? "yes" : "no") << endl;
         cout << "- Dynamic load balancing algorithm: " << ((use_load_balancing) ? algorithm : "none") << endl;
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
@@ -619,7 +627,7 @@ int main(int argc, char **argv) {
         md_exchange_particles();
         md_borders();
         md_distribute_particles();
-        md_assemble_neighborlists(cutoff_radius + verlet_buffer);
+        md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
 
         if(vtk && i == 0) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
@@ -636,7 +644,7 @@ int main(int argc, char **argv) {
 
         for(int j = 0; j < steps; ++j) {
             LIKWID_MARKER_START("Force");
-            md_compute_lennard_jones(cutoff_radius, epsilon, sigma);
+            md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
             LIKWID_MARKER_STOP("Force");
 
             md_integration(dt);
@@ -662,7 +670,7 @@ int main(int argc, char **argv) {
                 md_distribute_particles();
                 timer.accum(TIME_OTHER);
 
-                md_assemble_neighborlists(cutoff_radius + verlet_buffer);
+                md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
                 timer.accum(TIME_NEIGHBORLISTS);
             } else {
                 md_synchronize_ghost_layer();
@@ -675,9 +683,7 @@ int main(int argc, char **argv) {
                 vtk_write_aabb_data(vtk_directory + "aabb_" + to_string(j + 1) + ".vtk");
 
                 #ifdef USE_WALBERLA_LOAD_BALANCING
-
                 vtk_write_forest_data(forest, vtk_directory + "forest_" + to_string(j + 1) + ".vtk");
-
                 #endif
 
                 timer.accum(TIME_OTHER);
@@ -704,9 +710,7 @@ int main(int argc, char **argv) {
     );
 
     #ifndef USE_WALBERLA_LOAD_BALANCING
-
     md_mpi_finalize();
-
     #endif
 
     return EXIT_SUCCESS;

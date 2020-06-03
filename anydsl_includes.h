@@ -19,12 +19,12 @@ extern "C" {
     int md_write_grid_aabb_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_distribute_particles();
     void md_initialize_clusters();
-    void md_assemble_neighborlists(double);
+    void md_assemble_neighborlists(bool, double);
     void md_deallocate_grid();
     void md_print_grid();
     void md_print_ghost();
-    void md_compute_lennard_jones(double, double, double);
-    void md_compute_dem(double, double, double, double, double);
+    void md_compute_lennard_jones(bool, double, double, double);
+    void md_compute_dem(bool, double, double, double, double, double);
     double md_compute_total_kinetic_energy();
     uint64_t get_number_of_flops();
     void md_set_thread_count(int);

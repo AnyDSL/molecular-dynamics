@@ -55,7 +55,7 @@ struct Grid {
     mutex_accelerator: Buffer // mutex buffer on the accelerator: [i32]
 }
 
-fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array() }
+fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
 
 fn @sort_particles() -> bool { false }
 fn @sparse_cell_list() -> bool { false }

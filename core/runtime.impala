@@ -141,7 +141,10 @@ extern fn md_distribute_particles() -> () { distribute_particles(&mut grid_); }
 extern fn md_borders() -> () { borders(&mut grid_, &mut comm_offsets_); }
 extern fn md_exchange_particles() -> () { exchange_particles(&mut grid_, &mut comm_offsets_); }
 extern fn md_initialize_clusters() -> () { }
-extern fn md_assemble_neighborlists(cutoff_distance: real_t) -> () { assemble_neighborlists(&mut grid_, cutoff_distance); }
+extern fn md_assemble_neighborlists(half_neighborlist: bool, cutoff_distance: real_t) -> () {
+    let half_nb = select(half_neighborlist, 1, 0);
+    assemble_neighborlists(&mut grid_, half_nb, cutoff_distance);
+}
 
 extern fn md_print_grid() -> () {
     range(0, grid_.nparticles, |particle_index| {
@@ -157,9 +160,10 @@ extern fn md_print_ghost() -> () {
     });
 }
 
-extern fn md_compute_lennard_jones(cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
+extern fn md_compute_lennard_jones(half_neighborlist: bool, cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
+    let half_nb = select(half_neighborlist, 1, 0);
     let sigma6 = pow(sigma, 6);
-    let (iforces, irsq) = compute_potential(grid_, cutoff_distance * cutoff_distance, @|_, _, _, _, del, rsq| {
+    let (iforces, irsq) = compute_potential(grid_, half_nb, cutoff_distance * cutoff_distance, @|_, _, _, _, del, rsq| {
         let sr2 = 1.0 / rsq;
         let sr6 = sr2 * sr2 * sr2 * sigma6;
         let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
@@ -171,14 +175,18 @@ extern fn md_compute_lennard_jones(cutoff_distance: real_t, epsilon: real_t, sig
     rsq_iters = irsq;
 }
 
-extern fn md_compute_dem(cutoff_distance: real_t, damping_n: real_t, damping_t: real_t, stiffness: real_t, friction: real_t) -> () {
+extern fn md_compute_dem(
+    half_neighborlist: bool, cutoff_distance: real_t,
+    damping_n: real_t, damping_t: real_t, stiffness: real_t, friction: real_t) -> () {
+
     let grid = grid_;
+    let half_nb = select(half_neighborlist, 1, 0);
     let radius = 1.0;
     let square = @|a: real_t| { a * a };
     let vector_len =    @|v: Vector3D| { device().sqrt(vector_len2(v)) };
     let vector_normal = @|v: Vector3D, len: real_t| { vector_scale(1.0 / len, v) };
 
-    let (iforces, irsq) = compute_potential(grid_, cutoff_distance * cutoff_distance, @|i, j, _, pos2, del, rsq| {
+    let (iforces, irsq) = compute_potential(grid, half_nb, cutoff_distance * cutoff_distance, @|i, j, _, pos_j, del, rsq| {
         let mut result = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
 
         if rsq < square(radius * 2.0) {
@@ -187,7 +195,7 @@ extern fn md_compute_dem(cutoff_distance: real_t, damping_n: real_t, damping_t: 
 
             if penetration_depth > 0.0 {
                 let normal = vector_normal(del, del_length);
-                let contact_point = vector_add(vector_scale(radius + 0.5 * penetration_depth, normal), pos2);
+                let contact_point = vector_add(vector_scale(radius + 0.5 * penetration_depth, normal), pos_j);
                 let vel1 = array_get(ParticleDataLayout(), grid.velocities, i);
                 let vel2 = array_get(ParticleDataLayout(), grid.velocities, j);
 

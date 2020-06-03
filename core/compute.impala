@@ -9,13 +9,21 @@ fn @(?n) pow(x: real_t, n: i32) -> real_t {
     }
 }
 
-fn compute_potential(
-    grid: Grid, rsq_cutoff: real_t,
+fn @(?half_nb) compute_potential(
+    grid: Grid, @half_nb: i32, rsq_cutoff: real_t,
     potential: fn(i32, i32, Vector3D, Vector3D, Vector3D, real_t) -> Vector3D) -> (i64, i64) {
 
     let dev = device();
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
+
+    if half_nb != 0 {
+        let vec_null = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
+
+        particles(grid, |i, _, _, _| {
+            array_set(ParticleDataLayout(), grid.forces, i, vec_null);
+        });
+    }
 
     particles(grid, |i, neighborlists, nb_list_size, nb_list_offset| {
         let mut force = Vector3D {
@@ -24,23 +32,37 @@ fn compute_potential(
             z: 0.0 as real_t
         };
 
-        let pos = get_position(i, grid);
+        let pos_i = get_position(i, grid);
 
         for n in range(0, nb_list_size) {
-            let neighbor_index = neighborlists(get_neighborlist_index(i, n, grid));
-            let pos_neighbor = get_position(neighbor_index, grid);
-            let del = vector_sub(pos, pos_neighbor);
+            let j = neighborlists(get_neighborlist_index(i, n, grid));
+            let pos_j = get_position(j, grid);
+            let del = vector_sub(pos_i, pos_j);
             let rsq = vector_len2(del);
 
             if rsq < rsq_cutoff {
-                force = vector_add(force, potential(i, neighbor_index, pos, pos_neighbor, del, rsq));
+                let f = potential(i, j, pos_i, pos_j, del, rsq);
+
+                if half_nb == 0 {
+                    force = vector_add(force, f);
+                } else {
+                    array_add(ParticleDataLayout(), grid.forces, i, f);
+
+                    if j < grid.nparticles {
+                        let nf = Vector3D { x: -f.x, y: -f.y, z: -f.z };
+                        array_add(ParticleDataLayout(), grid.forces, j, nf);
+                    }
+                }
+
                 dev.add_iterator(&mut rsq_iters);
             }
 
             dev.add_iterator(&mut total_iters);
         }
 
-        set_force(i, grid, force);
+        if half_nb == 0 {
+            set_force(i, grid, force);
+        }
     });
 
     (total_iters, rsq_iters)

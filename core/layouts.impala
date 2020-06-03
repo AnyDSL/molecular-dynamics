@@ -7,7 +7,8 @@ struct ArrayData {
 };
 
 struct ArrayLayout {
-    index: fn(ArrayData, i32, i32) -> i32
+    index: fn(ArrayData, i32, i32) -> i32,
+    add: fn(ArrayData, i32, real_t) -> ()
 };
 
 fn @get_shift_size(cluster_size: i32) -> i32 {
@@ -47,23 +48,38 @@ fn allocate_array(size_x: i32, size_y: i32, elem_size: i32, host_mirror: bool) -
     }
 }
 
-fn @column_major_order_array() -> ArrayLayout {
+fn @add_fun(atomic: i32, array: ArrayData, index: i32, value: real_t) -> () {
+    let data = device().get_mut_array_real(array.buffer);
+    if atomic != 0 {
+        atomic_op_real(&mut data(index), value, @|a, b| { a + b });
+    } else {
+        data(index) += value;
+    }
+}
+
+fn @column_major_order_array(atomic: i32) -> ArrayLayout {
     ArrayLayout {
         index: @|array, x, y| {
             x * array.size_y + y
+        },
+        add: @|array, i, v| {
+            add_fun(atomic, array, i, v);
         }
     }
 }
 
-fn @row_major_order_array() -> ArrayLayout {
+fn @row_major_order_array(atomic: i32) -> ArrayLayout {
     ArrayLayout {
         index: @|array, x, y| {
             y * array.size_x + x
+        },
+        add: @|array, i, v| {
+            add_fun(atomic, array, i, v);
         }
     }
 }
 
-fn @clustered_array(cluster_size: i32) -> ArrayLayout {
+fn @clustered_array(atomic: i32, cluster_size: i32) -> ArrayLayout {
     let mask = cluster_size - 1;
     let shift = get_shift_size(cluster_size);
 
@@ -72,6 +88,9 @@ fn @clustered_array(cluster_size: i32) -> ArrayLayout {
             let i = x >> shift;
             let j = x & mask;
             cluster_size * (i * array.size_y + y) + j
+        },
+        add: @|array, i, v| {
+            add_fun(atomic, array, i, v);
         }
     }
 }
@@ -107,7 +126,6 @@ fn @transfer_array_to_host(array: ArrayData) -> () { device().transfer(array.buf
 
 fn @array_swap(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> () {
     let data = device().get_mut_array_real(array.buffer);
-
     range(0, array.size_y, |y| {
         let index_i = layout.index(array, i, y);
         let index_j = layout.index(array, j, y);
@@ -119,7 +137,6 @@ fn @array_swap(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> () {
 
 fn @array_swap_host(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> () {
     let data = get_host_mut_array_real(array.buffer_host);
-
     range(0, array.size_y, |y| {
         let index_i = layout.index(array, i, y);
         let index_j = layout.index(array, j, y);
@@ -131,7 +148,6 @@ fn @array_swap_host(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> (
 
 fn @array_set(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
     let data = device().get_mut_array_real(array.buffer);
-
     data(layout.index(array, index, 0)) = vector.x;
     data(layout.index(array, index, 1)) = vector.y;
     data(layout.index(array, index, 2)) = vector.z;
@@ -139,7 +155,6 @@ fn @array_set(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector
 
 fn @array_set_host(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
     let data = get_host_mut_array_real(array.buffer_host);
-
     data(layout.index(array, index, 0)) = vector.x;
     data(layout.index(array, index, 1)) = vector.y;
     data(layout.index(array, index, 2)) = vector.z;
@@ -183,4 +198,10 @@ fn @array_copy_host(@layout: ArrayLayout, src: ArrayData, dest: ArrayData, i: i3
     dest_data(layout.index(dest, j, 0)) = src_data(layout.index(src, i, 0));
     dest_data(layout.index(dest, j, 1)) = src_data(layout.index(src, i, 1));
     dest_data(layout.index(dest, j, 2)) = src_data(layout.index(src, i, 2));
+}
+
+fn @array_add(@layout: ArrayLayout, array: ArrayData, index: i32, vector: Vector3D) -> () {
+    layout.add(array, layout.index(array, index, 0), vector.x);
+    layout.add(array, layout.index(array, index, 1), vector.y);
+    layout.add(array, layout.index(array, index, 2), vector.z);
 }
