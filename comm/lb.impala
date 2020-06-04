@@ -92,6 +92,64 @@ extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], n
     dev.transfer(neighborhood.aabbs_cpu, neighborhood.aabbs_dev);
 }
 
+// Get PBC conditions according to particle position
+fn @get_pbc_flags_from_position(position: Vector3D, pbc_x: i32, pbc_y: i32, pbc_z: i32, grid: Grid) -> PBCFlags {
+    let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
+    let all = pbc_x == 0 && pbc_y == 0 && pbc_z == 0;
+
+    if (all || pbc_x > 0) && position.x < grid.world_aabb.xmin + grid.spacing { pbc_flags.x =  1 as i8; };
+    if (all || pbc_x < 0) && position.x > grid.world_aabb.xmax - grid.spacing { pbc_flags.x = -1 as i8; };
+    if (all || pbc_y > 0) && position.y < grid.world_aabb.ymin + grid.spacing { pbc_flags.y =  1 as i8; };
+    if (all || pbc_y < 0) && position.y > grid.world_aabb.ymax - grid.spacing { pbc_flags.y = -1 as i8; };
+    if (all || pbc_z > 0) && position.z < grid.world_aabb.zmin + grid.spacing { pbc_flags.z =  1 as i8; };
+    if (all || pbc_z < 0) && position.z > grid.world_aabb.zmax - grid.spacing { pbc_flags.z = -1 as i8; };
+
+    pbc_flags
+}
+
+// Generate position variants according to PBC checking
+fn @pbc_positions(position: Vector3D, @pbc_x: i32, @pbc_y: i32, @pbc_z: i32, grid: Grid, body: fn(Vector3D, PBCFlags) -> ()) -> () {
+    if apply_pbc_before_border_check() {
+        let pbc = get_pbc_flags_from_position(position, pbc_x, pbc_y, pbc_z, grid);
+        let nx = select(pbc.x != 0 as i8, 2, 1);
+        let ny = select(pbc.y != 0 as i8, 2, 1);
+        let nz = select(pbc.z != 0 as i8, 2, 1);
+
+        range(0, nx, |x| {
+            range(0, ny, |y| {
+                range(0, nz, |z| {
+                    let adjusted_pos = Vector3D {
+                        x: position.x + grid.xlength * pbc.x as real_t * x as real_t,
+                        y: position.y + grid.ylength * pbc.y as real_t * y as real_t,
+                        z: position.z + grid.zlength * pbc.z as real_t * z as real_t
+                    };
+
+                    let pbc_flags = PBCFlags {
+                        x: pbc.x * x as i8,
+                        y: pbc.y * y as i8,
+                        z: pbc.z * z as i8
+                    };
+
+                    body(adjusted_pos, pbc_flags);
+                });
+            });
+        });
+    } else {
+        body(position, PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 });
+    }
+}
+
+fn is_within_aabb_radius(point: Vector3D, aabb: AABB, radius: real_t) -> bool {
+    let mut cond = true;
+    if point.x < aabb.xmin + radius { cond = false; }
+    if point.x > aabb.xmax - radius { cond = false; }
+    if point.y < aabb.ymin + radius { cond = false; }
+    if point.y > aabb.ymax - radius { cond = false; }
+    if point.z < aabb.zmin + radius { cond = false; }
+    if point.z > aabb.zmax - radius { cond = false; }
+    cond
+}
+
 fn distance_point_line(point: real_t, min: real_t, max: real_t) -> real_t {
     let square = @|x: real_t| { x * x };
 
@@ -108,6 +166,32 @@ fn distance_point_aabb(point: Vector3D, aabb: AABB) -> real_t {
     distance_point_line(point.x, aabb.xmin, aabb.xmax) +
     distance_point_line(point.y, aabb.ymin, aabb.ymax) +
     distance_point_line(point.z, aabb.zmin, aabb.zmax)
+}
+
+fn distance_point_aabb_periodic(point: Vector3D, aabb: AABB, glob_sizes: Vector3D, body: fn(real_t, Vector3D, PBCFlags) -> ()) -> () {
+    let center = Vector3D {
+        x: (aabb.xmax - aabb.xmin) * 0.5,
+        y: (aabb.ymax - aabb.ymin) * 0.5,
+        z: (aabb.zmax - aabb.zmin) * 0.5
+    };
+
+    let dis = vector_sub(point, center);
+    let half_sizes = vector_scale(0.5, glob_sizes);
+    let mut adj_pt = point;
+    let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
+
+    if dis.x < -half_sizes.x { adj_pt.x += glob_sizes.x; pbc_flags.x = +1 as i8; }
+    if dis.x > +half_sizes.x { adj_pt.x -= glob_sizes.x; pbc_flags.x = -1 as i8; }
+    if dis.y < -half_sizes.x { adj_pt.y += glob_sizes.y; pbc_flags.y = +1 as i8; }
+    if dis.y > +half_sizes.x { adj_pt.y -= glob_sizes.y; pbc_flags.y = -1 as i8; }
+    if dis.z < -half_sizes.x { adj_pt.z += glob_sizes.z; pbc_flags.z = +1 as i8; }
+    if dis.z > +half_sizes.x { adj_pt.z -= glob_sizes.z; pbc_flags.z = -1 as i8; }
+
+    let rdis = distance_point_line(adj_pt.x, aabb.xmin, aabb.xmax) +
+               distance_point_line(adj_pt.y, aabb.ymin, aabb.ymax) +
+               distance_point_line(adj_pt.z, aabb.zmin, aabb.zmax);
+
+    body(rdis, adj_pt, pbc_flags);
 }
 
 fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AABB, c_aabb: AABB, check_child: bool) -> i32 {

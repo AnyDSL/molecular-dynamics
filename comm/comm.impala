@@ -61,16 +61,23 @@ fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false
 fn @get_initial_maximum_neighbor_ranks() -> i32 { select(use_walberla(), 30, 6) }
 
 // Types for condition and communication functions
-type CondFunc = fn(Vector3D) -> bool;
+type CondFunc = fn(Vector3D, fn(Vector3D, PBCFlags) -> ()) -> ();
 type CommFunc = fn(i32, i32, i32, i32, i32, CondFunc, CondFunc) -> ();
 
 // Communication pattern using walberla or 6-stencil neighbors
 fn communication_ranks(grid: Grid, body: CommFunc) -> () {
     let nbh = neighborhood;
+    let world_aabb = grid.world_aabb;
     let spacing = grid.spacing;
+    let no_pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
 
     if use_walberla() {
         let nranks = get_number_of_neighbor_ranks();
+        let sizes = Vector3D {
+            x: world_aabb.xmax - world_aabb.xmin,
+            y: world_aabb.ymax - world_aabb.ymin,
+            z: world_aabb.zmax - world_aabb.zmin
+        };
 
         range(0, nranks as i32, |i| {
             let rank = get_neighborhood_rank(i);
@@ -78,69 +85,86 @@ fn communication_ranks(grid: Grid, body: CommFunc) -> () {
             let offset = get_rank_offset(i);
 
             body(rank, rank, 0, 0, 0,
-                |p| {
-                    let mut cond = false;
+                @|p, f| {
+                    if is_within_aabb_radius(p, world_aabb, spacing) {
+                        let mut i = 0;
+                        while i < naabbs {
+                            if distance_point_aabb(p, get_neighborhood_aabb(nbh, offset + i)) < spacing * spacing {
+                                f(p, no_pbc_flags);
+                                break()
+                            }
 
-                    range(0, naabbs, |i| {
-                        if distance_point_aabb(p, get_neighborhood_aabb(nbh, offset + i)) < spacing * spacing {
-                            cond = true;
+                            i++;
                         }
-                    });
+                    } else {
+                        let mut i = 0;
+                        while i < naabbs {
+                            distance_point_aabb_periodic(p, get_neighborhood_aabb(nbh, offset + i), sizes, @|dis, p_adj, pbc_flags| {
+                                if dis < spacing * spacing {
+                                    f(p_adj, pbc_flags);
+                                    break()
+                                }
+                            });
 
-                    cond
+                            i++;
+                        }
+                    }
                 },
-                |p| {
-                    let mut cond = false;
-
-                    range(0, naabbs, |i| {
-                        if is_within_domain(p, get_neighborhood_aabb(nbh, offset + i)) {
-                            cond = true;
+                @|p, f| {
+                    let mut i = 0;
+                    while i < naabbs {
+                        let corrected_pos = pbc_corrected_position_if(true, p, grid);
+                        if is_within_domain(corrected_pos, get_neighborhood_aabb(nbh, offset + i)) {
+                            f(corrected_pos, no_pbc_flags);
+                            break()
                         }
-                    });
 
-                    cond
+                        i++;
+                    }
                 }
             );
         });
     } else {
+        let dspacing = spacing * 2.0;
+
         body(xnext, xprev, -1, 0, 0,
-             |p| { p.x > grid.aabb.xmax - spacing * 2.0 },
-             |p| { p.x > grid.aabb.xmax - spacing });
+             @|p, f| { if p.x > grid.aabb.xmax - dspacing { f(p, no_pbc_flags); }},
+             @|p, f| { if p.x > grid.aabb.xmax - spacing  { f(p, no_pbc_flags); }});
 
         body(xprev, xnext, 1, 0, 0,
-             |p| { p.x < grid.aabb.xmin + spacing * 2.0 },
-             |p| { p.x < grid.aabb.xmin + spacing });
+             @|p, f| { if p.x < grid.aabb.xmin + dspacing { f(p, no_pbc_flags); }},
+             @|p, f| { if p.x < grid.aabb.xmin + spacing  { f(p, no_pbc_flags); }});
 
         body(ynext, yprev, 0, -1, 0,
-             |p| { p.y > grid.aabb.ymax - spacing * 2.0 },
-             |p| { p.y > grid.aabb.ymax - spacing });
+             @|p, f| { if p.y > grid.aabb.ymax - dspacing { f(p, no_pbc_flags); }},
+             @|p, f| { if p.y > grid.aabb.ymax - spacing  { f(p, no_pbc_flags); }});
 
         body(yprev, ynext, 0, 1, 0,
-             |p| { p.y < grid.aabb.ymin + spacing * 2.0 },
-             |p| { p.y < grid.aabb.ymin + spacing });
+             @|p, f| { if p.y < grid.aabb.ymin + dspacing { f(p, no_pbc_flags); }},
+             @|p, f| { if p.y < grid.aabb.ymin + spacing  { f(p, no_pbc_flags); }});
 
         body(znext, zprev, 0, 0, -1,
-             |p| { p.z > grid.aabb.zmax - spacing * 2.0 },
-             |p| { p.z > grid.aabb.zmax - spacing });
+             @|p, f| { if p.z > grid.aabb.zmax - dspacing { f(p, no_pbc_flags); }},
+             @|p, f| { if p.z > grid.aabb.zmax - spacing  { f(p, no_pbc_flags); }});
 
         body(zprev, znext, 0, 0, 1,
-             |p| { p.z < grid.aabb.zmin + spacing * 2.0 },
-             |p| { p.z < grid.aabb.zmin + spacing });
+             @|p, f| { if p.z < grid.aabb.zmin + dspacing { f(p, no_pbc_flags); }},
+             @|p, f| { if p.z < grid.aabb.zmin + spacing  { f(p, no_pbc_flags) }});
     }
 }
 
 fn communication_local(me: i32, grid: Grid, body: CommFunc) -> () {
-    communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange| {
+    communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, border_positions, exchange_positions| {
         if send_rank == me {
-            body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange);
+            body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, border_positions, exchange_positions);
         }
     });
 }
 
 fn communication_remote(me: i32, grid: Grid, body: CommFunc) -> () {
-    communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange| {
+    communication_ranks(grid, |send_rank, recv_rank, pbc_x, pbc_y, pbc_z, border_positions, exchange_positions| {
         if send_rank != me {
-            body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, check_border, check_exchange);
+            body(send_rank, recv_rank, pbc_x, pbc_y, pbc_z, border_positions, exchange_positions);
         }
     });
 }
@@ -150,50 +174,21 @@ fn communication_sep(me: i32, grid: Grid, body: CommFunc) -> () {
     @@communication_local(me, grid, body);
 }
 
-// Get PBC conditions according to particle position
-fn @get_pbc_flags_from_position(position: Vector3D, pbc_x: i32, pbc_y: i32, pbc_z: i32, grid: Grid) -> PBCFlags {
-    let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
-    let all = pbc_x == 0 && pbc_y == 0 && pbc_z == 0;
-
-    if (all || pbc_x > 0) && position.x < grid.world_aabb.xmin + grid.spacing { pbc_flags.x =  1 as i8; };
-    if (all || pbc_x < 0) && position.x > grid.world_aabb.xmax - grid.spacing { pbc_flags.x = -1 as i8; };
-    if (all || pbc_y > 0) && position.y < grid.world_aabb.ymin + grid.spacing { pbc_flags.y =  1 as i8; };
-    if (all || pbc_y < 0) && position.y > grid.world_aabb.ymax - grid.spacing { pbc_flags.y = -1 as i8; };
-    if (all || pbc_z > 0) && position.z < grid.world_aabb.zmin + grid.spacing { pbc_flags.z =  1 as i8; };
-    if (all || pbc_z < 0) && position.z > grid.world_aabb.zmax - grid.spacing { pbc_flags.z = -1 as i8; };
-
-    pbc_flags
-}
-
-// Generate position variants according to PBC checking
-fn @pbc_positions(position: Vector3D, @pbc_x: i32, @pbc_y: i32, @pbc_z: i32, grid: Grid, body: fn(Vector3D, PBCFlags) -> ()) -> () {
-    if apply_pbc_before_border_check() {
-        let pbc = get_pbc_flags_from_position(position, pbc_x, pbc_y, pbc_z, grid);
-        let nx = select(pbc.x != 0 as i8, 2, 1);
-        let ny = select(pbc.y != 0 as i8, 2, 1);
-        let nz = select(pbc.z != 0 as i8, 2, 1);
-
-        range(0, nx, |x| {
-            range(0, ny, |y| {
-                range(0, nz, |z| {
-                    let adjusted_pos = Vector3D {
-                        x: position.x + grid.xlength * pbc.x as real_t * x as real_t,
-                        y: position.y + grid.ylength * pbc.y as real_t * y as real_t,
-                        z: position.z + grid.zlength * pbc.z as real_t * z as real_t
-                    };
-
-                    let pbc_flags = PBCFlags {
-                        x: pbc.x * x as i8,
-                        y: pbc.y * y as i8,
-                        z: pbc.z * z as i8
-                    };
-
-                    body(adjusted_pos, pbc_flags);
-                });
-            });
-        });
+fn @pbc_corrected_position_if(@cond: bool, pos: Vector3D, grid: Grid) -> Vector3D {
+    if !cond {
+        pos
     } else {
-        body(position, PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 });
+        let world_aabb = grid.world_aabb;
+        let mut corrected_pos = pos;
+
+        if pos.x < world_aabb.xmin { corrected_pos.x += grid.xlength; }
+        if pos.x > world_aabb.xmax { corrected_pos.x -= grid.xlength; }
+        if pos.y < world_aabb.ymin { corrected_pos.y += grid.ylength; }
+        if pos.y > world_aabb.ymax { corrected_pos.y -= grid.ylength; }
+        if pos.z < world_aabb.zmin { corrected_pos.z += grid.zlength; }
+        if pos.z > world_aabb.zmax { corrected_pos.z -= grid.zlength; }
+
+        corrected_pos
     }
 }
 
@@ -739,7 +734,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Pack particles in each direction to exchange
-    communication_ranks(*grid, |exchg_rank, _, _, _, _, _, check_exchange| {
+    communication_ranks(*grid, |exchg_rank, _, _, _, _, _, exchange_positions| {
         exchg_rank_send_offsets(neigh) = iexchg;
 
         // Makes no sense to exchange data with myself, right?
@@ -761,22 +756,11 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                     let send_flags = get_send_flags(const_grid);
                     let buffer = get_send_buffer(const_comm_offsets);
                     let send_offsets = get_send_offsets(const_comm_offsets);
-                    let mut pos = get_position(i, const_grid);
+                    let particle_pos = get_position(i, const_grid);
 
-                    let adjust_pbc = @|condition: bool, pos: &mut Vector3D| {
-                        if condition {
-                            if pos.x < world_aabb.xmin { pos.x += grid.xlength; }
-                            if pos.x > world_aabb.xmax { pos.x -= grid.xlength; }
-                            if pos.y < world_aabb.ymin { pos.y += grid.ylength; }
-                            if pos.y > world_aabb.ymax { pos.y -= grid.ylength; }
-                            if pos.z < world_aabb.zmin { pos.z += grid.zlength; }
-                            if pos.z > world_aabb.zmax { pos.z -= grid.zlength; }
-                        }
-                    };
+                    send_flags(i) = 0 as i8;
 
-                    adjust_pbc(apply_pbc_before_border_check(), &mut pos);
-
-                    if check_exchange(pos) {
+                    exchange_positions(particle_pos, |pos, _| {
                         let counter = add_counter(const_grid);
 
                         if counter >= const_comm_offsets.send_capacity {
@@ -784,15 +768,14 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                                 resize_buf(0) = counter;
                             }
                         } else {
+                            let corrected_pos = pbc_corrected_position_if(!apply_pbc_before_border_check(), pos, const_grid);
                             let vel = get_velocity(i, const_grid);
                             let index = counter * 7;
 
-                            adjust_pbc(!apply_pbc_before_border_check(), &mut pos);
-
                             buffer(index + 0) = masses(i);
-                            buffer(index + 1) = pos.x;
-                            buffer(index + 2) = pos.y;
-                            buffer(index + 3) = pos.z;
+                            buffer(index + 1) = corrected_pos.x;
+                            buffer(index + 2) = corrected_pos.y;
+                            buffer(index + 3) = corrected_pos.z;
                             buffer(index + 4) = vel.x;
                             buffer(index + 5) = vel.y;
                             buffer(index + 6) = vel.z;
@@ -800,9 +783,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                             send_offsets(counter - const_iexchg) = i;
                             send_flags(i) = 1 as i8;
                         }
-                    } else {
-                        send_flags(i) = 0 as i8;
-                    }
+                    });
                 });
 
                 resize = get_resize(const_grid);
@@ -967,7 +948,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     neigh = 0;
 
     // Pack particles in each direction to send during next iterations
-    communication_sep(comm_offsets.me, *grid, |_, _, pbc_x, pbc_y, pbc_z, check_border, _| {
+    communication_sep(comm_offsets.me, *grid, |_, _, pbc_x, pbc_y, pbc_z, border_positions, _| {
         let mut resize = 1;
 
         send_rank_offsets(neigh) = isend;
@@ -989,41 +970,38 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 let send_pbc = get_send_pbc(const_comm_offsets);
                 let particle_pos = get_position(i, const_grid);
 
-                // Generate all PBC variants to check border conditions
-                pbc_positions(particle_pos, pbc_x, pbc_y, pbc_z, const_grid, |adjusted_pos, adjusted_pbc| {
-                    if check_border(adjusted_pos) {
-                        let counter = add_counter(const_grid);
-                        let mut pos = adjusted_pos;
-                        let mut pbc = adjusted_pbc;
+                border_positions(particle_pos, |pos, pbc| {
+                    let counter = add_counter(const_grid);
 
-                        if counter >= const_comm_offsets.send_capacity {
-                            if resize_buf(0) < counter {
-                                resize_buf(0) = counter;
-                            }
-                        } else {
-                            let buf_index = counter * 4;
-                            let pbc_index = counter * 3;
-
-                            // When it is not necessary to apply PBC before border check, we want to avoid calculating
-                            // PBC coordinates for particles that do not need to be communicated
-                            if !apply_pbc_before_border_check() {
-                                pbc = get_pbc_flags_from_position(adjusted_pos, pbc_x, pbc_y, pbc_z, const_grid);
-                                pos.x += const_grid.xlength * pbc.x as real_t;
-                                pos.y += const_grid.ylength * pbc.y as real_t;
-                                pos.z += const_grid.zlength * pbc.z as real_t;
-                            }
-
-                            send_pbc(pbc_index + 0) = pbc.x;
-                            send_pbc(pbc_index + 1) = pbc.y;
-                            send_pbc(pbc_index + 2) = pbc.z;
-
-                            buffer(buf_index + 0) = masses(i);
-                            buffer(buf_index + 1) = pos.x;
-                            buffer(buf_index + 2) = pos.y;
-                            buffer(buf_index + 3) = pos.z;
-
-                            send_offsets(counter) = i;
+                    if counter >= const_comm_offsets.send_capacity {
+                        if resize_buf(0) < counter {
+                            resize_buf(0) = counter;
                         }
+                    } else {
+                        let buf_index = counter * 4;
+                        let pbc_index = counter * 3;
+                        let mut adj_pos = pos;
+                        let mut adj_pbc = pbc;
+
+                        // When it is not necessary to apply PBC before border check, we want to avoid calculating
+                        // PBC coordinates for particles that do not need to be communicated
+                        if !apply_pbc_before_border_check() {
+                            adj_pbc = get_pbc_flags_from_position(pos, pbc_x, pbc_y, pbc_z, const_grid);
+                            adj_pos.x += const_grid.xlength * pbc.x as real_t;
+                            adj_pos.y += const_grid.ylength * pbc.y as real_t;
+                            adj_pos.z += const_grid.zlength * pbc.z as real_t;
+                        }
+
+                        send_pbc(pbc_index + 0) = adj_pbc.x;
+                        send_pbc(pbc_index + 1) = adj_pbc.y;
+                        send_pbc(pbc_index + 2) = adj_pbc.z;
+
+                        buffer(buf_index + 0) = masses(i);
+                        buffer(buf_index + 1) = adj_pos.x;
+                        buffer(buf_index + 2) = adj_pos.y;
+                        buffer(buf_index + 3) = adj_pos.z;
+
+                        send_offsets(counter) = i;
                     }
                 });
             });
