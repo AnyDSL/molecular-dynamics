@@ -31,8 +31,8 @@ extern fn md_initialize_grid(
     };
 
     grid_ = allocate_grid(world_aabb, ext_rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
+    comm_offsets_ = alloc_comm_offsets(grid_);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
-    initialize_comm_offsets(grid_, &mut comm_offsets_);
     initialize_neighborhood();
     device().init(grid_);
 
@@ -100,6 +100,7 @@ extern fn md_compute_boundary_weights(
 
 extern fn md_deallocate_grid() -> () {
     release_neighborhood();
+    release_comm_offsets(comm_offsets_);
     deallocate_grid(&mut grid_);
     device().shutdown();
 }

@@ -60,6 +60,10 @@ fn @apply_pbc_before_border_check() -> bool { select(use_walberla(), true, false
 // Maximum number of neighbor ranks
 fn @get_initial_maximum_neighbor_ranks() -> i32 { select(use_walberla(), 30, 6) }
 
+// Initialize and finalize MPI
+fn mpi_initialize() -> () { mpi().init(); }
+fn mpi_finalize() -> () { mpi().finalize(); }
+
 // Types for condition and communication functions
 type CondFunc = fn(Vector3D, fn(Vector3D, PBCFlags) -> ()) -> ();
 type CommFunc = fn(i32, i32, i32, i32, i32, CondFunc, CondFunc) -> ();
@@ -390,17 +394,6 @@ fn print_aabb_with_rank(field: &[u8], value: AABB) -> () {
     print_flush();
 }
 
-// Initialize MPI
-fn mpi_initialize() -> () {
-    mpi().init();
-}
-
-// Finalize MPI and free data structures for communication
-fn mpi_finalize() -> () {
-    release_comm_offsets(comm_offsets_);
-    mpi().finalize();
-}
-
 // Release communication buffers
 fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
     release(comm_offsets.send_buffer);
@@ -558,14 +551,13 @@ fn get_node_bounding_box(aabb: AABB) -> AABB {
 }
 
 // Initialize grid communication
-fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
+fn alloc_comm_offsets(grid: Grid) -> CommOffsets {
     let mpih = mpi();
     let dev = device();
     let max_neighs = get_initial_maximum_neighbor_ranks();
     let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz);
     let send_capacity = max_neighs * max_faces_dim * 20;
     let recv_capacity = max_neighs * max_faces_dim * 20;
-
     let null_buf = Buffer {
         device: 0,
         data: 0 as &[i8],
@@ -576,54 +568,50 @@ fn initialize_comm_offsets(grid: &Grid, comm_offsets: &mut CommOffsets) -> () {
 
     mpih.comm_rank(mpih.comms.world, &mut world_rank);
 
-    if send_capacity > 0 && recv_capacity > 0 {
-        let max_neighs = get_initial_maximum_neighbor_ranks();
+    CommOffsets {
+        // Rank of current process
+        me: world_rank,
 
-        *comm_offsets = CommOffsets {
-            // Rank of current process
-            me: world_rank,
+        // Local offsets
+        local_start: 0,
 
-            // Local offsets
-            local_start: 0,
+        // Host send data
+        send_buffer: alloc_cpu(send_capacity * 7 * sizeof[real_t]()),
+        send_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
+        send_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
+        send_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
+        send_offsets: alloc_cpu(send_capacity * sizeof[i32]()),
+        send_pbc: alloc_cpu(send_capacity * 3 * sizeof[i8]()),
+        copy_list: alloc_cpu(send_capacity * sizeof[i32]()),
+        send_capacity: send_capacity,
+        send_noffsets: 0,
 
-            // Host send data
-            send_buffer: alloc_cpu(send_capacity * 7 * sizeof[real_t]()),
-            send_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
-            send_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
-            send_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
-            send_offsets: alloc_cpu(send_capacity * sizeof[i32]()),
-            send_pbc: alloc_cpu(send_capacity * 3 * sizeof[i8]()),
-            copy_list: alloc_cpu(send_capacity * sizeof[i32]()),
-            send_capacity: send_capacity,
-            send_noffsets: 0,
+        // Host receive data
+        recv_buffer: alloc_cpu(recv_capacity * 7 * sizeof[real_t]()),
+        recv_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
+        recv_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
+        recv_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
+        recv_capacity: recv_capacity,
+        recv_noffsets: 0,
 
-            // Host receive data
-            recv_buffer: alloc_cpu(recv_capacity * 7 * sizeof[real_t]()),
-            recv_neighbors: alloc_cpu(max_neighs * sizeof[i32]()),
-            recv_rank_offsets: alloc_cpu(max_neighs * sizeof[i32]()),
-            recv_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
-            recv_capacity: recv_capacity,
-            recv_noffsets: 0,
+        // Host counter buffer
+        counter_buffer: alloc_cpu(sizeof[i32]()),
 
-            // Host counter buffer
-            counter_buffer: alloc_cpu(sizeof[i32]()),
+        // Accelerator send data
+        send_buffer_accelerator: dev.alloc(send_capacity * 7 * sizeof[real_t]()),
+        send_offsets_accelerator: dev.alloc(send_capacity * sizeof[i32]()),
+        send_pbc_accelerator: dev.alloc(send_capacity * 7 * sizeof[i8]()),
+        copy_list_accelerator: dev.alloc(send_capacity * sizeof[i32]()),
 
-            // Accelerator send data
-            send_buffer_accelerator: dev.alloc(send_capacity * 7 * sizeof[real_t]()),
-            send_offsets_accelerator: dev.alloc(send_capacity * sizeof[i32]()),
-            send_pbc_accelerator: dev.alloc(send_capacity * 7 * sizeof[i8]()),
-            copy_list_accelerator: dev.alloc(send_capacity * sizeof[i32]()),
+        // Accelerator receive data
+        recv_buffer_accelerator: dev.alloc(recv_capacity * 7 * sizeof[real_t]()),
 
-            // Accelerator receive data
-            recv_buffer_accelerator: dev.alloc(recv_capacity * 7 * sizeof[real_t]()),
+        // Accelerator counter buffer
+        counter_buffer_accelerator: dev.alloc(sizeof[i32]()),
 
-            // Accelerator counter buffer
-            counter_buffer_accelerator: dev.alloc(sizeof[i32]()),
-
-            // Maximum and current number of neighbor ranks
-            max_neighs: max_neighs,
-            neighs: 0
-        };
+        // Maximum and current number of neighbor ranks
+        max_neighs: max_neighs,
+        neighs: 0
     }
 }
 
