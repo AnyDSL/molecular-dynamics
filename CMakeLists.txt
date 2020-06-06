@@ -59,6 +59,7 @@ set(MD_SRCS
     utils/definitions.impala
     utils/utilities.impala
     utils/utilities_accelerator.impala
+    utils/print.impala
     ${MPI_FILE}
     ${BACKEND_FILE}
     ${MAPPING_FILE}
