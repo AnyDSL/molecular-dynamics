@@ -678,6 +678,7 @@ int main(int argc, char **argv) {
             }
 
             if(vtk && i == 0) {
+                md_copy_data_from_accelerator();
                 vtk_write_local_data(vtk_directory + "particles_" + to_string(j + 1) + ".vtk");
                 vtk_write_ghost_data(vtk_directory + "ghost_" + to_string(j + 1) + ".vtk");
                 vtk_write_aabb_data(vtk_directory + "aabb_" + to_string(j + 1) + ".vtk");

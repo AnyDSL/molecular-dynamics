@@ -11,6 +11,8 @@ type dev_mut_i32_arr  = &mut [i32];
 type dev_i32_ptr      = &mut i32;
 type dev_real_arr     = &[real_t];
 type dev_mut_real_arr = &mut[real_t];
+type dev_f32_ptr      = &mut f32;
+type dev_f64_ptr      = &mut f64;
 
 fn @device() -> Device {
     Device {
