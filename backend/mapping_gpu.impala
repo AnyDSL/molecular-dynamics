@@ -242,7 +242,6 @@ fn @get_cell_index_from_place(grid: Grid, place: i32, @create: bool) -> i32 {
             }
         });
 
-
         if create {
             let tid = nvvm_read_ptx_sreg_tid_x();
             let bdimx = 64;
