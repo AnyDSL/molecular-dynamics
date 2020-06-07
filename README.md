@@ -57,6 +57,7 @@ Available options are:
 - **--epsilon=REAL:** Epsilon value for Lennard-Jones equation (default 1.0).
 - **--sigma=REAL:** Sigma value for Lennard-Jones equation (default 1.0).
 - **--potmin=REAL:** Potential minimum (default 1.6796).
+- **--half_nb:** Compute with half neighbor list.
 - **-h, --help:** Display help message.
 
 Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4. For the body collision setup, the number of particles is two times this number. For the half setup, the number of particles is roughly the half of this number, and these particles fill just half of the grid, providing a good test case for the load balancing.
