@@ -9,7 +9,7 @@ fn atomic_op_f32(a: dev_f32_ptr, b: f32, op: fn(f32, f32) -> f32) -> f32 {
     bitcast[f32](op(bitcast[f32](value),b))
 }
 
-fn atomic_op_f64(a: dev_f64_ptr, b: f64, op: fn(f64, f64) -> f64) -> f64 { 
+fn atomic_op_f64(a: dev_f64_ptr, b: f64, op: fn(f64, f64) -> f64) -> f64 {
     let addr_as_ui = a as &mut u64;
     let mut done = false;
     let mut value : u64;
