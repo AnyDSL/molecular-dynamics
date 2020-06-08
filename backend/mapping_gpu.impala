@@ -123,7 +123,7 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let grid_size = (round_up(noffsets, block_size(0)), 1, 1);
-    let send_data = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
+    let send_data = get_array_of_reals_accelerator(comm_offsets.send_buffer_accelerator);
     let recv_data = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
 
     if noffsets > 0 {
