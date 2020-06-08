@@ -182,10 +182,10 @@ fn distance_point_aabb_periodic(point: Vector3D, aabb: AABB, glob_sizes: Vector3
 
     if dis.x < -half_sizes.x { adj_pt.x += glob_sizes.x; pbc_flags.x = +1 as i8; }
     if dis.x > +half_sizes.x { adj_pt.x -= glob_sizes.x; pbc_flags.x = -1 as i8; }
-    if dis.y < -half_sizes.x { adj_pt.y += glob_sizes.y; pbc_flags.y = +1 as i8; }
-    if dis.y > +half_sizes.x { adj_pt.y -= glob_sizes.y; pbc_flags.y = -1 as i8; }
-    if dis.z < -half_sizes.x { adj_pt.z += glob_sizes.z; pbc_flags.z = +1 as i8; }
-    if dis.z > +half_sizes.x { adj_pt.z -= glob_sizes.z; pbc_flags.z = -1 as i8; }
+    if dis.y < -half_sizes.y { adj_pt.y += glob_sizes.y; pbc_flags.y = +1 as i8; }
+    if dis.y > +half_sizes.y { adj_pt.y -= glob_sizes.y; pbc_flags.y = -1 as i8; }
+    if dis.z < -half_sizes.z { adj_pt.z += glob_sizes.z; pbc_flags.z = +1 as i8; }
+    if dis.z > +half_sizes.z { adj_pt.z -= glob_sizes.z; pbc_flags.z = -1 as i8; }
 
     let rdis = distance_point_line(adj_pt.x, aabb.xmin, aabb.xmax) +
                distance_point_line(adj_pt.y, aabb.ymin, aabb.ymax) +
