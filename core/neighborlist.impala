@@ -56,12 +56,11 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
         let append_neighbor_cell = @|@chk_myself: bool, particle_index: i32, pos: Vector3D, nb_cell_size: i32, nb_cell_offset: i32| {
             range(0, nb_cell_size, |neighbor_cell_particle_index| {
                 let neighbor_particle_index = cell_particles(nb_cell_offset + neighbor_cell_particle_index);
-                if chk_myself && particle_index != neighbor_particle_index {
+                if !chk_myself || particle_index != neighbor_particle_index {
                     if half_nb == 0 || particle_index > neighbor_particle_index {
                         let pos_neighbor = get_position(neighbor_particle_index, const_grid);
                         let del = vector_sub(pos, pos_neighbor);
                         let rsq = vector_len2(del);
-
                         if rsq <= squared_cutoff_distance {
                             @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
                         }
@@ -112,15 +111,11 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
 
                 neighbors_sizes(particle_index) = 0;
 
-                neighbor_cells(cell_place, nx, ny, ncells, half_nb, |nbr_cell_place| {
-                    let nbr_cell_index = get_cell_index_from_place(const_grid, nbr_cell_place, false);
-
+                neighbor_cells(cell_place, nx, ny, ncells, half_nb, |nbr_cell_index| {
                     if cell_index != nbr_cell_index {
-                        if nbr_cell_index != -1 {
-                            let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
-                            let neighbor_cell_size = cell_sizes(nbr_cell_index);
-                            append_neighbor_cell(false, particle_index, pos, neighbor_cell_size, neighbor_cell_offset);
-                        }
+                        let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
+                        let neighbor_cell_size = cell_sizes(nbr_cell_index);
+                        append_neighbor_cell(false, particle_index, pos, neighbor_cell_size, neighbor_cell_offset);
                     } else {
                         let cell_offset = get_cell_offset(cell_index, const_grid);
                         let cell_size = cell_sizes(cell_index);
