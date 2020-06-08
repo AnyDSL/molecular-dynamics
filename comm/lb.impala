@@ -107,38 +107,6 @@ fn @get_pbc_flags_from_position(position: Vector3D, pbc_x: i32, pbc_y: i32, pbc_
     pbc_flags
 }
 
-// Generate position variants according to PBC checking
-fn @pbc_positions(position: Vector3D, @pbc_x: i32, @pbc_y: i32, @pbc_z: i32, grid: Grid, body: fn(Vector3D, PBCFlags) -> ()) -> () {
-    if apply_pbc_before_border_check() {
-        let pbc = get_pbc_flags_from_position(position, pbc_x, pbc_y, pbc_z, grid);
-        let nx = select(pbc.x != 0 as i8, 2, 1);
-        let ny = select(pbc.y != 0 as i8, 2, 1);
-        let nz = select(pbc.z != 0 as i8, 2, 1);
-
-        range(0, nx, |x| {
-            range(0, ny, |y| {
-                range(0, nz, |z| {
-                    let adjusted_pos = Vector3D {
-                        x: position.x + grid.xlength * pbc.x as real_t * x as real_t,
-                        y: position.y + grid.ylength * pbc.y as real_t * y as real_t,
-                        z: position.z + grid.zlength * pbc.z as real_t * z as real_t
-                    };
-
-                    let pbc_flags = PBCFlags {
-                        x: pbc.x * x as i8,
-                        y: pbc.y * y as i8,
-                        z: pbc.z * z as i8
-                    };
-
-                    body(adjusted_pos, pbc_flags);
-                });
-            });
-        });
-    } else {
-        body(position, PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 });
-    }
-}
-
 fn is_within_aabb_radius(point: Vector3D, aabb: AABB, radius: real_t) -> bool {
     let mut cond = true;
     if point.x < aabb.xmin + radius { cond = false; }
@@ -170,9 +138,9 @@ fn distance_point_aabb(point: Vector3D, aabb: AABB) -> real_t {
 
 fn distance_point_aabb_periodic(point: Vector3D, aabb: AABB, glob_sizes: Vector3D, body: fn(real_t, Vector3D, PBCFlags) -> ()) -> () {
     let center = Vector3D {
-        x: (aabb.xmax - aabb.xmin) * 0.5,
-        y: (aabb.ymax - aabb.ymin) * 0.5,
-        z: (aabb.zmax - aabb.zmin) * 0.5
+        x: aabb.xmin + (aabb.xmax - aabb.xmin) * 0.5,
+        y: aabb.ymin + (aabb.ymax - aabb.ymin) * 0.5,
+        z: aabb.zmin + (aabb.zmax - aabb.zmin) * 0.5
     };
 
     let dis = vector_sub(point, center);
@@ -197,12 +165,15 @@ fn distance_point_aabb_periodic(point: Vector3D, aabb: AABB, glob_sizes: Vector3
 fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AABB, c_aabb: AABB, check_child: bool) -> i32 {
     if check_child {
         serialize_and_remove(grid, comm_offsets, @|p| {
-            p.x > aabb.xmin && p.x < aabb.xmax && p.y > aabb.ymin && p.y < aabb.ymax && p.y > aabb.zmin && p.z < aabb.zmax &&
-            p.x > c_aabb.xmin && p.x < c_aabb.xmax && p.y > c_aabb.ymin && p.y < c_aabb.ymax && p.y > c_aabb.zmin && p.z < c_aabb.zmax
+            p.x > c_aabb.xmin && p.x < c_aabb.xmax &&
+            p.y > c_aabb.ymin && p.y < c_aabb.ymax &&
+            p.z > c_aabb.zmin && p.z < c_aabb.zmax
         })
     } else { 
         serialize_and_remove(grid, comm_offsets, @|p| {
-            p.x > aabb.xmin && p.x < aabb.xmax && p.y > aabb.ymin && p.y < aabb.ymax && p.z > aabb.zmin && p.z < aabb.zmax
+            p.x > aabb.xmin && p.x < aabb.xmax &&
+            p.y > aabb.ymin && p.y < aabb.ymax &&
+            p.z > aabb.zmin && p.z < aabb.zmax
         })
     }
 }
