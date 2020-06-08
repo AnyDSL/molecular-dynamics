@@ -803,9 +803,9 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                         // PBC coordinates for particles that do not need to be communicated
                         if !apply_pbc_before_border_check() {
                             adj_pbc = get_pbc_flags_from_position(pos, pbc_x, pbc_y, pbc_z, const_grid);
-                            adj_pos.x += const_grid.xlength * pbc.x as real_t;
-                            adj_pos.y += const_grid.ylength * pbc.y as real_t;
-                            adj_pos.z += const_grid.zlength * pbc.z as real_t;
+                            adj_pos.x += const_grid.xlength * adj_pbc.x as real_t;
+                            adj_pos.y += const_grid.ylength * adj_pbc.y as real_t;
+                            adj_pos.z += const_grid.zlength * adj_pbc.z as real_t;
                         }
 
                         send_pbc(pbc_index + 0) = adj_pbc.x;
