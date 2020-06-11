@@ -69,7 +69,6 @@ fn particles(grid: Grid, body: fn(i32, &mut[1][i32], i32, i32) -> ()) -> () {
     if nparticles > 0 {
         acc.exec(grid_size, block_size, |work_item| {
             let particle_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-
             if particle_index < nparticles {
                 let nb_list_offset = neighborlist_capacity * particle_index;
                 let nb_list_size = neighbors_sizes(particle_index);
@@ -90,7 +89,6 @@ fn cells(grid: Grid, body: fn(i32) -> ()) -> () {
     if ncells > 0 {
         acc.exec(grid_size, block_size, |work_item| {
             let cell_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-
             if cell_index < ncells {
                 @@body(cell_index);
             }
@@ -135,32 +133,6 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
         });
 
         acc.sync();
-    }
-}
-
-fn @array_iterate(array: &[real_t], n: i32, comm_offsets: &mut CommOffsets, body: fn(i32, &[1][real_t]) -> ()) -> () {
-    let acc = accelerator(device_id);
-    let block_size = (64, 1, 1);
-    let grid_size = (round_up(n, block_size(0)), 1, 1);
-    let array_buffer = Buffer {
-        data: array as &[i8],
-        size: (n * 7 + 1) as i64,
-        device: 0
-    };
-
-    if n > 0 {
-        if n > comm_offsets.recv_capacity {
-            resize_recv_capacity(comm_offsets, n * 2);
-        }
-
-        copy(array_buffer, comm_offsets.recv_buffer_accelerator);
-        acc.exec(grid_size, block_size, |work_item| {
-            let array_gpu = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
-            let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            if index < n {
-                @@body(index, array_gpu);
-            }
-        });
     }
 }
 

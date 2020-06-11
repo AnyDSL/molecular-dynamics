@@ -72,31 +72,30 @@ public:
 
 private:
     void serializeImpl(Block *const block, const BlockDataID&, mpi::SendBuffer& buffer, const uint_t child, bool check_child) {
-        const auto aabb = block->getAABB();
         auto ptr = buffer.allocate<uint_t>();
-        double aabb_check[6], aabb_child_check[6];
+        double aabb_check[6];
         int nparticles;
-
-        aabb_check[0] = aabb.xMin();
-        aabb_check[1] = aabb.xMax();
-        aabb_check[2] = aabb.yMin();
-        aabb_check[3] = aabb.yMax();
-        aabb_check[4] = aabb.zMin();
-        aabb_check[5] = aabb.zMax();
 
         if(check_child) {
             const auto child_id = BlockID(block->getId(), child);
             const auto child_aabb = block->getForest().getAABBFromBlockId(child_id);
-
-            aabb_child_check[0] = child_aabb.xMin();
-            aabb_child_check[1] = child_aabb.xMax();
-            aabb_child_check[2] = child_aabb.yMin();
-            aabb_child_check[3] = child_aabb.yMax();
-            aabb_child_check[4] = child_aabb.zMin();
-            aabb_child_check[5] = child_aabb.zMax();
+            aabb_check[0] = child_aabb.xMin();
+            aabb_check[1] = child_aabb.xMax();
+            aabb_check[2] = child_aabb.yMin();
+            aabb_check[3] = child_aabb.yMax();
+            aabb_check[4] = child_aabb.zMin();
+            aabb_check[5] = child_aabb.zMax();
+        } else {
+            const auto aabb = block->getAABB();
+            aabb_check[0] = aabb.xMin();
+            aabb_check[1] = aabb.xMax();
+            aabb_check[2] = aabb.yMin();
+            aabb_check[3] = aabb.yMax();
+            aabb_check[4] = aabb.zMin();
+            aabb_check[5] = aabb.zMax();
         }
 
-        nparticles = md_serialize_particles(aabb_check, aabb_child_check, check_child);
+        nparticles = md_serialize_particles(aabb_check);
 
         for(int i = 0; i < nparticles * 7; ++i) {
             buffer << md_get_send_buffer_value(i);
@@ -108,7 +107,16 @@ private:
     void deserializeImpl(IBlock *const, const BlockDataID&, mpi::RecvBuffer& buffer) {
         uint_t nparticles;
         buffer >> nparticles;
-        md_deserialize_particles((double *) buffer.ptr(), (int) nparticles);
+
+        md_resize_recv_buffer_capacity((int) nparticles);
+
+        for(int i = 0; i < (int) nparticles * 7; ++i) {
+            double v;
+            buffer >> v;
+            md_set_recv_buffer_value(i, v);
+        }
+
+        md_deserialize_particles((int) nparticles);
     }
 };
 

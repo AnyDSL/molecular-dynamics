@@ -34,8 +34,10 @@ extern "C" {
     void md_borders();
     void md_exchange_particles();
     double md_get_send_buffer_value(int);
-    int md_serialize_particles(double const *, double const *, bool);
-    void md_deserialize_particles(double *, int);
+    void md_set_recv_buffer_value(int, double);
+    void md_resize_recv_buffer_capacity(int);
+    int md_serialize_particles(double const *);
+    void md_deserialize_particles(int);
     int md_get_world_size();
     int md_get_world_rank();
     int md_get_number_of_particles();

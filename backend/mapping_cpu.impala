@@ -90,12 +90,6 @@ fn comm_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, 
     });
 }
 
-fn @array_iterate(array: &[real_t], n: i32, comm_offsets: &mut CommOffsets, body: fn(i32, &[real_t]) -> ()) -> () {
-    range(0, n, |index| {
-        @@body(index, array);
-    });
-}
-
 fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32) -> i32 {
     let mut red = b;
 

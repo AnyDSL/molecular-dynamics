@@ -54,6 +54,7 @@ void print_usage(char *name) {
     cout << "\t    --sigma=REAL          sigma value for Lennard-Jones equation (default 1.0)." << endl;
     cout << "\t    --potmin=REAL         potential minimum (default 1.6796)." << endl;
     cout << "\t    --half_nb             compute with half neighbor list." << endl;
+    cout << "\t    --prebalance          perform static load balancing before execution." << endl;
     cout << "\t-h, --help                display this help message." << endl;
 }
 
@@ -309,28 +310,30 @@ int main(int argc, char **argv) {
     bool half = false;
     bool half_nb = false;
     bool use_walberla = false;
+    bool prebalance = false;
 
     int opt = 0;
     struct option long_opts[] = {
-        {"benchmark", required_argument,    nullptr,    'b'},
-        {"nx",        required_argument,    nullptr,    'x'},
-        {"ny",        required_argument,    nullptr,    'y'},
-        {"nz",        required_argument,    nullptr,    'z'},
-        {"timesteps", required_argument,    nullptr,    's'},
-        {"runs",      required_argument,    nullptr,    'r'},
-        {"threads",   required_argument,    nullptr,    't'},
-        {"algorithm", required_argument,    nullptr,    'a'},
-        {"vtk",       required_argument,    nullptr,    'v'},
-        {"help",      no_argument,          nullptr,    'h'},
-        {"reneigh",   required_argument,    nullptr,    0},
-        {"rebalance", required_argument,    nullptr,    1},
-        {"dt",        required_argument,    nullptr,    2},
-        {"cutoff",    required_argument,    nullptr,    3},
-        {"verlet",    required_argument,    nullptr,    4},
-        {"epsilon",   required_argument,    nullptr,    5},
-        {"sigma",     required_argument,    nullptr,    6},
-        {"potmin",    required_argument,    nullptr,    7},
-        {"half_nb",   no_argument,          nullptr,    8}
+        {"benchmark",  required_argument,    nullptr,    'b'},
+        {"nx",         required_argument,    nullptr,    'x'},
+        {"ny",         required_argument,    nullptr,    'y'},
+        {"nz",         required_argument,    nullptr,    'z'},
+        {"timesteps",  required_argument,    nullptr,    's'},
+        {"runs",       required_argument,    nullptr,    'r'},
+        {"threads",    required_argument,    nullptr,    't'},
+        {"algorithm",  required_argument,    nullptr,    'a'},
+        {"vtk",        required_argument,    nullptr,    'v'},
+        {"help",       no_argument,          nullptr,    'h'},
+        {"reneigh",    required_argument,    nullptr,    0},
+        {"rebalance",  required_argument,    nullptr,    1},
+        {"dt",         required_argument,    nullptr,    2},
+        {"cutoff",     required_argument,    nullptr,    3},
+        {"verlet",     required_argument,    nullptr,    4},
+        {"epsilon",    required_argument,    nullptr,    5},
+        {"sigma",      required_argument,    nullptr,    6},
+        {"potmin",     required_argument,    nullptr,    7},
+        {"half_nb",    no_argument,          nullptr,    8},
+        {"prebalance", no_argument,          nullptr,    9}
     };
 
     while((opt = getopt_long(argc, argv, "b:x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
@@ -369,6 +372,10 @@ int main(int argc, char **argv) {
 
             case 8:
                 half_nb = true;
+                break;
+
+            case 9:
+                prebalance = true;
                 break;
 
             case 'b':
@@ -588,6 +595,7 @@ int main(int argc, char **argv) {
         cout << "- Potential minimum: " << potential_minimum << endl;
         cout << "- Half neighbor lists: " << (half_nb? "yes" : "no") << endl;
         cout << "- Walberla domain partitioning: " << (use_walberla ? "yes" : "no") << endl;
+        cout << "- Prebalance: " << (prebalance ? "yes" : "no") << endl;
         cout << "- Dynamic load balancing algorithm: " << ((use_load_balancing) ? algorithm : "none") << endl;
         cout << "- VTK output directory: " << ((vtk) ? vtk_directory : "none") << endl << endl;
     }
@@ -613,7 +621,7 @@ int main(int argc, char **argv) {
         }
 
         #ifdef USE_WALBERLA_LOAD_BALANCING
-        if(use_load_balancing) {
+        if(use_load_balancing && prebalance) {
             updateWeights(forest, *info);
             forest->refresh();
             getBlockForestAABB(forest, new_aabb);
@@ -651,6 +659,9 @@ int main(int argc, char **argv) {
             timer.accum(TIME_FORCE);
 
             if(j > 0 && j % reneigh_every == 0) {
+                md_exchange_particles();
+                timer.accum(TIME_COMM);
+
                 #ifdef USE_WALBERLA_LOAD_BALANCING
                 if(use_load_balancing && j % rebalance_every == 0) {
                     updateWeights(forest, *info);
@@ -663,7 +674,6 @@ int main(int argc, char **argv) {
                 timer.accum(TIME_LOAD_BALANCING);
                 #endif
 
-                md_exchange_particles();
                 md_borders();
                 timer.accum(TIME_COMM);
 

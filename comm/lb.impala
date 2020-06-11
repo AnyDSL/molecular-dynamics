@@ -162,22 +162,6 @@ fn distance_point_aabb_periodic(point: Vector3D, aabb: AABB, glob_sizes: Vector3
     body(rdis, adj_pt, pbc_flags);
 }
 
-fn serialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, aabb: AABB, c_aabb: AABB, check_child: bool) -> i32 {
-    if check_child {
-        serialize_and_remove(grid, comm_offsets, @|p| {
-            p.x > c_aabb.xmin && p.x < c_aabb.xmax &&
-            p.y > c_aabb.ymin && p.y < c_aabb.ymax &&
-            p.z > c_aabb.zmin && p.z < c_aabb.zmax
-        })
-    } else { 
-        serialize_and_remove(grid, comm_offsets, @|p| {
-            p.x > aabb.xmin && p.x < aabb.xmax &&
-            p.y > aabb.ymin && p.y < aabb.ymax &&
-            p.z > aabb.zmin && p.z < aabb.zmax
-        })
-    }
-}
-
 fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: fn(Vector3D) -> bool) -> i32 {
     let dev = device();
     let mut resize = 1;
@@ -261,6 +245,8 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     let const_comm_offsets = *comm_offsets;
     let const_grid = *grid;
 
+    dev.transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+
     copy_list_iterate(const_comm_offsets, packed, |i, copy_list, send_offsets| {
         let masses = get_masses(const_grid);
 
@@ -278,29 +264,30 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     packed
 }
 
-fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, array: &[real_t], nparticles: i32) -> () {
+fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, nparticles: i32) -> () {
     grid.nghost = 0;
 
     let start = add_local_slots(nparticles, grid);
     let const_grid = *grid;
+    let const_comm_offsets = *comm_offsets;
 
-    array_iterate(array, nparticles, comm_offsets, |index, data| {
-        let buffer_index = index * 7 + 1; 
+    comm_buffer_iterate(const_comm_offsets, nparticles, |index, _, recv_data| {
+        let buffer_index = index * 7;
         let offset = start + index;
         let masses = get_masses(const_grid);
         let position = Vector3D {
-            x: data(buffer_index + 1),
-            y: data(buffer_index + 2),
-            z: data(buffer_index + 3) 
+            x: recv_data(buffer_index + 1),
+            y: recv_data(buffer_index + 2),
+            z: recv_data(buffer_index + 3)
         };
 
         let velocity = Vector3D {
-            x: data(buffer_index + 4),
-            y: data(buffer_index + 5),
-            z: data(buffer_index + 6) 
+            x: recv_data(buffer_index + 4),
+            y: recv_data(buffer_index + 5),
+            z: recv_data(buffer_index + 6)
         };
 
-        masses(offset) = data(buffer_index);
+        masses(offset) = recv_data(buffer_index);
         set_position(offset, const_grid, position);
         set_velocity(offset, const_grid, velocity);
     });

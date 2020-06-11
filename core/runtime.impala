@@ -183,7 +183,7 @@ extern fn md_compute_dem(
     let grid = grid_;
     let half_nb = select(half_neighborlist, 1, 0);
     let radius = 1.0;
-    let square = @|a: real_t| { a * a };
+    let square =        @|a: real_t| { a * a };
     let vector_len =    @|v: Vector3D| { device().sqrt(vector_len2(v)) };
     let vector_normal = @|v: Vector3D, len: real_t| { vector_scale(1.0 / len, v) };
 
@@ -233,16 +233,28 @@ extern fn md_get_world_size() -> i32 { get_world_size() }
 extern fn md_get_world_rank() -> i32 { get_process_rank() }
 extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
 extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }
-extern fn md_get_send_buffer_value(index: i32) -> real_t { get_real(index, comm_offsets_.send_offsets) }
-
-extern fn md_serialize_particles(aabb: AABB, c_aabb: AABB, child: bool) -> i32 {
-    serialize_particles(&mut grid_, &mut comm_offsets_, aabb, c_aabb, child)
+extern fn md_get_send_buffer_value(index: i32) -> real_t { get_real(index, comm_offsets_.send_buffer) }
+extern fn md_set_recv_buffer_value(index: i32, value: real_t) -> () { set_real(index, comm_offsets_.recv_buffer, value) }
+extern fn md_resize_recv_buffer_capacity(capacity: i32) -> () {
+    if comm_offsets_.recv_capacity < capacity {
+        resize_recv_capacity(&mut comm_offsets_, capacity);
+    }
 }
 
-extern fn md_deserialize_particles(buffer: &[real_t], nparticles: i32) -> () {
-    deserialize_particles(&mut grid_, &mut comm_offsets_, buffer, nparticles);
+extern fn md_serialize_particles(aabb_data: &[real_t]) -> i32 {
+    let aabb = AABB {
+        xmin: aabb_data(0),
+        xmax: aabb_data(1),
+        ymin: aabb_data(2),
+        ymax: aabb_data(3),
+        zmin: aabb_data(4),
+        zmax: aabb_data(5)
+    };
+
+    serialize_and_remove(&mut grid_, &mut comm_offsets_, @|p| { is_within_domain(p, aabb) })
 }
 
+extern fn md_deserialize_particles(nparticles: i32) -> () { deserialize_particles(&mut grid_, &mut comm_offsets_, nparticles); }
 extern fn md_get_mass(particle_index: i32) -> real_t { get_real(particle_index, grid_.masses_cpu) }
 extern fn md_get_position(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
     let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
