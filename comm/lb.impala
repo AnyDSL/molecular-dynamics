@@ -245,8 +245,6 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     let const_comm_offsets = *comm_offsets;
     let const_grid = *grid;
 
-    dev.transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
-
     copy_list_iterate(const_comm_offsets, packed, |i, copy_list, send_offsets| {
         let masses = get_masses(const_grid);
 
@@ -260,6 +258,8 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         }
     });
 
+    dev.transfer(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
+
     grid.nparticles -= packed;
     packed
 }
@@ -267,9 +267,12 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
 fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, nparticles: i32) -> () {
     grid.nghost = 0;
 
+    let dev = device();
     let start = add_local_slots(nparticles, grid);
     let const_grid = *grid;
     let const_comm_offsets = *comm_offsets;
+
+    dev.transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
 
     comm_buffer_iterate(const_comm_offsets, nparticles, |index, _, recv_data| {
         let buffer_index = index * 7;
