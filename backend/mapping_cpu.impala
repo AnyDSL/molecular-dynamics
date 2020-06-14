@@ -71,7 +71,7 @@ fn particles(grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
     });
 }
 
-fn cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.nlist, body); }
+fn cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
 fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     let send_offsets = get_send_offsets(comm_offsets);
     let copy_list = get_copy_list(comm_offsets);
@@ -91,6 +91,16 @@ fn comm_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, 
 }
 
 fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32) -> i32 {
+    let mut red = b;
+
+    range(0, n, |i| {
+        red = reduce(red, body(i));
+    });
+
+    red
+}
+
+fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -> AABB) -> AABB {
     let mut red = b;
 
     range(0, n, |i| {
