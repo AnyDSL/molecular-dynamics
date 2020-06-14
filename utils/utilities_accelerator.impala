@@ -49,3 +49,5 @@ fn @set_bool_accelerator(i: i32, buf: Buffer, value: bool) -> () {
 fn @get_bool_accelerator(i: i32, buf: Buffer) -> bool {
     bitcast[&[1][bool]](buf.data)(i)
 }
+
+fn get_array_of_aabb_accelerator(buf: Buffer) -> &mut[1][AABB] { bitcast[&mut[1][AABB]](buf.data) }

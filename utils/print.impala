@@ -28,6 +28,22 @@ fn print_i32_with_rank(field: &[u8], value: i32) -> () {
     print_flush();
 }
 
+// Print i64 value with rank
+fn print_i64_with_rank(field: &[u8], value: i64) -> () {
+    let mpih = mpi();
+    let mut rank: i32;
+
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+
+    print_i32(rank);
+    print_string("> ");
+    print_string(field);
+    print_string(": ");
+    print_i64(value);
+    print_string("\n");
+    print_flush();
+}
+
 // Print real value with rank
 fn print_real_with_rank(field: &[u8], value: real_t) -> () {
     let mpih = mpi();

@@ -7,8 +7,6 @@ fn @(?half_nb) neighbor_cells(index: i32, nx: i32, ny: i32, ncells: i32, half_nb
 
             range(-1, 2, |offset_x| {
                 let nb_cell_index = index + flat_offset_z + flat_offset_y + offset_x;
-
-                //if nb_cell_index >= 0 && nb_cell_index < ncells && (half_nb == 0 || index >= nb_cell_index) {
                 if nb_cell_index >= 0 && nb_cell_index < ncells {
                     @@body(nb_cell_index);
                 }
@@ -46,7 +44,6 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
         let neighbors_sizes = get_neighbors_sizes(const_grid);
 
         let ncells = grid.ncells;
-        let cell_capacity = grid.cell_capacity;
         let nx = grid.nx;
         let ny = grid.ny;
         let squared_cutoff_distance = cutoff_distance * cutoff_distance;
@@ -69,61 +66,24 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
             });
         };
 
-        if sparse_cell_list() {
-            cells(const_grid, |cell_index| {
-                let cell_place = cell_list(cell_index);
-                let cell_size = cell_sizes(cell_index);
-                let cell_offset = get_cell_offset(cell_index, const_grid);
+        particles(const_grid, |particle_index, _, _, _| {
+            let pos = get_position(particle_index, const_grid);
+            let cell_index = particles_cell(particle_index);
 
-                range(0, cell_size, |cell_particle_index| {
-                    let particle_index = cell_particles(cell_offset + cell_particle_index);
-                    neighbors_sizes(particle_index) = 0;
-                });
+            neighbors_sizes(particle_index) = 0;
 
-                neighbor_cells(cell_place, nx, ny, ncells, half_nb, |nbr_cell_place| {
-                    let nbr_cell_index = get_cell_index_from_place(const_grid, nbr_cell_place, false);
-
-                    if cell_index != nbr_cell_index {
-                        if nbr_cell_index != -1 {
-                            let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
-                            let neighbor_cell_size = cell_sizes(nbr_cell_index);
-
-                            range(0, cell_size, |cell_particle_index| {
-                                let particle_index = cell_particles(cell_offset + cell_particle_index);
-                                let pos = get_position(particle_index, const_grid);
-                                append_neighbor_cell(false, particle_index, pos, neighbor_cell_size, neighbor_cell_offset);
-                            });
-                        }
-                    } else {
-                        range(0, cell_size, |cell_particle_index| {
-                            let particle_index = cell_particles(cell_offset + cell_particle_index);
-                            let pos = get_position(particle_index, const_grid);
-                            append_neighbor_cell(true, particle_index, pos, cell_size, cell_offset);
-                        });
-                    }
-                });
+            neighbor_cells(cell_index, nx, ny, ncells, half_nb, |nbr_cell_index| {
+                if cell_index != nbr_cell_index {
+                    let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
+                    let neighbor_cell_size = cell_sizes(nbr_cell_index);
+                    append_neighbor_cell(false, particle_index, pos, neighbor_cell_size, neighbor_cell_offset);
+                } else {
+                    let cell_offset = get_cell_offset(cell_index, const_grid);
+                    let cell_size = cell_sizes(cell_index);
+                    append_neighbor_cell(true, particle_index, pos, cell_size, cell_offset);
+                }
             });
-        } else {
-            particles(const_grid, |particle_index, _, _, _| {
-                let pos = get_position(particle_index, const_grid);
-                let cell_place = particles_cell(particle_index);
-                let cell_index = get_cell_index_from_place(const_grid, cell_place, false);
-
-                neighbors_sizes(particle_index) = 0;
-
-                neighbor_cells(cell_place, nx, ny, ncells, half_nb, |nbr_cell_index| {
-                    if cell_index != nbr_cell_index {
-                        let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
-                        let neighbor_cell_size = cell_sizes(nbr_cell_index);
-                        append_neighbor_cell(false, particle_index, pos, neighbor_cell_size, neighbor_cell_offset);
-                    } else {
-                        let cell_offset = get_cell_offset(cell_index, const_grid);
-                        let cell_size = cell_sizes(cell_index);
-                        append_neighbor_cell(true, particle_index, pos, cell_size, cell_offset);
-                    }
-                });
-            });
-        }
+        });
 
         resize = get_resize(const_grid);
 

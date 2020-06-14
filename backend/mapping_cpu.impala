@@ -100,38 +100,6 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
     red
 }
 
-fn @get_cell_index_from_place(grid: Grid, place: i32, create: bool, ret: fn(i32) -> !) -> ! {
-    if sparse_cell_list() {
-        let cell_list = get_array_of_i32(grid.cell_list_cpu);
-        let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
-        let resize_buf = get_resize_buffer(grid);
-        let list_size = get_counter(grid);
-
-        range(0, list_size, |index| {
-            if cell_list(index) == place {
-                ret(index)
-            }
-        });
-
-        if create {
-            if list_size >= grid.ncells_capacity {
-                if resize_buf(1) < list_size {
-                    resize_buf(1) = list_size;
-                }
-            } else {
-                cell_list(list_size) = place;
-                cell_sizes(list_size) = 0;
-                add_counter(grid);
-                ret(list_size)
-            }
-        }
-
-        ret(-1)
-    } else {
-        ret(place)
-    }
-}
-
 fn set_counter(value: i32, grid: Grid) -> () { bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0) = value; }
 fn get_counter(grid: Grid) -> i32 { bitcast[&[i32]](grid.counter_buffer_cpu.data)(0) }
 fn add_counter(grid: Grid) -> i32 { bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0)++ }

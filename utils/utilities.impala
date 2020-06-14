@@ -68,6 +68,8 @@ fn get_array_of_i32(buf: Buffer) -> &mut[i32] { bitcast[&mut[i32]](buf.data) }
 fn get_array_of_i8(buf: Buffer) -> &mut[i8] { bitcast[&mut[i8]](buf.data) }
 fn get_bool(i: i32, buf: Buffer) -> bool { bitcast[&[bool]](buf.data)(i) }
 fn set_bool(i: i32, buf: Buffer, value: bool) -> () { bitcast[&mut[bool]](buf.data)(i) = value; }
+fn get_array_of_aabb(buf: Buffer) -> &mut[AABB] { bitcast[&mut[AABB]](buf.data) }
+
 fn @min_i32(a: i32, b: i32) -> i32 { if(a < b) {a} else {b} }
 
 fn @vector_map(a: Vector3D, f: fn (real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x), y: f(a.y), z: f(a.z) } }

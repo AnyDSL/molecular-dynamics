@@ -20,7 +20,9 @@ struct Grid {
     ncells: i32, // number of cells in the grid
     nparticles: i32, // number of particles in the grid
     nghost: i32, // number of ghost particles in the grid
-    nlist: i32, // number of elements in the cell list
+    cells_offset_x: i32, // cells offset for x dimension
+    cells_offset_y: i32, // cells offset for y dimension
+    cells_offset_z: i32, // cells offset for z dimension
     xlength: real_t, // grid length in x dimension for PBC correction
     ylength: real_t, // grid length in y dimension for PBC correction
     zlength: real_t, // grid length in z dimension for PBC correction
@@ -58,7 +60,7 @@ struct Grid {
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
 
 fn @sort_particles() -> bool { false }
-fn @sparse_cell_list() -> bool { false }
+fn @sparse_cell_list() -> bool { true }
 fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
 fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) -> i32 {
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)
@@ -95,7 +97,9 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         ncells: ncells,
         nparticles: 0,
         nghost: 0,
-        nlist: 0,
+        cells_offset_x: 0,
+        cells_offset_y: 0,
+        cells_offset_z: 0,
         xlength: world_aabb.xmax - world_aabb.xmin,
         ylength: world_aabb.ymax - world_aabb.ymin,
         zlength: world_aabb.zmax - world_aabb.zmin,
@@ -337,15 +341,66 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
 
 fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
     let dev = device();
-    let mut resize_cell = 1;
-    let mut resize_ncells = 1;
 
-    grid.nlist = select(sparse_cell_list(), 0, grid.ncells);
+    if sparse_cell_list() {
+        let b = AABB {
+            xmin: grid.aabb.xmax,
+            xmax: grid.aabb.xmin,
+            ymin: grid.aabb.ymax,
+            ymax: grid.aabb.ymin,
+            zmin: grid.aabb.zmax,
+            zmax: grid.aabb.zmin
+        };
 
-    while resize_cell > 0 || resize_ncells > 0 {
+        let red_aabb_fn = @|aabb1: AABB, aabb2: AABB| {
+            AABB {
+                xmin: select(aabb1.xmin < aabb2.xmin, aabb1.xmin, aabb2.xmin),
+                xmax: select(aabb1.xmax > aabb2.xmax, aabb1.xmax, aabb2.xmax),
+                ymin: select(aabb1.ymin < aabb2.ymin, aabb1.ymin, aabb2.ymin),
+                ymax: select(aabb1.ymax > aabb2.ymax, aabb1.ymax, aabb2.ymax),
+                zmin: select(aabb1.zmin < aabb2.zmin, aabb1.zmin, aabb2.zmin),
+                zmax: select(aabb1.zmax > aabb2.zmax, aabb1.zmax, aabb2.zmax)
+            }
+        };
+
         let const_grid = *grid;
+        let aabb = reduce_aabb(grid.nparticles, b, red_aabb_fn, @|i| {
+            let pos = get_position(i, const_grid);
 
-        set_counter(0, const_grid);
+            AABB {
+                xmin: pos.x,
+                xmax: pos.x,
+                ymin: pos.y,
+                ymax: pos.y,
+                zmin: pos.z,
+                zmax: pos.z
+            }
+        });
+
+        let cells_x_beg = real_floor((aabb.xmin - grid.aabb.xmin) / grid.spacing) as i32 - 1;
+        let cells_x_end = real_floor((aabb.xmax - grid.aabb.xmin) / grid.spacing) as i32 + 2;
+        let cells_y_beg = real_floor((aabb.ymin - grid.aabb.ymin) / grid.spacing) as i32 - 1;
+        let cells_y_end = real_floor((aabb.ymax - grid.aabb.ymin) / grid.spacing) as i32 + 2;
+        let cells_z_beg = real_floor((aabb.zmin - grid.aabb.zmin) / grid.spacing) as i32 - 1;
+        let cells_z_end = real_floor((aabb.zmax - grid.aabb.zmin) / grid.spacing) as i32 + 2;
+
+        grid.nx = cells_x_end - cells_x_beg;
+        grid.ny = cells_y_end - cells_y_beg;
+        grid.nz = cells_z_end - cells_z_beg;
+        grid.ncells = grid.nx * grid.ny * grid.nz;
+        grid.cells_offset_x = cells_x_beg;
+        grid.cells_offset_y = cells_y_beg;
+        grid.cells_offset_z = cells_z_beg;
+
+        if grid.ncells >= grid.ncells_capacity {
+            reallocate_ncells_capacity(grid, grid.ncells);
+        }
+    }
+
+    let const_grid = *grid;
+    let mut resize_cell = 1;
+
+    while resize_cell > 0 {
         reset_resize(const_grid);
 
         cells(const_grid, |cell_index| {
@@ -359,10 +414,9 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
             let particles_cell = get_particles_cell(const_grid);
             let cell_sizes = get_cell_sizes(const_grid);
             let resize_buf = get_resize_buffer(const_grid);
-            let cell_place = flatten_index(compute_cell_position(pos, true, const_grid), const_grid);
-            let cell_index = get_cell_index_from_place(const_grid, cell_place, true);
+            let cell_index = flatten_index(compute_cell_position(pos, true, const_grid), const_grid);
 
-            if cell_index != -1 {
+            if !sparse_cell_list() || (cell_index >= 0 && cell_index < const_grid.ncells) {
                 let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
 
                 if cell_particle_index >= const_grid.cell_capacity {
@@ -372,25 +426,16 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
                 } else {
                     let cell_offset = get_cell_offset(cell_index, const_grid);
                     cell_particles(cell_offset + cell_particle_index) = i;
-                    particles_cell(i) = cell_place;
+                    particles_cell(i) = cell_index;
                 }
             }
         });
 
         resize_cell = get_resize(const_grid);
-        resize_ncells = get_resize2(const_grid);
-
-        if resize_ncells > 0 {
-            reallocate_ncells_capacity(grid, resize_ncells * 2);
-        }
 
         if resize_cell > 0 {
             reallocate_cell_capacity(grid, resize_cell * 2);
         }
-    }
-
-    if sparse_cell_list() {
-        grid.nlist = get_counter(*grid);
     }
 }
 
@@ -538,9 +583,10 @@ fn is_within_domain(position: Vector3D, aabb: AABB) -> bool {
 }
 
 fn flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
-    (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
-}
-
-fn unflatten_index(index: i32, grid: &Grid) -> [i32 * 3] {
-    [index % grid.nx, (index / grid.nx) % grid.ny, index / (grid.nx * grid.ny)]
+    if sparse_cell_list() {
+        ((cell_index(2) - grid.cells_offset_z) * grid.ny + (cell_index(1) - grid.cells_offset_y)) * grid.nx +
+        cell_index(0) - grid.cells_offset_x
+    } else {
+        (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
+    }
 }
