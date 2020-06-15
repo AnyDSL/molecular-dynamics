@@ -408,13 +408,13 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
             cell_sizes(cell_index) = 0;
         });
 
-        particles(const_grid, |i, _, _, _| {
+        particles(true, const_grid, |i, _, _, _| {
             let pos = get_position(i, const_grid);
             let cell_particles = get_cell_particles(const_grid);
             let particles_cell = get_particles_cell(const_grid);
             let cell_sizes = get_cell_sizes(const_grid);
             let resize_buf = get_resize_buffer(const_grid);
-            let cell_index = flatten_index(compute_cell_position(pos, true, const_grid), const_grid);
+            let cell_index = flatten_index(compute_cell_position(pos, const_grid), const_grid);
 
             if !sparse_cell_list() || (cell_index >= 0 && cell_index < const_grid.ncells) {
                 let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
@@ -559,19 +559,10 @@ fn write_grid_aabb_data_to_arrays(
     grid.nparticles
 }
 
-fn compute_cell_position(position: Vector3D, @local_only: bool, grid: Grid) -> [i32 * 3] {
-    let mut i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
-    let mut j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
-    let mut k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
-
-    if local_only {
-        i = math.max(i, 0);
-        i = math.min(i, grid.nx - 1);
-        j = math.max(j, 0);
-        j = math.min(j, grid.ny - 1);
-        k = math.max(k, 0);
-        k = math.min(k, grid.nz - 1);
-    }
+fn compute_cell_position(position: Vector3D, grid: Grid) -> [i32 * 3] {
+    let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
+    let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
+    let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
 
     [i, j, k]
 }

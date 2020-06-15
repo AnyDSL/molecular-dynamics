@@ -566,7 +566,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 set_counter(iexchg, const_grid);
                 reset_resize(const_grid);
 
-                particles(const_grid, |i, _, _, _| {
+                particles(false, const_grid, |i, _, _, _| {
                     let masses = get_masses(const_grid);
                     let resize_buf = get_resize_buffer(const_grid);
                     let send_flags = get_send_flags(const_grid);
@@ -777,7 +777,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             set_counter(isend, const_grid);
             reset_resize(const_grid);
 
-            particles(const_grid, |i, _, _, _| {
+            particles(false, const_grid, |i, _, _, _| {
                 let masses = get_masses(const_grid);
                 let resize_buf = get_resize_buffer(const_grid);
                 let send_flags = get_send_flags(const_grid);
