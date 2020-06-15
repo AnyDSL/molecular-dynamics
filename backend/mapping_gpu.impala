@@ -80,6 +80,8 @@ fn @(?ghost) particles(@ghost: bool, grid: Grid, body: fn(i32, &mut[1][i32], i32
     }
 }
 
+fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32, &mut[i32], i32, i32) -> ()) -> () { particles(ghost, grid, f); }
+
 fn cells(grid: Grid, body: fn(i32) -> ()) -> () {
     let ncells = grid.ncells;
     let acc = accelerator(device_id);

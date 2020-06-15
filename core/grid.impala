@@ -60,7 +60,7 @@ struct Grid {
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
 
 fn @sort_particles() -> bool { false }
-fn @sparse_cell_list() -> bool { true }
+fn @sparse_cell_list() -> bool { false }
 fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
 fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) -> i32 {
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)

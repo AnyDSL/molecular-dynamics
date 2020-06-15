@@ -38,7 +38,7 @@ fn @device() -> Device {
 }
 
 // Vectorizes an arbitrary range
-fn @vectorized_range(vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> ()) -> () {
+fn @vectorized_range(@vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> ()) -> () {
     if vector_width == 1 {
         for i in range(a, b) {
             body(i, 1);
@@ -56,23 +56,21 @@ fn @vectorized_range(vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> (
     }
 }
 
-fn @(?ghost) particles(@ghost: bool, grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
+fn @particles_gen(@vec: bool, @ghost: bool, grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
     let dev = device();
-    let cell_sizes = dev.get_array_i32(grid.cell_sizes_cpu);
     let neighbors_sizes = dev.get_array_i32(grid.neighbors_sizes_cpu);
     let neighborlists = dev.get_mut_array_i32(grid.neighborlists_cpu);
-    let neighborlist_capacity = grid.neighborlist_capacity;
+    let vec_width = select(vec, get_vector_width(), 1);
     let n = select(ghost, grid.nparticles + grid.nghost, grid.nparticles);
 
-    vectorized_range(get_vector_width(), 0, n, |particle_index, _| {
-        let nb_list_offset = neighborlist_capacity * particle_index;
-        let nb_list_size = neighbors_sizes(particle_index);
-
-        @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
+    vectorized_range(vec_width, 0, n, |particle_index, _| {
+        @@body(particle_index, neighborlists, neighbors_sizes(particle_index), grid.neighborlist_capacity * particle_index);
     });
 }
 
-fn cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
+fn @particles(@ghost: bool, grid: Grid, f: fn(i32, &mut[i32], i32, i32) -> ()) -> () { particles_gen(false, ghost, grid, f); }
+fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32, &mut[i32], i32, i32) -> ()) -> () { particles_gen(true, ghost, grid, f); }
+fn @cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
 fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     let send_offsets = get_send_offsets(comm_offsets);
     let copy_list = get_copy_list(comm_offsets);

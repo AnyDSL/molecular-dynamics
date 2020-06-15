@@ -20,12 +20,12 @@ fn @(?half_nb) compute_potential(
     if half_nb != 0 {
         let vec_null = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
 
-        particles(false, grid, |i, _, _, _| {
+        particles_vec(false, grid, |i, _, _, _| {
             array_set(ParticleDataLayout(), grid.forces, i, vec_null);
         });
     }
 
-    particles(false, grid, |i, neighborlists, nb_list_size, nb_list_offset| {
+    particles_vec(false, grid, |i, neighborlists, nb_list_size, nb_list_offset| {
         let mut force = Vector3D {
             x: 0.0 as real_t,
             y: 0.0 as real_t,
@@ -72,7 +72,7 @@ fn integration(grid: Grid, dt: real_t) -> i64 {
     let dev = device();
     let mut iters = 0 as i64;
 
-    particles(false, grid, |i, _, _, _| {
+    particles_vec(false, grid, |i, _, _, _| {
         let masses = get_masses(grid);
         let inverse_mass = 1.0 as real_t / masses(i);
         let mut position = get_position(i, grid);
@@ -101,7 +101,7 @@ fn initial_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
-    particles(false, grid, |i, _, _, _| {
+    particles_vec(false, grid, |i, _, _, _| {
         let mut position = get_position(i, grid);
         let mut velocity = get_velocity(i, grid);
         let force = get_force(i, grid);
@@ -128,7 +128,7 @@ fn final_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
-    particles(false, grid, |i, _, _, _| {
+    particles_vec(false, grid, |i, _, _, _| {
         let mut velocity = get_velocity(i, grid);
         let force = get_force(i, grid);
 
