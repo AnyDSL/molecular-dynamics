@@ -1,0 +1,78 @@
+Intel(R) Xeon(R) Gold 6246 CPU @ 3.30GHz
+
+iwia021h@medusa:~/miniMD$ ./miniMD-ICC --half_neigh 0
+MPI startup(): I_MPI_SLURM_EXT environment variable is not supported.
+MPI startup(): I_MPI_HYDRA_JMI_LIBRARY environment variable is not supported.
+MPI startup(): I_MPI_HARD_FINALIZE environment variable is not supported.
+MPI startup(): To check the list of supported variables, use the impi_info utility or refer to https://software.intel.com/en-us/mpi-library/documentation/get-started.
+Running without Marker API. Activate Marker API with -m on commandline.
+# Create System:
+# Done .... 
+# miniMD-Reference 1.2 (MPI+OpenMP) output ...
+# Run Settings: 
+    # MPI processes: 1
+    # OpenMP threads: 1
+    # Inputfile: in.lj.miniMD
+    # Datafile: None
+# Physics Settings: 
+    # ForceStyle: LJ
+    # Force Parameters: 1.00 1.00
+    # Units: LJ
+    # Atoms: 131072
+    # System size: 53.75 53.75 53.75 (unit cells: 32 32 32)
+    # Density: 0.844200
+    # Force cutoff: 2.500000
+    # Timestep size: 0.005000
+# Technical Settings: 
+    # Neigh cutoff: 2.800000
+    # Half neighborlists: 0
+    # Neighbor bins: 26 26 26
+    # Neighbor frequency: 20
+    # Sorting frequency: 20
+    # Thermo frequency: 100
+    # Ghost Newton: 1
+    # Use intrinsics: 0
+    # Do safe exchange: 0
+    # Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 3.333714e-01 0.000000e+00 2.814300e-01  0.000
+100 2.949084e-01 0.000000e+00 2.489598e-01  3.079
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 131072 3.078923 1.569542 1.379506 0.053378 0.076497 4257073.026967 4257073.026967 PERF_SUMMARY 0.027571
+
+iwia021h@medusa:~/molecular-dynamics/build$ ./md 
+MPI startup(): I_MPI_SLURM_EXT environment variable is not supported.
+MPI startup(): I_MPI_HYDRA_JMI_LIBRARY environment variable is not supported.
+MPI startup(): I_MPI_HARD_FINALIZE environment variable is not supported.
+MPI startup(): To check the list of supported variables, use the impi_info utility or refer to https://software.intel.com/en-us/mpi-library/documentation/get-started.
+Simulation settings:
+- Benchmark: default
+- Unit cells (x, y, z): 32, 32, 32
+- Number of timesteps: 100
+- Number of runs: 1
+- Number of threads: 1
+- Reneighboring timesteps: 20
+- Rebalancing timesteps: 100
+- Timestep size: 0.001
+- Cutoff radius: 2.5
+- Verlet buffer: 0.3
+- Epsilon: 1
+- Sigma: 1
+- Potential minimum: 1.6796
+- Half neighbor lists: no
+- Walberla domain partitioning: no
+- Prebalance: no
+- Dynamic load balancing algorithm: none
+- VTK output directory: none
+
+ForceIters RsqIters IntegrationIters
+1277792 1236296 16384 
+# Local # Ghost
+131072 43008 
+Total Force Neigh Comm Balance Other
+3412 2626.45 758.867 25.2089 0 3.46637

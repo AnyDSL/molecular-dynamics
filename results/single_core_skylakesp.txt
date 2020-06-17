@@ -1,0 +1,74 @@
+model name  : Intel(R) Xeon(R) Gold 6148 CPU @ 2.40GHz
+
+iwia021h@skylakesp2:~/miniMD$ ./miniMD-ICC --half_neigh 0
+MPI startup(): I_MPI_SLURM_EXT environment variable is not supported.
+MPI startup(): I_MPI_HYDRA_JMI_LIBRARY environment variable is not supported.
+MPI startup(): I_MPI_HARD_FINALIZE environment variable is not supported.
+MPI startup(): To check the list of supported variables, use the impi_info utility or refer to https://software.intel.com/en-us/mpi-library/documentation/get-started.
+Running without Marker API. Activate Marker API with -m on commandline.
+# Create System:
+# Done .... 
+# miniMD-Reference 1.2 (MPI+OpenMP) output ...
+# Run Settings: 
+    # MPI processes: 1
+    # OpenMP threads: 1
+    # Inputfile: in.lj.miniMD
+    # Datafile: None
+# Physics Settings: 
+    # ForceStyle: LJ
+    # Force Parameters: 1.00 1.00
+    # Units: LJ
+    # Atoms: 131072
+    # System size: 53.75 53.75 53.75 (unit cells: 32 32 32)
+    # Density: 0.844200
+    # Force cutoff: 2.500000
+    # Timestep size: 0.005000
+# Technical Settings: 
+    # Neigh cutoff: 2.800000
+    # Half neighborlists: 0
+    # Neighbor bins: 26 26 26
+    # Neighbor frequency: 20
+    # Sorting frequency: 20
+    # Thermo frequency: 100
+    # Ghost Newton: 1
+    # Use intrinsics: 0
+    # Do safe exchange: 0
+    # Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 3.333714e-01 0.000000e+00 2.814300e-01  0.000
+100 2.949084e-01 0.000000e+00 2.489598e-01  5.032
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 131072 5.032513 2.495706 2.365479 0.068540 0.102789 2604503.879298 2604503.879298 PERF_SUMMARY 0.035048
+
+iwia021h@skylakesp2:~/molecular-dynamics/build$ ./md
+Simulation settings:
+- Benchmark: default
+- Unit cells (x, y, z): 32, 32, 32
+- Number of timesteps: 100
+- Number of runs: 1
+- Number of threads: 1
+- Reneighboring timesteps: 20
+- Rebalancing timesteps: 100
+- Timestep size: 0.001
+- Cutoff radius: 2.5
+- Verlet buffer: 0.3
+- Epsilon: 1
+- Sigma: 1
+- Potential minimum: 1.6796
+- Half neighbor lists: no
+- Walberla domain partitioning: no
+- Prebalance: no
+- Dynamic load balancing algorithm: none
+- VTK output directory: none
+
+ForceIters RsqIters IntegrationIters
+1277792 1236296 16384 
+# Local # Ghost
+131072 43008 
+Total Force Neigh Comm Balance Other
+5378 4125.35 1214.75 34.5486 0 5.04997 
