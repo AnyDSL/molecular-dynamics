@@ -339,64 +339,67 @@ fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
     array_swap_host(ParticleDataLayout(), grid.velocities, i, j);
 }
 
-fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
-    let dev = device();
+fn crop_empty_region(grid: &mut Grid) -> () {
+    let b = AABB {
+        xmin: grid.aabb.xmax,
+        xmax: grid.aabb.xmin,
+        ymin: grid.aabb.ymax,
+        ymax: grid.aabb.ymin,
+        zmin: grid.aabb.zmax,
+        zmax: grid.aabb.zmin
+    };
 
-    if sparse_cell_list() {
-        let b = AABB {
-            xmin: grid.aabb.xmax,
-            xmax: grid.aabb.xmin,
-            ymin: grid.aabb.ymax,
-            ymax: grid.aabb.ymin,
-            zmin: grid.aabb.zmax,
-            zmax: grid.aabb.zmin
-        };
-
-        let red_aabb_fn = @|aabb1: AABB, aabb2: AABB| {
-            AABB {
-                xmin: select(aabb1.xmin < aabb2.xmin, aabb1.xmin, aabb2.xmin),
-                xmax: select(aabb1.xmax > aabb2.xmax, aabb1.xmax, aabb2.xmax),
-                ymin: select(aabb1.ymin < aabb2.ymin, aabb1.ymin, aabb2.ymin),
-                ymax: select(aabb1.ymax > aabb2.ymax, aabb1.ymax, aabb2.ymax),
-                zmin: select(aabb1.zmin < aabb2.zmin, aabb1.zmin, aabb2.zmin),
-                zmax: select(aabb1.zmax > aabb2.zmax, aabb1.zmax, aabb2.zmax)
-            }
-        };
-
-        let const_grid = *grid;
-        let aabb = reduce_aabb(grid.nparticles, b, red_aabb_fn, @|i| {
-            let pos = get_position(i, const_grid);
-
-            AABB {
-                xmin: pos.x,
-                xmax: pos.x,
-                ymin: pos.y,
-                ymax: pos.y,
-                zmin: pos.z,
-                zmax: pos.z
-            }
-        });
-
-        let cells_x_beg = real_floor((aabb.xmin - grid.aabb.xmin) / grid.spacing) as i32 - 1;
-        let cells_x_end = real_floor((aabb.xmax - grid.aabb.xmin) / grid.spacing) as i32 + 2;
-        let cells_y_beg = real_floor((aabb.ymin - grid.aabb.ymin) / grid.spacing) as i32 - 1;
-        let cells_y_end = real_floor((aabb.ymax - grid.aabb.ymin) / grid.spacing) as i32 + 2;
-        let cells_z_beg = real_floor((aabb.zmin - grid.aabb.zmin) / grid.spacing) as i32 - 1;
-        let cells_z_end = real_floor((aabb.zmax - grid.aabb.zmin) / grid.spacing) as i32 + 2;
-
-        grid.nx = cells_x_end - cells_x_beg;
-        grid.ny = cells_y_end - cells_y_beg;
-        grid.nz = cells_z_end - cells_z_beg;
-        grid.ncells = grid.nx * grid.ny * grid.nz;
-        grid.cells_offset_x = cells_x_beg;
-        grid.cells_offset_y = cells_y_beg;
-        grid.cells_offset_z = cells_z_beg;
-
-        if grid.ncells >= grid.ncells_capacity {
-            reallocate_ncells_capacity(grid, grid.ncells);
+    let red_aabb_fn = @|aabb1: AABB, aabb2: AABB| {
+        AABB {
+            xmin: select(aabb1.xmin < aabb2.xmin, aabb1.xmin, aabb2.xmin),
+            xmax: select(aabb1.xmax > aabb2.xmax, aabb1.xmax, aabb2.xmax),
+            ymin: select(aabb1.ymin < aabb2.ymin, aabb1.ymin, aabb2.ymin),
+            ymax: select(aabb1.ymax > aabb2.ymax, aabb1.ymax, aabb2.ymax),
+            zmin: select(aabb1.zmin < aabb2.zmin, aabb1.zmin, aabb2.zmin),
+            zmax: select(aabb1.zmax > aabb2.zmax, aabb1.zmax, aabb2.zmax)
         }
+    };
+
+    let const_grid = *grid;
+    let aabb = reduce_aabb(grid.nparticles, b, red_aabb_fn, @|i| {
+        let pos = get_position(i, const_grid);
+
+        AABB {
+            xmin: pos.x,
+            xmax: pos.x,
+            ymin: pos.y,
+            ymax: pos.y,
+            zmin: pos.z,
+            zmax: pos.z
+        }
+    });
+
+    let cells_x_beg = real_floor((aabb.xmin - grid.aabb.xmin) / grid.spacing) as i32 - 1;
+    let cells_x_end = real_floor((aabb.xmax - grid.aabb.xmin) / grid.spacing) as i32 + 2;
+    let cells_y_beg = real_floor((aabb.ymin - grid.aabb.ymin) / grid.spacing) as i32 - 1;
+    let cells_y_end = real_floor((aabb.ymax - grid.aabb.ymin) / grid.spacing) as i32 + 2;
+    let cells_z_beg = real_floor((aabb.zmin - grid.aabb.zmin) / grid.spacing) as i32 - 1;
+    let cells_z_end = real_floor((aabb.zmax - grid.aabb.zmin) / grid.spacing) as i32 + 2;
+
+    grid.nx = cells_x_end - cells_x_beg;
+    grid.ny = cells_y_end - cells_y_beg;
+    grid.nz = cells_z_end - cells_z_beg;
+    grid.ncells = grid.nx * grid.ny * grid.nz;
+    grid.cells_offset_x = cells_x_beg;
+    grid.cells_offset_y = cells_y_beg;
+    grid.cells_offset_z = cells_z_beg;
+
+    if grid.ncells >= grid.ncells_capacity {
+        reallocate_ncells_capacity(grid, grid.ncells);
+    }
+}
+
+fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
+    if sparse_cell_list() {
+        crop_empty_region(grid);
     }
 
+    let dev = device();
     let const_grid = *grid;
     let mut resize_cell = 1;
 
@@ -408,7 +411,7 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
             cell_sizes(cell_index) = 0;
         });
 
-        particles(true, const_grid, |i, _, _, _| {
+        particles(ghost, const_grid, |i, _, _, _| {
             let pos = get_position(i, const_grid);
             let cell_particles = get_cell_particles(const_grid);
             let particles_cell = get_particles_cell(const_grid);
@@ -441,7 +444,7 @@ fn fill_cells(grid: &mut Grid, nparticles: i32) -> () {
 
 fn distribute_particles(grid: &mut Grid) -> () {
     if sort_particles() {
-        fill_cells(grid, grid.nparticles);
+        fill_cells(grid, false);
 
         let cell_particles = get_array_of_i32(grid.cell_particles_cpu);
         let cell_sizes = get_array_of_i32(grid.cell_sizes_cpu);
@@ -453,7 +456,6 @@ fn distribute_particles(grid: &mut Grid) -> () {
             range(0, cell_sizes(cell_index), |cell_particle_index| {
                 let old_index = cell_particles(cell_offset + cell_particle_index);
                 let new_index = offset + cell_particle_index;
-
                 array_copy_host(ParticleDataLayout(), grid.positions, grid.positions_copy, old_index, new_index);
                 array_copy_host(ParticleDataLayout(), grid.velocities, grid.velocities_copy, old_index, new_index);
             });
@@ -467,14 +469,13 @@ fn distribute_particles(grid: &mut Grid) -> () {
 
         let pos_copy = grid.positions;
         let vel_copy = grid.velocities;
-
         grid.positions = grid.positions_copy;
         grid.velocities = grid.velocities_copy;
         grid.positions_copy = pos_copy;
         grid.velocities_copy = vel_copy;
     }
 
-    fill_cells(grid, grid.nparticles + grid.nghost);
+    fill_cells(grid, true);
 }
 
 fn copy_to_accelerator(grid: &Grid) -> () {

@@ -651,10 +651,7 @@ int main(int argc, char **argv) {
         timer.startRun();
 
         for(int j = 0; j < steps; ++j) {
-            LIKWID_MARKER_START("Force");
             md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
-            LIKWID_MARKER_STOP("Force");
-
             md_integration(dt);
             timer.accum(TIME_FORCE);
 
