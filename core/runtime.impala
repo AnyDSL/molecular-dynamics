@@ -152,12 +152,22 @@ extern fn md_print_grid() -> () {
         let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
         print_real_vector_with_rank("pos_local", pos);
     });
+
+    range(0, grid_.nparticles, |particle_index| {
+        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, particle_index);
+        print_real_vector_with_rank("vel_local", vel);
+    });
 }
 
 extern fn md_print_ghost() -> () {
     range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
         let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
         print_real_vector_with_rank("pos_ghost", pos);
+    });
+
+    range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
+        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, particle_index);
+        print_real_vector_with_rank("vel_ghost", vel);
     });
 }
 
