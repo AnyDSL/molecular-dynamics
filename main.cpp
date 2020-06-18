@@ -47,7 +47,7 @@ void print_usage(char *name) {
     cout << "\t                          VTK directories are NOT automatically created and therefore must exist." << endl;
     cout << "\t    --reneigh=NUMBER      timesteps to simulate before reneighboring (default 20)." << endl;
     cout << "\t    --rebalance=NUMBER    timesteps to simulate before load balancing (default 100)." << endl;
-    cout << "\t    --dt=REAL             timestep size (default 0.001)." << endl;
+    cout << "\t    --dt=REAL             timestep size (default 0.005)." << endl;
     cout << "\t    --cutoff=REAL         cutoff radius (default 2.5)." << endl;
     cout << "\t    --verlet=REAL         verlet buffer (default 0.3)." << endl;
     cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones equation (default 1.0)." << endl;
@@ -301,7 +301,7 @@ int main(int argc, char **argv) {
     int nthreads = 1;
     int reneigh_every = 20;
     int rebalance_every = 100;
-    double dt = 1e-3;
+    double dt = 0.005;
     double cutoff_radius = 2.5;
     double verlet_buffer = 0.3;
     double epsilon = 1.0;

@@ -51,7 +51,7 @@ Available options are:
 - **-v, --vtk=DIRECTORY:** If this argument is provided, vtk output files are created in the specified directory (it must exist). For MPI simulations, the rank number is concatenated in the end of this directory name. For example, if you use "--vtk output" in a simulation with 4 MPI ranks, then directories "output[0-3]" are used.
 - **--reneigh=NUMBER:** Timesteps to simulate before reneighboring (default 20).
 - **--rebalance=NUMBER:** Timesteps to simulate before load balancing (default 100).
-- **--dt=REAL:** Timestep size (default 0.001).
+- **--dt=REAL:** Timestep size (default 0.005).
 - **--cutoff=REAL:** Cutoff radius (default 2.5).
 - **--verlet=REAL:** Verlet buffer (default 0.3).
 - **--epsilon=REAL:** Epsilon value for Lennard-Jones equation (default 1.0).
