@@ -636,6 +636,7 @@ int main(int argc, char **argv) {
         md_borders();
         md_distribute_particles();
         md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
+        md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
 
         if(vtk && i == 0) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
@@ -651,8 +652,7 @@ int main(int argc, char **argv) {
         timer.startRun();
 
         for(int j = 0; j < steps; ++j) {
-            md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
-            md_integration(dt);
+            md_initial_integration(dt);
             timer.accum(TIME_FORCE);
 
             if(j > 0 && j % reneigh_every == 0) {
@@ -683,6 +683,10 @@ int main(int argc, char **argv) {
                 md_synchronize_ghost_layer();
                 timer.accum(TIME_COMM);
             }
+
+            md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
+            md_final_integration(dt);
+            timer.accum(TIME_FORCE);
 
             if(vtk && i == 0) {
                 md_copy_data_from_accelerator();
