@@ -419,7 +419,7 @@ fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
             let resize_buf = get_resize_buffer(const_grid);
             let cell_index = flatten_index(compute_cell_position(pos, const_grid), const_grid);
 
-            if !sparse_cell_list() || (cell_index >= 0 && cell_index < const_grid.ncells) {
+            if cell_index >= 0 && cell_index < const_grid.ncells {
                 let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
 
                 if cell_particle_index >= const_grid.cell_capacity {
