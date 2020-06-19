@@ -93,7 +93,7 @@ extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], n
 }
 
 // Get PBC conditions according to particle position
-fn @get_pbc_flags_from_position(position: Vector3D, pbc_x: i32, pbc_y: i32, pbc_z: i32, grid: Grid) -> PBCFlags {
+fn @(?pbc_x & ?pbc_y & ?pbc_z) get_pbc_flags_from_position(position: Vector3D, @pbc_x: i32, @pbc_y: i32, @pbc_z: i32, grid: Grid) -> PBCFlags {
     let mut pbc_flags = PBCFlags { x: 0 as i8, y: 0 as i8, z: 0 as i8 };
     let all = pbc_x == 0 && pbc_y == 0 && pbc_z == 0;
 

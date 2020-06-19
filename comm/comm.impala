@@ -576,7 +576,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 
                     send_flags(i) = 0 as i8;
 
-                    exchange_positions(particle_pos, |pos, _| {
+                    exchange_positions(particle_pos, @|pos, _| {
                         let counter = add_counter(const_grid);
 
                         if counter >= const_comm_offsets.send_capacity {
@@ -786,7 +786,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                 let send_pbc = get_send_pbc(const_comm_offsets);
                 let particle_pos = get_position(i, const_grid);
 
-                border_positions(particle_pos, |pos, pbc| {
+                border_positions(particle_pos, @|pos, pbc| {
                     let counter = add_counter(const_grid);
 
                     if counter >= const_comm_offsets.send_capacity {
@@ -929,6 +929,12 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
 }
 
 fn reduce_f64_sum(local_value: f64, global_value: &mut f64) -> () {
+    let mpih = mpi();
+    let mut local = local_value;
+    mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.double_t, mpih.ops.sum, mpih.comms.world);
+}
+
+fn reduce_f64_max(local_value: f64, global_value: &mut f64) -> () {
     let mpih = mpi();
     let mut local = local_value;
     mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.double_t, mpih.ops.max, mpih.comms.world);

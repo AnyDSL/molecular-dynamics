@@ -365,7 +365,7 @@ extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_av
     let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
     let reduce_and_print = |t: f64| {
         let mut res: f64;
-        reduce_f64_sum(t, &mut res);
+        reduce_f64_max(t, &mut res);
         print_f64_cond(is_root, res);
         print_string_once(" ");
     };
