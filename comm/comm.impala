@@ -928,10 +928,10 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     comm_offsets.neighs = neigh;
 }
 
-fn reduce_time(local_time: f64, global_time: &mut f64) -> () {
+fn reduce_f64_sum(local_value: f64, global_value: &mut f64) -> () {
     let mpih = mpi();
-    let mut local = local_time;
-    mpih.allreduce(&mut local as MPI_MutBuf, global_time as MPI_MutBuf, 1, mpih.double_t, mpih.ops.max, mpih.comms.world);
+    let mut local = local_value;
+    mpih.allreduce(&mut local as MPI_MutBuf, global_value as MPI_MutBuf, 1, mpih.double_t, mpih.ops.max, mpih.comms.world);
 }
 
 fn reduce_i32_sum(local_value: i32, global_value: &mut i32) -> () {

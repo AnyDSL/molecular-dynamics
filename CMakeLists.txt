@@ -53,6 +53,7 @@ set(MD_SRCS
     core/layouts.impala
     core/neighborlist.impala
     core/runtime.impala
+    core/thermo.impala
     comm/comm.impala
     comm/lb.impala
     utils/atomic.impala

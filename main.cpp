@@ -48,6 +48,7 @@ void print_usage(char *name) {
     cout << "\t    --reneigh=NUMBER      timesteps to simulate before reneighboring (default 20)." << endl;
     cout << "\t    --rebalance=NUMBER    timesteps to simulate before load balancing (default 100)." << endl;
     cout << "\t    --dt=REAL             timestep size (default 0.005)." << endl;
+    cout << "\t    --temp=REAL           initial temperature (default 1.44)." << endl;
     cout << "\t    --cutoff=REAL         cutoff radius (default 2.5)." << endl;
     cout << "\t    --verlet=REAL         verlet buffer (default 0.3)." << endl;
     cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones equation (default 1.0)." << endl;
@@ -307,6 +308,7 @@ int main(int argc, char **argv) {
     double epsilon = 1.0;
     double sigma = 1.0;
     double potential_minimum = 1.6796;
+    double init_temp = 1.44;
     bool half = false;
     bool half_nb = false;
     bool use_walberla = false;
@@ -327,13 +329,14 @@ int main(int argc, char **argv) {
         {"reneigh",    required_argument,    nullptr,    0},
         {"rebalance",  required_argument,    nullptr,    1},
         {"dt",         required_argument,    nullptr,    2},
-        {"cutoff",     required_argument,    nullptr,    3},
-        {"verlet",     required_argument,    nullptr,    4},
-        {"epsilon",    required_argument,    nullptr,    5},
-        {"sigma",      required_argument,    nullptr,    6},
-        {"potmin",     required_argument,    nullptr,    7},
-        {"half_nb",    no_argument,          nullptr,    8},
-        {"prebalance", no_argument,          nullptr,    9}
+        {"temp",       required_argument,    nullptr,    3},
+        {"cutoff",     required_argument,    nullptr,    4},
+        {"verlet",     required_argument,    nullptr,    5},
+        {"epsilon",    required_argument,    nullptr,    6},
+        {"sigma",      required_argument,    nullptr,    7},
+        {"potmin",     required_argument,    nullptr,    8},
+        {"half_nb",    no_argument,          nullptr,    9},
+        {"prebalance", no_argument,          nullptr,    10}
     };
 
     while((opt = getopt_long(argc, argv, "b:x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
@@ -351,30 +354,34 @@ int main(int argc, char **argv) {
                 break;
 
             case 3:
-                cutoff_radius = atof(optarg);
+                init_temp = atof(optarg);
                 break;
 
             case 4:
-                verlet_buffer = atof(optarg);
+                cutoff_radius = atof(optarg);
                 break;
 
             case 5:
-                epsilon = atof(optarg);
+                verlet_buffer = atof(optarg);
                 break;
 
             case 6:
-                sigma = atof(optarg);
+                epsilon = atof(optarg);
                 break;
 
             case 7:
-                potential_minimum = atof(optarg);
+                sigma = atof(optarg);
                 break;
 
             case 8:
-                half_nb = true;
+                potential_minimum = atof(optarg);
                 break;
 
             case 9:
+                half_nb = true;
+                break;
+
+            case 10:
                 prebalance = true;
                 break;
 
@@ -588,6 +595,7 @@ int main(int argc, char **argv) {
         cout << "- Reneighboring timesteps: " << reneigh_every << endl;
         cout << "- Rebalancing timesteps: " << rebalance_every << endl;
         cout << "- Timestep size: " << dt << endl;
+        cout << "- Initial temperature: " << init_temp << endl;
         cout << "- Cutoff radius: " << cutoff_radius << endl;
         cout << "- Verlet buffer: " << verlet_buffer << endl;
         cout << "- Epsilon: " << epsilon << endl;
@@ -631,6 +639,7 @@ int main(int argc, char **argv) {
         updateNeighborhood(forest);
         #endif
 
+        md_create_velocity(init_temp);
         md_copy_data_to_accelerator();
         md_exchange_particles();
         md_borders();

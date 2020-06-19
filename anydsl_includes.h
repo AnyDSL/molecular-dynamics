@@ -23,6 +23,7 @@ extern "C" {
     void md_deallocate_grid();
     void md_print_grid();
     void md_print_ghost();
+    void md_create_velocity(double);
     void md_compute_lennard_jones(bool, double, double, double);
     void md_compute_dem(bool, double, double, double, double, double);
     double md_compute_total_kinetic_energy();

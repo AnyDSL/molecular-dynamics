@@ -1,0 +1,16 @@
+fn temperature(grid: Grid) -> real_t {
+    let mass = 1.0;
+    let mvv2e = 1.0;
+    let dof_boltz = grid.nparticles * 3 - 3;
+    let t_scale = mvv2e / dof_boltz as real_t;
+    let mut t = 0.0;
+    let mut t_sum = 0.0;
+
+    range(0, grid.nparticles, |i| {
+        let vel = array_get_host(ParticleDataLayout(), grid.velocities, i);
+        t += vector_dot(vel, vel) * mass;
+    });
+
+    reduce_f64_sum(t, &mut t_sum);
+    t_sum * t_scale
+}

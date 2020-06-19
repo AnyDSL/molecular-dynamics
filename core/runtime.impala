@@ -171,6 +171,39 @@ extern fn md_print_ghost() -> () {
     });
 }
 
+extern fn md_create_velocity(t_request: real_t) -> () {
+    let nparticles = grid_.nparticles;
+    let mut vtot = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
+    let mut tmp: real_t;
+
+    range(0, nparticles, |i| {
+        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, i);
+        vtot = vector_add(vtot, vel);
+    });
+
+    reduce_f64_sum(vtot.x, &mut tmp);
+    vtot.x = tmp / nparticles as real_t;
+    reduce_f64_sum(vtot.y, &mut tmp);
+    vtot.y = tmp / nparticles as real_t;
+    reduce_f64_sum(vtot.z, &mut tmp);
+    vtot.z = tmp / nparticles as real_t;
+
+    range(0, nparticles, |i| {
+        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, i);
+        let new_vel = vector_sub(vel, vtot);
+        array_set_host(ParticleDataLayout(), grid_.velocities, i, new_vel);
+    });
+
+    let t = temperature(grid_);
+    let factor = math.sqrt(t_request / t);
+
+    range(0, nparticles, |i| {
+        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, i);
+        let new_vel = vector_scale(factor, vel);
+        array_set_host(ParticleDataLayout(), grid_.velocities, i, new_vel);
+    });
+}
+
 extern fn md_compute_lennard_jones(half_neighborlist: bool, cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let half_nb = select(half_neighborlist, 1, 0);
     let sigma6 = pow(sigma, 6);
@@ -190,18 +223,19 @@ extern fn md_compute_dem(
     half_neighborlist: bool, cutoff_distance: real_t,
     damping_n: real_t, damping_t: real_t, stiffness: real_t, friction: real_t) -> () {
 
+    let dev = device();
     let grid = grid_;
     let half_nb = select(half_neighborlist, 1, 0);
     let radius = 1.0;
     let square =        @|a: real_t| { a * a };
-    let vector_len =    @|v: Vector3D| { device().sqrt(vector_len2(v)) };
+    let vector_len =    @|v: Vector3D| { dev.sqrt(vector_len2(v)) };
     let vector_normal = @|v: Vector3D, len: real_t| { vector_scale(1.0 / len, v) };
 
     let (iforces, irsq) = compute_potential(grid, half_nb, cutoff_distance * cutoff_distance, @|i, j, _, pos_j, del, rsq| {
         let mut result = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
 
         if rsq < square(radius * 2.0) {
-            let del_length = math.sqrt(rsq);
+            let del_length = dev.sqrt(rsq);
             let penetration_depth = del_length - radius * 2.0;
 
             if penetration_depth > 0.0 {
@@ -283,7 +317,6 @@ extern fn md_get_velocity(particle_index: i32, x: &mut real_t, y: &mut real_t, z
 extern fn md_create_particle(mass: real_t, px: real_t, py: real_t, pz: real_t, vx: real_t, vy: real_t, vz: real_t) -> () {
     let position = Vector3D { x: px, y: py, z: pz };
     let velocity = Vector3D { x: vx, y: vy, z: vz };
-
     insert_particle(mass, position, velocity, &mut grid_, alloc_cpu);
 }
 
@@ -332,7 +365,7 @@ extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_av
     let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
     let reduce_and_print = |t: f64| {
         let mut res: f64;
-        reduce_time(t, &mut res);
+        reduce_f64_sum(t, &mut res);
         print_f64_cond(is_root, res);
         print_string_once(" ");
     };
