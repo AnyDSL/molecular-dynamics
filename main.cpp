@@ -664,12 +664,12 @@ int main(int argc, char **argv) {
             md_initial_integration(dt);
             timer.accum(TIME_FORCE);
 
-            if(j > 0 && j % reneigh_every == 0) {
+            if((j + 1) % reneigh_every == 0) {
                 md_exchange_particles();
                 timer.accum(TIME_COMM);
 
                 #ifdef USE_WALBERLA_LOAD_BALANCING
-                if(use_load_balancing && j % rebalance_every == 0) {
+                if(use_load_balancing && (j + 1) % rebalance_every == 0) {
                     updateWeights(forest, *info);
                     forest->refresh();
                     getBlockForestAABB(forest, new_aabb);
