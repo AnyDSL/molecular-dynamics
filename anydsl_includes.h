@@ -14,6 +14,7 @@ extern "C" {
     void md_integration(double);
     void md_initial_integration(double);
     void md_final_integration(double);
+    void md_enforce_pbc();
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     int md_write_grid_ghost_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     int md_write_grid_aabb_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);

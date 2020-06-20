@@ -143,3 +143,10 @@ fn final_integration(grid: Grid, dt: real_t) -> i64 {
 
     iters
 }
+
+fn enforce_pbc(grid: Grid) -> () {
+    particles_vec(false, grid, |i, _, _, _| {
+        let pos = get_position(i, grid);
+        set_position(i, grid, pbc_corrected_position_if(true, pos, grid));
+    });
+}

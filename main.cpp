@@ -713,6 +713,7 @@ int main(int argc, char **argv) {
 
         timer.finishRun();
 
+        md_enforce_pbc();
         md_copy_data_from_accelerator();
         md_report_iterations();
         md_report_particles();
