@@ -130,7 +130,7 @@ void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
     write_vtk_to_file(filename, masses, positions, velocities, forces);
 }
 
-void updateNeighborhood(shared_ptr<BlockForest> forest) {
+void updateNeighborhood(shared_ptr<BlockForest> forest, blockforest::InfoCollection& info, bool load_balance) {
     map<uint_t, vector<math::AABB>> neighborhood;
     map<uint_t, vector<BlockID>> blocks_pushed;
     vector<int> ranks;
@@ -141,19 +141,24 @@ void updateNeighborhood(shared_ptr<BlockForest> forest) {
 
     for(auto& iblock: *forest) {
         auto block = static_cast<blockforest::Block *>(&iblock);
+        auto& block_info = info[block->getId()];
 
-        for(uint neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
-            auto neighbor_rank = int_c(block->getNeighborProcess(neigh));
+        if(!load_balance || block_info.computationalWeight > 0) {
+            for(uint neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
+                auto neighbor_rank = int_c(block->getNeighborProcess(neigh));
 
-            if(neighbor_rank != me) {
-                const BlockID& neighbor_block = block->getNeighborId(neigh);
-                math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
-                auto begin = blocks_pushed[neighbor_rank].begin();
-                auto end = blocks_pushed[neighbor_rank].end();
+                if(neighbor_rank != me) {
+                    const BlockID& neighbor_block = block->getNeighborId(neigh);
+                    math::AABB neighbor_aabb = block->getNeighborAABB(neigh);
+                    auto neighbor_info = info[neighbor_block];
+                    auto begin = blocks_pushed[neighbor_rank].begin();
+                    auto end = blocks_pushed[neighbor_rank].end();
 
-                if(find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh == neighbor_block; }) == end) {
-                    neighborhood[neighbor_rank].push_back(neighbor_aabb);
-                    blocks_pushed[neighbor_rank].push_back(neighbor_block);
+                    if( (!load_balance || neighbor_info.computationalWeight > 0) &&
+                        find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh == neighbor_block; }) == end) {
+                        neighborhood[neighbor_rank].push_back(neighbor_aabb);
+                        blocks_pushed[neighbor_rank].push_back(neighbor_block);
+                    }
                 }
             }
         }
@@ -196,7 +201,7 @@ void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& 
         for(uint_t branch = 0; branch < 8; ++branch) {
             const auto child_id = BlockID(block->getId(), branch);
             const auto child_aabb = forest->getAABBFromBlockId(child_id);
-            auto child_info = info[child_id];
+            auto& child_info = info[child_id];
 
             md_compute_boundary_weights(
                 child_aabb.xMin(), child_aabb.xMax(), child_aabb.yMin(), child_aabb.yMax(), child_aabb.zMin(), child_aabb.zMax(),
@@ -215,7 +220,7 @@ void updateWeights(shared_ptr<BlockForest> forest, blockforest::InfoCollection& 
 
         for(uint_t branch = 0; branch < 8; ++branch) {
             const auto child_id = BlockID(block->getId(), branch);
-            auto child_info = info[child_id];
+            auto& child_info = info[child_id];
 
             for(uint_t neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
                 bs.sendBuffer(block->getNeighborProcess(neigh)) <<
@@ -636,7 +641,8 @@ int main(int argc, char **argv) {
             md_rescale_grid(new_aabb);
         }
 
-        updateNeighborhood(forest);
+        updateWeights(forest, *info);
+        updateNeighborhood(forest, *info, use_load_balancing);
         #endif
 
         md_create_velocity(init_temp);
@@ -674,7 +680,8 @@ int main(int argc, char **argv) {
                     forest->refresh();
                     getBlockForestAABB(forest, new_aabb);
                     md_rescale_grid(new_aabb);
-                    updateNeighborhood(forest);
+                    updateWeights(forest, *info);
+                    updateNeighborhood(forest, *info, true);
                 }
 
                 timer.accum(TIME_LOAD_BALANCING);
