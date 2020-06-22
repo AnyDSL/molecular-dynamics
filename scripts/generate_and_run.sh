@@ -30,11 +30,12 @@ cat << EOF > $1
 #SBATCH --job-name=anydsl_md
 #SBATCH --time=01:00:00
 #SBATCH --nodes=${nodes}
-#SBATCH --ntasks-per-core=2
+#SBATCH --ntasks-per-core=1
 #SBATCH --ntasks-per-node=12
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=1
 #SBATCH --partition=normal
 #SBATCH --constraint=gpu
+#SBATCH --hint=nomultithread
 
 export OMP_NUM_THREADS=\$SLURM_CPUS_PER_TASK
 export CRAY_CUDA_MPS=1
