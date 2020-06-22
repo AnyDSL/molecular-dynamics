@@ -53,3 +53,10 @@ for nodes in $configs; do
     get_nnodes_unit_cells $nodes
     write_script "$prefix/$nodes/script.sh"    
 done
+
+for nodes in $configs; do
+    cd ${prefix}/$nodes
+    echo $(pwd)
+    echo "sbatch script.sh"
+    cd ../..
+done
