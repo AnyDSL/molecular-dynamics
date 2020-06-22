@@ -34,6 +34,7 @@ void print_usage(char *name) {
     cout << "Usage: " << name << " [OPTION]..." << endl;
     cout << "A fast, scalable and portable application for pair-wise interactions implemented in AnyDSL." << endl << endl;
     cout << "Mandatory arguments to long options are also mandatory for short options." << endl;
+    cout << "\t-f, --force_field=STRING  force field to use (options are lj and dem, default is lj)." << endl;
     cout << "\t-b, --benchmark=STRING    benchmark to use (options are default, half, body_collision and granular_gas)." << endl;
     cout << "\t-x, --nx=SIZE             number of unit cells in x dimension (default 32)." << endl;
     cout << "\t-y, --ny=SIZE             number of unit cells in y dimension (default 32)." << endl;
@@ -51,8 +52,12 @@ void print_usage(char *name) {
     cout << "\t    --temp=REAL           initial temperature (default 1.44)." << endl;
     cout << "\t    --cutoff=REAL         cutoff radius (default 2.5)." << endl;
     cout << "\t    --verlet=REAL         verlet buffer (default 0.3)." << endl;
-    cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones equation (default 1.0)." << endl;
-    cout << "\t    --sigma=REAL          sigma value for Lennard-Jones equation (default 1.0)." << endl;
+    cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones force-field(default 1.0)." << endl;
+    cout << "\t    --sigma=REAL          sigma value for Lennard-Jones force-field (default 1.0)." << endl;
+    cout << "\t    --damping_n=REAL      Normal damping for DEM force-field (default 0.0)." << endl;
+    cout << "\t    --damping_t=REAL      Tangential damping for DEM force-field (default 0.0)." << endl;
+    cout << "\t    --stiffness=REAL      Stiffness for DEM force-field (default 0.0)." << endl;
+    cout << "\t    --friction=REAL       Friction for DEM force-field (default 0.0)." << endl;
     cout << "\t    --potmin=REAL         potential minimum (default 1.6796)." << endl;
     cout << "\t    --half_nb             compute with half neighbor list." << endl;
     cout << "\t    --prebalance          perform static load balancing before execution." << endl;
@@ -299,6 +304,7 @@ int main(int argc, char **argv) {
     #endif
 
     string benchmark = "default";
+    string force_field = "lj";
     string algorithm;
     string vtk_directory;
     int gridsize[3] = {32, 32, 32};
@@ -314,6 +320,10 @@ int main(int argc, char **argv) {
     double sigma = 1.0;
     double potential_minimum = 1.6796;
     double init_temp = 1.44;
+    double damping_n = 0.0;
+    double damping_t = 0.0;
+    double stiffness = 0.0;
+    double friction = 0.0;
     bool half = false;
     bool half_nb = false;
     bool use_walberla = false;
@@ -321,30 +331,35 @@ int main(int argc, char **argv) {
 
     int opt = 0;
     struct option long_opts[] = {
-        {"benchmark",  required_argument,    nullptr,    'b'},
-        {"nx",         required_argument,    nullptr,    'x'},
-        {"ny",         required_argument,    nullptr,    'y'},
-        {"nz",         required_argument,    nullptr,    'z'},
-        {"timesteps",  required_argument,    nullptr,    's'},
-        {"runs",       required_argument,    nullptr,    'r'},
-        {"threads",    required_argument,    nullptr,    't'},
-        {"algorithm",  required_argument,    nullptr,    'a'},
-        {"vtk",        required_argument,    nullptr,    'v'},
-        {"help",       no_argument,          nullptr,    'h'},
-        {"reneigh",    required_argument,    nullptr,    0},
-        {"rebalance",  required_argument,    nullptr,    1},
-        {"dt",         required_argument,    nullptr,    2},
-        {"temp",       required_argument,    nullptr,    3},
-        {"cutoff",     required_argument,    nullptr,    4},
-        {"verlet",     required_argument,    nullptr,    5},
-        {"epsilon",    required_argument,    nullptr,    6},
-        {"sigma",      required_argument,    nullptr,    7},
-        {"potmin",     required_argument,    nullptr,    8},
-        {"half_nb",    no_argument,          nullptr,    9},
-        {"prebalance", no_argument,          nullptr,    10}
+        {"force_field", required_argument,    nullptr,    'f'},
+        {"benchmark",   required_argument,    nullptr,    'b'},
+        {"nx",          required_argument,    nullptr,    'x'},
+        {"ny",          required_argument,    nullptr,    'y'},
+        {"nz",          required_argument,    nullptr,    'z'},
+        {"timesteps",   required_argument,    nullptr,    's'},
+        {"runs",        required_argument,    nullptr,    'r'},
+        {"threads",     required_argument,    nullptr,    't'},
+        {"algorithm",   required_argument,    nullptr,    'a'},
+        {"vtk",         required_argument,    nullptr,    'v'},
+        {"help",        no_argument,          nullptr,    'h'},
+        {"reneigh",     required_argument,    nullptr,    0},
+        {"rebalance",   required_argument,    nullptr,    1},
+        {"dt",          required_argument,    nullptr,    2},
+        {"temp",        required_argument,    nullptr,    3},
+        {"cutoff",      required_argument,    nullptr,    4},
+        {"verlet",      required_argument,    nullptr,    5},
+        {"epsilon",     required_argument,    nullptr,    6},
+        {"sigma",       required_argument,    nullptr,    7},
+        {"damping_n",   required_argument,    nullptr,    8},
+        {"damping_t",   required_argument,    nullptr,    9},
+        {"stiffness",   required_argument,    nullptr,    10},
+        {"friction",    required_argument,    nullptr,    11},
+        {"potmin",      required_argument,    nullptr,    12},
+        {"half_nb",     no_argument,          nullptr,    13},
+        {"prebalance",  no_argument,          nullptr,    14}
     };
 
-    while((opt = getopt_long(argc, argv, "b:x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
+    while((opt = getopt_long(argc, argv, "f:b:x:y:z:s:r:t:a:v:h", long_opts, nullptr)) != -1) {
         switch(opt) {
             case 0:
                 reneigh_every = atoi(optarg);
@@ -379,15 +394,35 @@ int main(int argc, char **argv) {
                 break;
 
             case 8:
-                potential_minimum = atof(optarg);
+                damping_n = atof(optarg);
                 break;
 
             case 9:
-                half_nb = true;
+                damping_t = atof(optarg);
                 break;
 
             case 10:
+                stiffness = atof(optarg);
+                break;
+
+            case 11:
+                friction = atof(optarg);
+                break;
+
+            case 12:
+                potential_minimum = atof(optarg);
+                break;
+
+            case 13:
+                half_nb = true;
+                break;
+
+            case 14:
                 prebalance = true;
+                break;
+
+            case 'f':
+                force_field = string(optarg);
                 break;
 
             case 'b':
@@ -592,6 +627,18 @@ int main(int argc, char **argv) {
 
     if(md_get_world_rank() == 0) {
         cout << "Simulation settings:" << endl;
+        cout << "- Force field: " << force_field << endl;
+
+        if(force_field == "dem") {
+            cout << "- Normal damping: " << damping_n << endl;
+            cout << "- Tangential damping: " << damping_t << endl;
+            cout << "- Stiffness: " << stiffness << endl;
+            cout << "- Friction: " << friction << endl;
+        } else {
+            cout << "- Epsilon: " << epsilon << endl;
+            cout << "- Sigma: " << sigma << endl;
+        }
+
         cout << "- Benchmark: " << benchmark << endl;
         cout << "- Unit cells (x, y, z): " << gridsize[0] << ", " << gridsize[1] << ", " << gridsize[2] << endl;
         cout << "- Number of timesteps: " << steps << endl;
@@ -603,8 +650,6 @@ int main(int argc, char **argv) {
         cout << "- Initial temperature: " << init_temp << endl;
         cout << "- Cutoff radius: " << cutoff_radius << endl;
         cout << "- Verlet buffer: " << verlet_buffer << endl;
-        cout << "- Epsilon: " << epsilon << endl;
-        cout << "- Sigma: " << sigma << endl;
         cout << "- Potential minimum: " << potential_minimum << endl;
         cout << "- Half neighbor lists: " << (half_nb? "yes" : "no") << endl;
         cout << "- Walberla domain partitioning: " << (use_walberla ? "yes" : "no") << endl;
@@ -645,13 +690,21 @@ int main(int argc, char **argv) {
         updateNeighborhood(forest, *info, use_load_balancing);
         #endif
 
-        md_create_velocity(init_temp);
+        if(benchmark != "body_collision" && benchmark != "granular_gas") {
+            md_create_velocity(init_temp);
+        }
+
         md_copy_data_to_accelerator();
         md_exchange_particles();
         md_borders();
         md_distribute_particles();
         md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
-        md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
+
+        if(force_field == "dem") {
+            md_compute_dem(half_nb, cutoff_radius, damping_n, damping_t, stiffness, friction);
+        } else {
+            md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
+        }
 
         if(vtk && i == 0) {
             vtk_write_local_data(vtk_directory + "particles_0.vtk");
@@ -700,7 +753,12 @@ int main(int argc, char **argv) {
                 timer.accum(TIME_COMM);
             }
 
-            md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
+            if(force_field == "dem") {
+                md_compute_dem(half_nb, cutoff_radius, damping_n, damping_t, stiffness, friction);
+            } else {
+                md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
+            }
+
             md_final_integration(dt);
             timer.accum(TIME_FORCE);
 
