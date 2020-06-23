@@ -390,7 +390,7 @@ fn crop_empty_region(grid: &mut Grid) -> () {
     grid.cells_offset_z = cells_z_beg;
 
     if grid.ncells >= grid.ncells_capacity {
-        reallocate_ncells_capacity(grid, grid.ncells);
+        reallocate_ncells_capacity(grid, grid.ncells + 20);
     }
 }
 
