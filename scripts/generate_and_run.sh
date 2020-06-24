@@ -8,6 +8,7 @@ nx_base=50
 ny_base=50
 nz_base=50
 timesteps=100
+nexecs=10
 
 function get_nnodes_unit_cells {
     local i=0
@@ -40,7 +41,10 @@ cat << EOF > $1
 export OMP_NUM_THREADS=\$SLURM_CPUS_PER_TASK
 export CRAY_CUDA_MPS=1
 module load daint-gpu
-srun ./md -b ${benchmark} -f ${force_field} -x ${nx} -y ${ny} -z ${nz} -s ${timesteps}
+
+for i in \$(seq ${nexecs}); do
+    srun ./md -b ${benchmark} -f ${force_field} -x ${nx} -y ${ny} -z ${nz} -s ${timesteps}
+done
 EOF
 }
 
