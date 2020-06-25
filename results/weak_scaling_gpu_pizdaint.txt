@@ -1,4 +1,4 @@
-# nodes:    time (ms)   efficiency (%)
+# nodes     time (ms)   efficiency (%)
 1:          594         (1.0)
 2:          611         (0.97)
 4:          617         (0.96)
