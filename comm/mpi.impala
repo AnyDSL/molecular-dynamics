@@ -17,10 +17,10 @@ extern "C" {
     fn MPI_Allreduce(MPI_Buf, MPI_MutBuf, i32, MPI_Datatype, MPI_Op, MPI_Comm) -> i32;
     fn MPI_Send(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm) -> i32;
     fn MPI_Recv(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, MPI_Status) -> i32;
-    fn MPI_Isend(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm, &MPI_Request) -> i32;
-    fn MPI_Irecv(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, &MPI_Request) -> i32;
+    fn MPI_Isend_ex(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm, i32) -> i32;
+    fn MPI_Irecv_ex(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, i32) -> i32;
     fn MPI_Wait(&MPI_Request, MPI_Status) -> i32;
-    fn MPI_Waitall(i32, &[MPI_Request], MPI_Status) -> i32;
+    fn MPI_Waitall_ex(i32) -> i32;
     fn MPI_Probe(i32, i32, MPI_Comm, MPI_Status) -> i32;
     fn MPI_Get_count(MPI_Status, MPI_Datatype, &mut i32) -> i32;
     fn MPI_Gather(MPI_Buf, i32, MPI_Datatype, MPI_MutBuf, i32, MPI_Datatype, i32, MPI_Comm) -> i32;
@@ -78,10 +78,10 @@ struct MPI {
     allreduce : fn(MPI_Buf, MPI_MutBuf, i32, MPI_Datatype, MPI_Op, MPI_Comm) -> i32,
     send : fn(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm) -> i32,
     recv : fn(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, &mut MPIStatus) -> i32,
-    isend : fn(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm, &MPI_Request) -> i32,
-    irecv : fn(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, &MPI_Request) -> i32,
+    isend : fn(MPI_Buf, i32, MPI_Datatype, i32, i32, MPI_Comm, i32) -> i32,
+    irecv : fn(MPI_MutBuf, i32, MPI_Datatype, i32, i32, MPI_Comm, i32) -> i32,
     wait : fn(&MPI_Request, &mut MPIStatus) -> i32,
-    wait_all : fn(i32, &[MPI_Request], &mut MPIStatus) -> i32,
+    wait_all : fn(i32) -> i32,
     probe: fn(i32, i32, MPI_Comm, &mut MPIStatus) -> i32,
     get_count: fn(&mut MPIStatus, MPI_Datatype, &mut i32) -> i32,
     gather: fn(MPI_Buf, i32, MPI_Datatype, MPI_MutBuf, i32, MPI_Datatype, i32, MPI_Comm) -> i32,
@@ -115,13 +115,13 @@ fn @mpi() -> MPI {
         recv : @|buf, count, datatype, source, tag, comm, status| {
             MPI_Recv(buf, count, datatype, source, tag, comm, status as MPI_Status)
         },
-        isend : MPI_Isend,
-        irecv : MPI_Irecv,
+        isend : MPI_Isend_ex,
+        irecv : MPI_Irecv_ex,
         wait : @|request, status| {
             MPI_Wait(request, status as MPI_Status)
         },
-        wait_all : @|count, requests, status| {
-            MPI_Waitall(count, requests, status as MPI_Status)
+        wait_all : @|count| {
+            MPI_Waitall_ex(count)
         },
         probe: @|source, tag, comm, status| {
             MPI_Probe(source, tag, comm, status as MPI_Status)

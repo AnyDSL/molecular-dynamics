@@ -71,4 +71,20 @@ void sync_ghost_layer_loop(
     }
 }
 
+static MPI_Request send_reqs[128];
+static MPI_Request recv_reqs[128];
+
+int MPI_Isend_ex(const void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int req_id) {
+    return MPI_Isend(buf, count, datatype, dest, tag, comm, &send_reqs[req_id]);
+}
+
+int MPI_Irecv_ex(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, int req_id) {
+    return MPI_Irecv(buf, count, datatype, source, tag, comm, &recv_reqs[req_id]);
+}
+
+void MPI_Waitall_ex(int count) {
+    MPI_Waitall(count, recv_reqs, MPI_STATUSES_IGNORE);
+    MPI_Waitall(count, send_reqs, MPI_STATUSES_IGNORE);
+}
+
 }
