@@ -400,10 +400,10 @@ fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
     }
 
     let dev = device();
-    let const_grid = *grid;
     let mut resize_cell = 1;
 
     while resize_cell > 0 {
+        let const_grid = *grid;
         reset_resize(const_grid);
 
         cells(const_grid, |cell_index| {
