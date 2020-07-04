@@ -135,7 +135,7 @@ void vtk_write_forest_data(shared_ptr<BlockForest> forest, string filename) {
     write_vtk_to_file(filename, masses, positions, velocities, forces);
 }
 
-void updateNeighborhood(shared_ptr<BlockForest> forest, blockforest::InfoCollection& info, bool load_balance) {
+void updateNeighborhood(shared_ptr<BlockForest> forest, blockforest::InfoCollection& info) {
     map<uint_t, vector<math::AABB>> neighborhood;
     map<uint_t, vector<BlockID>> blocks_pushed;
     vector<int> ranks;
@@ -148,7 +148,7 @@ void updateNeighborhood(shared_ptr<BlockForest> forest, blockforest::InfoCollect
         auto block = static_cast<blockforest::Block *>(&iblock);
         auto& block_info = info[block->getId()];
 
-        if(!load_balance || block_info.computationalWeight > 0) {
+        if(block_info.computationalWeight > 0) {
             for(uint neigh = 0; neigh < block->getNeighborhoodSize(); ++neigh) {
                 auto neighbor_rank = int_c(block->getNeighborProcess(neigh));
 
@@ -159,7 +159,7 @@ void updateNeighborhood(shared_ptr<BlockForest> forest, blockforest::InfoCollect
                     auto begin = blocks_pushed[neighbor_rank].begin();
                     auto end = blocks_pushed[neighbor_rank].end();
 
-                    if( (!load_balance || neighbor_info.computationalWeight > 0) &&
+                    if( neighbor_info.computationalWeight > 0 &&
                         find_if(begin, end, [neighbor_block](const auto &nbh) { return nbh == neighbor_block; }) == end) {
                         neighborhood[neighbor_rank].push_back(neighbor_aabb);
                         blocks_pushed[neighbor_rank].push_back(neighbor_block);
@@ -687,7 +687,7 @@ int main(int argc, char **argv) {
         }
 
         updateWeights(forest, *info);
-        updateNeighborhood(forest, *info, use_load_balancing);
+        updateNeighborhood(forest, *info);
         #endif
 
         if(benchmark != "body_collision" && benchmark != "granular_gas") {
@@ -728,13 +728,16 @@ int main(int argc, char **argv) {
                 timer.accum(TIME_COMM);
 
                 #ifdef USE_WALBERLA_LOAD_BALANCING
-                if(use_load_balancing && (j + 1) % rebalance_every == 0) {
+                if((j + 1) % rebalance_every == 0) {
+                    if(use_load_balancing) {
+                        updateWeights(forest, *info);
+                        forest->refresh();
+                        getBlockForestAABB(forest, new_aabb);
+                        md_rescale_grid(new_aabb);
+                    }
+
                     updateWeights(forest, *info);
-                    forest->refresh();
-                    getBlockForestAABB(forest, new_aabb);
-                    md_rescale_grid(new_aabb);
-                    updateWeights(forest, *info);
-                    updateNeighborhood(forest, *info, true);
+                    updateNeighborhood(forest, *info);
                 }
 
                 timer.accum(TIME_LOAD_BALANCING);
