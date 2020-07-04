@@ -441,7 +441,6 @@ fn synchronize_ghost_layer(grid: Grid, comm_offsets: CommOffsets) -> () {
     let send_rank_lengths = get_array_of_i32(comm_offsets.send_rank_lengths);
     let recv_rank_lengths = get_array_of_i32(comm_offsets.recv_rank_lengths);
     let nlocal = comm_offsets.send_noffsets - comm_offsets.local_start;
-    let mut nreq = 0;
 
     comm_buffer_iterate(comm_offsets, comm_offsets.send_noffsets, |index, send_data, _| {
         let buffer_index = index * 3;
