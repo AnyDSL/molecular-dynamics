@@ -529,14 +529,18 @@ int main(int argc, char **argv) {
 
     use_walberla = true;
 
+    if(algorithm == "morton" || algorithm == "hilbert" || algorithm == "metis" || algorithm == "diffusive") {
+        use_load_balancing = true;
+    }
+
     auto mpiManager = mpi::MPIManager::instance();
     mpiManager->initializeMPI(&argc, &argv);
     mpiManager->useWorldComm();
     math::AABB domain(world_aabb[0], world_aabb[2], world_aabb[4], world_aabb[1], world_aabb[3], world_aabb[5]);
-    auto forest = blockforest::createBlockForest(
-        domain, Vector3<uint_t>(1, 1, 1), Vector3<bool>(true, true, true),
-        mpiManager->numProcesses(), getInitialRefinementLevel(mpiManager->numProcesses()));
-
+    auto procs = mpiManager->numProcesses();
+    auto block_config = use_load_balancing ? Vector3<uint_t>(1, 1, 1) : getBlockConfig(procs, gridsize[0], gridsize[1], gridsize[2]);
+    auto ref_level = use_load_balancing ? getInitialRefinementLevel(procs) : 0;
+    auto forest = blockforest::createBlockForest(domain, block_config, Vector3<bool>(true, true, true), procs, ref_level);
     auto is_within_domain = bind(isWithinBlockForest, _1, _2, _3, forest);
     auto info = make_shared<blockforest::InfoCollection>();
     getBlockForestAABB(forest, rank_aabb);
@@ -577,8 +581,6 @@ int main(int argc, char **argv) {
 
         prepFunc.setMaxBlocksPerProcess(maxBlocksPerProcess);
         forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
-        use_load_balancing = true;
-
     } else if(algorithm == "hilbert") {
         forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::WeightAssignmentFunctor(info, baseWeight));
         forest->setRefreshPhantomBlockDataPackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
@@ -588,8 +590,6 @@ int main(int argc, char **argv) {
 
         prepFunc.setMaxBlocksPerProcess(maxBlocksPerProcess);
         forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
-        use_load_balancing = true;
-
     } else if(algorithm == "metis") {
         forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::MetisAssignmentFunctor(info, baseWeight));
         forest->setRefreshPhantomBlockDataPackFunction(pe::amr::MetisAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
@@ -602,8 +602,6 @@ int main(int argc, char **argv) {
 
         prepFunc.setipc2redist(metisipc2redist);
         forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
-        use_load_balancing = true;
-
     } else if(algorithm == "diffusive") {
         forest->setRefreshPhantomBlockDataAssignmentFunction(pe::amr::WeightAssignmentFunctor(info, baseWeight));
         forest->setRefreshPhantomBlockDataPackFunction(pe::amr::WeightAssignmentFunctor::PhantomBlockWeightPackUnpackFunctor());
@@ -612,7 +610,6 @@ int main(int argc, char **argv) {
         auto prepFunc = blockforest::DynamicDiffusionBalance<pe::amr::WeightAssignmentFunctor::PhantomBlockWeight>(1, 1, false);
 
         forest->setRefreshPhantomBlockMigrationPreparationFunction(prepFunc);
-        use_load_balancing = true;
     }
 
     forest->addBlockData(make_shared<MDDataHandling>(), "Interface");
@@ -678,6 +675,12 @@ int main(int argc, char **argv) {
             init_rectangular_grid(world_aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
+        if(benchmark != "body_collision" && benchmark != "granular_gas") {
+            md_create_velocity(init_temp);
+        }
+
+        md_copy_data_to_accelerator();
+
         #ifdef USE_WALBERLA_LOAD_BALANCING
         if(use_load_balancing && prebalance) {
             updateWeights(forest, *info);
@@ -690,11 +693,6 @@ int main(int argc, char **argv) {
         updateNeighborhood(forest, *info);
         #endif
 
-        if(benchmark != "body_collision" && benchmark != "granular_gas") {
-            md_create_velocity(init_temp);
-        }
-
-        md_copy_data_to_accelerator();
         md_exchange_particles();
         md_borders();
         md_distribute_particles();
