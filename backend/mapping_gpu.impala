@@ -28,12 +28,8 @@ fn @device() -> Device {
             let acc = accelerator(device_id);
             let grid_size = (32, 1, 1);
             let block_size = (32, 1, 1);
-
             reduction_buffers_.capacity = 0;
-
-            acc.exec(grid_size, block_size, |work_item| {
-                nvvm_atomic_xchg_global(grid.mutex_accelerator.data as &mut[1]i32, 0);
-            });
+            acc.exec(grid_size, block_size, |work_item| {});
         },
         shutdown: || {
             if reduction_buffers_.capacity > 0 {
