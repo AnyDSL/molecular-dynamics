@@ -22,8 +22,6 @@ else()
 endif()
 
 option(USE_MPI "USE_MPI" ON)
-option(COUNT_FLOPS "COUNT_FLOPS" OFF)
-option(MONITOR_ONLY_FORCE_COMPUTATION "MONITOR_ONLY_FORCE_COMPUTATION" OFF)
 option(USE_WALBERLA_LOAD_BALANCING "USE_WALBERLA_LOAD_BALANCING" OFF)
 
 # Just use -march=native when compiling and executing in the same machine
@@ -57,9 +55,7 @@ set(MD_SRCS
     comm/comm.impala
     comm/lb.impala
     utils/atomic.impala
-    utils/definitions.impala
     utils/utilities.impala
-    utils/utilities_accelerator.impala
     utils/print.impala
     ${MPI_FILE}
     ${BACKEND_FILE}
@@ -97,12 +93,9 @@ if(USE_MPI)
 endif()
 
 if(LIKWID_DIR)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -llikwid -pthread ")
     target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
     include_directories(${LIKWID_DIR}/include)
-endif()
-
-if(MONITOR_ONLY_FORCE_COMPUTATION)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -llikwid -pthread ")
 endif()
 
 if(USE_WALBERLA_LOAD_BALANCING)

@@ -523,8 +523,6 @@ int main(int argc, char **argv) {
         half = benchmark == "half";
     }
 
-    md_set_thread_count(nthreads);
-
     #ifdef USE_WALBERLA_LOAD_BALANCING
 
     use_walberla = true;

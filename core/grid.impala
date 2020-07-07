@@ -76,7 +76,6 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
     let nx = real_floor(((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
-
     let ncells = nx * ny * nz;
     let ncells_capacity = ncells * 4;
     let particle_capacity = ncells_capacity * 32;
@@ -288,18 +287,19 @@ fn initialize_grid(
 fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
     let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let particle_index = grid.nparticles;
-    let world_aabb = grid.world_aabb;
+    let masses = get_array_of_reals(grid.masses_cpu);
+    let neighbors_sizes = get_array_of_i32(grid.neighbors_sizes_cpu);
 
     if particle_index >= grid.particle_capacity {
         let new_capacity = grid.particle_capacity + grid.particle_capacity / 10 + 10;
         reallocate_particle_capacity(grid, new_capacity);
     }
 
-    set_real(particle_index, grid.masses_cpu, mass);
+    masses(particle_index) = mass;
     array_2d_set_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index, position);
     array_2d_set_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index, velocity);
     array_2d_set_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index, null_vec);
-    set_i32(particle_index, grid.neighbors_sizes_cpu, 0);
+    neighbors_sizes(particle_index) = 0;
 
     grid.nparticles++;
 }
@@ -485,7 +485,6 @@ fn distribute_particles(grid: &mut Grid) -> () {
 
 fn copy_to_accelerator(grid: &Grid) -> () {
     let dev = device();
-
     dev.transfer(grid.cell_particles_cpu, grid.cell_particles_accelerator);
     dev.transfer(grid.cell_sizes_cpu, grid.cell_sizes_accelerator);
     dev.transfer(grid.particles_cell_cpu, grid.particles_cell_accelerator);
@@ -508,8 +507,10 @@ fn write_grid_data_to_arrays(
     forces: &mut [Vector3D],
     grid: &Grid) -> i32 {
 
+    let grid_masses = get_array_of_reals(grid.masses_cpu);
+
     range(0, grid.nparticles, |particle_index| {
-        masses(particle_index) = get_real(particle_index, grid.masses_cpu);
+        masses(particle_index) = grid_masses(particle_index);
         positions(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
         velocities(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
         forces(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
@@ -525,9 +526,11 @@ fn write_grid_ghost_data_to_arrays(
     forces: &mut [Vector3D],
     grid: &Grid) -> i32 {
 
+    let grid_masses = get_array_of_reals(grid.masses_cpu);
+
     range(grid.nparticles, grid.nparticles + grid.nghost, |particle_index| {
         let index = particle_index - grid.nparticles;
-        masses(index) = get_real(particle_index, grid.masses_cpu);
+        masses(index) = grid_masses(particle_index);
         positions(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
         velocities(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
         forces(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
@@ -568,7 +571,6 @@ fn compute_cell_position(position: Vector3D, grid: Grid) -> [i32 * 3] {
     let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
     let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
     let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
-
     [i, j, k]
 }
 

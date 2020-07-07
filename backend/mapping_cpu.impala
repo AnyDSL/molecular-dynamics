@@ -121,7 +121,6 @@ fn get_cell_particles(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_part
 fn get_cell_sizes(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_sizes_cpu) }
 fn get_particles_cell(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.particles_cell_cpu) }
 fn get_neighbors_sizes(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.neighbors_sizes_cpu) }
-fn get_number_of_neighbors(cluster_index: i32, grid: Grid) -> i32 { get_i32(cluster_index, grid.neighbors_sizes_cpu) }
 fn get_neighborlists(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.neighborlists_cpu) }
 fn get_masses(grid: Grid) -> &mut[real_t] { get_array_of_reals(grid.masses_cpu) }
 fn get_send_buffer(comm_offsets: &CommOffsets) -> &mut[real_t] { get_array_of_reals(comm_offsets.send_buffer) }

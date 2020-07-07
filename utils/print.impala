@@ -63,6 +63,7 @@ fn print_real_with_rank(field: &[u8], value: real_t) -> () {
 // Print real buffer with rank
 fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length: i32) -> () {
     let mpih = mpi();
+    let data = get_array_of_reals(buffer);
     let mut rank: i32;
 
     mpih.comm_rank(mpih.comms.world, &mut rank);
@@ -73,7 +74,7 @@ fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length
     print_string(": ");
 
     range(0, length, |i| {
-        print_f64(get_real(i + offset, buffer));
+        print_f64(data(i + offset));
         print_string(", ");
     });
 
@@ -83,6 +84,7 @@ fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length
 // Print i32 buffer with rank
 fn print_i32_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length: i32) -> () {
     let mpih = mpi();
+    let data = get_array_of_i32(buffer);
     let mut rank: i32;
 
     mpih.comm_rank(mpih.comms.world, &mut rank);
@@ -93,7 +95,7 @@ fn print_i32_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length:
     print_string(": ");
 
     range(0, length, |i| {
-        print_i32(get_i32(i + offset, buffer));
+        print_i32(data(i + offset));
         print_string(", ");
     });
 
@@ -184,4 +186,28 @@ fn print_aabb_with_rank(field: &[u8], value: AABB) -> () {
     print_f64(value.zmax);
     print_string(">\n");
     print_flush();
+}
+
+fn print_f64_cond(condition: bool, value: f64) -> () {
+    if(condition) {
+        print_f64(value);
+    }
+}
+
+fn print_i32_cond(condition: bool, value: i32) -> () {
+    if(condition) {
+        print_i32(value);
+    }
+}
+
+fn print_i64_cond(condition: bool, value: i64) -> () {
+    if(condition) {
+        print_i64(value);
+    }
+}
+
+fn print_string_cond(condition: bool, string: &[u8]) -> () {
+    if(condition) {
+        print_string(string);
+    }
 }

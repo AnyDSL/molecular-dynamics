@@ -1,23 +1,7 @@
-
-fn @set_thread_count(thread_count: i32) -> () {
-    THREAD_COUNT = thread_count;
-}
-
-fn @get_thread_count() -> i32 { THREAD_COUNT }
-
-// nearest multiple of num
-fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
-fn @round_down(n: i32, d: i32) -> i32 { (n / d) * d }
-
-fn @outer_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () {
-    for i in parallel(get_thread_count(), lower, upper) {
-        @@body(i);
-    }
-}
-
-fn @middle_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range(lower, upper, body) }
-fn @inner_loop_cpu(lower: i32, upper: i32, body: fn(i32) -> ()) -> () { range(lower, upper, body) }
-fn @release_host(buf: Buffer) -> () { runtime_release_host(buf.device, buf.data) }
+type real_t = f64;
+static math = cpu_intrinsics;
+static real_floor = math.floor;
+static atomic_op_real = atomic_op_f64;
 
 struct Vector3D {
     x: real_t,
@@ -31,47 +15,28 @@ struct PBCFlags {
     z: i8
 }
 
-fn @print_vector(vector: Vector3D) -> () {
-    print_f64(vector.x as f64);
-    print_string("\t");
-    print_f64(vector.y as f64);
-    print_string("\t");
-    print_f64(vector.z as f64);
-}
-
-fn @print_index(index: [i32 * 2]) -> () {
-    print_i32(index(0));
-    print_string(" ");
-    print_i32(index(1));
-}
-
 fn @swap_real(i: i32, j: i32, buf: Buffer) -> () {
-    let tmp = get_real(i, buf);
-    set_real(i, buf, get_real(j, buf));
-    set_real(j, buf, tmp);
+    let data = get_array_of_reals(buf);
+    let tmp = data(i);
+    data(i) = data(j);
+    data(j) = tmp;
 }
 
-fn get_host_array_real(buf: Buffer) -> &[real_t] { bitcast[&[real_t]](buf.data) }
-fn get_host_mut_array_real(buf: Buffer) -> &mut[real_t] { bitcast[&mut[real_t]](buf.data) }
-fn get_real(i: i32, buf: Buffer) -> real_t { bitcast[&[real_t]](buf.data)(i) }
-fn set_real(i: i32, buf: Buffer, value: real_t) -> () { bitcast[&mut[real_t]](buf.data)(i) = value; }
-fn get_array_of_reals(buf: Buffer) -> &mut[real_t] { bitcast[&mut[real_t]](buf.data) }
-fn get_u8(i: i32, buf: Buffer) -> u8 { bitcast[&[u8]](buf.data)(i) }
-fn set_u8(i: i32, buf: Buffer, value: u8) -> () { bitcast[&mut[u8]](buf.data)(i) = value; }
-fn get_i8(i: i32, buf: Buffer) -> i8 { bitcast[&[i8]](buf.data)(i) }
-fn set_i8(i: i32, buf: Buffer, value: i8) -> () { bitcast[&mut[i8]](buf.data)(i) = value; }
-fn get_i32(i: i32, buf: Buffer) -> i32 { bitcast[&[i32]](buf.data)(i) }
-fn set_i32(i: i32, buf: Buffer, value: i32) -> () { bitcast[&mut[i32]](buf.data)(i) = value; }
-fn get_i64(i: i32, buf: Buffer) -> i64 { bitcast[&[i64]](buf.data)(i) }
-fn set_i64(i: i32, buf: Buffer, value: i64) -> () { bitcast[&mut[i64]](buf.data)(i) = value; }
-fn get_array_of_i32(buf: Buffer) -> &mut[i32] { bitcast[&mut[i32]](buf.data) }
-fn get_array_of_i8(buf: Buffer) -> &mut[i8] { bitcast[&mut[i8]](buf.data) }
-fn get_bool(i: i32, buf: Buffer) -> bool { bitcast[&[bool]](buf.data)(i) }
-fn set_bool(i: i32, buf: Buffer, value: bool) -> () { bitcast[&mut[bool]](buf.data)(i) = value; }
-fn get_array_of_aabb(buf: Buffer) -> &mut[AABB] { bitcast[&mut[AABB]](buf.data) }
+// nearest multiple of num
+fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
+fn @round_down(n: i32, d: i32) -> i32 { (n / d) * d }
 
-fn @min_i32(a: i32, b: i32) -> i32 { if(a < b) {a} else {b} }
+// array bitcast functions
+fn @get_array_of_reals(buf: Buffer) -> &mut[real_t] { bitcast[&mut[real_t]](buf.data) }
+fn @get_array_of_i32(buf: Buffer) -> &mut[i32] { bitcast[&mut[i32]](buf.data) }
+fn @get_array_of_i8(buf: Buffer) -> &mut[i8] { bitcast[&mut[i8]](buf.data) }
+fn @get_array_of_aabb(buf: Buffer) -> &mut[AABB] { bitcast[&mut[AABB]](buf.data) }
+fn @get_array_of_reals_accelerator(buf: Buffer) -> &mut[1][real_t] { bitcast[&mut[1][real_t]](buf.data) }
+fn @get_array_of_i8_accelerator(buf: Buffer) -> &mut[1][i8] { bitcast[&mut[1][i8]](buf.data) }
+fn @get_array_of_i32_accelerator(buf: Buffer) -> &mut[1][i32] { bitcast[&mut[1][i32]](buf.data) }
+fn @get_array_of_aabb_accelerator(buf: Buffer) -> &mut[1][AABB] { bitcast[&mut[1][AABB]](buf.data) }
 
+// vector functions
 fn @vector_map(a: Vector3D, f: fn (real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x), y: f(a.y), z: f(a.z) } }
 fn @vector_zip(a: Vector3D, b: Vector3D, f: fn (real_t, real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }
 fn @vector_add(a: Vector3D, b: Vector3D) -> Vector3D { vector_zip(a, b, @ |x, y| x + y) }
@@ -81,27 +46,3 @@ fn @vector_div(a: Vector3D, b: Vector3D) -> Vector3D { vector_zip(a, b, @ |x, y|
 fn @vector_dot(a: Vector3D, b: Vector3D) -> real_t { a.x * b.x + a.y * b.y + a.z * b.z }
 fn @vector_len2(a: Vector3D) -> real_t { vector_dot(a, a) }
 fn @vector_scale(a: real_t, b: Vector3D) -> Vector3D { vector_map(b, @ |x| x * a) }
-
-fn print_f64_cond(condition: bool, value: f64) -> () {
-    if(condition) {
-        print_f64(value);
-    }
-}
-
-fn print_i32_cond(condition: bool, value: i32) -> () {
-    if(condition) {
-        print_i32(value);
-    }
-}
-
-fn print_i64_cond(condition: bool, value: i64) -> () {
-    if(condition) {
-        print_i64(value);
-    }
-}
-
-fn print_string_cond(condition: bool, string: &[u8]) -> () {
-    if(condition) {
-        print_string(string);
-    }
-}

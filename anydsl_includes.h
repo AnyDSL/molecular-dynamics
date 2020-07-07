@@ -19,7 +19,6 @@ extern "C" {
     int md_write_grid_ghost_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     int md_write_grid_aabb_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     void md_distribute_particles();
-    void md_initialize_clusters();
     void md_assemble_neighborlists(bool, double);
     void md_deallocate_grid();
     void md_print_grid();
@@ -27,9 +26,6 @@ extern "C" {
     void md_create_velocity(double);
     void md_compute_lennard_jones(bool, double, double, double);
     void md_compute_dem(bool, double, double, double, double, double);
-    double md_compute_total_kinetic_energy();
-    uint64_t get_number_of_flops();
-    void md_set_thread_count(int);
     void md_mpi_initialize();
     void md_mpi_finalize();
     void md_synchronize_ghost_layer();
@@ -44,17 +40,12 @@ extern "C" {
     int md_get_world_rank();
     int md_get_number_of_particles();
     int md_get_number_of_ghost_particles();
-    double md_get_mass(int);
-    void md_get_position(int, double *, double *, double *);
-    void md_get_velocity(int, double *, double *, double *);
-    void md_create_particle(double, double, double, double, double, double, double);
     void md_get_node_bounding_box(double const *, double (*)[6]);
     void md_compute_boundary_weights(double, double, double, double, double, double, unsigned long int *, unsigned long int *);
     void md_update_neighborhood(int, int, int const *, int const *, double const *);
     void md_report_iterations();
     void md_report_particles();
     void md_report_time(double, double, double, double, double, double);
-    void md_report_memory_allocation();
     void md_barrier();
 }
 #endif // ANYDSL_INCLUDES
