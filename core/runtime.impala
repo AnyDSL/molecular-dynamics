@@ -88,12 +88,12 @@ extern fn md_compute_boundary_weights(
     };
 
     *computational_weight = reduce_i32(grid.nparticles, 0, sum, |i| {
-        let pos = array_get(ParticleDataLayout(), grid.positions, i);
+        let pos = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.positions, i);
         select(is_within_domain(pos, aabb), 1, 0)
     }) as u32;
 
     *communication_weight = reduce_i32(grid.nghost, 0, sum, |i| {
-        let pos = array_get(ParticleDataLayout(), grid.positions, grid.nparticles + i);
+        let pos = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.positions, grid.nparticles + i);
         select(is_within_domain(pos, aabb), 1, 0)
     }) as u32;
 }
@@ -150,24 +150,24 @@ extern fn md_assemble_neighborlists(half_neighborlist: bool, cutoff_distance: re
 
 extern fn md_print_grid() -> () {
     range(0, grid_.nparticles, |particle_index| {
-        let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
+        let pos = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.positions, particle_index);
         print_real_vector_with_rank("pos_local", pos);
     });
 
     range(0, grid_.nparticles, |particle_index| {
-        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, particle_index);
+        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, particle_index);
         print_real_vector_with_rank("vel_local", vel);
     });
 }
 
 extern fn md_print_ghost() -> () {
     range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
-        let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
+        let pos = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.positions, particle_index);
         print_real_vector_with_rank("pos_ghost", pos);
     });
 
     range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
-        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, particle_index);
+        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, particle_index);
         print_real_vector_with_rank("vel_ghost", vel);
     });
 }
@@ -178,7 +178,7 @@ extern fn md_create_velocity(t_request: real_t) -> () {
     let mut tmp: real_t;
 
     range(0, nparticles, |i| {
-        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, i);
+        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, i);
         vtot = vector_add(vtot, vel);
     });
 
@@ -190,18 +190,18 @@ extern fn md_create_velocity(t_request: real_t) -> () {
     vtot.z = tmp / nparticles as real_t;
 
     range(0, nparticles, |i| {
-        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, i);
+        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, i);
         let new_vel = vector_sub(vel, vtot);
-        array_set_host(ParticleDataLayout(), grid_.velocities, i, new_vel);
+        array_2d_set_vec3(array_host, ParticleDataLayout(), grid_.velocities, i, new_vel);
     });
 
     let t = temperature(grid_);
     let factor = math.sqrt(t_request / t);
 
     range(0, nparticles, |i| {
-        let vel = array_get_host(ParticleDataLayout(), grid_.velocities, i);
+        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, i);
         let new_vel = vector_scale(factor, vel);
-        array_set_host(ParticleDataLayout(), grid_.velocities, i, new_vel);
+        array_2d_set_vec3(array_host, ParticleDataLayout(), grid_.velocities, i, new_vel);
     });
 }
 
@@ -242,8 +242,8 @@ extern fn md_compute_dem(
             if penetration_depth > 0.0 {
                 let normal = vector_normal(del, del_length);
                 let contact_point = vector_add(vector_scale(radius + 0.5 * penetration_depth, normal), pos_j);
-                let vel1 = array_get(ParticleDataLayout(), grid.velocities, i);
-                let vel2 = array_get(ParticleDataLayout(), grid.velocities, j);
+                let vel1 = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, i);
+                let vel2 = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, j);
 
                 let rel_vel = vector_sub(vel1, vel2);
                 let rel_vel_normal = vector_dot(rel_vel, normal);
@@ -302,14 +302,14 @@ extern fn md_serialize_particles(aabb_data: &[real_t]) -> i32 {
 extern fn md_deserialize_particles(nparticles: i32) -> () { deserialize_particles(&mut grid_, &mut comm_offsets_, nparticles); }
 extern fn md_get_mass(particle_index: i32) -> real_t { get_real(particle_index, grid_.masses_cpu) }
 extern fn md_get_position(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
-    let pos = array_get_host(ParticleDataLayout(), grid_.positions, particle_index);
+    let pos = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.positions, particle_index);
     *x = pos.x;
     *y = pos.y;
     *z = pos.z;
 }
 
 extern fn md_get_velocity(particle_index: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
-    let vel = array_get_host(ParticleDataLayout(), grid_.velocities, particle_index);
+    let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, particle_index);
     *x = vel.x;
     *y = vel.y;
     *z = vel.z;

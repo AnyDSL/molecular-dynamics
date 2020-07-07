@@ -21,7 +21,7 @@ fn @(?half_nb) compute_potential(
         let vec_null = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
 
         particles_vec(false, grid, |i, _, _, _| {
-            array_set(ParticleDataLayout(), grid.forces, i, vec_null);
+            array_2d_set_vec3(array_host, ParticleDataLayout(), grid.forces, i, vec_null);
         });
     }
 
@@ -46,11 +46,11 @@ fn @(?half_nb) compute_potential(
                 if half_nb == 0 {
                     force = vector_add(force, f);
                 } else {
-                    array_add(ParticleDataLayout(), grid.forces, i, f);
+                    array_2d_add_vec3(ParticleDataLayout(), grid.forces, i, f);
 
                     if j < grid.nparticles {
                         let nf = Vector3D { x: -f.x, y: -f.y, z: -f.z };
-                        array_add(ParticleDataLayout(), grid.forces, j, nf);
+                        array_2d_add_vec3(ParticleDataLayout(), grid.forces, j, nf);
                     }
                 }
 

@@ -58,7 +58,12 @@ struct Grid {
 }
 
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
-
+fn @get_position(i: i32, grid: Grid) -> Vector3D { array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.positions, i) }
+fn @set_position(i: i32, grid: Grid, p: Vector3D) -> () { array_2d_set_vec3(array_dev, ParticleDataLayout(), grid.positions, i, p); }
+fn @get_velocity(i: i32, grid: Grid) -> Vector3D { array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, i) }
+fn @set_velocity(i: i32, grid: Grid, v: Vector3D) -> () { array_2d_set_vec3(array_dev, ParticleDataLayout(), grid.velocities, i, v); }
+fn @get_force(i: i32, grid: Grid) -> Vector3D { array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.forces, i) }
+fn @set_force(i: i32, grid: Grid, f: Vector3D) -> () { array_2d_set_vec3(array_dev, ParticleDataLayout(), grid.forces, i, f); }
 fn @sort_particles() -> bool { false }
 fn @sparse_cell_list() -> bool { false }
 fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
@@ -119,7 +124,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         neighborlists_cpu: alloc_cpu(neighbors_capacity * sizeof[i32]()),
         send_flags_cpu: alloc_cpu(particle_capacity * sizeof[i8]()),
         counter_buffer_cpu: alloc_cpu(sizeof[i32]()),
-        resize_buffer_cpu: alloc_cpu(2 * sizeof[i32]()),
+        resize_buffer_cpu: alloc_cpu(sizeof[i32]()),
 
         cell_particles_accelerator: dev.alloc(ncells_capacity * cell_capacity * sizeof[i32]()),
         cell_sizes_accelerator: dev.alloc(ncells_capacity * sizeof[i32]()),
@@ -130,7 +135,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         neighborlists_accelerator: dev.alloc(neighbors_capacity * sizeof[i32]()),
         send_flags_accelerator: dev.alloc(particle_capacity * sizeof[i8]()),
         counter_buffer_accelerator: dev.alloc(sizeof[i32]()),
-        resize_buffer_accelerator: dev.alloc(2 * sizeof[i32]()),
+        resize_buffer_accelerator: dev.alloc(sizeof[i32]()),
         mutex_accelerator: dev.alloc(sizeof[i32]()),
     }
 }
@@ -291,9 +296,9 @@ fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &
     }
 
     set_real(particle_index, grid.masses_cpu, mass);
-    array_set_host(ParticleDataLayout(), grid.positions, particle_index, position);
-    array_set_host(ParticleDataLayout(), grid.velocities, particle_index, velocity);
-    array_set_host(ParticleDataLayout(), grid.forces, particle_index, null_vec);
+    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index, position);
+    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index, velocity);
+    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index, null_vec);
     set_i32(particle_index, grid.neighbors_sizes_cpu, 0);
 
     grid.nparticles++;
@@ -335,8 +340,8 @@ fn add_ghost_slots(slots: i32, grid: &mut Grid) -> i32 {
 // Particles must be at the same cell
 fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
     swap_real(i, j, grid.masses_cpu);
-    array_swap_host(ParticleDataLayout(), grid.positions, i, j);
-    array_swap_host(ParticleDataLayout(), grid.velocities, i, j);
+    array_2d_swap_vec3(ParticleDataLayout(), grid.positions, i, j);
+    array_2d_swap_vec3(ParticleDataLayout(), grid.velocities, i, j);
 }
 
 fn crop_empty_region(grid: &mut Grid) -> () {
@@ -456,15 +461,15 @@ fn distribute_particles(grid: &mut Grid) -> () {
             range(0, cell_sizes(cell_index), |cell_particle_index| {
                 let old_index = cell_particles(cell_offset + cell_particle_index);
                 let new_index = offset + cell_particle_index;
-                array_copy_host(ParticleDataLayout(), grid.positions, grid.positions_copy, old_index, new_index);
-                array_copy_host(ParticleDataLayout(), grid.velocities, grid.velocities_copy, old_index, new_index);
+                array_2d_copy_vec3(ParticleDataLayout(), grid.positions, grid.positions_copy, old_index, new_index);
+                array_2d_copy_vec3(ParticleDataLayout(), grid.velocities, grid.velocities_copy, old_index, new_index);
             });
 
             offset += cell_sizes(cell_index);
         });
 
         range(grid.nparticles, grid.nparticles + grid.nghost, |ghost_index| {
-            array_copy_host(ParticleDataLayout(), grid.positions, grid.positions_copy, ghost_index, ghost_index);
+            array_2d_copy_vec3(ParticleDataLayout(), grid.positions, grid.positions_copy, ghost_index, ghost_index);
         });
 
         let pos_copy = grid.positions;
@@ -505,9 +510,9 @@ fn write_grid_data_to_arrays(
 
     range(0, grid.nparticles, |particle_index| {
         masses(particle_index) = get_real(particle_index, grid.masses_cpu);
-        positions(particle_index) = array_get_host(ParticleDataLayout(), grid.positions, particle_index);
-        velocities(particle_index) = array_get_host(ParticleDataLayout(), grid.velocities, particle_index);
-        forces(particle_index) = array_get_host(ParticleDataLayout(), grid.forces, particle_index);
+        positions(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
+        velocities(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
+        forces(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
     });
 
     grid.nparticles
@@ -522,11 +527,10 @@ fn write_grid_ghost_data_to_arrays(
 
     range(grid.nparticles, grid.nparticles + grid.nghost, |particle_index| {
         let index = particle_index - grid.nparticles;
-
         masses(index) = get_real(particle_index, grid.masses_cpu);
-        positions(index) = array_get_host(ParticleDataLayout(), grid.positions, particle_index);
-        velocities(index) = array_get_host(ParticleDataLayout(), grid.velocities, particle_index);
-        forces(index) = array_get_host(ParticleDataLayout(), grid.forces, particle_index);
+        positions(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
+        velocities(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
+        forces(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
     });
 
     grid.nparticles

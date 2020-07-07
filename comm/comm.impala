@@ -416,7 +416,7 @@ fn alloc_comm_offsets(grid: Grid) -> CommOffsets {
         // Accelerator send data
         send_buffer_accelerator: dev.alloc(send_capacity * 7 * sizeof[real_t]()),
         send_offsets_accelerator: dev.alloc(send_capacity * sizeof[i32]()),
-        send_pbc_accelerator: dev.alloc(send_capacity * 7 * sizeof[i8]()),
+        send_pbc_accelerator: dev.alloc(send_capacity * 3 * sizeof[i8]()),
         copy_list_accelerator: dev.alloc(send_capacity * sizeof[i32]()),
 
         // Accelerator receive data

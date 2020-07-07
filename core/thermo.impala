@@ -7,7 +7,7 @@ fn temperature(grid: Grid) -> real_t {
     let mut t_sum = 0.0;
 
     range(0, grid.nparticles, |i| {
-        let vel = array_get_host(ParticleDataLayout(), grid.velocities, i);
+        let vel = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, i);
         t += vector_dot(vel, vel) * mass;
     });
 
