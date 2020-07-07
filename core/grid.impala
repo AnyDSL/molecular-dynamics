@@ -54,7 +54,6 @@ struct Grid {
     cell_list_accelerator: Buffer, // cell list on the accelerator [i32]
     counter_buffer_accelerator: Buffer, // counter buffer on the accelerator: [i32]
     resize_buffer_accelerator: Buffer, // resize buffer on the accelerator: [i32]
-    mutex_accelerator: Buffer // mutex buffer on the accelerator: [i32]
 }
 
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
@@ -135,8 +134,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         neighborlists_accelerator: dev.alloc(neighbors_capacity * sizeof[i32]()),
         send_flags_accelerator: dev.alloc(particle_capacity * sizeof[i8]()),
         counter_buffer_accelerator: dev.alloc(sizeof[i32]()),
-        resize_buffer_accelerator: dev.alloc(sizeof[i32]()),
-        mutex_accelerator: dev.alloc(sizeof[i32]()),
+        resize_buffer_accelerator: dev.alloc(sizeof[i32]())
     }
 }
 
@@ -182,7 +180,6 @@ fn deallocate_grid(grid: &mut Grid) -> () {
     release(grid.neighborlists_accelerator);
     release(grid.counter_buffer_accelerator);
     release(grid.resize_buffer_accelerator);
-    release(grid.mutex_accelerator);
 }
 
 fn reallocate_buffer(buffer: &mut Buffer, size: i32, elem_size: i32, @preserve: bool, allocate: fn(i32) -> Buffer) -> () {
