@@ -3,8 +3,7 @@ struct Neighborhood {
     ranks: Buffer,
     naabbs: Buffer,
     offsets: Buffer,
-    aabbs_cpu: Buffer,
-    aabbs_dev: Buffer,
+    aabbs: ArrayData,
     rank_capacity: i32,
     aabb_capacity: i32
 };
@@ -16,7 +15,7 @@ fn @get_neighborhood_rank(index: i32) -> i32 { bitcast[&[i32]](neighborhood.rank
 fn @get_rank_number_of_aabbs(index: i32) -> i32 { bitcast[&[i32]](neighborhood.naabbs.data)(index) }
 fn @get_rank_offset(index: i32) -> i32 { bitcast[&[i32]](neighborhood.offsets.data)(index) }
 fn @get_neighborhood_aabb(nbh: Neighborhood, index: i32) -> AABB {
-    let aabbs = get_neighborhood_aabb_buffer(nbh);
+    let aabbs = get_array_real_ref(array_dev, nbh.aabbs);
 
     AABB {
         xmin: aabbs(index * 6 + 0),
@@ -37,8 +36,7 @@ fn initialize_neighborhood() -> () {
         ranks: alloc_cpu(rank_capacity * sizeof[i32]()),
         naabbs: alloc_cpu(rank_capacity * sizeof[i32]()),
         offsets: alloc_cpu(rank_capacity * sizeof[i32]()),
-        aabbs_cpu: alloc_cpu(aabb_capacity * 6 * sizeof[real_t]()),
-        aabbs_dev: device().alloc(aabb_capacity * 6 * sizeof[real_t]()),
+        aabbs: allocate_array(aabb_capacity, 6, sizeof[real_t](), true),
         rank_capacity: rank_capacity,
         aabb_capacity: aabb_capacity
     };
@@ -48,8 +46,7 @@ fn release_neighborhood() -> () {
     release(neighborhood.ranks);
     release(neighborhood.naabbs);
     release(neighborhood.offsets);
-    release(neighborhood.aabbs_cpu);
-    release(neighborhood.aabbs_dev);
+    release_array(neighborhood.aabbs);
 }
 
 extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], naabbs: &[i32], aabbs: &[real_t]) -> () {
@@ -71,10 +68,7 @@ extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], n
 
     if total_aabbs > neighborhood.aabb_capacity {
         let new_capacity = total_aabbs + 10;
-        release(neighborhood.aabbs_cpu);
-        release(neighborhood.aabbs_dev);
-        neighborhood.aabbs_cpu = alloc_cpu(new_capacity * 6 * sizeof[real_t]());
-        neighborhood.aabbs_dev = dev.alloc(new_capacity * 6 * sizeof[real_t]());
+        reallocate_array(&mut neighborhood.aabbs, new_capacity, 6, sizeof[real_t](), false);
         neighborhood.aabb_capacity = new_capacity;
     }
 
@@ -86,10 +80,10 @@ extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], n
     });
 
     range(0, total_aabbs * 6, |i| {
-        bitcast[&mut[real_t]](neighborhood.aabbs_cpu.data)(i) = aabbs(i);
+        get_array_real_ref(array_host, neighborhood.aabbs)(i) = aabbs(i);
     });
 
-    dev.transfer(neighborhood.aabbs_cpu, neighborhood.aabbs_dev);
+    transfer_array_to_device(neighborhood.aabbs);
 }
 
 // Get PBC conditions according to particle position

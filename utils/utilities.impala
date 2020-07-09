@@ -40,14 +40,7 @@ fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple)
 fn @round_down(n: i32, d: i32) -> i32 { (n / d) * d }
 
 // array bitcast functions
-fn @get_array_of_reals(buf: Buffer) -> &mut[real_t] { bitcast[&mut[real_t]](buf.data) }
 fn @get_array_of_i32(buf: Buffer) -> &mut[i32] { bitcast[&mut[i32]](buf.data) }
-fn @get_array_of_i8(buf: Buffer) -> &mut[i8] { bitcast[&mut[i8]](buf.data) }
-fn @get_array_of_aabb(buf: Buffer) -> &mut[AABB] { bitcast[&mut[AABB]](buf.data) }
-fn @get_array_of_reals_accelerator(buf: Buffer) -> &mut[1][real_t] { bitcast[&mut[1][real_t]](buf.data) }
-fn @get_array_of_i8_accelerator(buf: Buffer) -> &mut[1][i8] { bitcast[&mut[1][i8]](buf.data) }
-fn @get_array_of_i32_accelerator(buf: Buffer) -> &mut[1][i32] { bitcast[&mut[1][i32]](buf.data) }
-fn @get_array_of_aabb_accelerator(buf: Buffer) -> &mut[1][AABB] { bitcast[&mut[1][AABB]](buf.data) }
 
 // vector functions
 fn @vector_map(a: Vector3D, f: fn (real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x), y: f(a.y), z: f(a.z) } }

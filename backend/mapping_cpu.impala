@@ -89,8 +89,6 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
     red
 }
 
-fn @get_neighborhood_aabb_buffer(nbh: Neighborhood) -> &[real_t] { get_array_of_reals(nbh.aabbs_cpu) }
-
 fn @get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
     grid.neighborlist_capacity * particle_index + neighbor_index
 }

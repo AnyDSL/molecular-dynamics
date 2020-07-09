@@ -63,7 +63,7 @@ fn print_real_with_rank(field: &[u8], value: real_t) -> () {
 // Print real buffer with rank
 fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length: i32) -> () {
     let mpih = mpi();
-    let data = get_array_of_reals(buffer);
+    let data = bitcast[&[real_t]](buffer.data);
     let mut rank: i32;
 
     mpih.comm_rank(mpih.comms.world, &mut rank);
@@ -84,7 +84,7 @@ fn print_real_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length
 // Print i32 buffer with rank
 fn print_i32_buffer_with_rank(field: &[u8], buffer: Buffer, offset: i32, length: i32) -> () {
     let mpih = mpi();
-    let data = get_array_of_i32(buffer);
+    let data = bitcast[&[i32]](buffer.data);
     let mut rank: i32;
 
     mpih.comm_rank(mpih.comms.world, &mut rank);

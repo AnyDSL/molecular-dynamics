@@ -6,8 +6,7 @@ fn @is_avx2() -> bool { false }
 type dev_i32_ptr = &mut[1]i32;
 
 struct ReductionBuffers {
-    buffer_host: Buffer,
-    buffer_gpu: Buffer,
+    red_array: ArrayData,
     capacity: i32
 }
 
@@ -25,8 +24,7 @@ fn @device() -> Device {
         },
         shutdown: || {
             if reduction_buffers_.capacity > 0 {
-                release(reduction_buffers_.buffer_host);
-                release(reduction_buffers_.buffer_gpu);
+                release_array(reduction_buffers_.red_array);
             }
         },
         alloc: |size| { accelerator(device_id).alloc(size) },
@@ -116,14 +114,9 @@ fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &
 }
 
 fn @reserve_reduction_buffers(nelements: i32, elem_size: i32) -> () {
-    let dev = device();
-
     if reduction_buffers_.capacity < nelements * elem_size {
         let new_capacity = (nelements + 20) * elem_size;
-        release(reduction_buffers_.buffer_host);
-        release(reduction_buffers_.buffer_gpu);
-        reduction_buffers_.buffer_host = alloc_cpu(new_capacity);
-        reduction_buffers_.buffer_gpu = dev.alloc(new_capacity);
+        reallocate_array(&mut reduction_buffers_.red_array, new_capacity, 1, 1, false);
         reduction_buffers_.capacity = new_capacity;
     }
 }
@@ -138,8 +131,8 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
 
     if n > 0 {
         reserve_reduction_buffers(nblocks, sizeof[i32]());
-        let blocks_red_host = get_array_of_i32(reduction_buffers_.buffer_host);
-        let blocks_red_gpu = get_array_of_i32_accelerator(reduction_buffers_.buffer_gpu);
+        let blocks_red_host = bitcast[&[i32]](array_host(reduction_buffers_.red_array).data);
+        let blocks_red_gpu  = bitcast[&mut[i32]](array_dev(reduction_buffers_.red_array).data);
 
         acc.exec(grid_size, block_size, |work_item| {
             let sh_red_data = reserve_shared[i32](block_size(0));
@@ -170,7 +163,7 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
         });
 
         acc.sync();
-        dev.transfer(reduction_buffers_.buffer_gpu, reduction_buffers_.buffer_host);
+        transfer_array_to_host(reduction_buffers_.red_array);
 
         range(0, nblocks, |i| {
             red = reduce(red, blocks_red_host(i));
@@ -190,8 +183,8 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
 
     if n > 0 {
         reserve_reduction_buffers(nblocks, sizeof[AABB]());
-        let blocks_red_host = get_array_of_aabb(reduction_buffers_.buffer_host);
-        let blocks_red_gpu = get_array_of_aabb_accelerator(reduction_buffers_.buffer_gpu);
+        let blocks_red_host = bitcast[&[AABB]](array_host(reduction_buffers_.red_array).data);
+        let blocks_red_gpu  = bitcast[&mut[AABB]](array_dev(reduction_buffers_.red_array).data);
 
         acc.exec(grid_size, block_size, |work_item| {
             let sh_red_data = reserve_shared[AABB](block_size(0));
@@ -222,7 +215,7 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
         });
 
         acc.sync();
-        dev.transfer(reduction_buffers_.buffer_gpu, reduction_buffers_.buffer_host);
+        transfer_array_to_host(reduction_buffers_.red_array);
 
         range(0, nblocks, |i| {
             red = reduce(red, blocks_red_host(i));
@@ -231,8 +224,6 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
 
     red
 }
-
-fn @get_neighborhood_aabb_buffer(nbh: Neighborhood) -> &[1][real_t] { get_array_of_reals_accelerator(nbh.aabbs_dev) }
 
 fn get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
     grid.particle_capacity * neighbor_index + particle_index
