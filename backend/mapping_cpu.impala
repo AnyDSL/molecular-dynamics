@@ -4,15 +4,7 @@ fn @is_opencl() -> bool { false }
 fn @is_amdgpu() -> bool { false }
 fn @has_ldg() -> bool { false }
 
-type dev_i8_arr       = &[i8];
-type dev_mut_i8_arr   = &[i8];
-type dev_i32_arr      = &[i32];
-type dev_mut_i32_arr  = &mut [i32];
-type dev_i32_ptr      = &mut i32;
-type dev_real_arr     = &[real_t];
-type dev_mut_real_arr = &mut[real_t];
-type dev_f32_ptr      = &mut f32;
-type dev_f64_ptr      = &mut f64;
+type dev_i32_ptr = &mut i32;
 
 fn @device() -> Device {
     Device {
@@ -23,12 +15,6 @@ fn @device() -> Device {
         alloc_mirror: |buf, size| { buf },
         transfer: |from, to| {},
         sqrt: @|a| { cpu_intrinsics.sqrt(a) },
-        get_array_i8: |buffer| { bitcast[&[i8]](buffer.data) },
-        get_mut_array_i8: |buffer| { bitcast[&mut[i8]](buffer.data) },
-        get_array_i32: |buffer| { bitcast[&[i32]](buffer.data) },
-        get_mut_array_i32: |buffer| { bitcast[&mut[i32]](buffer.data) },
-        get_array_real: |buffer| { bitcast[&[real_t]](buffer.data) },
-        get_mut_array_real: |buffer| { bitcast[&mut[real_t]](buffer.data) },
         add_iterator: |iterator| { (*iterator)++; },
         atomic_add_i32: @|ptr, value| {
             *ptr += value;
@@ -58,8 +44,8 @@ fn @vectorized_range(@vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> 
 
 fn @particles_gen(@vec: bool, @ghost: bool, grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
     let dev = device();
-    let neighbors_sizes = dev.get_array_i32(grid.neighbors_sizes_cpu);
-    let neighborlists = dev.get_mut_array_i32(grid.neighborlists_cpu);
+    let neighbors_sizes = get_array_i32_ref(array_dev, grid.neighbors_sizes);
+    let neighborlists = get_array_i32_ref(array_dev, grid.neighborlists);
     let vec_width = select(vec, get_vector_width(), 1);
     let n = select(ghost, grid.nparticles + grid.nghost, grid.nparticles);
 
@@ -109,25 +95,11 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
     red
 }
 
-fn set_counter(value: i32, grid: Grid) -> () { bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0) = value; }
-fn get_counter(grid: Grid) -> i32 { bitcast[&[i32]](grid.counter_buffer_cpu.data)(0) }
-fn add_counter(grid: Grid) -> i32 { bitcast[&mut[i32]](grid.counter_buffer_cpu.data)(0)++ }
-fn reset_resize(grid: Grid) -> () { bitcast[&mut[i32]](grid.resize_buffer_cpu.data)(0) = 0; }
-fn get_resize(grid: Grid) -> i32 { bitcast[&[i32]](grid.resize_buffer_cpu.data)(0) }
-fn get_send_flags(grid: Grid) -> &mut[i8] { get_array_of_i8(grid.send_flags_cpu) }
-fn get_resize_buffer(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.resize_buffer_cpu) }
-fn get_cell_list(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_list_cpu) }
-fn get_cell_particles(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_particles_cpu) }
-fn get_cell_sizes(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.cell_sizes_cpu) }
-fn get_particles_cell(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.particles_cell_cpu) }
-fn get_neighbors_sizes(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.neighbors_sizes_cpu) }
-fn get_neighborlists(grid: Grid) -> &mut[i32] { get_array_of_i32(grid.neighborlists_cpu) }
-fn get_masses(grid: Grid) -> &mut[real_t] { get_array_of_reals(grid.masses_cpu) }
 fn get_send_buffer(comm_offsets: &CommOffsets) -> &mut[real_t] { get_array_of_reals(comm_offsets.send_buffer) }
 fn get_send_offsets(comm_offsets: &CommOffsets) -> &mut[i32] { get_array_of_i32(comm_offsets.send_offsets) }
 fn get_send_pbc(comm_offsets: &CommOffsets) -> &mut[i8] { get_array_of_i8(comm_offsets.send_pbc) }
 fn get_copy_list(comm_offsets: &CommOffsets) -> &mut[i32] { get_array_of_i32(comm_offsets.copy_list) }
-fn @get_neighborhood_aabb_buffer(nbh: Neighborhood) -> &[real_t] { device().get_array_real(nbh.aabbs_cpu) }
+fn @get_neighborhood_aabb_buffer(nbh: Neighborhood) -> &[real_t] { get_array_of_reals(nbh.aabbs_cpu) }
 
 fn @get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
     grid.neighborlist_capacity * particle_index + neighbor_index

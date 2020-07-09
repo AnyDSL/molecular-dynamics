@@ -177,9 +177,8 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         reset_resize(const_grid);
 
         particles(false, const_grid, |i, _, _, _| {
-            let masses = get_masses(const_grid);
-            let resize_buf = get_resize_buffer(const_grid);
-            let send_flags = get_send_flags(const_grid);
+            let masses = get_array_real_ref(array_dev, const_grid.masses);
+            let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
             let buffer = get_send_buffer(const_comm_offsets);
             let send_offsets = get_send_offsets(const_comm_offsets);
             let pos = get_position(i, const_grid);
@@ -188,9 +187,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
                 let counter = add_counter(const_grid);
 
                 if counter >= const_comm_offsets.send_capacity {
-                    if resize_buf(0) < counter {
-                        resize_buf(0) = counter;
-                    }
+                    grow_resize(counter, const_grid);
                 } else {
                     let vel = get_velocity(i, const_grid);
                     let index = counter * 7;
@@ -218,11 +215,11 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     }
 
     dev.transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
-    dev.transfer(grid.send_flags_accelerator, grid.send_flags_cpu);
+    transfer_array_to_host(grid.send_flags);
 
     let packed = get_counter(*grid);
     let nparticles = grid.nparticles - packed;
-    let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
+    let send_flags_host = get_array_i8_ref(array_host, grid.send_flags);
     let send_offsets_host = get_array_of_i32(comm_offsets.send_offsets);
     let copy_list_host = get_array_of_i32(comm_offsets.copy_list);
     let mut send_pos = grid.nparticles - 1;
@@ -246,7 +243,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
     let const_grid = *grid;
 
     copy_list_iterate(const_comm_offsets, packed, |i, copy_list, send_offsets| {
-        let masses = get_masses(const_grid);
+        let masses = get_array_real_ref(array_dev, const_grid.masses);
 
         if copy_list(i) > 0 {
             let src = copy_list(i);
@@ -277,7 +274,7 @@ fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, nparti
     comm_buffer_iterate(const_comm_offsets, nparticles, |index, _, recv_data| {
         let buffer_index = index * 7;
         let offset = start + index;
-        let masses = get_masses(const_grid);
+        let masses = get_array_real_ref(array_dev, const_grid.masses);
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
             y: recv_data(buffer_index + 2),

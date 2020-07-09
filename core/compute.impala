@@ -73,7 +73,7 @@ fn integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
 
     particles_vec(false, grid, |i, _, _, _| {
-        let masses = get_masses(grid);
+        let masses = get_array_real_ref(array_dev, grid.masses);
         let inverse_mass = 1.0 as real_t / masses(i);
         let mut position = get_position(i, grid);
         let mut velocity = get_velocity(i, grid);

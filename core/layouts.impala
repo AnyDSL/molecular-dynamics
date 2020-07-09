@@ -49,7 +49,8 @@ fn allocate_array(size_x: i32, size_y: i32, elem_size: i32, host_mirror: bool) -
 }
 
 fn @add_fn(atomic: i32, array: ArrayData, index: i32, value: real_t) -> () {
-    let data = device().get_mut_array_real(array.buffer);
+    let data = get_array_real_ref(array_dev, array);
+
     if atomic != 0 {
         atomic_op_real(&mut data(index), value, @|a, b| { a + b });
     } else {
@@ -116,6 +117,9 @@ fn @transfer_array_to_host(array: ArrayData) -> () { device().transfer(array.buf
 
 fn @array_dev(array: ArrayData) -> Buffer { array.buffer }
 fn @array_host(array: ArrayData) -> Buffer { array.buffer_host }
+fn @get_array_i8_ref(@target_fn: ArrayTargetFn, array: ArrayData) -> &mut[i8] { bitcast[&mut[i8]](target_fn(array).data) }
+fn @get_array_i32_ref(@target_fn: ArrayTargetFn, array: ArrayData) -> &mut[i32] { bitcast[&mut[i32]](target_fn(array).data) }
+fn @get_array_real_ref(@target_fn: ArrayTargetFn, array: ArrayData) -> &mut[real_t] { bitcast[&mut[real_t]](target_fn(array).data) }
 
 type ArrayTargetFn = fn(ArrayData) -> Buffer;
 
@@ -159,4 +163,11 @@ fn @array_2d_swap_vec3(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -
     let tmp = array_2d_get_vec3(array_host, layout, array, i);
     array_2d_set_vec3(array_host, layout, array, i, array_2d_get_vec3(array_host, layout, array, j));
     array_2d_set_vec3(array_host, layout, array, j, tmp);
+}
+
+fn @array_1d_swap_real(array: ArrayData, i: i32, j: i32) -> () {
+    let data = get_array_real_ref(array_host, array);
+    let tmp = data(i);
+    data(i) = data(j);
+    data(j) = tmp;
 }

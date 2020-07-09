@@ -244,14 +244,14 @@ fn release_comm_offsets(comm_offsets: CommOffsets) -> () {
 
 fn resize_max_neighbors_capacity(comm_offsets: &mut CommOffsets, max_neighs: i32) -> () {
     print_i32_with_rank("resize_max_neighbors_capacity()", max_neighs);
-
+    /*
     reallocate_buffer(&mut comm_offsets.send_neighbors, max_neighs, sizeof[i32](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.send_rank_offsets, max_neighs, sizeof[i32](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.send_rank_lengths, max_neighs, sizeof[i32](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.recv_neighbors, max_neighs, sizeof[i32](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.recv_rank_offsets, max_neighs, sizeof[i32](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.recv_rank_lengths, max_neighs, sizeof[i32](), true, alloc_cpu);
-
+    */
     comm_offsets.max_neighs = max_neighs;
 }
 
@@ -259,12 +259,12 @@ fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> (
     print_i32_with_rank("resize_send_capacity()", send_capacity);
 
     let dev = device();
-
+    /*
     reallocate_buffer(&mut comm_offsets.send_buffer, send_capacity * 7, sizeof[real_t](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.send_offsets, send_capacity, sizeof[i32](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.send_pbc, send_capacity * 3, sizeof[i8](), true, alloc_cpu);
     reallocate_buffer(&mut comm_offsets.copy_list, send_capacity, sizeof[i32](), true, alloc_cpu);
-
+    */
     release(comm_offsets.send_buffer_accelerator);
     release(comm_offsets.send_offsets_accelerator);
     release(comm_offsets.send_pbc_accelerator);
@@ -280,7 +280,7 @@ fn resize_send_capacity(comm_offsets: &mut CommOffsets, send_capacity: i32) -> (
 fn resize_recv_capacity(comm_offsets: &mut CommOffsets, recv_capacity: i32) -> () {
     print_i32_with_rank("resize_recv_capacity()", recv_capacity);
 
-    reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, alloc_cpu);
+    //reallocate_buffer(&mut comm_offsets.recv_buffer, recv_capacity * 7, sizeof[real_t](), true, alloc_cpu);
     release(comm_offsets.recv_buffer_accelerator);
 
     comm_offsets.recv_buffer_accelerator = device().alloc(recv_capacity * 3 * sizeof[real_t]());
@@ -547,9 +547,8 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             reset_resize(const_grid);
 
             particles(false, const_grid, |i, _, _, _| {
-                let masses = get_masses(const_grid);
-                let resize_buf = get_resize_buffer(const_grid);
-                let send_flags = get_send_flags(const_grid);
+                let masses = get_array_real_ref(array_dev, const_grid.masses);
+                let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
                 let buffer = get_send_buffer(const_comm_offsets);
                 let send_offsets = get_send_offsets(const_comm_offsets);
                 let particle_pos = get_position(i, const_grid);
@@ -560,9 +559,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                     let counter = add_counter(const_grid);
 
                     if counter >= const_comm_offsets.send_capacity {
-                        if resize_buf(0) < counter {
-                            resize_buf(0) = counter;
-                        }
+                        grow_resize(counter, const_grid);
                     } else {
                         let corrected_pos = pbc_corrected_position_if(!apply_pbc_before_border_check(), pos, const_grid);
                         let vel = get_velocity(i, const_grid);
@@ -590,12 +587,12 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         }
 
         dev.transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
-        dev.transfer(grid.send_flags_accelerator, grid.send_flags_cpu);
+        transfer_array_to_host(grid.send_flags);
 
         let counter = get_counter(*grid);
         let packed = counter - iexchg;
         let nparticles = grid.nparticles - packed;
-        let send_flags_host = get_array_of_i8(grid.send_flags_cpu);
+        let send_flags_host = get_array_i8_ref(array_host, grid.send_flags);
         let send_offsets_host = get_array_of_i32(comm_offsets.send_offsets);
         let copy_list_host = get_array_of_i32(comm_offsets.copy_list);
         let mut send_pos = grid.nparticles - 1;
@@ -619,7 +616,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
         let const_grid = *grid;
 
         copy_list_iterate(const_comm_offsets, packed, |i, copy_list, send_offsets| {
-            let masses = get_masses(const_grid);
+            let masses = get_array_real_ref(array_dev, const_grid.masses);
 
             if copy_list(i) > 0 {
                 let src = copy_list(i);
@@ -684,7 +681,7 @@ fn exchange_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     comm_buffer_iterate(const_comm_offsets, iexchg, |index, _, recv_data| {
         let buffer_index = index * 7;
         let offset = exchg_start + index;
-        let masses = get_masses(const_grid);
+        let masses = get_array_real_ref(array_dev, const_grid.masses);
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
             y: recv_data(buffer_index + 2),
@@ -753,9 +750,8 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
             reset_resize(const_grid);
 
             particles(false, const_grid, |i, _, _, _| {
-                let masses = get_masses(const_grid);
-                let resize_buf = get_resize_buffer(const_grid);
-                let send_flags = get_send_flags(const_grid);
+                let masses = get_array_real_ref(array_dev, const_grid.masses);
+                let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
                 let buffer = get_send_buffer(const_comm_offsets);
                 let send_offsets = get_send_offsets(const_comm_offsets);
                 let send_pbc = get_send_pbc(const_comm_offsets);
@@ -765,9 +761,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
                     let counter = add_counter(const_grid);
 
                     if counter >= const_comm_offsets.send_capacity {
-                        if resize_buf(0) < counter {
-                            resize_buf(0) = counter;
-                        }
+                        grow_resize(counter, const_grid);
                     } else {
                         let buf_index = counter * 4;
                         let pbc_index = counter * 3;
@@ -882,7 +876,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     comm_buffer_iterate(const_comm_offsets, irecv, |index, _, recv_data| {
         let buffer_index = index * 4;
         let offset = const_grid.nparticles + index;
-        let masses = get_masses(const_grid);
+        let masses = get_array_real_ref(array_dev, const_grid.masses);
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
             y: recv_data(buffer_index + 2),
@@ -896,7 +890,7 @@ fn borders(grid: &mut Grid, comm_offsets: &mut CommOffsets) -> () {
     comm_buffer_iterate(const_comm_offsets, nlocal, |index, send_data, _| {
         let buffer_index = (const_ilocal + index) * 4;
         let offset = const_grid.nparticles + const_irecv + index;
-        let masses = get_masses(const_grid);
+        let masses = get_array_real_ref(array_dev, const_grid.masses);
         let position = Vector3D {
             x: send_data(buffer_index + 1),
             y: send_data(buffer_index + 2),

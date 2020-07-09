@@ -16,15 +16,12 @@ fn @(?half_nb) neighbor_cells(index: i32, nx: i32, ny: i32, ncells: i32, half_nb
 }
 
 fn @append_neighbor(grid: Grid, particle_index: i32, neighbor_index: i32) -> () {
-    let neighborlists = get_neighborlists(grid);
-    let neighbors_sizes = get_neighbors_sizes(grid);
+    let neighborlists = get_array_i32_ref(array_dev, grid.neighborlists);
+    let neighbors_sizes = get_array_i32_ref(array_dev, grid.neighbors_sizes);
     let nb_list_size = neighbors_sizes(particle_index);
-    let resize_buf = get_resize_buffer(grid);
 
     if nb_list_size >= grid.neighborlist_capacity {
-        if resize_buf(0) < nb_list_size {
-            resize_buf(0) = nb_list_size;
-        }
+        grow_resize(nb_list_size, grid);
     } else {
         neighborlists(get_neighborlist_index(particle_index, nb_list_size, grid)) = neighbor_index;
     }
@@ -36,17 +33,11 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
     let mut resize = 1;
 
     while resize > 0 {
-        let const_grid = *grid; // This ugly const reference is necessary to avoid compilation errors
-        let cell_list = get_cell_list(const_grid);
-        let cell_particles = get_cell_particles(const_grid);
-        let cell_sizes = get_cell_sizes(const_grid);
-        let particles_cell = get_particles_cell(const_grid);
-        let neighbors_sizes = get_neighbors_sizes(const_grid);
-
-        let ncells = grid.ncells;
-        let nx = grid.nx;
-        let ny = grid.ny;
-        let squared_cutoff_distance = cutoff_distance * cutoff_distance;
+        let const_grid = *grid; // const reference is necessary to avoid compilation errors
+        let cell_particles = get_array_i32_ref(array_dev, const_grid.cell_particles);
+        let cell_sizes = get_array_i32_ref(array_dev, const_grid.cell_sizes);
+        let particles_cell = get_array_i32_ref(array_dev, const_grid.particles_cell);
+        let neighbors_sizes = get_array_i32_ref(array_dev, const_grid.neighbors_sizes);
 
         reset_resize(const_grid);
 
@@ -58,7 +49,7 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
                         let pos_neighbor = get_position(neighbor_particle_index, const_grid);
                         let del = vector_sub(pos, pos_neighbor);
                         let rsq = vector_len2(del);
-                        if rsq <= squared_cutoff_distance {
+                        if rsq <= cutoff_distance * cutoff_distance {
                             @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
                         }
                     }
@@ -72,7 +63,7 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
 
             neighbors_sizes(particle_index) = 0;
 
-            neighbor_cells(cell_index, nx, ny, ncells, half_nb, |nbr_cell_index| {
+            neighbor_cells(cell_index, const_grid.nx, const_grid.ny, const_grid.ncells, half_nb, |nbr_cell_index| {
                 if cell_index != nbr_cell_index {
                     let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
                     let neighbor_cell_size = cell_sizes(nbr_cell_index);

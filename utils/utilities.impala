@@ -15,13 +15,6 @@ struct PBCFlags {
     z: i8
 }
 
-fn @swap_real(i: i32, j: i32, buf: Buffer) -> () {
-    let data = get_array_of_reals(buf);
-    let tmp = data(i);
-    data(i) = data(j);
-    data(j) = tmp;
-}
-
 // nearest multiple of num
 fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
 fn @round_down(n: i32, d: i32) -> i32 { (n / d) * d }
