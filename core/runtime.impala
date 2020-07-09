@@ -33,7 +33,6 @@ extern fn md_initialize_grid(
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_neighborhood();
     device().init(grid_);
-
     grid_.nparticles
 }
 
@@ -276,8 +275,8 @@ extern fn md_get_world_size() -> i32 { get_world_size() }
 extern fn md_get_world_rank() -> i32 { get_process_rank() }
 extern fn md_get_number_of_particles() -> i32 { grid_.nparticles }
 extern fn md_get_number_of_ghost_particles() -> i32 { grid_.nghost }
-extern fn md_get_send_buffer_value(index: i32) -> real_t { get_array_of_reals(comm_offsets_.send_buffer)(index) }
-extern fn md_set_recv_buffer_value(index: i32, value: real_t) -> () { get_array_of_reals(comm_offsets_.recv_buffer)(index) = value; }
+extern fn md_get_send_buffer_value(index: i32) -> real_t { get_array_real_ref(array_host, comm_offsets_.send_buffer)(index) }
+extern fn md_set_recv_buffer_value(index: i32, value: real_t) -> () { get_array_real_ref(array_host, comm_offsets_.recv_buffer)(index) = value; }
 extern fn md_resize_recv_buffer_capacity(capacity: i32) -> () {
     if comm_offsets_.recv_capacity < capacity {
         resize_recv_capacity(&mut comm_offsets_, capacity);

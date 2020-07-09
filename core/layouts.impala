@@ -114,7 +114,6 @@ fn release_array(array: ArrayData) -> () {
 
 fn @transfer_array_to_device(array: ArrayData) -> () { device().transfer(array.buffer_host, array.buffer); }
 fn @transfer_array_to_host(array: ArrayData) -> () { device().transfer(array.buffer, array.buffer_host); }
-
 fn @array_dev(array: ArrayData) -> Buffer { array.buffer }
 fn @array_host(array: ArrayData) -> Buffer { array.buffer_host }
 fn @get_array_i8_ref(@target_fn: ArrayTargetFn, array: ArrayData) -> &mut[i8] { bitcast[&mut[i8]](target_fn(array).data) }

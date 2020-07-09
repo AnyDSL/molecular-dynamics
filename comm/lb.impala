@@ -163,9 +163,7 @@ fn distance_point_aabb_periodic(point: Vector3D, aabb: AABB, glob_sizes: Vector3
 }
 
 fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: fn(Vector3D) -> bool) -> i32 {
-    let dev = device();
     let mut resize = 1;
-
     grid.nghost = 0;
 
     while resize > 0 {
@@ -179,8 +177,8 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         particles(false, const_grid, |i, _, _, _| {
             let masses = get_array_real_ref(array_dev, const_grid.masses);
             let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
-            let buffer = get_send_buffer(const_comm_offsets);
-            let send_offsets = get_send_offsets(const_comm_offsets);
+            let buffer = get_array_real_ref(array_dev, const_comm_offsets.send_buffer);
+            let send_offsets = get_array_i32_ref(array_dev, const_comm_offsets.send_offsets);
             let pos = get_position(i, const_grid);
 
             if check(pos) {
@@ -214,14 +212,14 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         }
     }
 
-    dev.transfer(comm_offsets.send_offsets_accelerator, comm_offsets.send_offsets);
+    transfer_array_to_host(comm_offsets.send_offsets);
     transfer_array_to_host(grid.send_flags);
 
     let packed = get_counter(*grid);
     let nparticles = grid.nparticles - packed;
     let send_flags_host = get_array_i8_ref(array_host, grid.send_flags);
-    let send_offsets_host = get_array_of_i32(comm_offsets.send_offsets);
-    let copy_list_host = get_array_of_i32(comm_offsets.copy_list);
+    let send_offsets_host = get_array_i32_ref(array_host, comm_offsets.send_offsets);
+    let copy_list_host = get_array_i32_ref(array_host, comm_offsets.copy_list);
     let mut send_pos = grid.nparticles - 1;
 
     range(0, packed, |i| {
@@ -237,7 +235,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         }
     });
 
-    dev.transfer(comm_offsets.copy_list, comm_offsets.copy_list_accelerator);
+    transfer_array_to_device(comm_offsets.copy_list);
 
     let const_comm_offsets = *comm_offsets;
     let const_grid = *grid;
@@ -255,8 +253,7 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
         }
     });
 
-    dev.transfer(comm_offsets.send_buffer_accelerator, comm_offsets.send_buffer);
-
+    transfer_array_to_host(comm_offsets.send_buffer);
     grid.nparticles -= packed;
     packed
 }
@@ -264,12 +261,11 @@ fn serialize_and_remove(grid: &mut Grid, comm_offsets: &mut CommOffsets, check: 
 fn deserialize_particles(grid: &mut Grid, comm_offsets: &mut CommOffsets, nparticles: i32) -> () {
     grid.nghost = 0;
 
-    let dev = device();
     let start = add_local_slots(nparticles, grid);
     let const_grid = *grid;
     let const_comm_offsets = *comm_offsets;
 
-    dev.transfer(comm_offsets.recv_buffer, comm_offsets.recv_buffer_accelerator);
+    transfer_array_to_device(comm_offsets.recv_buffer);
 
     comm_buffer_iterate(const_comm_offsets, nparticles, |index, _, recv_data| {
         let buffer_index = index * 7;

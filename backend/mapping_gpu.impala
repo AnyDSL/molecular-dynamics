@@ -81,18 +81,16 @@ fn cells(grid: Grid, body: fn(i32) -> ()) -> () {
     }
 }
 
-fn copy_list_iterate(comm_offsets: CommOffsets, ncopy: i32, body: fn(i32, &[1][i32], &[1][i32]) -> ()) -> () {
+fn copy_list_iterate(comm_offsets: CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let grid_size = (round_up(ncopy, block_size(0)), 1, 1);
-    let send_offsets = get_send_offsets(comm_offsets);
-    let copy_list = get_copy_list(comm_offsets);
 
     if ncopy > 0 {
         acc.exec(grid_size, block_size, |work_item| {
             let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
             if index < ncopy {
-                @@body(index, copy_list, send_offsets);
+                @@body(index, get_array_i32_ref(array_dev, comm_offsets.copy_list), get_array_i32_ref(array_dev, comm_offsets.send_offsets));
             }
         });
 
@@ -100,18 +98,16 @@ fn copy_list_iterate(comm_offsets: CommOffsets, ncopy: i32, body: fn(i32, &[1][i
     }
 }
 
-fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &mut[1][real_t], &[1][real_t]) -> ()) -> () {
+fn comm_buffer_iterate(comm_offsets: CommOffsets, noffsets: i32, body: fn(i32, &mut[real_t], &[real_t]) -> ()) -> () {
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let grid_size = (round_up(noffsets, block_size(0)), 1, 1);
-    let send_data = get_array_of_reals_accelerator(comm_offsets.send_buffer_accelerator);
-    let recv_data = get_array_of_reals_accelerator(comm_offsets.recv_buffer_accelerator);
 
     if noffsets > 0 {
         acc.exec(grid_size, block_size, |work_item| {
             let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
             if index < noffsets {
-                @@body(index, send_data, recv_data);
+                @@body(index, get_array_real_ref(array_dev, comm_offsets.send_buffer), get_array_real_ref(array_dev, comm_offsets.recv_buffer));
             }
         });
 
@@ -236,10 +232,6 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
     red
 }
 
-fn get_send_buffer(comm_offsets: CommOffsets) -> &mut[1][real_t] { get_array_of_reals_accelerator(comm_offsets.send_buffer_accelerator) }
-fn get_send_offsets(comm_offsets: CommOffsets) -> &mut[1][i32] { get_array_of_i32_accelerator(comm_offsets.send_offsets_accelerator) }
-fn get_send_pbc(comm_offsets: CommOffsets) -> &mut[1][i8] { get_array_of_i8_accelerator(comm_offsets.send_pbc_accelerator) }
-fn get_copy_list(comm_offsets: CommOffsets) -> &mut[1][i32] { get_array_of_i32_accelerator(comm_offsets.copy_list_accelerator) }
 fn @get_neighborhood_aabb_buffer(nbh: Neighborhood) -> &[1][real_t] { get_array_of_reals_accelerator(nbh.aabbs_dev) }
 
 fn get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
