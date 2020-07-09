@@ -39,9 +39,6 @@ fn @(?n) pow(x: real_t, n: i32) -> real_t {
 fn @round_up(num: i32, multiple: i32) -> i32 { ((num + multiple - 1) / multiple) * multiple }
 fn @round_down(n: i32, d: i32) -> i32 { (n / d) * d }
 
-// array bitcast functions
-fn @get_array_of_i32(buf: Buffer) -> &mut[i32] { bitcast[&mut[i32]](buf.data) }
-
 // vector functions
 fn @vector_map(a: Vector3D, f: fn (real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x), y: f(a.y), z: f(a.z) } }
 fn @vector_zip(a: Vector3D, b: Vector3D, f: fn (real_t, real_t) -> real_t) -> Vector3D { Vector3D { x: f(a.x, b.x), y: f(a.y, b.y), z: f(a.z, b.z) } }

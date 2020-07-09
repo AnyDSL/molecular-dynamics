@@ -56,15 +56,15 @@ fn @particles_gen(@vec: bool, @ghost: bool, grid: Grid, body: fn(i32, &mut[i32],
 fn @particles(@ghost: bool, grid: Grid, f: fn(i32, &mut[i32], i32, i32) -> ()) -> () { particles_gen(false, ghost, grid, f); }
 fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32, &mut[i32], i32, i32) -> ()) -> () { particles_gen(true, ghost, grid, f); }
 fn @cells(grid: Grid, body: fn(i32) -> ()) -> () { range(0, grid.ncells, body); }
-fn copy_list_iterate(comm_offsets: &CommOffsets, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
+fn copy_list_iterate(comm: &Comm, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
     range(0, ncopy, |index| {
-        @@body(index, get_array_i32_ref(array_dev, comm_offsets.copy_list), get_array_i32_ref(array_dev, comm_offsets.send_offsets));
+        @@body(index, get_array_i32_ref(array_dev, comm.copy_list), get_array_i32_ref(array_dev, comm.send_offsets));
     });
 }
 
-fn comm_buffer_iterate(comm_offsets: &CommOffsets, noffsets: i32, body: fn(i32, &mut [real_t], &[real_t]) -> ()) -> () {
+fn comm_buffer_iterate(comm: &Comm, noffsets: i32, body: fn(i32, &mut [real_t], &[real_t]) -> ()) -> () {
     range(0, noffsets, |index| {
-        @@body(index, get_array_real_ref(array_dev, comm_offsets.send_buffer), get_array_real_ref(array_dev, comm_offsets.recv_buffer));
+        @@body(index, get_array_real_ref(array_dev, comm.send_buffer), get_array_real_ref(array_dev, comm.recv_buffer));
     });
 }
 
