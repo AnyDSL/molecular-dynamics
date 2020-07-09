@@ -1,14 +1,3 @@
-fn @(?n) pow(x: real_t, n: i32) -> real_t {
-    if n == 1 {
-        x
-    } else if n % 2 == 0 {
-        let y = pow(x, n / 2);
-        y * y
-    } else {
-        x * pow(x, n - 1)
-    }
-}
-
 fn @(?half_nb) compute_potential(
     grid: Grid, @half_nb: i32, rsq_cutoff: real_t,
     potential: fn(i32, i32, Vector3D, Vector3D, Vector3D, real_t) -> Vector3D) -> (i64, i64) {

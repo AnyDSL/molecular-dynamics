@@ -1,12 +1,3 @@
-struct AABB {
-    xmin: real_t,
-    xmax: real_t,
-    ymin: real_t,
-    ymax: real_t,
-    zmin: real_t,
-    zmax: real_t
-}
-
 struct Grid {
     aabb: AABB,                 // grid bounding box
     world_aabb: AABB,           // global grid bounding box

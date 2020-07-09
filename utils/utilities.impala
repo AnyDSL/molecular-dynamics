@@ -3,6 +3,15 @@ static math = cpu_intrinsics;
 static real_floor = math.floor;
 static atomic_op_real = atomic_op_f64;
 
+struct AABB {
+    xmin: real_t,
+    xmax: real_t,
+    ymin: real_t,
+    ymax: real_t,
+    zmin: real_t,
+    zmax: real_t
+}
+
 struct Vector3D {
     x: real_t,
     y: real_t,
@@ -13,6 +22,17 @@ struct PBCFlags {
     x: i8,
     y: i8,
     z: i8
+}
+
+fn @(?n) pow(x: real_t, n: i32) -> real_t {
+    if n == 1 {
+        x
+    } else if n % 2 == 0 {
+        let y = pow(x, n / 2);
+        y * y
+    } else {
+        x * pow(x, n - 1)
+    }
 }
 
 // nearest multiple of num
