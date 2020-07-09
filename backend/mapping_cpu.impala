@@ -43,7 +43,6 @@ fn @vectorized_range(@vector_width: i32, a: i32, b: i32, body: fn (i32, i32) -> 
 }
 
 fn @particles_gen(@vec: bool, @ghost: bool, grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
-    let dev = device();
     let neighbors_sizes = get_array_i32_ref(array_dev, grid.neighbors_sizes);
     let neighborlists = get_array_i32_ref(array_dev, grid.neighborlists);
     let vec_width = select(vec, get_vector_width(), 1);

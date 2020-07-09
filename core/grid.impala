@@ -49,7 +49,6 @@ fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) ->
 }
 
 fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity: i32, neighborlist_capacity: i32) -> Grid {
-    let dev = device();
     let nx = real_floor(((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
@@ -309,7 +308,6 @@ fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
         crop_empty_region(grid);
     }
 
-    let dev = device();
     let mut resize_cell = 1;
 
     while resize_cell > 0 {
@@ -329,7 +327,7 @@ fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
             let cell_index = flatten_index(compute_cell_position(pos, const_grid), const_grid);
 
             if cell_index >= 0 && cell_index < const_grid.ncells {
-                let cell_particle_index = dev.atomic_add_i32(&mut cell_sizes(cell_index), 1);
+                let cell_particle_index = device().atomic_add_i32(&mut cell_sizes(cell_index), 1);
 
                 if cell_particle_index >= const_grid.cell_capacity {
                     grow_resize(cell_particle_index, const_grid);

@@ -2,7 +2,6 @@ fn @(?half_nb) compute_potential(
     grid: Grid, @half_nb: i32, rsq_cutoff: real_t,
     potential: fn(i32, i32, Vector3D, Vector3D, Vector3D, real_t) -> Vector3D) -> (i64, i64) {
 
-    let dev = device();
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
 
@@ -43,10 +42,10 @@ fn @(?half_nb) compute_potential(
                     }
                 }
 
-                dev.add_iterator(&mut rsq_iters);
+                device().add_iterator(&mut rsq_iters);
             }
 
-            dev.add_iterator(&mut total_iters);
+            device().add_iterator(&mut total_iters);
         }
 
         if half_nb == 0 {
@@ -58,7 +57,6 @@ fn @(?half_nb) compute_potential(
 }
 
 fn integration(grid: Grid, dt: real_t) -> i64 {
-    let dev = device();
     let mut iters = 0 as i64;
 
     particles_vec(false, grid, |i, _, _, _| {
@@ -71,22 +69,18 @@ fn integration(grid: Grid, dt: real_t) -> i64 {
         velocity.x += dt * force.x * inverse_mass;
         velocity.y += dt * force.y * inverse_mass;
         velocity.z += dt * force.z * inverse_mass;
-
         position.x += dt * velocity.x;
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
-
         set_velocity(i, grid, velocity);
         set_position(i, grid, position);
-
-        dev.add_iterator(&mut iters);
+        device().add_iterator(&mut iters);
     });
 
     iters
 }
 
 fn initial_integration(grid: Grid, dt: real_t) -> i64 {
-    let dev = device();
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
@@ -98,22 +92,18 @@ fn initial_integration(grid: Grid, dt: real_t) -> i64 {
         velocity.x += dtforce * force.x;
         velocity.y += dtforce * force.y;
         velocity.z += dtforce * force.z;
-
         position.x += dt * velocity.x;
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
-
         set_velocity(i, grid, velocity);
         set_position(i, grid, position);
-
-        dev.add_iterator(&mut iters);
+        device().add_iterator(&mut iters);
     });
 
     iters
 }
 
 fn final_integration(grid: Grid, dt: real_t) -> i64 {
-    let dev = device();
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
@@ -124,10 +114,8 @@ fn final_integration(grid: Grid, dt: real_t) -> i64 {
         velocity.x += dtforce * force.x;
         velocity.y += dtforce * force.y;
         velocity.z += dtforce * force.z;
-
         set_velocity(i, grid, velocity);
-
-        dev.add_iterator(&mut iters);
+        device().add_iterator(&mut iters);
     });
 
     iters

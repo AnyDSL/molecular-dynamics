@@ -50,9 +50,7 @@ fn release_neighborhood() -> () {
 }
 
 extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], naabbs: &[i32], aabbs: &[real_t]) -> () {
-    let dev = device();
     let mut offset = 0;
-
     neighborhood.nranks = nranks;
 
     if nranks > neighborhood.rank_capacity {

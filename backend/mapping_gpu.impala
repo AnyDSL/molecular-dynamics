@@ -122,7 +122,6 @@ fn @reserve_reduction_buffers(nelements: i32, elem_size: i32) -> () {
 }
 
 fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32) -> i32 {
-    let dev = device();
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let nblocks = round_up(n, block_size(0));
@@ -174,7 +173,6 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
 }
 
 fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -> AABB) -> AABB {
-    let dev = device();
     let acc = accelerator(device_id);
     let block_size = (64, 1, 1);
     let nblocks = round_up(n, block_size(0));
