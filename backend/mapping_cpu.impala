@@ -1,9 +1,4 @@
-fn @is_nvvm() -> bool { false }
-fn @is_cuda() -> bool { false }
-fn @is_opencl() -> bool { false }
-fn @is_amdgpu() -> bool { false }
-fn @has_ldg() -> bool { false }
-
+fn @NeighborlistLayout() -> ArrayLayout { column_major_order_array(0) }
 type dev_i32_ptr = &mut i32;
 
 fn @device() -> Device {
@@ -86,8 +81,4 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
     });
 
     red
-}
-
-fn @get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
-    grid.neighborlist_capacity * particle_index + neighbor_index
 }

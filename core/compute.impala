@@ -23,7 +23,7 @@ fn @(?half_nb) compute_potential(
         let pos_i = get_position(i, grid);
 
         for n in range(0, nb_list_size) {
-            let j = neighborlists(get_neighborlist_index(i, n, grid));
+            let j = array_2d_get_i32(array_dev, NeighborlistLayout(), grid.neighborlists, i, n);
             let pos_j = get_position(j, grid);
             let del = vector_sub(pos_i, pos_j);
             let rsq = vector_len2(del);

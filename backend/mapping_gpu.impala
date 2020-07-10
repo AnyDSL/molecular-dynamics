@@ -1,8 +1,4 @@
-fn @is_x86() -> bool { false }
-fn @is_sse() -> bool { false }
-fn @is_avx() -> bool { false }
-fn @is_avx2() -> bool { false }
-
+fn @NeighborlistLayout() -> ArrayLayout { row_major_order_array(0) }
 type dev_i32_ptr = &mut[1]i32;
 
 struct ReductionBuffers {
@@ -221,8 +217,4 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
     }
 
     red
-}
-
-fn get_neighborlist_index(particle_index: i32, neighbor_index: i32, grid: Grid) -> i32 {
-    grid.particle_capacity * neighbor_index + particle_index
 }

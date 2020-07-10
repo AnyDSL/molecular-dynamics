@@ -130,6 +130,14 @@ fn @array_2d_get_real(@target_fn: ArrayTargetFn, @layout: ArrayLayout, array: Ar
     bitcast[&[real_t]](target_fn(array).data)(layout.index_2d_fn(array, i, j))
 }
 
+fn @array_2d_set_i32(@target_fn: ArrayTargetFn, @layout: ArrayLayout, array: ArrayData, i: i32, j: i32, value: i32) -> () {
+    bitcast[&mut[i32]](target_fn(array).data)(layout.index_2d_fn(array, i, j)) = value;
+}
+
+fn @array_2d_get_i32(@target_fn: ArrayTargetFn, @layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> i32 {
+    bitcast[&[i32]](target_fn(array).data)(layout.index_2d_fn(array, i, j))
+}
+
 fn @array_2d_add_real(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32, value: real_t) -> () {
     layout.add_fn(array, layout.index_2d_fn(array, i, j), value);
 }
