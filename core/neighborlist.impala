@@ -15,19 +15,6 @@ fn @(?half_nb) neighbor_cells(index: i32, nx: i32, ny: i32, ncells: i32, half_nb
     });
 }
 
-fn @append_neighbor(grid: Grid, particle_index: i32, neighbor_index: i32) -> () {
-    let neighbors_sizes = get_array_i32_ref(array_dev, grid.neighbors_sizes);
-    let nb_list_size = neighbors_sizes(particle_index);
-
-    if nb_list_size >= grid.neighborlist_capacity {
-        grow_resize(nb_list_size, grid);
-    } else {
-        array_2d_set_i32(array_dev, NeighborlistLayout(), grid.neighborlists, particle_index, nb_list_size, neighbor_index);
-    }
-
-    neighbors_sizes(particle_index)++;
-}
-
 fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_distance: real_t) -> () {
     let mut resize = 1;
 
@@ -49,7 +36,17 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
                         let del = vector_sub(pos, pos_neighbor);
                         let rsq = vector_len2(del);
                         if rsq <= cutoff_distance * cutoff_distance {
-                            @@append_neighbor(const_grid, particle_index, neighbor_particle_index);
+                            let nb_list_size = neighbors_sizes(particle_index);
+
+                            if nb_list_size >= const_grid.neighborlist_capacity {
+                                grow_resize(nb_list_size, const_grid);
+                            } else {
+                                array_2d_set_i32(
+                                    array_dev, NeighborlistLayout(), const_grid.neighborlists,
+                                    particle_index, nb_list_size, neighbor_particle_index);
+                            }
+
+                            neighbors_sizes(particle_index)++;
                         }
                     }
                 }

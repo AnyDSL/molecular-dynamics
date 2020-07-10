@@ -14,3 +14,14 @@ fn temperature(grid: Grid) -> real_t {
     reduce_f64_sum(t, &mut t_sum);
     t_sum * t_scale
 }
+
+fn energy(eng_vdwl: real_t, half_nb: i32, grid: Grid) -> real_t {
+    let e_act = eng_vdwl * 0.5 * select(half_nb == 0, 1.0, 2.0);
+    let mut eng = 0.0;
+    let mut nparticles = 0;
+
+    reduce_f64_sum(e_act, &mut eng);
+    reduce_i32_sum(grid.nparticles, &mut nparticles);
+
+    eng / nparticles as real_t
+}
