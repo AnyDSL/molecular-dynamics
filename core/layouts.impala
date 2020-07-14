@@ -74,7 +74,7 @@ fn @row_major_order_array(@atomic: i32) -> ArrayLayout {
 
 fn @clustered_array(@atomic: i32, @cluster_size: i32) -> ArrayLayout {
     let mask = cluster_size - 1;
-    let shift = get_shift_size(cluster_size);
+    let shift = get_shift_size(cluster_size) - 1;
 
     ArrayLayout {
         index_2d_fn: @|array, x, y| {
