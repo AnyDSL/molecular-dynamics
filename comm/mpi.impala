@@ -90,6 +90,26 @@ struct MPI {
     finalize : fn() -> i32,
 }
 
+fn get_world_size() -> i32 {
+    let mpih = mpi();
+    let mut world_size: i32;
+    mpih.comm_size(mpih.comms.world, &mut world_size);
+    world_size
+}
+
+fn get_process_rank() -> i32 {
+    let mpih = mpi();
+    let mut rank: i32;
+    mpih.comm_rank(mpih.comms.world, &mut rank);
+    rank
+}
+
+fn barrier() -> () {
+    let mpih = mpi();
+    let mut request: MPI_Request;
+    mpih.barrier(mpih.comms.world, &mut request);
+}
+
 fn @mpi() -> MPI {
     MPI {
         comms : MPIComms {
