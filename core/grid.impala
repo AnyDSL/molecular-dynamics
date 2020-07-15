@@ -223,11 +223,6 @@ fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &
     grid.nparticles++;
 }
 
-fn delete_particle(particle_index: i32, grid: &mut Grid) -> () {
-    swap_particles(particle_index, grid.nparticles - 1, grid);
-    grid.nparticles--;
-}
-
 fn add_local_slots(slots: i32, grid: &mut Grid) -> i32 {
     let first_particle_index = grid.nparticles;
 
@@ -254,13 +249,6 @@ fn add_ghost_slots(slots: i32, grid: &mut Grid) -> i32 {
 
     grid.nghost += slots;
     first_particle_index
-}
-
-// Particles must be at the same cell
-fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
-    array_1d_swap_real(grid.masses, i, j);
-    array_2d_swap_vec3(ParticleDataLayout(), grid.positions, i, j);
-    array_2d_swap_vec3(ParticleDataLayout(), grid.velocities, i, j);
 }
 
 fn crop_empty_region(grid: &mut Grid) -> () {
