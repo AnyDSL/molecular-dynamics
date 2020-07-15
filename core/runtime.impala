@@ -74,6 +74,7 @@ extern fn md_compute_boundary_weights(
     computational_weight: &mut u32, communication_weight: &mut u32) -> () {
 
     let grid = grid_;
+    let particle = make_particle(grid, array_dev, ParticleDataLayout(), null_layout());
     let sum = @|a: i32, b: i32| { a + b };
     let aabb = AABB {
         xmin: xmin,
@@ -85,13 +86,11 @@ extern fn md_compute_boundary_weights(
     };
 
     *computational_weight = reduce_i32(grid.nparticles, 0, sum, |i| {
-        let pos = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.positions, i);
-        select(is_within_domain(pos, aabb), 1, 0)
+        select(is_within_domain(particle.get_position(i), aabb), 1, 0)
     }) as u32;
 
     *communication_weight = reduce_i32(grid.nghost, 0, sum, |i| {
-        let pos = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.positions, grid.nparticles + i);
-        select(is_within_domain(pos, aabb), 1, 0)
+        select(is_within_domain(particle.get_position(grid.nparticles + i), aabb), 1, 0)
     }) as u32;
 }
 
@@ -146,37 +145,25 @@ extern fn md_assemble_neighborlists(half_neighborlist: bool, cutoff_distance: re
 }
 
 extern fn md_print_grid() -> () {
-    range(0, grid_.nparticles, |particle_index| {
-        let pos = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.positions, particle_index);
-        print_real_vector_with_rank("pos_local", pos);
-    });
-
-    range(0, grid_.nparticles, |particle_index| {
-        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, particle_index);
-        print_real_vector_with_rank("vel_local", vel);
-    });
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    range(0, grid_.nparticles, |i| { print_real_vector_with_rank("pos_local", part.get_position(i)); });
+    range(0, grid_.nparticles, |i| { print_real_vector_with_rank("vel_local", part.get_velocity(i)); });
 }
 
 extern fn md_print_ghost() -> () {
-    range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
-        let pos = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.positions, particle_index);
-        print_real_vector_with_rank("pos_ghost", pos);
-    });
-
-    range(grid_.nparticles, grid_.nparticles + grid_.nghost, |particle_index| {
-        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, particle_index);
-        print_real_vector_with_rank("vel_ghost", vel);
-    });
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    range(grid_.nparticles, grid_.nparticles + grid_.nghost, |i| { print_real_vector_with_rank("pos_ghost", part.get_position(i)); });
+    range(grid_.nparticles, grid_.nparticles + grid_.nghost, |i| { print_real_vector_with_rank("vel_ghost", part.get_velocity(i)); });
 }
 
 extern fn md_create_velocity(t_request: real_t) -> () {
+    let particle = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
     let nparticles = grid_.nparticles;
     let mut vtot = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
     let mut tmp: real_t;
 
     range(0, nparticles, |i| {
-        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, i);
-        vtot = vector_add(vtot, vel);
+        vtot = vector_add(vtot, particle.get_velocity(i));
     });
 
     reduce_f64_sum(vtot.x, &mut tmp);
@@ -187,25 +174,21 @@ extern fn md_create_velocity(t_request: real_t) -> () {
     vtot.z = tmp / nparticles as real_t;
 
     range(0, nparticles, |i| {
-        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, i);
-        let new_vel = vector_sub(vel, vtot);
-        array_2d_set_vec3(array_host, ParticleDataLayout(), grid_.velocities, i, new_vel);
+        particle.set_velocity(i, vector_sub(particle.get_velocity(i), vtot));
     });
 
-    let t = temperature(grid_);
+    let t = temperature(grid_, particle);
     let factor = math.sqrt(t_request / t);
 
     range(0, nparticles, |i| {
-        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid_.velocities, i);
-        let new_vel = vector_scale(factor, vel);
-        array_2d_set_vec3(array_host, ParticleDataLayout(), grid_.velocities, i, new_vel);
+        particle.set_velocity(i, vector_scale(factor, particle.get_velocity(i)));
     });
 }
 
 extern fn md_compute_lennard_jones(half_neighborlist: bool, cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
     let half_nb = select(half_neighborlist, 1, 0);
     let sigma6 = pow(sigma, 6);
-    let (iforces, irsq) = compute_potential(grid_, half_nb, cutoff_distance * cutoff_distance, @|_, _, _, _, del, rsq| {
+    let (iforces, irsq) = compute_potential(grid_, half_nb, cutoff_distance * cutoff_distance, @|_, _, _, _, _, del, rsq| {
         let sr2 = 1.0 / rsq;
         let sr6 = sr2 * sr2 * sr2 * sigma6;
         let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
@@ -229,7 +212,7 @@ extern fn md_compute_dem(
     let vector_len =    @|v: Vector3D| { dev.sqrt(vector_len2(v)) };
     let vector_normal = @|v: Vector3D, len: real_t| { vector_scale(1.0 / len, v) };
 
-    let (iforces, irsq) = compute_potential(grid, half_nb, cutoff_distance * cutoff_distance, @|i, j, _, pos_j, del, rsq| {
+    let (iforces, irsq) = compute_potential(grid, half_nb, cutoff_distance * cutoff_distance, @|particle, i, j, _, pos_j, del, rsq| {
         let mut result = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
 
         if rsq < square(radius * 2.0) {
@@ -239,17 +222,14 @@ extern fn md_compute_dem(
             if penetration_depth > 0.0 {
                 let normal = vector_normal(del, del_length);
                 let contact_point = vector_add(vector_scale(radius + 0.5 * penetration_depth, normal), pos_j);
-                let vel1 = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, i);
-                let vel2 = array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, j);
-
+                let vel1 = particle.get_velocity(i);
+                let vel2 = particle.get_velocity(j);
                 let rel_vel = vector_sub(vel1, vel2);
                 let rel_vel_normal = vector_dot(rel_vel, normal);
                 let rel_vel_tan = vector_sub(rel_vel, vector_scale(rel_vel_normal, normal));
                 let rel_vel_tan_length = vector_len(rel_vel_tan);
-
                 let fn_abs = damping_n * rel_vel_normal - stiffness * penetration_depth;
                 let fnormal = vector_scale(fn_abs, normal);
-
                 let ft_abs_term1 = damping_t * rel_vel_tan_length;
                 let ft_abs_term2 = friction * fn_abs;
                 let ft_abs = select(ft_abs_term1 < ft_abs_term2, ft_abs_term1, ft_abs_term2);

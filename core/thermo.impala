@@ -1,4 +1,4 @@
-fn temperature(grid: Grid) -> real_t {
+fn temperature(grid: Grid, particle: Particle) -> real_t {
     let mass = 1.0;
     let mvv2e = 1.0;
     let dof_boltz = grid.nparticles * 3 - 3;
@@ -7,7 +7,7 @@ fn temperature(grid: Grid) -> real_t {
     let mut t_sum = 0.0;
 
     range(0, grid.nparticles, |i| {
-        let vel = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, i);
+        let vel = particle.get_velocity(i);
         t += vector_dot(vel, vel) * mass;
     });
 
