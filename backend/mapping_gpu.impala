@@ -30,7 +30,7 @@ fn @device() -> Device {
         cpu_target: @|| { false },
         init: |grid| {
             reduction_buffers_.capacity = 0;
-            loop_1d(64, |_| {});
+            loop_1d(false, 64, |_| {});
         },
         shutdown: || {
             if reduction_buffers_.capacity > 0 {
