@@ -49,21 +49,9 @@ fn @(?half_nb) compute_potential(
 
 fn initial_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
-    let dtforce = 0.5 * dt;
-
     particles_vec(false, grid, |i, particle| {
-        let mut position = particle.get_position(i);
-        let mut velocity = particle.get_velocity(i);
-        let force = particle.get_force(i);
-
-        velocity.x += dtforce * force.x;
-        velocity.y += dtforce * force.y;
-        velocity.z += dtforce * force.z;
-        position.x += dt * velocity.x;
-        position.y += dt * velocity.y;
-        position.z += dt * velocity.z;
-        particle.set_velocity(i, velocity);
-        particle.set_position(i, position);
+        particle.set_velocity(i, vector_add(particle.get_velocity(i), vector_scale(0.5 * dt, particle.get_force(i))));
+        particle.set_position(i, vector_add(particle.get_position(i), vector_scale(dt, particle.get_velocity(i))));
         device().add_iterator(&mut iters);
     });
 
@@ -72,16 +60,8 @@ fn initial_integration(grid: Grid, dt: real_t) -> i64 {
 
 fn final_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
-    let dtforce = 0.5 * dt;
-
     particles_vec(false, grid, |i, particle| {
-        let mut velocity = particle.get_velocity(i);
-        let force = particle.get_force(i);
-
-        velocity.x += dtforce * force.x;
-        velocity.y += dtforce * force.y;
-        velocity.z += dtforce * force.z;
-        particle.set_velocity(i, velocity);
+        particle.set_velocity(i, vector_add(particle.get_velocity(i), vector_scale(0.5 * dt, particle.get_force(i))));
         device().add_iterator(&mut iters);
     });
 
