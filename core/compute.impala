@@ -6,24 +6,17 @@ fn @(?half_nb) compute_potential(
     let mut rsq_iters = 0 as i64;
 
     if half_nb != 0 {
-        let vec_null = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
-
-        particles_vec(false, grid, |i| {
-            array_2d_set_vec3(array_host, ParticleDataLayout(), grid.forces, i, vec_null);
+        particles_vec(false, grid, |i, particle| {
+            particle.set_force(i, Vector3D { x: 0.0, y: 0.0, z: 0.0 });
         });
     }
 
-    particles_vec(false, grid, |i| {
-        let mut force = Vector3D {
-            x: 0.0 as real_t,
-            y: 0.0 as real_t,
-            z: 0.0 as real_t
-        };
+    particles_vec(false, grid, |i, particle| {
+        let pos_i = particle.get_position(i);
+        let mut force = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
 
-        let pos_i = get_position(i, grid);
-
-        neighbors(i, grid, |j| {
-            let pos_j = get_position(j, grid);
+        particle.neighbors(i, |j| {
+            let pos_j = particle.get_position(j);
             let del = vector_sub(pos_i, pos_j);
             let rsq = vector_len2(del);
 
@@ -48,7 +41,7 @@ fn @(?half_nb) compute_potential(
         });
 
         if half_nb == 0 {
-            set_force(i, grid, force);
+            particle.set_force(i, force);
         }
     });
 
@@ -58,12 +51,11 @@ fn @(?half_nb) compute_potential(
 fn integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
 
-    particles_vec(false, grid, |i| {
-        let masses = get_array_real_ref(array_dev, grid.masses);
-        let inverse_mass = 1.0 as real_t / masses(i);
-        let mut position = get_position(i, grid);
-        let mut velocity = get_velocity(i, grid);
-        let force = get_force(i, grid);
+    particles_vec(false, grid, |i, particle| {
+        let inverse_mass = 1.0 as real_t / particle.get_mass(i);
+        let mut position = particle.get_position(i);
+        let mut velocity = particle.get_velocity(i);
+        let force = particle.get_force(i);
 
         velocity.x += dt * force.x * inverse_mass;
         velocity.y += dt * force.y * inverse_mass;
@@ -71,8 +63,8 @@ fn integration(grid: Grid, dt: real_t) -> i64 {
         position.x += dt * velocity.x;
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
-        set_velocity(i, grid, velocity);
-        set_position(i, grid, position);
+        particle.set_velocity(i, velocity);
+        particle.set_position(i, position);
         device().add_iterator(&mut iters);
     });
 
@@ -83,10 +75,10 @@ fn initial_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
-    particles_vec(false, grid, |i| {
-        let mut position = get_position(i, grid);
-        let mut velocity = get_velocity(i, grid);
-        let force = get_force(i, grid);
+    particles_vec(false, grid, |i, particle| {
+        let mut position = particle.get_position(i);
+        let mut velocity = particle.get_velocity(i);
+        let force = particle.get_force(i);
 
         velocity.x += dtforce * force.x;
         velocity.y += dtforce * force.y;
@@ -94,8 +86,8 @@ fn initial_integration(grid: Grid, dt: real_t) -> i64 {
         position.x += dt * velocity.x;
         position.y += dt * velocity.y;
         position.z += dt * velocity.z;
-        set_velocity(i, grid, velocity);
-        set_position(i, grid, position);
+        particle.set_velocity(i, velocity);
+        particle.set_position(i, position);
         device().add_iterator(&mut iters);
     });
 
@@ -106,14 +98,14 @@ fn final_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;
 
-    particles_vec(false, grid, |i| {
-        let mut velocity = get_velocity(i, grid);
-        let force = get_force(i, grid);
+    particles_vec(false, grid, |i, particle| {
+        let mut velocity = particle.get_velocity(i);
+        let force = particle.get_force(i);
 
         velocity.x += dtforce * force.x;
         velocity.y += dtforce * force.y;
         velocity.z += dtforce * force.z;
-        set_velocity(i, grid, velocity);
+        particle.set_velocity(i, velocity);
         device().add_iterator(&mut iters);
     });
 
@@ -121,8 +113,7 @@ fn final_integration(grid: Grid, dt: real_t) -> i64 {
 }
 
 fn enforce_pbc(grid: Grid) -> () {
-    particles_vec(false, grid, |i| {
-        let pos = get_position(i, grid);
-        set_position(i, grid, pbc_corrected_position_if(true, pos, grid));
+    particles_vec(false, grid, |i, particle| {
+        particle.set_position(i, pbc_corrected_position_if(true, particle.get_position(i), grid));
     });
 }

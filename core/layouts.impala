@@ -58,6 +58,7 @@ fn @add_fn(atomic: i32, array: ArrayData, index: i32, value: real_t) -> () {
     }
 }
 
+fn @null_layout() -> ArrayLayout { column_major_order_array(0) }
 fn @column_major_order_array(@atomic: i32) -> ArrayLayout {
     ArrayLayout {
         index_2d_fn: @|array, x, y| { x * array.size_y + y },

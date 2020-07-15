@@ -345,11 +345,12 @@ fn synchronize_ghost_layer(grid: Grid, comm: Comm) -> () {
     let nlocal = comm.send_noffsets - comm.local_start;
     let send_data = get_array_real_ref(array_dev, comm.send_buffer);
     let recv_data = get_array_real_ref(array_dev, comm.recv_buffer);
+    let particle = make_particle(grid, array_dev, ParticleDataLayout(), null_layout());
 
     device().loop_1d(false, comm.send_noffsets, |i| {
         let send_offsets = get_array_i32_ref(array_dev, comm.send_offsets);
         let send_pbc = get_array_i8_ref(array_dev, comm.send_pbc);
-        let position = get_position(send_offsets(i), grid);
+        let position = particle.get_position(send_offsets(i));
 
         send_data(i * 3 + 0) = position.x + grid.xlength * send_pbc(i * 3 + 0) as real_t;
         send_data(i * 3 + 1) = position.y + grid.ylength * send_pbc(i * 3 + 1) as real_t;
@@ -385,24 +386,14 @@ fn synchronize_ghost_layer(grid: Grid, comm: Comm) -> () {
     }
 
     device().loop_1d(false, comm.recv_noffsets, |i| {
-        let position = Vector3D {
-            x: recv_data(i * 3 + 0),
-            y: recv_data(i * 3 + 1),
-            z: recv_data(i * 3 + 2),
-        };
-
-        set_position(grid.nparticles + i, grid, position);
+        particle.set_position(grid.nparticles + i,
+                              Vector3D { x: recv_data(i * 3 + 0), y: recv_data(i * 3 + 1), z: recv_data(i * 3 + 2) });
     });
 
     device().loop_1d(false, nlocal, |i| {
-        let buffer_index = (comm.local_start + i) * 3;
-        let position = Vector3D {
-            x: send_data(buffer_index + 0),
-            y: send_data(buffer_index + 1),
-            z: send_data(buffer_index + 2),
-        };
-
-        set_position(grid.nparticles + comm.recv_noffsets + i, grid, position);
+        let index = (comm.local_start + i) * 3;
+        particle.set_position(grid.nparticles + comm.recv_noffsets + i,
+                              Vector3D { x: send_data(index + 0), y: send_data(index + 1), z: send_data(index + 2), });
     });
 }
 
@@ -446,12 +437,11 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
             set_counter(iexchg, const_grid);
             reset_resize(const_grid);
 
-            particles_scalar(false, const_grid, |i| {
-                let masses = get_array_real_ref(array_dev, const_grid.masses);
+            particles_scalar(false, const_grid, |i, particle| {
                 let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
                 let buffer = get_array_real_ref(array_dev, const_comm.send_buffer);
                 let send_offsets = get_array_i32_ref(array_dev, const_comm.send_offsets);
-                let particle_pos = get_position(i, const_grid);
+                let particle_pos = particle.get_position(i);
 
                 send_flags(i) = 0 as i8;
 
@@ -462,10 +452,10 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
                         grow_resize(counter, const_grid);
                     } else {
                         let corrected_pos = pbc_corrected_position_if(!apply_pbc_before_border_check(), pos, const_grid);
-                        let vel = get_velocity(i, const_grid);
+                        let vel = particle.get_velocity(i);
                         let index = counter * 7;
 
-                        buffer(index + 0) = masses(i);
+                        buffer(index + 0) = particle.get_mass(i);
                         buffer(index + 1) = corrected_pos.x;
                         buffer(index + 2) = corrected_pos.y;
                         buffer(index + 3) = corrected_pos.z;
@@ -513,16 +503,16 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
 
         let const_comm = *comm;
         let const_grid = *grid;
+        let particle = make_particle(const_grid, array_dev, ParticleDataLayout(), null_layout());
         let copy_list = get_array_i32_ref(array_dev, const_comm.copy_list);
-        let masses = get_array_i32_ref(array_dev, const_grid.masses);
 
         device().loop_1d(false, packed, |i| {
             if copy_list(i) > 0 {
                 let src = copy_list(i);
                 let dst = get_array_i32_ref(array_dev, const_comm.send_offsets)(i);
-                masses(dst) = masses(src);
-                set_position(dst, const_grid, get_position(src, const_grid));
-                set_velocity(dst, const_grid, get_velocity(src, const_grid));
+                particle.set_mass(dst, particle.get_mass(src));
+                particle.set_position(dst, particle.get_position(src));
+                particle.set_velocity(dst, particle.get_velocity(src));
             }
         });
 
@@ -574,26 +564,15 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
     let exchg_start = add_local_slots(iexchg, grid);
     let const_grid = *grid;
     let const_comm = *comm;
+    let particle = make_particle(const_grid, array_dev, ParticleDataLayout(), null_layout());
     let recv_data = get_array_real_ref(array_dev, const_comm.recv_buffer);
 
     device().loop_1d(false, iexchg, |i| {
-        let buffer_index = i * 7;
+        let index = i * 7;
         let offset = exchg_start + i;
-        let position = Vector3D {
-            x: recv_data(buffer_index + 1),
-            y: recv_data(buffer_index + 2),
-            z: recv_data(buffer_index + 3)
-        };
-
-        let velocity = Vector3D {
-            x: recv_data(buffer_index + 4),
-            y: recv_data(buffer_index + 5),
-            z: recv_data(buffer_index + 6)
-        };
-
-        get_array_real_ref(array_dev, const_grid.masses)(offset) = recv_data(buffer_index);
-        set_position(offset, const_grid, position);
-        set_velocity(offset, const_grid, velocity);
+        particle.set_mass(offset, recv_data(index));
+        particle.set_position(offset, Vector3D { x: recv_data(index + 1), y: recv_data(index + 2), z: recv_data(index + 3) });
+        particle.set_velocity(offset, Vector3D { x: recv_data(index + 4), y: recv_data(index + 5), z: recv_data(index + 6) });
     });
 }
 
@@ -644,13 +623,12 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
             set_counter(isend, const_grid);
             reset_resize(const_grid);
 
-            particles_scalar(false, const_grid, |i| {
-                let masses = get_array_real_ref(array_dev, const_grid.masses);
+            particles_scalar(false, const_grid, |i, particle| {
                 let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
                 let buffer = get_array_real_ref(array_dev, const_comm.send_buffer);
                 let send_offsets = get_array_i32_ref(array_dev, const_comm.send_offsets);
                 let send_pbc = get_array_i8_ref(array_dev, const_comm.send_pbc);
-                let particle_pos = get_position(i, const_grid);
+                let particle_pos = particle.get_position(i);
 
                 border_positions(particle_pos, @|pos, pbc| {
                     let counter = add_counter(const_grid);
@@ -675,7 +653,7 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
                         send_pbc(pbc_index + 0) = adj_pbc.x;
                         send_pbc(pbc_index + 1) = adj_pbc.y;
                         send_pbc(pbc_index + 2) = adj_pbc.z;
-                        buffer(buf_index + 0) = masses(i);
+                        buffer(buf_index + 0) = particle.get_mass(i);
                         buffer(buf_index + 1) = adj_pos.x;
                         buffer(buf_index + 2) = adj_pos.y;
                         buffer(buf_index + 3) = adj_pos.z;
@@ -745,7 +723,7 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
     let const_ilocal = ilocal;
     let const_irecv = irecv;
     let nlocal = isend - ilocal;
-    let masses = get_array_real_ref(array_dev, const_grid.masses);
+    let particle = make_particle(const_grid, array_dev, ParticleDataLayout(), null_layout());
     let send_data = get_array_real_ref(array_dev, const_comm.send_buffer);
     let recv_data = get_array_real_ref(array_dev, const_comm.recv_buffer);
 
@@ -756,29 +734,17 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
     }
 
     device().loop_1d(false, irecv, |i| {
-        let buffer_index = i * 4;
+        let index = i * 4;
         let offset = const_grid.nparticles + i;
-        let position = Vector3D {
-            x: recv_data(buffer_index + 1),
-            y: recv_data(buffer_index + 2),
-            z: recv_data(buffer_index + 3)
-        };
-
-        masses(offset) = recv_data(buffer_index);
-        set_position(offset, const_grid, position);
+        particle.set_mass(offset, recv_data(index));
+        particle.set_position(offset, Vector3D { x: recv_data(index + 1), y: recv_data(index + 2), z: recv_data(index + 3) });
     });
 
     device().loop_1d(false, nlocal, |i| {
-        let buffer_index = (const_ilocal + i) * 4;
+        let index = (const_ilocal + i) * 4;
         let offset = const_grid.nparticles + const_irecv + i;
-        let position = Vector3D {
-            x: send_data(buffer_index + 1),
-            y: send_data(buffer_index + 2),
-            z: send_data(buffer_index + 3),
-        };
-
-        masses(offset) = send_data(buffer_index);
-        set_position(offset, const_grid, position);
+        particle.set_mass(offset, send_data(index));
+        particle.set_position(offset, Vector3D { x: send_data(index + 1), y: send_data(index + 2), z: send_data(index + 3) });
     });
 
     comm.local_start = ilocal;
