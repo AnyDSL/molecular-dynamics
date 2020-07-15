@@ -47,29 +47,6 @@ fn @(?half_nb) compute_potential(
     (total_iters, rsq_iters)
 }
 
-fn integration(grid: Grid, dt: real_t) -> i64 {
-    let mut iters = 0 as i64;
-
-    particles_vec(false, grid, |i, particle| {
-        let inverse_mass = 1.0 as real_t / particle.get_mass(i);
-        let mut position = particle.get_position(i);
-        let mut velocity = particle.get_velocity(i);
-        let force = particle.get_force(i);
-
-        velocity.x += dt * force.x * inverse_mass;
-        velocity.y += dt * force.y * inverse_mass;
-        velocity.z += dt * force.z * inverse_mass;
-        position.x += dt * velocity.x;
-        position.y += dt * velocity.y;
-        position.z += dt * velocity.z;
-        particle.set_velocity(i, velocity);
-        particle.set_position(i, position);
-        device().add_iterator(&mut iters);
-    });
-
-    iters
-}
-
 fn initial_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     let dtforce = 0.5 * dt;

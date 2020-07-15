@@ -103,7 +103,6 @@ extern fn md_deallocate_grid() -> () {
 
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }
 extern fn md_copy_data_from_accelerator() -> () { copy_from_accelerator(grid_); }
-extern fn md_integration(dt: real_t) -> () { integration_iters = integration(grid_, dt); }
 extern fn md_initial_integration(dt: real_t) -> () { integration_iters = initial_integration(grid_, dt); }
 extern fn md_final_integration(dt: real_t) -> () { integration_iters = final_integration(grid_, dt); }
 extern fn md_enforce_pbc() -> () { enforce_pbc(grid_); }

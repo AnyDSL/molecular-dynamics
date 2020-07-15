@@ -11,7 +11,6 @@ extern "C" {
     void md_rescale_grid(double const *);
     void md_copy_data_from_accelerator();
     void md_copy_data_to_accelerator();
-    void md_integration(double);
     void md_initial_integration(double);
     void md_final_integration(double);
     void md_enforce_pbc();
