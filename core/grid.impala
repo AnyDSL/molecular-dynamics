@@ -44,6 +44,8 @@ struct Particle {
     set_force:    fn(i32, Vector3D) -> (),
     get_force:    fn(i32) -> Vector3D,
     add_force:    fn(i32, Vector3D) -> (),
+    set_copy_pos: fn(i32, Vector3D) -> (),
+    set_copy_vel: fn(i32, Vector3D) -> (),
     set_neigh:    fn(i32, i32, i32) -> (),
     neighbors:    fn(i32, fn(i32) -> ()) -> ()
 };
@@ -69,6 +71,8 @@ fn @make_particle(grid: Grid, target_fn: ArrayTargetFn, vec3_layout: ArrayLayout
         set_force:    @|i, f|       array_2d_set_vec3(target_fn, vec3_layout, grid.forces, i, f),
         get_force:    @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.forces, i),
         add_force:    @|i, f|       array_2d_add_vec3(vec3_layout, grid.forces, i, f),
+        set_copy_pos: @|i, p|       array_2d_set_vec3(target_fn, vec3_layout, grid.positions_copy, i, p),
+        set_copy_vel: @|i, v|       array_2d_set_vec3(target_fn, vec3_layout, grid.velocities_copy, i, v),
         set_neigh:    @|i, j, n|    array_2d_set_i32(target_fn, nb_layout, grid.neighborlists, i, j, n),
         neighbors:    @|i, f| {
             for n in range(0, get_array_i32_ref(array_dev, grid.neighbors_sizes)(i)) {
@@ -228,9 +232,7 @@ fn initialize_grid(
 }
 
 fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
-    let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let particle_index = grid.nparticles;
-    let masses = get_array_real_ref(array_host, grid.masses);
     let neighbors_sizes = get_array_i32_ref(array_host, grid.neighbors_sizes);
 
     if particle_index >= grid.particle_capacity {
@@ -238,11 +240,12 @@ fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &
         reallocate_particle_capacity(grid, new_capacity);
     }
 
-    masses(particle_index) = mass;
+    let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
+    particle.set_mass(particle_index, mass);
+    particle.set_position(particle_index, position);
+    particle.set_velocity(particle_index, velocity);
+    particle.set_force(particle_index, Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t });
     neighbors_sizes(particle_index) = 0;
-    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index, position);
-    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index, velocity);
-    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index, null_vec);
     grid.nparticles++;
 }
 
@@ -322,6 +325,7 @@ fn distribute_particles(grid: &mut Grid) -> () {
     if sort_particles() {
         fill_cells(grid, false);
 
+        let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
         let cell_particles = get_array_i32_ref(array_host, grid.cell_particles);
         let cell_sizes = get_array_i32_ref(array_host, grid.cell_sizes);
         let mut offset = 0;
@@ -332,15 +336,15 @@ fn distribute_particles(grid: &mut Grid) -> () {
             range(0, cell_sizes(cell_index), |cell_particle_index| {
                 let old_index = cell_particles(cell_offset + cell_particle_index);
                 let new_index = offset + cell_particle_index;
-                array_2d_copy_vec3(ParticleDataLayout(), grid.positions, grid.positions_copy, old_index, new_index);
-                array_2d_copy_vec3(ParticleDataLayout(), grid.velocities, grid.velocities_copy, old_index, new_index);
+                particle.set_copy_pos(new_index, particle.get_position(old_index));
+                particle.set_copy_vel(new_index, particle.get_velocity(old_index));
             });
 
             offset += cell_sizes(cell_index);
         });
 
         range(grid.nparticles, grid.nparticles + grid.nghost, |ghost_index| {
-            array_2d_copy_vec3(ParticleDataLayout(), grid.positions, grid.positions_copy, ghost_index, ghost_index);
+            particle.set_copy_pos(ghost_index, particle.get_position(ghost_index));
         });
 
         let pos_copy = grid.positions;
@@ -484,13 +488,12 @@ fn write_grid_data_to_arrays(
     forces: &mut [Vector3D],
     grid: &Grid) -> i32 {
 
-    let grid_masses = get_array_real_ref(array_host, grid.masses);
-
+    let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
     range(0, grid.nparticles, |particle_index| {
-        masses(particle_index) = grid_masses(particle_index);
-        positions(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
-        velocities(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
-        forces(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
+        masses(particle_index) = particle.get_mass(particle_index);
+        positions(particle_index) = particle.get_position(particle_index);
+        velocities(particle_index) = particle.get_velocity(particle_index);
+        forces(particle_index) = particle.get_force(particle_index);
     });
 
     grid.nparticles
@@ -503,14 +506,13 @@ fn write_grid_ghost_data_to_arrays(
     forces: &mut [Vector3D],
     grid: &Grid) -> i32 {
 
-    let grid_masses = get_array_real_ref(array_host, grid.masses);
-
+    let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
     range(grid.nparticles, grid.nparticles + grid.nghost, |particle_index| {
         let index = particle_index - grid.nparticles;
-        masses(index) = grid_masses(particle_index);
-        positions(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
-        velocities(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
-        forces(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
+        masses(index) = particle.get_mass(particle_index);
+        positions(index) = particle.get_position(particle_index);
+        velocities(index) = particle.get_velocity(particle_index);
+        forces(index) = particle.get_force(particle_index);
     });
 
     grid.nparticles
