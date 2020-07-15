@@ -48,6 +48,21 @@ fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) ->
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)
 }
 
+fn @particles(@vec: bool, @ghost: bool, grid: Grid, f: fn(i32) -> ()) -> () {
+    let n = select(ghost, grid.nparticles + grid.nghost, grid.nparticles);
+    device().loop_1d(vec, n, |particle_index| {
+        f(particle_index);
+    });
+}
+
+fn @particles_scalar(@ghost: bool, grid: Grid, f: fn(i32) -> ()) -> () { particles(false, ghost, grid, f); }
+fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32) -> ()) -> () { particles(true, ghost, grid, f); }
+fn @neighbors(particle_index: i32, grid: Grid, f: fn(i32) -> ()) -> () {
+    for n in range(0, get_array_i32_ref(array_dev, grid.neighbors_sizes)(particle_index)) {
+        f(array_2d_get_i32(array_dev, NeighborlistLayout(), grid.neighborlists, particle_index, n));
+    }
+}
+
 fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity: i32, neighborlist_capacity: i32) -> Grid {
     let nx = real_floor(((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
@@ -315,12 +330,11 @@ fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
         let cell_sizes = get_array_i32_ref(array_dev, const_grid.cell_sizes);
 
         reset_resize(const_grid);
-
-        cells(const_grid, |cell_index| {
-            cell_sizes(cell_index) = 0;
+        device().loop_1d(false, const_grid.ncells, |i| {
+            cell_sizes(i) = 0;
         });
 
-        particles(ghost, const_grid, |i, _, _, _| {
+        particles_scalar(ghost, const_grid, |i| {
             let pos = get_position(i, const_grid);
             let cell_particles = get_array_i32_ref(array_dev, const_grid.cell_particles);
             let particles_cell = get_array_i32_ref(array_dev, const_grid.particles_cell);

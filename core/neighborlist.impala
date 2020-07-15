@@ -53,7 +53,7 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
             });
         };
 
-        particles_vec(false, const_grid, |particle_index, _, _, _| {
+        particles_vec(false, const_grid, |particle_index| {
             let pos = get_position(particle_index, const_grid);
             let cell_index = particles_cell(particle_index);
 

@@ -40,8 +40,8 @@ fn mpi_initialize() -> () { mpi().init(); }
 fn mpi_finalize() -> () { mpi().finalize(); }
 
 // Types for condition and communication functions
-type CondFn= fn(Vector3D, fn(Vector3D, PBCFlags) -> ()) -> ();
-type CommFn= fn(i32, i32, i32, i32, i32, CondFn, CondFn) -> ();
+type CondFn = fn(Vector3D, fn(Vector3D, PBCFlags) -> ()) -> ();
+type CommFn = fn(i32, i32, i32, i32, i32, CondFn, CondFn) -> ();
 
 // Communication pattern using walberla or 6-stencil neighbors
 fn communication_ranks(grid: Grid, body: CommFn) -> () {
@@ -343,17 +343,17 @@ fn get_node_bounding_box(aabb: AABB) -> AABB {
 fn synchronize_ghost_layer(grid: Grid, comm: Comm) -> () {
     let mpih = mpi();
     let nlocal = comm.send_noffsets - comm.local_start;
+    let send_data = get_array_real_ref(array_dev, comm.send_buffer);
+    let recv_data = get_array_real_ref(array_dev, comm.recv_buffer);
 
-    comm_buffer_iterate(comm, comm.send_noffsets, |index, send_data, _| {
-        let buffer_index = index * 3;
+    device().loop_1d(false, comm.send_noffsets, |i| {
         let send_offsets = get_array_i32_ref(array_dev, comm.send_offsets);
         let send_pbc = get_array_i8_ref(array_dev, comm.send_pbc);
-        let offset = send_offsets(index);
-        let position = get_position(offset, grid);
+        let position = get_position(send_offsets(i), grid);
 
-        send_data(buffer_index + 0) = position.x + grid.xlength * send_pbc(buffer_index + 0) as real_t;
-        send_data(buffer_index + 1) = position.y + grid.ylength * send_pbc(buffer_index + 1) as real_t;
-        send_data(buffer_index + 2) = position.z + grid.zlength * send_pbc(buffer_index + 2) as real_t;
+        send_data(i * 3 + 0) = position.x + grid.xlength * send_pbc(i * 3 + 0) as real_t;
+        send_data(i * 3 + 1) = position.y + grid.ylength * send_pbc(i * 3 + 1) as real_t;
+        send_data(i * 3 + 2) = position.z + grid.zlength * send_pbc(i * 3 + 2) as real_t;
     });
 
     if comm.local_start > 0 {
@@ -384,27 +384,25 @@ fn synchronize_ghost_layer(grid: Grid, comm: Comm) -> () {
         transfer_array_to_device(comm.recv_buffer);
     }
 
-    comm_buffer_iterate(comm, comm.recv_noffsets, |index, _, recv_data| {
-        let offset = grid.nparticles + index;
+    device().loop_1d(false, comm.recv_noffsets, |i| {
         let position = Vector3D {
-            x: recv_data(index * 3 + 0),
-            y: recv_data(index * 3 + 1),
-            z: recv_data(index * 3 + 2),
+            x: recv_data(i * 3 + 0),
+            y: recv_data(i * 3 + 1),
+            z: recv_data(i * 3 + 2),
         };
 
-        set_position(offset, grid, position);
+        set_position(grid.nparticles + i, grid, position);
     });
 
-    comm_buffer_iterate(comm, nlocal, |index, send_data, _| {
-        let buffer_index = (comm.local_start + index) * 3;
-        let offset = grid.nparticles + comm.recv_noffsets + index;
+    device().loop_1d(false, nlocal, |i| {
+        let buffer_index = (comm.local_start + i) * 3;
         let position = Vector3D {
             x: send_data(buffer_index + 0),
             y: send_data(buffer_index + 1),
             z: send_data(buffer_index + 2),
         };
 
-        set_position(offset, grid, position);
+        set_position(grid.nparticles + comm.recv_noffsets + i, grid, position);
     });
 }
 
@@ -448,7 +446,7 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
             set_counter(iexchg, const_grid);
             reset_resize(const_grid);
 
-            particles(false, const_grid, |i, _, _, _| {
+            particles_scalar(false, const_grid, |i| {
                 let masses = get_array_real_ref(array_dev, const_grid.masses);
                 let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
                 let buffer = get_array_real_ref(array_dev, const_comm.send_buffer);
@@ -515,14 +513,13 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
 
         let const_comm = *comm;
         let const_grid = *grid;
+        let copy_list = get_array_i32_ref(array_dev, const_comm.copy_list);
+        let masses = get_array_i32_ref(array_dev, const_grid.masses);
 
-        copy_list_iterate(const_comm, packed, |i, copy_list, send_offsets| {
-            let masses = get_array_real_ref(array_dev, const_grid.masses);
-
+        device().loop_1d(false, packed, |i| {
             if copy_list(i) > 0 {
                 let src = copy_list(i);
-                let dst = send_offsets(i);
-
+                let dst = get_array_i32_ref(array_dev, const_comm.send_offsets)(i);
                 masses(dst) = masses(src);
                 set_position(dst, const_grid, get_position(src, const_grid));
                 set_velocity(dst, const_grid, get_velocity(src, const_grid));
@@ -577,11 +574,11 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
     let exchg_start = add_local_slots(iexchg, grid);
     let const_grid = *grid;
     let const_comm = *comm;
+    let recv_data = get_array_real_ref(array_dev, const_comm.recv_buffer);
 
-    comm_buffer_iterate(const_comm, iexchg, |index, _, recv_data| {
-        let buffer_index = index * 7;
-        let offset = exchg_start + index;
-        let masses = get_array_real_ref(array_dev, const_grid.masses);
+    device().loop_1d(false, iexchg, |i| {
+        let buffer_index = i * 7;
+        let offset = exchg_start + i;
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
             y: recv_data(buffer_index + 2),
@@ -594,7 +591,7 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
             z: recv_data(buffer_index + 6)
         };
 
-        masses(offset) = recv_data(buffer_index);
+        get_array_real_ref(array_dev, const_grid.masses)(offset) = recv_data(buffer_index);
         set_position(offset, const_grid, position);
         set_velocity(offset, const_grid, velocity);
     });
@@ -647,7 +644,7 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
             set_counter(isend, const_grid);
             reset_resize(const_grid);
 
-            particles(false, const_grid, |i, _, _, _| {
+            particles_scalar(false, const_grid, |i| {
                 let masses = get_array_real_ref(array_dev, const_grid.masses);
                 let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
                 let buffer = get_array_real_ref(array_dev, const_comm.send_buffer);
@@ -748,6 +745,9 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
     let const_ilocal = ilocal;
     let const_irecv = irecv;
     let nlocal = isend - ilocal;
+    let masses = get_array_real_ref(array_dev, const_grid.masses);
+    let send_data = get_array_real_ref(array_dev, const_comm.send_buffer);
+    let recv_data = get_array_real_ref(array_dev, const_comm.recv_buffer);
 
     add_ghost_slots(irecv + nlocal, grid);
 
@@ -755,10 +755,9 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
         transfer_array_to_device(comm.recv_buffer);
     }
 
-    comm_buffer_iterate(const_comm, irecv, |index, _, recv_data| {
-        let buffer_index = index * 4;
-        let offset = const_grid.nparticles + index;
-        let masses = get_array_real_ref(array_dev, const_grid.masses);
+    device().loop_1d(false, irecv, |i| {
+        let buffer_index = i * 4;
+        let offset = const_grid.nparticles + i;
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
             y: recv_data(buffer_index + 2),
@@ -769,10 +768,9 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
         set_position(offset, const_grid, position);
     });
 
-    comm_buffer_iterate(const_comm, nlocal, |index, send_data, _| {
-        let buffer_index = (const_ilocal + index) * 4;
-        let offset = const_grid.nparticles + const_irecv + index;
-        let masses = get_array_real_ref(array_dev, const_grid.masses);
+    device().loop_1d(false, nlocal, |i| {
+        let buffer_index = (const_ilocal + i) * 4;
+        let offset = const_grid.nparticles + const_irecv + i;
         let position = Vector3D {
             x: send_data(buffer_index + 1),
             y: send_data(buffer_index + 2),

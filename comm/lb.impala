@@ -166,7 +166,7 @@ fn serialize_and_remove(grid: &mut Grid, comm: &mut Comm, check: fn(Vector3D) ->
         set_counter(0, const_grid);
         reset_resize(const_grid);
 
-        particles(false, const_grid, |i, _, _, _| {
+        particles_scalar(false, const_grid, |i| {
             let masses = get_array_real_ref(array_dev, const_grid.masses);
             let send_flags = get_array_i8_ref(array_dev, const_grid.send_flags);
             let buffer = get_array_real_ref(array_dev, const_comm.send_buffer);
@@ -231,14 +231,13 @@ fn serialize_and_remove(grid: &mut Grid, comm: &mut Comm, check: fn(Vector3D) ->
 
     let const_comm = *comm;
     let const_grid = *grid;
+    let copy_list = get_array_i32_ref(array_dev, const_comm.copy_list);
+    let masses = get_array_i32_ref(array_dev, const_grid.masses);
 
-    copy_list_iterate(const_comm, packed, |i, copy_list, send_offsets| {
-        let masses = get_array_real_ref(array_dev, const_grid.masses);
-
+    device().loop_1d(false, packed, |i| {
         if copy_list(i) > 0 {
             let src = copy_list(i);
-            let dst = send_offsets(i);
-
+            let dst = get_array_i32_ref(array_dev, const_comm.send_offsets)(i);
             masses(dst) = masses(src);
             set_position(dst, const_grid, get_position(src, const_grid));
             set_velocity(dst, const_grid, get_velocity(src, const_grid));
@@ -256,13 +255,14 @@ fn deserialize_particles(grid: &mut Grid, comm: &mut Comm, nparticles: i32) -> (
     let start = add_local_slots(nparticles, grid);
     let const_grid = *grid;
     let const_comm = *comm;
+    let masses = get_array_real_ref(array_dev, const_grid.masses);
+    let recv_data = get_array_real_ref(array_dev, const_comm.recv_buffer);
 
     transfer_array_to_device(comm.recv_buffer);
 
-    comm_buffer_iterate(const_comm, nparticles, |index, _, recv_data| {
-        let buffer_index = index * 7;
-        let offset = start + index;
-        let masses = get_array_real_ref(array_dev, const_grid.masses);
+    device().loop_1d(false, nparticles, |i| {
+        let buffer_index = i * 7;
+        let offset = start + i;
         let position = Vector3D {
             x: recv_data(buffer_index + 1),
             y: recv_data(buffer_index + 2),

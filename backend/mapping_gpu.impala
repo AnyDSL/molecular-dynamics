@@ -9,14 +9,28 @@ struct ReductionBuffers {
 static mut reduction_buffers_: ReductionBuffers;
 
 fn @device() -> Device {
+    let loop_1d = @|_, n, f| {
+        let acc = accelerator(device_id);
+        let block_size = (64, 1, 1);
+        let grid_size = (round_up(n, block_size(0)), 1, 1);
+
+        if n > 0 {
+            acc.exec(grid_size, block_size, |work_item| {
+                let i = work_item.bidx() * work_item.bdimx() + work_item.tidx();
+                if i < n {
+                    f(i);
+                }
+            });
+
+            acc.sync();
+        }
+    };
+
     Device {
         cpu_target: @|| { false },
         init: |grid| {
-            let acc = accelerator(device_id);
-            let grid_size = (32, 1, 1);
-            let block_size = (32, 1, 1);
             reduction_buffers_.capacity = 0;
-            acc.exec(grid_size, block_size, |work_item| {});
+            loop_1d(64, |_| {});
         },
         shutdown: || {
             if reduction_buffers_.capacity > 0 {
@@ -27,85 +41,9 @@ fn @device() -> Device {
         alloc_mirror: |buf, size| { alloc_cpu(size) },
         transfer: |from, to| { copy(from, to); },
         sqrt: @|a| { nvvm_intrinsics.sqrt(a) },
+        loop_1d: loop_1d,
         add_iterator: |iterator| {},
         atomic_add_i32: @|ptr, value| { nvvm_atomic_add_global(ptr as &mut[1]i32, value) }
-    }
-}
-
-fn @(?ghost) particles(@ghost: bool, grid: Grid, body: fn(i32, &mut[i32], i32, i32) -> ()) -> () {
-    let neighbors_sizes = get_array_i32_ref(array_dev, grid.neighbors_sizes);
-    let neighborlists = get_array_i32_ref(array_dev, grid.neighborlists);
-    let neighborlist_capacity = grid.neighborlist_capacity;
-    let n = select(ghost, grid.nparticles + grid.nghost, grid.nparticles);
-    let acc = accelerator(device_id);
-    let block_size = (64, 1, 1);
-    let grid_size  = (round_up(n, block_size(0)), 1, 1);
-
-    if n > 0 {
-        acc.exec(grid_size, block_size, |work_item| {
-            let particle_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            if particle_index < n {
-                let nb_list_offset = neighborlist_capacity * particle_index;
-                let nb_list_size = neighbors_sizes(particle_index);
-                @@body(particle_index, neighborlists, nb_list_size, nb_list_offset);
-            }
-        });
-
-        acc.sync();
-    }
-}
-
-fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32, &mut[i32], i32, i32) -> ()) -> () { particles(ghost, grid, f); }
-
-fn cells(grid: Grid, body: fn(i32) -> ()) -> () {
-    let ncells = grid.ncells;
-    let acc = accelerator(device_id);
-    let block_size = (64, 1, 1);
-    let grid_size  = (round_up(ncells, block_size(0)), 1, 1);
-
-    if ncells > 0 {
-        acc.exec(grid_size, block_size, |work_item| {
-            let cell_index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            if cell_index < ncells {
-                @@body(cell_index);
-            }
-        });
-
-        acc.sync();
-    }
-}
-
-fn copy_list_iterate(comm: Comm, ncopy: i32, body: fn(i32, &[i32], &[i32]) -> ()) -> () {
-    let acc = accelerator(device_id);
-    let block_size = (64, 1, 1);
-    let grid_size = (round_up(ncopy, block_size(0)), 1, 1);
-
-    if ncopy > 0 {
-        acc.exec(grid_size, block_size, |work_item| {
-            let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            if index < ncopy {
-                @@body(index, get_array_i32_ref(array_dev, comm.copy_list), get_array_i32_ref(array_dev, comm.send_offsets));
-            }
-        });
-
-        acc.sync();
-    }
-}
-
-fn comm_buffer_iterate(comm: Comm, noffsets: i32, body: fn(i32, &mut[real_t], &[real_t]) -> ()) -> () {
-    let acc = accelerator(device_id);
-    let block_size = (64, 1, 1);
-    let grid_size = (round_up(noffsets, block_size(0)), 1, 1);
-
-    if noffsets > 0 {
-        acc.exec(grid_size, block_size, |work_item| {
-            let index = work_item.bidx() * work_item.bdimx() + work_item.tidx();
-            if index < noffsets {
-                @@body(index, get_array_real_ref(array_dev, comm.send_buffer), get_array_real_ref(array_dev, comm.recv_buffer));
-            }
-        });
-
-        acc.sync();
     }
 }
 
