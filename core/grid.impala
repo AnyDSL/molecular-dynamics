@@ -43,6 +43,7 @@ struct Particle {
     get_velocity: fn(i32) -> Vector3D,
     set_force:    fn(i32, Vector3D) -> (),
     get_force:    fn(i32) -> Vector3D,
+    add_force:    fn(i32, Vector3D) -> (),
     set_neigh:    fn(i32, i32, i32) -> (),
     neighbors:    fn(i32, fn(i32) -> ()) -> ()
 };
@@ -65,8 +66,9 @@ fn @make_particle(grid: Grid, target_fn: ArrayTargetFn, vec3_layout: ArrayLayout
         get_position: @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.positions, i),
         set_velocity: @|i, v|       array_2d_set_vec3(target_fn, vec3_layout, grid.velocities, i, v),
         get_velocity: @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.velocities, i),
-        set_force:    @|i, f|       array_2d_set_vec3(target_fn, vec3_layout, grid.velocities, i, f),
-        get_force:    @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.velocities, i),
+        set_force:    @|i, f|       array_2d_set_vec3(target_fn, vec3_layout, grid.forces, i, f),
+        get_force:    @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.forces, i),
+        add_force:    @|i, f|       array_2d_add_vec3(vec3_layout, grid.forces, i, f),
         set_neigh:    @|i, j, n|    array_2d_set_i32(target_fn, nb_layout, grid.neighborlists, i, j, n),
         neighbors:    @|i, f| {
             for n in range(0, get_array_i32_ref(array_dev, grid.neighbors_sizes)(i)) {

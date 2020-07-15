@@ -26,11 +26,10 @@ fn @(?half_nb) compute_potential(
                 if half_nb == 0 {
                     force = vector_add(force, f);
                 } else {
-                    array_2d_add_vec3(ParticleDataLayout(), grid.forces, i, f);
+                    particle.add_force(i, f);
 
                     if j < grid.nparticles {
-                        let nf = Vector3D { x: -f.x, y: -f.y, z: -f.z };
-                        array_2d_add_vec3(ParticleDataLayout(), grid.forces, j, nf);
+                        particle.add_force(j, Vector3D { x: -f.x, y: -f.y, z: -f.z });
                     }
                 }
 
