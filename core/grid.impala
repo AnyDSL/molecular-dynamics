@@ -69,8 +69,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
     let nz = real_floor(((aabb.zmax - aabb.zmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let ncells = nx * ny * nz;
     let ncells_capacity = ncells * 4;
-    let particle_capacity = ncells_capacity * 32;
-
+    let particle_capacity = ncells_capacity * 8;
     let alloc_i8_array      =  @|capacity: i32, mirror_host: bool| { allocate_array(capacity, 1, sizeof[i8](),     mirror_host) };
     let alloc_i32_array     =  @|capacity: i32, mirror_host: bool| { allocate_array(capacity, 1, sizeof[i32](),    mirror_host) };
     let alloc_real_array    =  @|capacity: i32, mirror_host: bool| { allocate_array(capacity, 1, sizeof[real_t](), mirror_host) };
