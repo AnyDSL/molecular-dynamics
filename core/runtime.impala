@@ -185,7 +185,7 @@ extern fn md_create_velocity(t_request: real_t) -> () {
 }
 
 extern fn md_compute_lennard_jones(half_neighborlist: bool, cutoff_distance: real_t, epsilon: real_t, sigma: real_t) -> () {
-    let half_nb = select(half_neighborlist, 1, 0);
+    let half_nb = select(half_neighborlist, true, false);
     let sigma6 = pow(sigma, 6);
     let (iforces, irsq) = compute_potential(grid_, half_nb, cutoff_distance * cutoff_distance, @|_, _, _, _, _, del, rsq| {
         let sr2 = 1.0 / rsq;
@@ -205,7 +205,7 @@ extern fn md_compute_dem(
 
     let dev = device();
     let grid = grid_;
-    let half_nb = select(half_neighborlist, 1, 0);
+    let half_nb = select(half_neighborlist, true, false);
     let radius = 1.0;
     let square =        @|a: real_t| { a * a };
     let vector_len =    @|v: Vector3D| { dev.sqrt(vector_len2(v)) };

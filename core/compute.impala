@@ -1,11 +1,11 @@
 fn @(?half_nb) compute_potential(
-    grid: Grid, @half_nb: i32, rsq_cutoff: real_t,
+    grid: Grid, half_nb: bool, rsq_cutoff: real_t,
     potential: fn(Particle, i32, i32, Vector3D, Vector3D, Vector3D, real_t) -> Vector3D) -> (i64, i64) {
 
     let mut total_iters = 0 as i64;
     let mut rsq_iters = 0 as i64;
 
-    if half_nb != 0 {
+    if half_nb {
         particles_vec(false, grid, |i, particle| {
             particle.set_force(i, Vector3D { x: 0.0, y: 0.0, z: 0.0 });
         });
@@ -21,9 +21,9 @@ fn @(?half_nb) compute_potential(
             let rsq = vector_len2(del);
 
             if rsq < rsq_cutoff {
-                let f = potential(particle, i, j, pos_i, pos_j, del, rsq);
+                let f = @@potential(particle, i, j, pos_i, pos_j, del, rsq);
 
-                if half_nb == 0 {
+                if !half_nb {
                     force = vector_add(force, f);
                 } else {
                     particle.add_force(i, f);
@@ -39,7 +39,7 @@ fn @(?half_nb) compute_potential(
             device().add_iterator(&mut total_iters);
         });
 
-        if half_nb == 0 {
+        if !half_nb {
             particle.set_force(i, force);
         }
     });
