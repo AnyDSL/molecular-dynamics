@@ -52,7 +52,7 @@ void print_usage(char *name) {
     cout << "\t    --temp=REAL           initial temperature (default 1.44)." << endl;
     cout << "\t    --cutoff=REAL         cutoff radius (default 2.5)." << endl;
     cout << "\t    --verlet=REAL         verlet buffer (default 0.3)." << endl;
-    cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones force-field(default 1.0)." << endl;
+    cout << "\t    --epsilon=REAL        epsilon value for Lennard-Jones force-field (default 1.0)." << endl;
     cout << "\t    --sigma=REAL          sigma value for Lennard-Jones force-field (default 1.0)." << endl;
     cout << "\t    --damping_n=REAL      Normal damping for DEM force-field (default 0.0)." << endl;
     cout << "\t    --damping_t=REAL      Tangential damping for DEM force-field (default 0.0)." << endl;

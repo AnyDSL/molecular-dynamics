@@ -1,6 +1,6 @@
-# AnyDSL implementation of a neighborlist cutoff scheme optimized for SIMD and GPU architectures
+# tinyMD: An AnyDSL implementation of a neighborlist cutoff scheme optimized for SIMD and GPU architectures
 
-This repository contains a simple, fast, scalable and portable implementation in AnyDSL (https://anydsl.github.io/) for particles short-range interactions simulations using the Lennard-Jones potential, it is entirely based on the miniMD micro-application benchmark.
+This repository contains tinyMD: a simple, fast, scalable and portable implementation for particles short-range interactions simulations in AnyDSL (https://anydsl.github.io/), it is based on the miniMD micro-application benchmark.
 
 ## Building
 
@@ -18,8 +18,6 @@ There are several CMake options you can adjust before compilation, the most impo
 
 - **BACKEND:** Backend to compile the application, please use the following: cpu, avx, avx512 or nvvm (default is cpu).
 - **USE\_MPI:** Use MPI library, just turn it off if there is no MPI library available (default is ON).
-- **USE\_SOA:** Set this option to OFF if you want to use the Array of Structs (AoS) data layout for particle positions, velocities and forces (default is ON).
-- **MONITOR\_ONLY\_FORCE\_COMPUTATION:** If you intend to use Likwid to instrument the force computation kernel and do performance monitoring, use this option to include the markers (default is OFF).
 - **USE\_WALBERLA\_LOAD\_BALANCING:** Enable this option to use the load balancing mechanism from Walberla, it must be installed (default is OFF).
 
 The Impala compiler generates Thorin intermediate representation that is further compiled using Clang/LLVM. If you want to do cross-compilation or experiment among different compilation flags you can change the CLANG\_FLAGS option.
@@ -32,7 +30,14 @@ make -j4 # this uses 4 jobs to compile in parallel
 
 ## Usage
 
-Currently, one testcase has been implemented based on miniMD setup. Particles are placed on a three dimensional cubic grid and are initialized with a random velocity. Use the following command to run a simulation:
+Currently, four testcases are available:
+
+- **default:** Setup based on miniMD setup, particles are placed on a three dimensional lattice and are initialized with a random velocities that attend the initial temperature defined.
+- **body_collision:**: Setup for body collision experiments, produce two lattices like the default and initialize the velocity to provoke a collision between these lattices.
+- **half:** Same setup as default, but just filling half of the grid using a y-axis to separate the filled and empty regions.
+- **granular_gas:** Setup used to evaluate the load balancing feature in a DEM simulation with the Spring-Dashpot contact model. It also fills a lattice in half of the domain, but velocities are set to zero and a diagonal axis separate the filled and empty regions.
+
+Use the following command to run a simulation:
 
 ```bash
 ./md [OPTION]...
@@ -40,7 +45,8 @@ Currently, one testcase has been implemented based on miniMD setup. Particles ar
 
 Available options are:
 
-- **-b, --benchmark=STRING:** Benchmark to use (options are default, half and body\_collision).
+- **-f, --force_field=STRING:** Force field to use (options are lj and dem, default is lj).
+- **-b, --benchmark=STRING:** Benchmark to use (options are default, half, body\_collision and granular\_gas).
 - **-x, --nx=SIZE:** Number of unit cells in x dimension (default 32).
 - **-y, --ny=SIZE:** Number of unit cells in y dimension (default 32).
 - **-z, --nz=SIZE:** Number of unit cells in z dimension (default 32).
@@ -52,12 +58,16 @@ Available options are:
 - **--reneigh=NUMBER:** Timesteps to simulate before reneighboring (default 20).
 - **--rebalance=NUMBER:** Timesteps to simulate before load balancing (default 100).
 - **--dt=REAL:** Timestep size (default 0.005).
+- **--temp=REAL:** initial temperature (default 1.44).
 - **--cutoff=REAL:** Cutoff radius (default 2.5).
 - **--verlet=REAL:** Verlet buffer (default 0.3).
 - **--epsilon=REAL:** Epsilon value for Lennard-Jones equation (default 1.0).
 - **--sigma=REAL:** Sigma value for Lennard-Jones equation (default 1.0).
+- **--damping_n:** Normal damping for DEM force-field (default 0.0).
+- **--damping_t:** Tangential damping for DEM force-field (default 0.0).
+- **--stiffness:** Stiffness for DEM force-field (default 0.0).
+- **--friction:** Friction for DEM force-field (default 0.0).
 - **--potmin=REAL:** Potential minimum (default 1.6796).
 - **--half_nb:** Compute with half neighbor list.
+- **--prebalance:** Perform static load balancing before execution.
 - **-h, --help:** Display help message.
-
-Each unit cells contains 4 particles in the default setup, so the number of particles is given by nx * ny * nz * 4. For the body collision setup, the number of particles is two times this number. For the half setup, the number of particles is roughly the half of this number, and these particles fill just half of the grid, providing a good test case for the load balancing.
