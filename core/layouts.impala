@@ -58,6 +58,7 @@ fn @add_fn(atomic: i32, array: ArrayData, index: i32, value: real_t) -> () {
     }
 }
 
+fn @null_layout() -> ArrayLayout { column_major_order_array(0) }
 fn @column_major_order_array(@atomic: i32) -> ArrayLayout {
     ArrayLayout {
         index_2d_fn: @|array, x, y| { y * array.size_x + x },
@@ -164,17 +165,4 @@ fn @array_2d_add_vec3(@layout: ArrayLayout, array: ArrayData, i: i32, vector: Ve
 
 fn @array_2d_copy_vec3(@layout: ArrayLayout, src: ArrayData, dest: ArrayData, i: i32, j: i32) -> () {
     array_2d_set_vec3(array_host, layout, dest, j, array_2d_get_vec3(array_host, layout, src, i));
-}
-
-fn @array_2d_swap_vec3(@layout: ArrayLayout, array: ArrayData, i: i32, j: i32) -> () {
-    let tmp = array_2d_get_vec3(array_host, layout, array, i);
-    array_2d_set_vec3(array_host, layout, array, i, array_2d_get_vec3(array_host, layout, array, j));
-    array_2d_set_vec3(array_host, layout, array, j, tmp);
-}
-
-fn @array_1d_swap_real(array: ArrayData, i: i32, j: i32) -> () {
-    let data = get_array_real_ref(array_host, array);
-    let tmp = data(i);
-    data(i) = data(j);
-    data(j) = tmp;
 }

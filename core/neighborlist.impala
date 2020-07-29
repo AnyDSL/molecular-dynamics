@@ -27,47 +27,44 @@ fn @(?half_nb) assemble_neighborlists(grid: &mut Grid, half_nb: i32, cutoff_dist
 
         reset_resize(const_grid);
 
-        let append_neighbor_cell = @|@chk_myself: bool, particle_index: i32, pos: Vector3D, nb_cell_size: i32, nb_cell_offset: i32| {
-            range(0, nb_cell_size, |neighbor_cell_particle_index| {
-                let neighbor_particle_index = cell_particles(nb_cell_offset + neighbor_cell_particle_index);
-                if !chk_myself || particle_index != neighbor_particle_index {
-                    if half_nb == 0 || particle_index > neighbor_particle_index {
-                        let pos_neighbor = get_position(neighbor_particle_index, const_grid);
-                        let del = vector_sub(pos, pos_neighbor);
-                        let rsq = vector_len2(del);
+        let append_neighbor_cell = @|particle: Particle, @chk_myself: bool, i: i32, pos: Vector3D, cell_size: i32, cell_offset: i32| {
+            range(0, cell_size, |k| {
+                let j = cell_particles(cell_offset + k);
+                if !chk_myself || i != j {
+                    if half_nb == 0 || i > j {
+                        let pos_neighbor = particle.get_position(j);
+                        let rsq = vector_len2(vector_sub(pos, pos_neighbor));
+
                         if rsq <= cutoff_distance * cutoff_distance {
-                            let nb_list_size = neighbors_sizes(particle_index);
+                            let nb_list_size = neighbors_sizes(i);
 
                             if nb_list_size >= const_grid.neighborlist_capacity {
                                 grow_resize(nb_list_size, const_grid);
                             } else {
-                                array_2d_set_i32(
-                                    array_dev, NeighborlistLayout(), const_grid.neighborlists,
-                                    particle_index, nb_list_size, neighbor_particle_index);
+                                particle.set_neigh(i, nb_list_size, j);
                             }
 
-                            neighbors_sizes(particle_index)++;
+                            neighbors_sizes(i)++;
                         }
                     }
                 }
             });
         };
 
-        particles_vec(false, const_grid, |particle_index| {
-            let pos = get_position(particle_index, const_grid);
-            let cell_index = particles_cell(particle_index);
+        particles_vec(false, const_grid, |i, particle| {
+            let pos = particle.get_position(i);
+            let cell_index = particles_cell(i);
 
-            neighbors_sizes(particle_index) = 0;
-
+            neighbors_sizes(i) = 0;
             neighbor_cells(cell_index, const_grid.nx, const_grid.ny, const_grid.ncells, half_nb, |nbr_cell_index| {
                 if cell_index != nbr_cell_index {
                     let neighbor_cell_offset = get_cell_offset(nbr_cell_index, const_grid);
                     let neighbor_cell_size = cell_sizes(nbr_cell_index);
-                    append_neighbor_cell(false, particle_index, pos, neighbor_cell_size, neighbor_cell_offset);
+                    append_neighbor_cell(particle, false, i, pos, neighbor_cell_size, neighbor_cell_offset);
                 } else {
                     let cell_offset = get_cell_offset(cell_index, const_grid);
                     let cell_size = cell_sizes(cell_index);
-                    append_neighbor_cell(true, particle_index, pos, cell_size, cell_offset);
+                    append_neighbor_cell(particle, true, i, pos, cell_size, cell_offset);
                 }
             });
         });

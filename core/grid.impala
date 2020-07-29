@@ -34,13 +34,23 @@ struct Grid {
     resize: ArrayData           // resize
 }
 
+struct Particle {
+    set_mass:     fn(i32, real_t) -> (),
+    get_mass:     fn(i32) -> real_t,
+    set_position: fn(i32, Vector3D) -> (),
+    get_position: fn(i32) -> Vector3D,
+    set_velocity: fn(i32, Vector3D) -> (),
+    get_velocity: fn(i32) -> Vector3D,
+    set_force:    fn(i32, Vector3D) -> (),
+    get_force:    fn(i32) -> Vector3D,
+    add_force:    fn(i32, Vector3D) -> (),
+    set_copy_pos: fn(i32, Vector3D) -> (),
+    set_copy_vel: fn(i32, Vector3D) -> (),
+    set_neigh:    fn(i32, i32, i32) -> (),
+    neighbors:    fn(i32, fn(i32) -> ()) -> ()
+};
+
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
-fn @get_position(i: i32, grid: Grid) -> Vector3D { array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.positions, i) }
-fn @set_position(i: i32, grid: Grid, p: Vector3D) -> () { array_2d_set_vec3(array_dev, ParticleDataLayout(), grid.positions, i, p); }
-fn @get_velocity(i: i32, grid: Grid) -> Vector3D { array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.velocities, i) }
-fn @set_velocity(i: i32, grid: Grid, v: Vector3D) -> () { array_2d_set_vec3(array_dev, ParticleDataLayout(), grid.velocities, i, v); }
-fn @get_force(i: i32, grid: Grid) -> Vector3D { array_2d_get_vec3(array_dev, ParticleDataLayout(), grid.forces, i) }
-fn @set_force(i: i32, grid: Grid, f: Vector3D) -> () { array_2d_set_vec3(array_dev, ParticleDataLayout(), grid.forces, i, f); }
 fn @sort_particles() -> bool { false }
 fn @sparse_cell_list() -> bool { false }
 fn @get_cell_offset(cell_index: i32, grid: &Grid) -> i32 { cell_index * grid.cell_capacity }
@@ -48,21 +58,39 @@ fn @get_neighborlist_offset(cell_index: i32, cluster_index: i32, grid: &Grid) ->
     grid.neighborlist_capacity * (cell_index * grid.cell_capacity + cluster_index)
 }
 
-fn @particles(@vec: bool, @ghost: bool, grid: Grid, f: fn(i32) -> ()) -> () {
-    let n = select(ghost, grid.nparticles + grid.nghost, grid.nparticles);
-    device().loop_1d(vec, n, |particle_index| {
-        f(particle_index);
-    });
-}
+fn @make_particle(grid: Grid, target_fn: ArrayTargetFn, vec3_layout: ArrayLayout, nb_layout: ArrayLayout) -> Particle {
+    let masses = get_array_real_ref(target_fn, grid.masses);
 
-fn @particles_scalar(@ghost: bool, grid: Grid, f: fn(i32) -> ()) -> () { particles(false, ghost, grid, f); }
-fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32) -> ()) -> () { particles(true, ghost, grid, f); }
-fn @neighbors(particle_index: i32, grid: Grid, f: fn(i32) -> ()) -> () {
-    for n in range(0, get_array_i32_ref(array_dev, grid.neighbors_sizes)(particle_index)) {
-        f(array_2d_get_i32(array_dev, NeighborlistLayout(), grid.neighborlists, particle_index, n));
+    Particle {
+        get_mass:     @|i|          masses(i),
+        set_mass:     @|i, m|       masses(i) = m,
+        set_position: @|i, p|       array_2d_set_vec3(target_fn, vec3_layout, grid.positions, i, p),
+        get_position: @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.positions, i),
+        set_velocity: @|i, v|       array_2d_set_vec3(target_fn, vec3_layout, grid.velocities, i, v),
+        get_velocity: @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.velocities, i),
+        set_force:    @|i, f|       array_2d_set_vec3(target_fn, vec3_layout, grid.forces, i, f),
+        get_force:    @|i|          array_2d_get_vec3(target_fn, vec3_layout, grid.forces, i),
+        add_force:    @|i, f|       array_2d_add_vec3(vec3_layout, grid.forces, i, f),
+        set_copy_pos: @|i, p|       array_2d_set_vec3(target_fn, vec3_layout, grid.positions_copy, i, p),
+        set_copy_vel: @|i, v|       array_2d_set_vec3(target_fn, vec3_layout, grid.velocities_copy, i, v),
+        set_neigh:    @|i, j, n|    array_2d_set_i32(target_fn, nb_layout, grid.neighborlists, i, j, n),
+        neighbors:    @|i, f| {
+            for n in range(0, get_array_i32_ref(array_dev, grid.neighbors_sizes)(i)) {
+                f(array_2d_get_i32(array_dev, nb_layout, grid.neighborlists, i, n));
+            }
+        }
     }
 }
 
+fn @particles(@vec: bool, @ghost: bool, grid: Grid, f: fn(i32, Particle) -> ()) -> () {
+    let n = select(ghost, grid.nparticles + grid.nghost, grid.nparticles);
+    device().loop_1d(vec, n, |i| {
+        f(i, make_particle(grid, array_dev, ParticleDataLayout(), NeighborlistLayout()));
+    });
+}
+
+fn @particles_scalar(@ghost: bool, grid: Grid, f: fn(i32, Particle) -> ()) -> () { particles(false, ghost, grid, f); }
+fn @particles_vec(@ghost: bool, grid: Grid, f: fn(i32, Particle) -> ()) -> () { particles(true, ghost, grid, f); }
 fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity: i32, neighborlist_capacity: i32) -> Grid {
     let nx = real_floor(((aabb.xmax - aabb.xmin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
     let ny = real_floor(((aabb.ymax - aabb.ymin + (cell_spacing / (2.0 as real_t))) / cell_spacing)) as i32 + 1;
@@ -204,9 +232,7 @@ fn initialize_grid(
 }
 
 fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
-    let null_vec = Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t };
     let particle_index = grid.nparticles;
-    let masses = get_array_real_ref(array_host, grid.masses);
     let neighbors_sizes = get_array_i32_ref(array_host, grid.neighbors_sizes);
 
     if particle_index >= grid.particle_capacity {
@@ -214,17 +240,13 @@ fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &
         reallocate_particle_capacity(grid, new_capacity);
     }
 
-    masses(particle_index) = mass;
+    let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
+    particle.set_mass(particle_index, mass);
+    particle.set_position(particle_index, position);
+    particle.set_velocity(particle_index, velocity);
+    particle.set_force(particle_index, Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t });
     neighbors_sizes(particle_index) = 0;
-    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index, position);
-    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index, velocity);
-    array_2d_set_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index, null_vec);
     grid.nparticles++;
-}
-
-fn delete_particle(particle_index: i32, grid: &mut Grid) -> () {
-    swap_particles(particle_index, grid.nparticles - 1, grid);
-    grid.nparticles--;
 }
 
 fn add_local_slots(slots: i32, grid: &mut Grid) -> i32 {
@@ -255,67 +277,6 @@ fn add_ghost_slots(slots: i32, grid: &mut Grid) -> i32 {
     first_particle_index
 }
 
-// Particles must be at the same cell
-fn swap_particles(i: i32, j: i32, grid: &mut Grid) -> () {
-    array_1d_swap_real(grid.masses, i, j);
-    array_2d_swap_vec3(ParticleDataLayout(), grid.positions, i, j);
-    array_2d_swap_vec3(ParticleDataLayout(), grid.velocities, i, j);
-}
-
-fn crop_empty_region(grid: &mut Grid) -> () {
-    let b = AABB {
-        xmin: grid.aabb.xmax,
-        xmax: grid.aabb.xmin,
-        ymin: grid.aabb.ymax,
-        ymax: grid.aabb.ymin,
-        zmin: grid.aabb.zmax,
-        zmax: grid.aabb.zmin
-    };
-
-    let red_aabb_fn = @|aabb1: AABB, aabb2: AABB| {
-        AABB {
-            xmin: select(aabb1.xmin < aabb2.xmin, aabb1.xmin, aabb2.xmin),
-            xmax: select(aabb1.xmax > aabb2.xmax, aabb1.xmax, aabb2.xmax),
-            ymin: select(aabb1.ymin < aabb2.ymin, aabb1.ymin, aabb2.ymin),
-            ymax: select(aabb1.ymax > aabb2.ymax, aabb1.ymax, aabb2.ymax),
-            zmin: select(aabb1.zmin < aabb2.zmin, aabb1.zmin, aabb2.zmin),
-            zmax: select(aabb1.zmax > aabb2.zmax, aabb1.zmax, aabb2.zmax)
-        }
-    };
-
-    let const_grid = *grid;
-    let aabb = reduce_aabb(grid.nparticles, b, red_aabb_fn, @|i| {
-        let pos = get_position(i, const_grid);
-
-        AABB {
-            xmin: pos.x,
-            xmax: pos.x,
-            ymin: pos.y,
-            ymax: pos.y,
-            zmin: pos.z,
-            zmax: pos.z
-        }
-    });
-
-    let cells_x_beg = real_floor((aabb.xmin - grid.aabb.xmin) / grid.spacing) as i32 - 1;
-    let cells_x_end = real_floor((aabb.xmax - grid.aabb.xmin) / grid.spacing) as i32 + 2;
-    let cells_y_beg = real_floor((aabb.ymin - grid.aabb.ymin) / grid.spacing) as i32 - 1;
-    let cells_y_end = real_floor((aabb.ymax - grid.aabb.ymin) / grid.spacing) as i32 + 2;
-    let cells_z_beg = real_floor((aabb.zmin - grid.aabb.zmin) / grid.spacing) as i32 - 1;
-    let cells_z_end = real_floor((aabb.zmax - grid.aabb.zmin) / grid.spacing) as i32 + 2;
-
-    grid.nx = cells_x_end - cells_x_beg;
-    grid.ny = cells_y_end - cells_y_beg;
-    grid.nz = cells_z_end - cells_z_beg;
-    grid.ncells = grid.nx * grid.ny * grid.nz;
-    grid.cells_offset_x = cells_x_beg;
-    grid.cells_offset_y = cells_y_beg;
-    grid.cells_offset_z = cells_z_beg;
-
-    if grid.ncells >= grid.ncells_capacity {
-        reallocate_ncells_capacity(grid, grid.ncells + 20);
-    }
-}
 
 fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
     if sparse_cell_list() {
@@ -333,8 +294,8 @@ fn fill_cells(grid: &mut Grid, @ghost: bool) -> () {
             cell_sizes(i) = 0;
         });
 
-        particles_scalar(ghost, const_grid, |i| {
-            let pos = get_position(i, const_grid);
+        particles_scalar(ghost, const_grid, |i, particle| {
+            let pos = particle.get_position(i);
             let cell_particles = get_array_i32_ref(array_dev, const_grid.cell_particles);
             let particles_cell = get_array_i32_ref(array_dev, const_grid.particles_cell);
             let cell_index = flatten_index(compute_cell_position(pos, const_grid), const_grid);
@@ -364,6 +325,7 @@ fn distribute_particles(grid: &mut Grid) -> () {
     if sort_particles() {
         fill_cells(grid, false);
 
+        let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
         let cell_particles = get_array_i32_ref(array_host, grid.cell_particles);
         let cell_sizes = get_array_i32_ref(array_host, grid.cell_sizes);
         let mut offset = 0;
@@ -374,15 +336,15 @@ fn distribute_particles(grid: &mut Grid) -> () {
             range(0, cell_sizes(cell_index), |cell_particle_index| {
                 let old_index = cell_particles(cell_offset + cell_particle_index);
                 let new_index = offset + cell_particle_index;
-                array_2d_copy_vec3(ParticleDataLayout(), grid.positions, grid.positions_copy, old_index, new_index);
-                array_2d_copy_vec3(ParticleDataLayout(), grid.velocities, grid.velocities_copy, old_index, new_index);
+                particle.set_copy_pos(new_index, particle.get_position(old_index));
+                particle.set_copy_vel(new_index, particle.get_velocity(old_index));
             });
 
             offset += cell_sizes(cell_index);
         });
 
         range(grid.nparticles, grid.nparticles + grid.nghost, |ghost_index| {
-            array_2d_copy_vec3(ParticleDataLayout(), grid.positions, grid.positions_copy, ghost_index, ghost_index);
+            particle.set_copy_pos(ghost_index, particle.get_position(ghost_index));
         });
 
         let pos_copy = grid.positions;
@@ -442,6 +404,83 @@ fn get_resize(grid: Grid) -> i32 {
     get_array_i32_ref(array_host, grid.resize)(0)
 }
 
+fn compute_cell_position(position: Vector3D, grid: Grid) -> [i32 * 3] {
+    let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
+    let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
+    let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
+    [i, j, k]
+}
+
+fn is_within_domain(position: Vector3D, aabb: AABB) -> bool {
+    position.x >= aabb.xmin && position.x <= aabb.xmax &&
+    position.y >= aabb.ymin && position.y <= aabb.ymax &&
+    position.z >= aabb.zmin && position.z <= aabb.zmax
+}
+
+fn flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
+    if sparse_cell_list() {
+        ((cell_index(2) - grid.cells_offset_z) * grid.ny + (cell_index(1) - grid.cells_offset_y)) * grid.nx +
+        cell_index(0) - grid.cells_offset_x
+    } else {
+        (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
+    }
+}
+
+fn crop_empty_region(grid: &mut Grid) -> () {
+    let b = AABB {
+        xmin: grid.aabb.xmax,
+        xmax: grid.aabb.xmin,
+        ymin: grid.aabb.ymax,
+        ymax: grid.aabb.ymin,
+        zmin: grid.aabb.zmax,
+        zmax: grid.aabb.zmin
+    };
+
+    let red_aabb_fn = @|aabb1: AABB, aabb2: AABB| {
+        AABB {
+            xmin: select(aabb1.xmin < aabb2.xmin, aabb1.xmin, aabb2.xmin),
+            xmax: select(aabb1.xmax > aabb2.xmax, aabb1.xmax, aabb2.xmax),
+            ymin: select(aabb1.ymin < aabb2.ymin, aabb1.ymin, aabb2.ymin),
+            ymax: select(aabb1.ymax > aabb2.ymax, aabb1.ymax, aabb2.ymax),
+            zmin: select(aabb1.zmin < aabb2.zmin, aabb1.zmin, aabb2.zmin),
+            zmax: select(aabb1.zmax > aabb2.zmax, aabb1.zmax, aabb2.zmax)
+        }
+    };
+
+    let particle = make_particle(*grid, array_dev, ParticleDataLayout(), null_layout());
+    let aabb = reduce_aabb(grid.nparticles, b, red_aabb_fn, @|i| {
+        let pos = particle.get_position(i);
+
+        AABB {
+            xmin: pos.x,
+            xmax: pos.x,
+            ymin: pos.y,
+            ymax: pos.y,
+            zmin: pos.z,
+            zmax: pos.z
+        }
+    });
+
+    let cells_x_beg = real_floor((aabb.xmin - grid.aabb.xmin) / grid.spacing) as i32 - 1;
+    let cells_x_end = real_floor((aabb.xmax - grid.aabb.xmin) / grid.spacing) as i32 + 2;
+    let cells_y_beg = real_floor((aabb.ymin - grid.aabb.ymin) / grid.spacing) as i32 - 1;
+    let cells_y_end = real_floor((aabb.ymax - grid.aabb.ymin) / grid.spacing) as i32 + 2;
+    let cells_z_beg = real_floor((aabb.zmin - grid.aabb.zmin) / grid.spacing) as i32 - 1;
+    let cells_z_end = real_floor((aabb.zmax - grid.aabb.zmin) / grid.spacing) as i32 + 2;
+
+    grid.nx = cells_x_end - cells_x_beg;
+    grid.ny = cells_y_end - cells_y_beg;
+    grid.nz = cells_z_end - cells_z_beg;
+    grid.ncells = grid.nx * grid.ny * grid.nz;
+    grid.cells_offset_x = cells_x_beg;
+    grid.cells_offset_y = cells_y_beg;
+    grid.cells_offset_z = cells_z_beg;
+
+    if grid.ncells >= grid.ncells_capacity {
+        reallocate_ncells_capacity(grid, grid.ncells + 20);
+    }
+}
+
 fn write_grid_data_to_arrays(
     masses: &mut[real_t],
     positions: &mut [Vector3D],
@@ -449,13 +488,12 @@ fn write_grid_data_to_arrays(
     forces: &mut [Vector3D],
     grid: &Grid) -> i32 {
 
-    let grid_masses = get_array_real_ref(array_host, grid.masses);
-
+    let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
     range(0, grid.nparticles, |particle_index| {
-        masses(particle_index) = grid_masses(particle_index);
-        positions(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
-        velocities(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
-        forces(particle_index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
+        masses(particle_index) = particle.get_mass(particle_index);
+        positions(particle_index) = particle.get_position(particle_index);
+        velocities(particle_index) = particle.get_velocity(particle_index);
+        forces(particle_index) = particle.get_force(particle_index);
     });
 
     grid.nparticles
@@ -468,14 +506,13 @@ fn write_grid_ghost_data_to_arrays(
     forces: &mut [Vector3D],
     grid: &Grid) -> i32 {
 
-    let grid_masses = get_array_real_ref(array_host, grid.masses);
-
+    let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
     range(grid.nparticles, grid.nparticles + grid.nghost, |particle_index| {
         let index = particle_index - grid.nparticles;
-        masses(index) = grid_masses(particle_index);
-        positions(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.positions, particle_index);
-        velocities(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.velocities, particle_index);
-        forces(index) = array_2d_get_vec3(array_host, ParticleDataLayout(), grid.forces, particle_index);
+        masses(index) = particle.get_mass(particle_index);
+        positions(index) = particle.get_position(particle_index);
+        velocities(index) = particle.get_velocity(particle_index);
+        forces(index) = particle.get_force(particle_index);
     });
 
     grid.nparticles
@@ -507,26 +544,4 @@ fn write_grid_aabb_data_to_arrays(
     });
 
     grid.nparticles
-}
-
-fn compute_cell_position(position: Vector3D, grid: Grid) -> [i32 * 3] {
-    let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
-    let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
-    let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
-    [i, j, k]
-}
-
-fn is_within_domain(position: Vector3D, aabb: AABB) -> bool {
-    position.x >= aabb.xmin && position.x <= aabb.xmax &&
-    position.y >= aabb.ymin && position.y <= aabb.ymax &&
-    position.z >= aabb.zmin && position.z <= aabb.zmax
-}
-
-fn flatten_index(cell_index: [i32 * 3], grid: &Grid) -> i32 {
-    if sparse_cell_list() {
-        ((cell_index(2) - grid.cells_offset_z) * grid.ny + (cell_index(1) - grid.cells_offset_y)) * grid.nx +
-        cell_index(0) - grid.cells_offset_x
-    } else {
-        (cell_index(2) * grid.ny + cell_index(1)) * grid.nx + cell_index(0)
-    }
 }
