@@ -32,9 +32,9 @@ make -j4 # this uses 4 jobs to compile in parallel
 
 Currently, four testcases are available:
 
-- **default:** Setup based on miniMD setup, particles are placed on a three dimensional lattice and are initialized with a random velocities that attend the initial temperature defined.
-- **body_collision:**: Setup for body collision experiments, produce two lattices like the default and initialize the velocity to provoke a collision between these lattices.
-- **half:** Same setup as default, but just filling half of the grid using a y-axis to separate the filled and empty regions.
+- **default:** Setup based on miniMD setup, particles are placed on a three dimensional lattice and are initialized with random velocities that attend the initial temperature defined.
+- **body_collision:**: Setup for body collision experiments, produce two lattices like the default and initialize the velocities to induce a collision between these lattices.
+- **half:** Same setup as default, but just filling half of the grid using an axis in the y dimension to separate the filled and empty regions.
 - **granular_gas:** Setup used to evaluate the load balancing feature in a DEM simulation with the Spring-Dashpot contact model. It also fills a lattice in half of the domain, but velocities are set to zero and a diagonal axis separate the filled and empty regions.
 
 Use the following command to run a simulation:
