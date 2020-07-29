@@ -47,6 +47,53 @@ fn @(?half_nb) compute_potential(
     (total_iters, rsq_iters)
 }
 
+fn compute_lj_fullneigh(grid: Grid, rsq_cutoff: real_t, epsilon: real_t, sigma: real_t) -> (i64, i64) {
+    let dev = device();
+    let sigma6 = pow(sigma, 6);
+    let mut total_iters = 0 as i64;
+    let mut rsq_iters = 0 as i64;
+
+    particles_vec(false, grid, |i, particle| {
+        particle.set_force(i, Vector3D { x: 0.0, y: 0.0, z: 0.0 });
+    });
+
+    particles_vec(false, grid, |i, particle| {
+        let mut force = Vector3D {
+            x: 0.0 as real_t,
+            y: 0.0 as real_t,
+            z: 0.0 as real_t
+        };
+
+        let pos_i = particle.get_position(i);
+        let mut n = 0;
+
+        particle.neighbors(i, |j| {
+            let pos_j = particle.get_position(j);
+            let delx = pos_i.x - pos_j.x;
+            let dely = pos_i.y - pos_j.y;
+            let delz = pos_i.z - pos_j.z;
+            let rsq = delx * delx + dely * dely + delz * delz;
+
+            if rsq < rsq_cutoff {
+                let sr2 = 1.0 / rsq;
+                let sr6 = sr2 * sr2 * sr2 * sigma6;
+                let f = 48.0 * sr6 * (sr6 - 0.5) * sr2 * epsilon;
+                force.x += delx * f;
+                force.y += dely * f;
+                force.z += delz * f;
+                dev.add_iterator(&mut rsq_iters);
+            }
+
+            dev.add_iterator(&mut total_iters);
+            n++;
+        });
+
+        particle.set_force(i, force);
+    });
+
+    (total_iters, rsq_iters)
+}
+
 fn initial_integration(grid: Grid, dt: real_t) -> i64 {
     let mut iters = 0 as i64;
     particles_vec(false, grid, |i, particle| {
