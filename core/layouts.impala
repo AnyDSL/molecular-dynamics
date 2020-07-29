@@ -60,14 +60,14 @@ fn @add_fn(atomic: i32, array: ArrayData, index: i32, value: real_t) -> () {
 
 fn @column_major_order_array(@atomic: i32) -> ArrayLayout {
     ArrayLayout {
-        index_2d_fn: @|array, x, y| { x * array.size_y + y },
+        index_2d_fn: @|array, x, y| { y * array.size_x + x },
         add_fn: @|array, i, v| { add_fn(atomic, array, i, v); }
     }
 }
 
 fn @row_major_order_array(@atomic: i32) -> ArrayLayout {
     ArrayLayout {
-        index_2d_fn: @|array, x, y| { y * array.size_x + x },
+        index_2d_fn: @|array, x, y| { x * array.size_y + y },
         add_fn: @|array, i, v| { add_fn(atomic, array, i, v); }
     }
 }

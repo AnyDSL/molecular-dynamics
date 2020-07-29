@@ -1,4 +1,4 @@
-fn @NeighborlistLayout() -> ArrayLayout { row_major_order_array(0) }
+fn @NeighborlistLayout() -> ArrayLayout { column_major_order_array(0) }
 type dev_i32_ptr = &mut[1]i32;
 
 struct ReductionBuffers {
