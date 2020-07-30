@@ -90,7 +90,7 @@ bool isWithinBlockForest(double x, double y, double z, shared_ptr<BlockForest> f
 
 tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_grid(
     double aabb[6], bool half,
-    double spacing[3], double const mass, double const velocity[3], bool fixed_velocity,
+    double spacing, double const mass, double const velocity[3], bool fixed_velocity,
     function<bool(double, double, double)> is_within_domain) {
 
     int nvertices[3];
@@ -110,16 +110,16 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
     Vector3D pos, vel;
 
     for(size_t d = 0; d < 3; ++d) {
-        nvertices[d] = (int)((aabb[d * 2 + 1] - aabb[d * 2 + 0]) / spacing[d]);
+        nvertices[d] = (int)((aabb[d * 2 + 1] - aabb[d * 2 + 0]) / spacing);
         nxyz[d] = nvertices[d] / 2;
     }
 
-    int ilo = static_cast<int>(aabb[0] / spacing[0] - 1);
-    int ihi = static_cast<int>(aabb[1] / spacing[0] + 1);
-    int jlo = static_cast<int>(aabb[2] / spacing[1] - 1);
-    int jhi = static_cast<int>(aabb[3] / spacing[1] + 1);
-    int klo = static_cast<int>(aabb[4] / spacing[2] - 1);
-    int khi = static_cast<int>(aabb[5] / spacing[2] + 1);
+    int ilo = static_cast<int>(aabb[0] / spacing - 1);
+    int ihi = static_cast<int>(aabb[1] / spacing + 1);
+    int jlo = static_cast<int>(aabb[2] / spacing - 1);
+    int jhi = static_cast<int>(aabb[3] / spacing + 1);
+    int klo = static_cast<int>(aabb[4] / spacing - 1);
+    int khi = static_cast<int>(aabb[5] / spacing + 1);
 
     ilo = max(ilo, 0);
     ihi = min(ihi, nvertices[0] - 1);
@@ -141,11 +141,11 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
            (i >= ilo) && (i <= ihi) &&
            (j >= jlo) && (j <= jhi) &&
            (k >= klo) && (k <= khi)) {
-            pos.x = aabb[0] + i * spacing[0];
-            pos.y = aabb[2] + j * spacing[1];
-            pos.z = aabb[4] + k * spacing[2];
+            pos.x = aabb[0] + i * spacing;
+            pos.y = aabb[2] + j * spacing;
+            pos.z = aabb[4] + k * spacing;
 
-            if(is_within_domain(pos.x, pos.y, pos.z) && (!half || pos.y < aabb[2] + ((jhi - jlo) / 2) * spacing[1] + 0.00001)) {
+            if(is_within_domain(pos.x, pos.y, pos.z) && (!half || pos.y < aabb[2] + ((jhi - jlo) / 2) * spacing + 0.00001)) {
                 if(!fixed_velocity) {
                     n = k * (2 * nxyz[1]) * (2 * nxyz[0]) + j * (2 * nxyz[0]) + i + 1;
 
@@ -202,7 +202,7 @@ tuple<vector<double>, vector<Vector3D>, vector<Vector3D>> generate_rectangular_g
 
 int init_rectangular_grid(
     double aabb[6], double rank_aabb[6], bool half,
-    double spacing[3], double cell_spacing,
+    double spacing, double cell_spacing,
     int cell_capacity, int neighborlist_capacity,
     function<bool(double, double, double)> is_within_domain) {
 
@@ -235,7 +235,7 @@ int init_granular_gas(
     Vector3D center;
     Vector3D normal;
     Vector3D shift;
-    double spacing = 1.0;
+    double const spacing = 1.0;
 
     center.x = aabb[0] + (aabb[1] - aabb[0]) * 0.5;
     center.y = aabb[2] + (aabb[3] - aabb[2]) * 0.5;
@@ -296,13 +296,14 @@ int init_granular_gas(
 
 int init_body_collision(
     double aabb[6], double aabb1[6], double aabb2[6], double rank_aabb[6],
-    double spacing[3], double cell_spacing,
-    int cell_capacity, int neighborlist_capacity,
+    double cell_spacing, int cell_capacity, int neighborlist_capacity,
     function<bool(double, double, double)> is_within_domain) {
 
-    double const velocity = 1.0;
-    double velocity1[3] = {0.0, -velocity, 0.0};
-    double velocity2[3] = {0.0, velocity,  0.0};
+    vector<Vector3D> positions;
+    vector<Vector3D> velocities;
+    vector<double> masses;
+    double const spacing = 1.0;
+    double const velocity = 5.0;
 
     if(aabb1[2] < aabb2[3]) {
         cerr << "The first bounding box must be located on top of the second!" << endl;
@@ -310,20 +311,48 @@ int init_body_collision(
         return 0;
     }
 
-    auto tuple1 = generate_rectangular_grid(aabb1, false, spacing, 1.0, velocity1, true, is_within_domain);
-    auto tuple2 = generate_rectangular_grid(aabb2, false, spacing, 1.0, velocity2, true, is_within_domain);
+    int nx = static_cast<int>(aabb1[1] - aabb1[0] / spacing);
+    int ny = static_cast<int>(aabb1[3] - aabb1[2] / spacing);
+    int nz = static_cast<int>(aabb1[5] - aabb1[4] / spacing);
 
-    get<0>(tuple1).insert(get<0>(tuple1).end(), get<0>(tuple2).begin(), get<0>(tuple2).end());
-    get<1>(tuple1).insert(get<1>(tuple1).end(), get<1>(tuple2).begin(), get<1>(tuple2).end());
-    get<2>(tuple1).insert(get<2>(tuple1).end(), get<2>(tuple2).begin(), get<2>(tuple2).end());
+    for(int x = 0; x < nx; ++x) {
+        for(int y = 0; y < ny; ++y) {
+            for(int z = 0; z < nz; ++z) {
+                Vector3D pos, vel;
 
-    int size = (int) get<0>(tuple1).size();
+                vel.x = 0.0;
+                vel.z = 0.0;
+
+                pos.x = aabb1[0] + (double) x * spacing + spacing * 0.5;
+                pos.y = aabb1[2] + (double) y * spacing + spacing * 0.5;
+                pos.z = aabb1[4] + (double) z * spacing + spacing * 0.5;
+
+                if(is_within_domain(pos.x, pos.y, pos.z)) {
+                    vel.y = -velocity;
+                    masses.push_back(1.0);
+                    positions.push_back(pos);
+                    velocities.push_back(vel);
+                }
+
+                pos.x = aabb2[0] + (double) x * spacing + spacing * 0.5;
+                pos.y = aabb2[2] + (double) y * spacing + spacing * 0.5;
+                pos.z = aabb2[4] + (double) z * spacing + spacing * 0.5;
+
+                if(is_within_domain(pos.x, pos.y, pos.z)) {
+                    vel.y = velocity;
+                    masses.push_back(1.0);
+                    positions.push_back(pos);
+                    velocities.push_back(vel);
+                }
+            }
+        }
+    }
 
     return md_initialize_grid(
-        get<0>(tuple1).data(),
-        get<1>(tuple1).data(),
-        get<2>(tuple1).data(),
-        size,
+        masses.data(),
+        positions.data(),
+        velocities.data(),
+        (int) positions.size(),
         aabb,
         rank_aabb,
         cell_spacing,

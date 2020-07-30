@@ -485,18 +485,17 @@ int main(int argc, char **argv) {
 
     double world_aabb[6], rank_aabb[6], aabb1[6], aabb2[6], new_aabb[6];
     MultiTimer<double> timer(NTIMERS, runs, 1e-6);
-    double spacing[3];
     bool vtk = !vtk_directory.empty();
     bool use_load_balancing = false;
 
     if(benchmark == "body_collision") {
-        double shift = potential_minimum * (gridsize[1] + 1);
+        double shift = 2.0 * (gridsize[1] + 1);
 
         for(int d = 0; d < 3; ++d) {
-            aabb1[d * 2 + 0] = 50;
-            aabb1[d * 2 + 1] = 50 + gridsize[d] * potential_minimum;
-            aabb2[d * 2 + 0] = 50;
-            aabb2[d * 2 + 1] = 50 + gridsize[d] * potential_minimum;
+            aabb1[d * 2 + 0] = 0;
+            aabb1[d * 2 + 1] = gridsize[d] * potential_minimum;
+            aabb2[d * 2 + 0] = 0;
+            aabb2[d * 2 + 1] = gridsize[d] * potential_minimum;
         }
 
         aabb2[2] -= shift;
@@ -505,7 +504,6 @@ int main(int argc, char **argv) {
         for(int d = 0; d < 3; ++d) {
             world_aabb[d * 2 + 0] = min(aabb1[d * 2 + 0], aabb2[d * 2 + 0]) - 20;
             world_aabb[d * 2 + 1] = max(aabb1[d * 2 + 1], aabb2[d * 2 + 1]) + 20;
-            spacing[d] = potential_minimum;
         }
     } else {
         if(benchmark != "default" && benchmark != "half" && benchmark != "granular_gas") {
@@ -517,7 +515,6 @@ int main(int argc, char **argv) {
         for(int d = 0; d < 3; ++d) {
             world_aabb[d * 2 + 0] = 0;
             world_aabb[d * 2 + 1] = gridsize[d] * potential_minimum;
-            spacing[d] = potential_minimum * 0.5;
         }
 
         half = benchmark == "half";
@@ -666,11 +663,11 @@ int main(int argc, char **argv) {
 
     for(int i = 0; i < runs; ++i) {
         if(benchmark == "body_collision") {
-            init_body_collision(world_aabb, aabb1, aabb2, rank_aabb, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            init_body_collision(world_aabb, aabb1, aabb2, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else if(benchmark == "granular_gas") {
             init_granular_gas(world_aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else {
-            init_rectangular_grid(world_aabb, rank_aabb, half, spacing, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            init_rectangular_grid(world_aabb, rank_aabb, half, potential_minimum * 0.5, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
         if(benchmark != "body_collision" && benchmark != "granular_gas") {
