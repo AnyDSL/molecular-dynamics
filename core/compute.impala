@@ -117,6 +117,6 @@ fn final_integration(grid: Grid, dt: real_t) -> i64 {
 
 fn enforce_pbc(grid: Grid) -> () {
     particles_vec(false, grid, |i, particle| {
-        particle.set_position(i, pbc_corrected_position_if(true, particle.get_position(i), grid));
+        particle.set_position(i, pbc_correct(particle.get_position(i), grid));
     });
 }
