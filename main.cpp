@@ -720,6 +720,9 @@ int main(int argc, char **argv) {
                 md_exchange_particles();
                 timer.accum(TIME_COMM);
 
+                md_enforce_pbc();
+                timer.accum(TIME_OTHER);
+
                 #ifdef USE_WALBERLA_LOAD_BALANCING
                 if((j + 1) % rebalance_every == 0) {
                     if(use_load_balancing) {
