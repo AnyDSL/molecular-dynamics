@@ -292,6 +292,9 @@ fn get_node_bounding_box(aabb: AABB) -> AABB {
     let mut gx: i32;
     let mut gy: i32;
     let mut gz: i32;
+    let mut locx: i32;
+    let mut locy: i32;
+    let mut locz: i32;
 
     // Number of cells in each dimension
     let xtotallength = aabb.xmax - aabb.xmin;
@@ -305,10 +308,6 @@ fn get_node_bounding_box(aabb: AABB) -> AABB {
     let xlength = xtotallength / (gx as real_t);
     let ylength = ytotallength / (gy as real_t);
     let zlength = ztotallength / (gz as real_t);
-
-    let mut locx: i32;
-    let mut locy: i32;
-    let mut locz: i32;
 
     // 3D cartesian position of current rank
     mpih.cart(gx, gy, gz, &mut locx, &mut locy, &mut locz, &mut xprev, &mut xnext, &mut yprev, &mut ynext, &mut zprev, &mut znext);
@@ -391,41 +390,44 @@ fn synchronize_ghost_layer(grid: Grid, comm: Comm) -> () {
 // Exchange ghost layer particles with neighbor ranks (here the number of
 // particles is also updated)
 fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
-    let mpih = mpi();
-    let me = comm.me;
-    let mut iexchg = 0;
-    let mut nreq = 0;
+    let mut isend = 0;
+    let mut neigh = 0;
 
     grid.nghost = 0;
-
-    communication_remote(me, *grid, |_, _, _, _| {
-        if nreq >= comm.max_neighs {
-            resize_max_neighbors_capacity(comm, nreq + 8);
+    communication_remote(comm.me, *grid, |_, _, _, _| {
+        if neigh >= comm.max_neighs {
+            resize_max_neighbors_capacity(comm, neigh + 8);
         }
 
-        bitcast[&mut[i32]](comm.send_rank_offsets.data)(nreq) = -1;
-        nreq++;
+        bitcast[&mut[i32]](comm.send_rank_offsets.data)(neigh) = -1;
+        bitcast[&mut[i32]](comm.recv_rank_offsets.data)(neigh) = -1;
+        neigh++;
     });
 
     let send_rank_offsets = bitcast[&mut[i32]](comm.send_rank_offsets.data);
     let send_rank_lengths = bitcast[&mut[i32]](comm.send_rank_lengths.data);
-    let recv_rank_lengths = bitcast[&mut[i32]](comm.recv_rank_lengths.data);
+    let exchange_and_unpack_if = @|cond: bool, nb: i32, comm_fn: fn(i32, Grid, CommFn) -> ()| {
+        if cond {
+            let (nirecv, _) = two_step_comm(comm_fn, *grid, comm, nb, 0, 0, true);
+            let exchg_start = add_local_slots(nirecv, grid);
+            unpack_remote_particles(*grid, *comm, exchg_start, 0, nirecv, true);
+        }
+    };
 
-    nreq = 0;
+    neigh = 0;
 
     // Pack particles in each direction to exchange
-    communication_remote(me, *grid, |exchg_rank, _, _, exchange_positions| {
-        send_rank_offsets(nreq) = iexchg;
+    communication_remote(comm.me, *grid, |send_rank, recv_rank, border_positions, exchange_positions| {
+        send_rank_offsets(neigh) = isend;
 
         let mut resize = 1;
-
         while resize > 0 {
             let const_grid = *grid;
             let const_comm = *comm;
-            let const_iexchg = iexchg;
+            let const_isend = isend;
             let world_aabb = const_grid.world_aabb;
 
-            set_counter(iexchg, const_grid);
+            set_counter(isend, const_grid);
             reset_resize(const_grid);
 
             particles_scalar(false, const_grid, |i, particle| {
@@ -435,10 +437,8 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
                 let particle_pos = particle.get_position(i);
 
                 send_flags(i) = 0 as i8;
-
                 exchange_positions(particle_pos, @|pos, _| {
                     let counter = add_counter(const_grid);
-
                     if counter >= const_comm.send_capacity {
                         grow_resize(counter, const_grid);
                     } else {
@@ -451,7 +451,7 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
                         buffer(index + 4) = vel.x;
                         buffer(index + 5) = vel.y;
                         buffer(index + 6) = vel.z;
-                        send_offsets(counter - const_iexchg) = i;
+                        send_offsets(counter - const_isend) = i;
                         send_flags(i) = 1 as i8;
                     }
                 });
@@ -468,7 +468,7 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
         transfer_array_to_host(grid.send_flags);
 
         let counter = get_counter(*grid);
-        let packed = counter - iexchg;
+        let packed = counter - isend;
         let nparticles = grid.nparticles - packed;
         let send_flags_host = get_array_i8_ref(array_host, grid.send_flags);
         let send_offsets_host = get_array_i32_ref(array_host, comm.send_offsets);
@@ -506,63 +506,22 @@ fn exchange_particles(grid: &mut Grid, comm: &mut Comm) -> () {
         });
 
         grid.nparticles -= packed;
-        iexchg = counter;
-        send_rank_lengths(nreq) = iexchg - send_rank_offsets(nreq);
-        nreq++;
-    });
+        isend = counter;
+        send_rank_lengths(neigh) = isend - send_rank_offsets(neigh);
 
-    transfer_array_to_host(comm.send_buffer);
-    nreq = 0;
-
-    // Exchange sizes
-    communication_remote(me, *grid, |send_rank, recv_rank, _, _| {
-        mpih.irecv(&mut recv_rank_lengths(nreq) as MPI_MutBuf, 1, mpih.int_t, recv_rank, 0, mpih.comms.world, nreq);
-        mpih.isend(&send_rank_lengths(nreq) as MPI_Buf, 1, mpih.int_t, send_rank, 0, mpih.comms.world, nreq);
-        nreq++;
-    });
-
-    mpih.wait_all(nreq);
-    iexchg = 0;
-    nreq = 0;
-
-    // Exchange data
-    communication_remote(me, *grid, |send_rank, recv_rank, _, _| {
-        let exchg_send_offset = send_rank_offsets(nreq) * 7;
-        let exchg_recv_offset = iexchg * 7;
-
-        if iexchg + recv_rank_lengths(nreq) >= comm.recv_capacity {
-            resize_recv_capacity(comm, (iexchg + recv_rank_lengths(nreq)) * 2);
+        // Communicate for each dimension
+        if neigh % 2 != 0 {
+            exchange_and_unpack_if(communicate_ghost_particles(), neigh - 1, @|me: i32, grid: Grid, f: CommFn| {
+                f(recv_rank, send_rank, border_positions, exchange_positions);
+                f(send_rank, recv_rank, border_positions, exchange_positions);
+                isend = 0;
+            });
         }
 
-        mpih.irecv(
-            &get_array_real_ref(array_host, comm.recv_buffer)(exchg_recv_offset) as MPI_MutBuf,
-            recv_rank_lengths(nreq) * 7, mpih.double_t, recv_rank, 0, mpih.comms.world, nreq);
-
-        mpih.isend(
-            &get_array_real_ref(array_host, comm.send_buffer)(exchg_send_offset) as MPI_Buf,
-            send_rank_lengths(nreq) * 7, mpih.double_t, send_rank, 0, mpih.comms.world, nreq);
-
-        iexchg += recv_rank_lengths(nreq);
-        nreq++;
+        neigh++;
     });
 
-    mpih.wait_all(nreq);
-    transfer_array_to_device(comm.recv_buffer);
-
-    // Unpack received particles
-    let exchg_start = add_local_slots(iexchg, grid);
-    let const_grid = *grid;
-    let const_comm = *comm;
-    let particle = make_particle(const_grid, array_dev, ParticleDataLayout(), null_layout());
-    let recv_data = get_array_real_ref(array_dev, const_comm.recv_buffer);
-
-    device().loop_1d(false, iexchg, |i| {
-        let index = i * 7;
-        let offset = exchg_start + i;
-        particle.set_mass(offset, recv_data(index));
-        particle.set_position(offset, Vector3D { x: recv_data(index + 1), y: recv_data(index + 2), z: recv_data(index + 3) });
-        particle.set_velocity(offset, Vector3D { x: recv_data(index + 4), y: recv_data(index + 5), z: recv_data(index + 6) });
-    });
+    exchange_and_unpack_if(!communicate_ghost_particles(), 0, communication_remote);
 }
 
 // Define particle borders to synchronize during next iterations
@@ -576,7 +535,6 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
     let mut neigh = 0;
 
     grid.nghost = 0;
-
     communication_ranks(*grid, |send_rank, _, _, _| {
         if neigh >= comm.max_neighs {
             resize_max_neighbors_capacity(comm, neigh + 8);
@@ -595,18 +553,16 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
 
     let send_rank_offsets = bitcast[&mut[i32]](comm.send_rank_offsets.data);
     let send_rank_lengths = bitcast[&mut[i32]](comm.send_rank_lengths.data);
-    let recv_rank_offsets = bitcast[&mut[i32]](comm.recv_rank_offsets.data);
-    let recv_rank_lengths = bitcast[&mut[i32]](comm.recv_rank_lengths.data);
     let communicate_and_unpack_if = @|cond: bool, remote: bool, local: bool, nb: i32, comm_fn: fn(i32, Grid, CommFn) -> ()| {
         if cond {
             if remote {
                 let oirecv = irecv;
-                let (irecv_, local_start_) = two_step_comm(comm_fn, *grid, comm, nb, irecv, local_start);
+                let (irecv_, local_start_) = two_step_comm(comm_fn, *grid, comm, nb, irecv, local_start, false);
                 irecv = irecv_;
                 local_start = local_start_;
                 ilocal = local_start;
                 add_ghost_slots(irecv - oirecv, grid);
-                unpack_remote_particles(*grid, *comm, oirecv, irecv);
+                unpack_remote_particles(*grid, *comm, grid.nparticles, oirecv, irecv, false);
             }
 
             if local {
@@ -621,9 +577,9 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
 
     // Pack particles in each direction to send during next iterations
     communication_sep(comm.me, *grid, |send_rank, recv_rank, border_positions, exchange_positions| {
-        let mut resize = 1;
         send_rank_offsets(neigh) = isend;
 
+        let mut resize = 1;
         while resize > 0 {
             let const_grid = *grid;
             let const_comm = *comm;
@@ -658,7 +614,6 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
             });
 
             resize = get_resize(const_grid);
-
             if resize > 0 {
                 resize_send_capacity(comm, resize * 2);
             }
@@ -688,13 +643,14 @@ fn borders(grid: &mut Grid, comm: &mut Comm) -> () {
 
 fn @two_step_comm(
     comm_fn: fn(i32, Grid, CommFn) -> (), grid: Grid, comm: &mut Comm,
-    neigh: i32, irecv: i32, local_start:i32) -> (i32, i32) {
+    neigh: i32, irecv: i32, local_start: i32, @velocities: bool) -> (i32, i32) {
 
     let mpih = mpi();
     let send_rank_offsets = bitcast[&mut[i32]](comm.send_rank_offsets.data);
     let send_rank_lengths = bitcast[&mut[i32]](comm.send_rank_lengths.data);
     let recv_rank_offsets = bitcast[&mut[i32]](comm.recv_rank_offsets.data);
     let recv_rank_lengths = bitcast[&mut[i32]](comm.recv_rank_lengths.data);
+    let elems = select(velocities, 7, 4);
     let mut nirecv = irecv;
     let mut nlocal_start = local_start;
     let mut nreq = 0;
@@ -712,8 +668,8 @@ fn @two_step_comm(
         let i = neigh + r;
         recv_rank_offsets(i) = nirecv;
 
-        if irecv + recv_rank_lengths(i) >= comm.recv_capacity {
-            resize_recv_capacity(comm, (irecv + recv_rank_lengths(i)) * 2);
+        if nirecv + recv_rank_lengths(i) >= comm.recv_capacity {
+            resize_recv_capacity(comm, (nirecv + recv_rank_lengths(i)) * 2);
         }
 
         nirecv += recv_rank_lengths(i);
@@ -723,16 +679,16 @@ fn @two_step_comm(
     nreq = 0;
     comm_fn(comm.me, grid, |send_rank, recv_rank, _, _| {
         let i = neigh + nreq;
-        let send_offset = send_rank_offsets(i) * 4;
-        let recv_offset = recv_rank_offsets(i) * 4;
+        let send_offset = send_rank_offsets(i) * elems;
+        let recv_offset = recv_rank_offsets(i) * elems;
 
         mpih.irecv(
             &get_array_real_ref(array_host, comm.recv_buffer)(recv_offset) as MPI_MutBuf,
-            recv_rank_lengths(i) * 4, mpih.double_t, recv_rank, 0, mpih.comms.world, nreq);
+            recv_rank_lengths(i) * elems, mpih.double_t, recv_rank, 0, mpih.comms.world, nreq);
 
         mpih.isend(
             &get_array_real_ref(array_host, comm.send_buffer)(send_offset) as MPI_Buf,
-            send_rank_lengths(i) * 4, mpih.double_t, send_rank, 0, mpih.comms.world, nreq);
+            send_rank_lengths(i) * elems, mpih.double_t, send_rank, 0, mpih.comms.world, nreq);
 
         bitcast[&mut[i32]](comm.send_neighbors.data)(i) = send_rank;
         bitcast[&mut[i32]](comm.recv_neighbors.data)(i) = recv_rank;
@@ -743,28 +699,30 @@ fn @two_step_comm(
     (nirecv, nlocal_start)
 }
 
-fn unpack_remote_particles(grid: Grid, comm: Comm, oirecv: i32, nirecv: i32) -> () {
+fn unpack_remote_particles(grid: Grid, comm: Comm, start: i32, oirecv: i32, nirecv: i32, @velocities: bool) -> () {
     let particle = make_particle(grid, array_dev, ParticleDataLayout(), null_layout());
-    let send_data = get_array_real_ref(array_dev, comm.send_buffer);
     let recv_data = get_array_real_ref(array_dev, comm.recv_buffer);
     let nrecv = nirecv - oirecv;
+    let elems = select(velocities, 7, 4);
 
     if nrecv > 0 {
         transfer_array_to_device(comm.recv_buffer);
     }
 
     device().loop_1d(false, nrecv, |i| {
-        let index = (oirecv + i) * 4;
-        let offset = grid.nparticles + oirecv + i;
+        let index = (oirecv + i) * elems;
+        let offset = start + oirecv + i;
         particle.set_mass(offset, recv_data(index));
         particle.set_position(offset, Vector3D { x: recv_data(index + 1), y: recv_data(index + 2), z: recv_data(index + 3) });
+        if velocities {
+            particle.set_velocity(offset, Vector3D { x: recv_data(index + 4), y: recv_data(index + 5), z: recv_data(index + 6) });
+        }
     });
 }
 
 fn unpack_local_particles(grid: Grid, comm: Comm, isend: i32, irecv: i32, ilocal: i32, local_start: i32) -> () {
     let particle = make_particle(grid, array_dev, ParticleDataLayout(), null_layout());
     let send_data = get_array_real_ref(array_dev, comm.send_buffer);
-    let recv_data = get_array_real_ref(array_dev, comm.recv_buffer);
     let recv_offset = grid.nparticles + irecv + ilocal - local_start;
 
     device().loop_1d(false, isend - ilocal, |i| {
