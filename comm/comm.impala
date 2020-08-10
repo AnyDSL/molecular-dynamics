@@ -114,17 +114,17 @@ fn communication_ranks(grid: Grid, body: CommFn) -> () {
         };
 
         body(xnext, xprev, @|p, f| { if p.x > grid.aabb.xmax - dspacing { f_pbc(f, p, -1, 0, 0); }},
-                           @|p, f| { if p.x > grid.aabb.xmax - spacing  { f(pbc_correct(p, grid), no_pbc_flags); }});
+                           @|p, f| { if p.x > grid.aabb.xmax - spacing  { f(p, no_pbc_flags); }});
         body(xprev, xnext, @|p, f| { if p.x < grid.aabb.xmin + dspacing { f_pbc(f, p, 1, 0, 0); }},
-                           @|p, f| { if p.x < grid.aabb.xmin + spacing  { f(pbc_correct(p, grid), no_pbc_flags); }});
+                           @|p, f| { if p.x < grid.aabb.xmin + spacing  { f(p, no_pbc_flags); }});
         body(ynext, yprev, @|p, f| { if p.y > grid.aabb.ymax - dspacing { f_pbc(f, p, 0, -1, 0); }},
-                           @|p, f| { if p.y > grid.aabb.ymax - spacing  { f(pbc_correct(p, grid), no_pbc_flags); }});
+                           @|p, f| { if p.y > grid.aabb.ymax - spacing  { f(p, no_pbc_flags); }});
         body(yprev, ynext, @|p, f| { if p.y < grid.aabb.ymin + dspacing { f_pbc(f, p, 0, 1, 0); }},
-                           @|p, f| { if p.y < grid.aabb.ymin + spacing  { f(pbc_correct(p, grid), no_pbc_flags); }});
+                           @|p, f| { if p.y < grid.aabb.ymin + spacing  { f(p, no_pbc_flags); }});
         body(znext, zprev, @|p, f| { if p.z > grid.aabb.zmax - dspacing { f_pbc(f, p, 0, 0, -1); }},
-                           @|p, f| { if p.z > grid.aabb.zmax - spacing  { f(pbc_correct(p, grid), no_pbc_flags); }});
+                           @|p, f| { if p.z > grid.aabb.zmax - spacing  { f(p, no_pbc_flags); }});
         body(zprev, znext, @|p, f| { if p.z < grid.aabb.zmin + dspacing { f_pbc(f, p, 0, 0, 1); }},
-                           @|p, f| { if p.z < grid.aabb.zmin + spacing  { f(pbc_correct(p, grid), no_pbc_flags); }});
+                           @|p, f| { if p.z < grid.aabb.zmin + spacing  { f(p, no_pbc_flags); }});
     }
 }
 
