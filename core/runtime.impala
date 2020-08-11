@@ -157,11 +157,12 @@ extern fn md_print_ghost() -> () {
 
 extern fn md_create_velocity(t_request: real_t) -> () {
     let particle = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
-    let nparticles = grid_.nparticles;
+    let mut nparticles = 0;
     let mut vtot = Vector3D { x: 0.0, y: 0.0, z: 0.0 };
     let mut tmp: real_t;
 
-    range(0, nparticles, |i| {
+    reduce_i32_sum(grid_.nparticles, &mut nparticles);
+    range(0, grid_.nparticles, |i| {
         vtot = vector_add(vtot, particle.get_velocity(i));
     });
 
@@ -172,14 +173,14 @@ extern fn md_create_velocity(t_request: real_t) -> () {
     reduce_f64_sum(vtot.z, &mut tmp);
     vtot.z = tmp / nparticles as real_t;
 
-    range(0, nparticles, |i| {
+    range(0, grid_.nparticles, |i| {
         particle.set_velocity(i, vector_sub(particle.get_velocity(i), vtot));
     });
 
-    let t = temperature(grid_, particle);
+    let t = temperature(grid_, particle, nparticles);
     let factor = math.sqrt(t_request / t);
 
-    range(0, nparticles, |i| {
+    range(0, grid_.nparticles, |i| {
         particle.set_velocity(i, vector_scale(factor, particle.get_velocity(i)));
     });
 }
@@ -306,10 +307,8 @@ extern fn md_report_particles() -> () {
 
     barrier();
     print_string_once("# Local # Ghost\n");
-
     reduce_and_print(grid_.nparticles);
     reduce_and_print(grid_.nghost);
-
     print_string_once("\n");
 }
 
