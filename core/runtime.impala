@@ -296,24 +296,26 @@ extern fn md_report_iterations() -> () {
 }
 
 extern fn md_report_particles() -> () {
+    let particle = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
     let is_root = get_process_rank() == 0;
     let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
-    let reduce_and_print = |t: i32| {
+    let reduce_and_print = |t: i32| -> i32 {
         let mut res: i32;
         reduce_i32_sum(t, &mut res);
         print_i32_cond(is_root, res);
         print_string_once(" ");
+        res
     };
 
     barrier();
-    print_string_once("# Local # Ghost\n");
-    reduce_and_print(grid_.nparticles);
+    print_string_once("# Local # Ghost Temp\n");
+    let nparticles = reduce_and_print(grid_.nparticles);
     reduce_and_print(grid_.nghost);
+    print_f64_cond(is_root, temperature(grid_, particle, nparticles));
     print_string_once("\n");
 }
 
 extern fn md_report_time(total_avg: f64, force_avg: f64, neigh_avg: f64, comm_avg: f64, lb_avg: f64, other_avg: f64) -> () {
-
     let is_root = get_process_rank() == 0;
     let print_string_once = |s: &[u8]| { print_string_cond(is_root, s); };
     let reduce_and_print = |t: f64| {
