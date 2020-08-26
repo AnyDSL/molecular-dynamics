@@ -76,25 +76,37 @@ if(USE_WALBERLA_LOAD_BALANCING)
 
     waLBerla_add_executable(
         NAME md
-        FILES main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS}
+        FILES md.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS}
+        DEPENDS blockforest core pe)
+
+    waLBerla_add_executable(
+        NAME ms
+        FILES ms.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS}
         DEPENDS blockforest core pe)
 else()
-    add_executable(md main.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS})
+    add_executable(md md.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS})
+    add_executable(ms ms.cpp core/force_lj.cpp ${MPI_CPP} anydsl_includes.h initialize.h vtk.h ${MD_OBJS})
 endif()
 
 target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
 set_target_properties(md PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(md PROPERTIES CXX_STANDARD 14)
 
+target_link_libraries(ms m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS})
+set_target_properties(ms PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(ms PROPERTIES CXX_STANDARD 14)
+
 if(USE_MPI)
     find_package(MPI REQUIRED)
     include_directories(SYSTEM ${MPI_INCLUDE_PATH})
     target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${MPI_LIBRARIES})
+    target_link_libraries(ms m ${ANYDSL_RUNTIME_LIBRARIES} ${MPI_LIBRARIES})
 endif()
 
 if(LIKWID_DIR)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIKWID_PERFMON -llikwid -pthread ")
     target_link_libraries(md m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
+    target_link_libraries(ms m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS} -I${LIKWID_DIR}/include -L${LIKWID_DIR}/lib -llikwid)
     include_directories(${LIKWID_DIR}/include)
 endif()
 
