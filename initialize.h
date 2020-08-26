@@ -361,5 +361,84 @@ int init_body_collision(
     );
 }
 
-#endif // INITIALIZE_H
+int init_silicon(
+    double aabb[6], double rank_aabb[6], int gridsize[3], double lattice_const,
+    double cell_spacing, int cell_capacity, int neighborlist_capacity,
+    function<bool(double, double, double)> is_within_domain) {
 
+    vector<double> masses;
+    vector<Vector3D> positions;
+    vector<Vector3D> velocities;
+    Vector3D pos, vel;
+
+    vel.x = 0.0;
+    vel.y = 0.0;
+    vel.z = 0.0;
+
+    for(int i = 0; i < gridsize[0]; ++i) {
+        for(int j = 0; j < gridsize[1]; ++j) {
+            for(int k = 0; k < gridsize[2]; ++k) {
+                const double bx = i * lattice_const;
+                const double by = j * lattice_const;
+                const double bz = k * lattice_const;
+
+                #ifndef ADD_POS
+                #define ADD_POS(px, py, pz)     pos.x = bx + px, pos.y = by + py, pos.z = bz + pz;      \
+                                                if(is_within_domain(pos.x, pos.y, pos.z)) {             \
+                                                    masses.push_back(1.0);                              \
+                                                    positions.push_back(pos);                           \
+                                                    velocities.push_back(vel);                          \
+                                                }
+                #endif
+
+                // Unit cell setup
+                for(int ii = 0; ii < 2; ++ii) {
+                    for(int jj = 0; jj < 2; ++jj) {
+                        for(int kk = 0; kk < 2; ++kk) {
+                            if((i == 0 || ii != 0) && (j == 0 || jj != 0) && (k == 0 || kk != 0)) {
+                                ADD_POS((double) ii * lattice_const, (double) jj * lattice_const, (double) kk * lattice_const);
+                            }
+                        }
+                    }
+                }
+
+                if(k == 0) {
+                    ADD_POS(0.5 * lattice_const, 0.5 * lattice_const, 0.0);
+                }
+
+                ADD_POS(lattice_const, 0.5 * lattice_const, 0.5 * lattice_const);
+
+                if(j == 0) {
+                    ADD_POS(0.5 * lattice_const, 0.0, 0.5 * lattice_const);
+                }
+
+                ADD_POS(0.5 * lattice_const, lattice_const, 0.5 * lattice_const);
+
+                if(i == 0) {
+                    ADD_POS(0.0, 0.5 * lattice_const, 0.5 * lattice_const);
+                }
+
+                ADD_POS(0.5 * lattice_const, 0.5 * lattice_const, lattice_const);
+                ADD_POS(0.25 * lattice_const, 0.25 * lattice_const, 0.25 * lattice_const);
+                ADD_POS(0.75 * lattice_const, 0.75 * lattice_const, 0.25 * lattice_const);
+                ADD_POS(0.75 * lattice_const, 0.25 * lattice_const, 0.75 * lattice_const);
+                ADD_POS(0.25 * lattice_const, 0.75 * lattice_const, 0.75 * lattice_const);
+                #undef ADD_POS
+            }
+        }
+    }
+
+    return md_initialize_grid(
+        masses.data(),
+        positions.data(),
+        velocities.data(),
+        (int) positions.size(),
+        aabb,
+        rank_aabb,
+        cell_spacing,
+        cell_capacity,
+        neighborlist_capacity
+    );
+}
+
+#endif // INITIALIZE_H

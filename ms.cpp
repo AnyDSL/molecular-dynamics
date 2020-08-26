@@ -126,6 +126,7 @@ int main(int argc, char **argv) {
     double damping_t = 0.0;
     double stiffness = 0.0;
     double friction = 0.0;
+    double lattice_const = 5.4310;
     bool half = false;
     bool half_nb = false;
     bool use_walberla = false;
@@ -307,6 +308,11 @@ int main(int argc, char **argv) {
             world_aabb[d * 2 + 0] = min(aabb1[d * 2 + 0], aabb2[d * 2 + 0]) - 20;
             world_aabb[d * 2 + 1] = max(aabb1[d * 2 + 1], aabb2[d * 2 + 1]) + 20;
         }
+    } else if(benchmark == "silicon") {
+        for(int d = 0; d < 3; ++d) {
+            world_aabb[d * 2 + 0] = -10.0;
+            world_aabb[d * 2 + 1] = gridsize[d] * lattice_const + 10.0;
+        }
     } else {
         if(benchmark != "default" && benchmark != "half" && benchmark != "granular_gas") {
             cerr << "Invalid benchmark specified: \"" << benchmark << "\"" << endl;
@@ -375,11 +381,13 @@ int main(int argc, char **argv) {
             init_body_collision(world_aabb, aabb1, aabb2, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else if(benchmark == "granular_gas") {
             init_granular_gas(world_aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+        } else if(benchmark == "silicon") {
+            init_silicon(world_aabb, rank_aabb, gridsize, lattice_const, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         } else {
             init_rectangular_grid(world_aabb, rank_aabb, half, potential_minimum * 0.5, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
         }
 
-        if(benchmark != "body_collision" && benchmark != "granular_gas") {
+        if(benchmark != "body_collision" && benchmark != "granular_gas" && benchmark != "silicon") {
             md_create_velocity(init_temp);
         }
 
