@@ -17,6 +17,8 @@ extern "C" {
     int md_write_grid_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     int md_write_grid_ghost_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
     int md_write_grid_aabb_data_to_arrays(double *, Vector3D *, Vector3D *, Vector3D *);
+    int md_add_region(double, double, double, double, double, double);
+    void md_assign_particle_regions();
     void md_distribute_particles();
     void md_assemble_neighborlists(bool, double);
     void md_deallocate_grid();

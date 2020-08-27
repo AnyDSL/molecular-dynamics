@@ -10,6 +10,7 @@ extern fn md_initialize_grid(
     cell_spacing: real_t,
     cell_capacity: i32, neighborlist_capacity: i32) -> i32 {
 
+    let regions_capacity = 10;
     let world_aabb = AABB {
         xmin: aabb(0),
         xmax: aabb(1),
@@ -28,7 +29,7 @@ extern fn md_initialize_grid(
         zmax: rank_aabb(5) + cell_spacing
     };
 
-    grid_ = allocate_grid(world_aabb, ext_rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity);
+    grid_ = allocate_grid(world_aabb, ext_rank_aabb, cell_spacing, cell_capacity, neighborlist_capacity, regions_capacity);
     comm_ = alloc_comm(grid_);
     initialize_grid(masses, positions, velocities, nparticles, &mut grid_, alloc_cpu);
     initialize_neighborhood();
@@ -101,6 +102,11 @@ extern fn md_deallocate_grid() -> () {
     device().shutdown();
 }
 
+extern fn md_add_region(xmin: real_t, xmax: real_t, ymin: real_t, ymax: real_t, zmin: real_t, zmax: real_t) -> i32 {
+    add_region(&mut grid_, xmin, xmax, ymin, ymax, zmin, zmax)
+}
+
+extern fn md_assign_particle_regions() -> () { assign_particle_regions(grid_); }
 extern fn md_copy_data_to_accelerator() -> () { copy_to_accelerator(grid_); }
 extern fn md_copy_data_from_accelerator() -> () { copy_from_accelerator(grid_); }
 extern fn md_initial_integration(dt: real_t) -> () { integration_iters = initial_integration(grid_, dt); }

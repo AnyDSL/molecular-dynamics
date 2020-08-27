@@ -376,26 +376,66 @@ int main(int argc, char **argv) {
     LIKWID_MARKER_INIT;
     LIKWID_MARKER_THREADINIT;
 
-    for(int i = 0; i < runs; ++i) {
-        if(benchmark == "body_collision") {
-            init_body_collision(world_aabb, aabb1, aabb2, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
-        } else if(benchmark == "granular_gas") {
-            init_granular_gas(world_aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
-        } else if(benchmark == "silicon") {
-            init_silicon(world_aabb, rank_aabb, gridsize, lattice_const, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+    if(benchmark == "body_collision") {
+        init_body_collision(world_aabb, aabb1, aabb2, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+    } else if(benchmark == "granular_gas") {
+        init_granular_gas(world_aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+    } else if(benchmark == "silicon") {
+        init_silicon(world_aabb, rank_aabb, gridsize, lattice_const, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+    } else {
+        init_rectangular_grid(world_aabb, rank_aabb, half, potential_minimum * 0.5, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+    }
+
+    int bottom_bc       =   md_add_region(0.0, 110.0, 0.0, 110.0, 0.0, 0.1);
+    int top_bc          =   md_add_region(0.0, 110.0, 0.0, 110.0, 54.0, 55.0);
+    int crack_top       =   md_add_region(0.0, 11.0, 0.0, 25.8, 28.4, 28.7);
+    int crack_bottom    =   md_add_region(0.0, 11.0, 0.0, 27.2, 27.0, 27.2);
+
+    md_copy_data_to_accelerator();
+    md_exchange_particles();
+    md_borders();
+    md_assign_particle_regions();
+    md_distribute_particles();
+    md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
+
+    if(force_field == "dem") {
+        md_compute_dem(half_nb, cutoff_radius, damping_n, damping_t, stiffness, friction);
+    } else {
+        md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
+    }
+
+    if(vtk) {
+        vtk_write_local_data(vtk_directory + "particles_0.vtk");
+        vtk_write_ghost_data(vtk_directory + "ghost_0.vtk");
+        vtk_write_aabb_data(vtk_directory + "aabb_0.vtk");
+    }
+
+    md_barrier();
+    timer.startRun();
+
+    for(int j = 0; j < steps; ++j) {
+        md_initial_integration(dt);
+        timer.accum(TIME_FORCE);
+
+        if((j + 1) % reneigh_every == 0) {
+            md_exchange_particles();
+            timer.accum(TIME_COMM);
+
+            md_enforce_pbc();
+            timer.accum(TIME_OTHER);
+
+            md_borders();
+            timer.accum(TIME_COMM);
+
+            md_distribute_particles();
+            timer.accum(TIME_OTHER);
+
+            md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
+            timer.accum(TIME_NEIGHBORLISTS);
         } else {
-            init_rectangular_grid(world_aabb, rank_aabb, half, potential_minimum * 0.5, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+            md_synchronize_ghost_layer();
+            timer.accum(TIME_COMM);
         }
-
-        if(benchmark != "body_collision" && benchmark != "granular_gas" && benchmark != "silicon") {
-            md_create_velocity(init_temp);
-        }
-
-        md_copy_data_to_accelerator();
-        md_exchange_particles();
-        md_borders();
-        md_distribute_particles();
-        md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
 
         if(force_field == "dem") {
             md_compute_dem(half_nb, cutoff_radius, damping_n, damping_t, stiffness, friction);
@@ -403,65 +443,25 @@ int main(int argc, char **argv) {
             md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
         }
 
-        if(vtk && i == 0) {
-            vtk_write_local_data(vtk_directory + "particles_0.vtk");
-            vtk_write_ghost_data(vtk_directory + "ghost_0.vtk");
-            vtk_write_aabb_data(vtk_directory + "aabb_0.vtk");
+        md_final_integration(dt);
+        timer.accum(TIME_FORCE);
+
+        if(vtk) {
+            md_copy_data_from_accelerator();
+            vtk_write_local_data(vtk_directory + "particles_" + to_string(j + 1) + ".vtk");
+            vtk_write_ghost_data(vtk_directory + "ghost_" + to_string(j + 1) + ".vtk");
+            vtk_write_aabb_data(vtk_directory + "aabb_" + to_string(j + 1) + ".vtk");
+            timer.accum(TIME_OTHER);
         }
-
-        md_barrier();
-        timer.startRun();
-
-        for(int j = 0; j < steps; ++j) {
-            md_initial_integration(dt);
-            timer.accum(TIME_FORCE);
-
-            if((j + 1) % reneigh_every == 0) {
-                md_exchange_particles();
-                timer.accum(TIME_COMM);
-
-                md_enforce_pbc();
-                timer.accum(TIME_OTHER);
-
-                md_borders();
-                timer.accum(TIME_COMM);
-
-                md_distribute_particles();
-                timer.accum(TIME_OTHER);
-
-                md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
-                timer.accum(TIME_NEIGHBORLISTS);
-            } else {
-                md_synchronize_ghost_layer();
-                timer.accum(TIME_COMM);
-            }
-
-            if(force_field == "dem") {
-                md_compute_dem(half_nb, cutoff_radius, damping_n, damping_t, stiffness, friction);
-            } else {
-                md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
-            }
-
-            md_final_integration(dt);
-            timer.accum(TIME_FORCE);
-
-            if(vtk && i == 0) {
-                md_copy_data_from_accelerator();
-                vtk_write_local_data(vtk_directory + "particles_" + to_string(j + 1) + ".vtk");
-                vtk_write_ghost_data(vtk_directory + "ghost_" + to_string(j + 1) + ".vtk");
-                vtk_write_aabb_data(vtk_directory + "aabb_" + to_string(j + 1) + ".vtk");
-                timer.accum(TIME_OTHER);
-            }
-        }
-
-        timer.finishRun();
-
-        md_enforce_pbc();
-        md_copy_data_from_accelerator();
-        md_report_iterations();
-        md_report_particles();
-        md_deallocate_grid();
     }
+
+    timer.finishRun();
+
+    md_enforce_pbc();
+    md_copy_data_from_accelerator();
+    md_report_iterations();
+    md_report_particles();
+    md_deallocate_grid();
 
     LIKWID_MARKER_CLOSE;
 
