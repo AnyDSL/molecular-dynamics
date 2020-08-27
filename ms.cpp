@@ -116,8 +116,8 @@ int main(int argc, char **argv) {
     int reneigh_every = 20;
     int rebalance_every = 100;
     double dt = 0.005;
-    double cutoff_radius = 2.5;
-    double verlet_buffer = 0.3;
+    double cutoff_radius = 2.6;
+    double verlet_buffer = 0.0;
     double epsilon = 1.0;
     double sigma = 1.0;
     double potential_minimum = 1.6796;
@@ -386,10 +386,10 @@ int main(int argc, char **argv) {
         init_rectangular_grid(world_aabb, rank_aabb, half, potential_minimum * 0.5, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
     }
 
-    int bottom_bc       =   md_add_region(0.0, 110.0, 0.0, 110.0, 0.0, 0.1);
-    int top_bc          =   md_add_region(0.0, 110.0, 0.0, 110.0, 54.0, 55.0);
-    int crack_top       =   md_add_region(0.0, 11.0, 0.0, 25.8, 28.4, 28.7);
-    int crack_bottom    =   md_add_region(0.0, 11.0, 0.0, 27.2, 27.0, 27.2);
+    int bottom_bc = md_add_region(0.0, 110.0, 0.0, 110.0, 0.0, 0.1);
+    int top_bc = md_add_region(0.0, 110.0, 0.0, 110.0, 54.0, 55.0);
+    int crack_top = md_add_region(0.0, 11.0, 0.0, 25.8, 28.4, 28.7);
+    int crack_bottom = md_add_region(0.0, 11.0, 0.0, 27.2, 27.0, 27.2);
 
     md_copy_data_to_accelerator();
     md_exchange_particles();
