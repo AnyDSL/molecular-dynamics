@@ -26,6 +26,7 @@ extern "C" {
     void md_print_ghost();
     void md_create_velocity(double);
     void md_compute_lennard_jones(bool, double, double, double);
+    void md_compute_stillinger_weber(bool, double);
     void md_compute_dem(bool, double, double, double, double, double);
     void md_mpi_initialize();
     void md_mpi_finalize();

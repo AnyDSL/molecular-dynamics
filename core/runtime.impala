@@ -252,6 +252,51 @@ extern fn md_compute_dem(
     rsq_iters = irsq;
 }
 
+extern fn md_compute_stillinger_weber(half_neighborlist: bool, cutoff_distance: real_t) -> () {
+    let dev = device();
+    let grid = grid_;
+    let half_nb = select(half_neighborlist, true, false);
+    let vector_normal = @|v: Vector3D, len: real_t| { vector_scale(1.0 / len, v) };
+    let sigma = 2.0951;
+    let epsilon = 2.1683;
+    let A = 7.049556277;
+    let B = 0.6022245584;
+    let p = 4.0;
+    let q = 0.0;
+    let a = 1.8;
+
+    let (iforces, irsq) = compute_potential(grid_, half_nb, cutoff_distance * cutoff_distance, @|_, _, _, _, _, del, rsq| {
+        // ResultantSWTwoBodyForce
+        let del_length = dev.sqrt(rsq);
+        let inv_del_length = 1.0 / del_length;
+        let normal = vector_normal(del, del_length);
+        let sigma0 = sigma * inv_del_length;
+        let B_sigmaP = B * dev.pow(sigma0, p);
+        let sigmaQ = dev.pow(sigma0, q);
+        let term1_d = del_length - a * sigma;
+        let energy = A * epsilon * (B_sigmaP - sigmaQ) * dev.exp(sigma / term1_d);
+        let term1 = sigma / (term1_d * term1_d);
+        let term2_n = (p * B_sigmaP - q * sigmaQ) * inv_del_length;
+        let term2_d = B_sigmaP - sigmaQ;
+        let term2 = term2_n / term2_d;
+        let fres2 = vector_scale(energy * (term1 + term2), normal);
+
+        // ResultantConfigSWTwoBodyForce
+        let mat_stretch = 1.0; // dis_mat_pos / dis_spatial_pos
+        let cfg_term0 = 1.0 / mat_stretch;
+        let cfg_term1 = (p * B_sigmaP - q * sigmaQ) / (mat_stretch * B_sigmaP - mat_stretch * sigmaQ);
+        let cfg_term2_d = 1.0 - mat_stretch * a * sigma0;
+        let cfg_term2 = sigma0 / (term2_d * term2_d);
+        let cfg_energy = A * epsilon * (B_sigmaP - sigmaQ) * mat_stretch * dev.exp(mat_stretch * cfg_term2);
+        let frescfg2 = vector_scale(-cfg_energy * (cfg_term0 + cfg_term1 + cfg_term2), normal);
+
+        vector_add(fres2, frescfg2)
+    });
+
+    force_iters = iforces;
+    rsq_iters = irsq;
+}
+
 extern fn md_compute_total_kinetic_energy() -> real_t { 0.0 as real_t }
 extern fn md_mpi_initialize() -> () { mpi_initialize(); }
 extern fn md_mpi_finalize() -> () { mpi_finalize(); }
