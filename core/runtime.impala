@@ -297,6 +297,107 @@ extern fn md_compute_stillinger_weber(half_neighborlist: bool, cutoff_distance: 
     rsq_iters = irsq;
 }
 
+extern fn md_compute_eam(half_neighborlist: bool, cutoff_distance: real_t) -> () {
+    let dev = device();
+    let grid = grid_;
+    let half_nb = select(half_neighborlist, true, false);
+    let vector_normal = @|v: Vector3D, len: real_t| { vector_scale(1.0 / len, v) };
+    let square =        @|a: real_t| { a * a };
+    let cube =          @|a: real_t| { a * a * a };
+    let alpha1 = 2.97758;
+    let alpha2 = 1.54927;
+    let r_01 = 0.83591;
+    let r_02 = 4.46867;
+    let E1 = 201.458;
+    let E2 = 0.00659288;
+    let delta = 0.0086225;
+    let h = 0.50037;
+    let r_cut = 5.50679;
+    let r_s1 = 2.24;
+    let r_s2 = 1.8;
+    let r_s3 = 1.2;
+    let s1 = 4.0;
+    let s2 = 40.0;
+    let s3 = 1150.0;
+    let a = 3.80362;
+    let beta1 = 0.17394;
+    let beta2 = 535.66;
+    let r_03 = -2.19885;
+    let r_04 = -261.984;
+    let F0 = -2.28235;
+    let F2 = 1.35535;
+    let q1 = -1.27775;
+    let q2 =-0.86074;
+    let q3 = 1.78804;
+    let q4 = 2.97571;
+    let Q1 = 0.4;
+    let Q2 = 0.3;
+
+    let (iforces, irsq) = compute_potential(grid, half_nb, cutoff_distance * cutoff_distance, @|_, _, _, _, _, del, rsq| {
+        // configForceEamPair
+        let del_length = dev.sqrt(rsq);
+        let normal = vector_normal(del, del_length);
+        let mat_stretch = 0.0; // TODO: calculate material stretch
+        let mat_dist = 0.0; // TODO: calculate material bond distance
+        let mat_dist4 = square(square(mat_dist));
+        let inv_mat_stretch = 1.0 / mat_stretch;
+        let inv_mat_dist = 1.0 / mat_dist;
+        let alpha1_mod = alpha1 * mat_dist;
+        let alpha2_mod = alpha2 * mat_dist;
+        let r_01_mod = r_01 * inv_mat_dist;
+        let r_02_mod = r_02 * inv_mat_dist;
+        let r_cut_mod = r_cut * inv_mat_dist;
+        let h_mod = h * inv_mat_dist;
+        let r_s1_mod = r_s1 * inv_mat_dist;
+        let r_s2_mod = r_s2 * inv_mat_dist;
+        let r_s3_mod = r_s3 * inv_mat_dist;
+        let s1_mod = s1 * mat_dist4;
+        let s2_mod = s2 * mat_dist4;
+        let s3_mod = s3 * mat_dist4;
+        let mut attraction = 0.0;
+        let mut repulsion = 0.0;
+
+        if del_length < r_cut_mod {
+            let r_01_dist = inv_mat_stretch - r_01_mod;
+            let r_02_dist = inv_mat_stretch - r_02_mod;
+            let exp1_r_01 = dev.exp(-2.0 * alpha1_mod * r_01_dist);
+            let exp1_r_02 = dev.exp(-2.0 * alpha2_mod * r_02_dist);
+            let exp2_r_01 = dev.exp(-alpha1_mod * r_01_dist);
+            let exp2_r_02 = dev.exp(-alpha2_mod * r_02_dist);
+            let M_r_01 = exp1_r_01 - 2.0 * exp2_r_01;
+            let M_r_02 = exp1_r_02 - 2.0 * exp2_r_02;
+            let deriv_M_r_01 = -2.0 * alpha1_mod * exp1_r_01 + 2.0 * alpha1_mod * exp2_r_01;
+            let deriv_M_r_02 = -2.0 * alpha2_mod * exp1_r_02 + 2.0 * alpha2_mod * exp2_r_02;
+            let h4 = square(square(h_mod));
+            let rcut_dist = inv_mat_stretch - r_cut;
+            let rcut_dist3 = cube(rcut_dist);
+            let rcut_dist4 = rcut_dist * rcut_dist3;
+            let inv_h = 1.0 / h_mod;
+            let psi_fourth = square(square(rcut_dist * inv_h));
+            let psi = psi_fourth / (1.0 + psi_fourth);
+            let psi_deriv = (4.0 * h4 * rcut_dist3) / square(rcut_dist4 + h4);
+            attraction = (E1 * deriv_M_r_01 + E2 * deriv_M_r_02) * psi + (E1 * M_r_01 + E2 * M_r_02 + delta) * psi_deriv;
+        }
+
+        if del_length < r_s1_mod {
+            repulsion += s1_mod * cube(r_s1_mod - inv_mat_stretch);
+        }
+
+        if del_length < r_s2_mod {
+            repulsion += s2_mod * cube(r_s2_mod - inv_mat_stretch);
+        }
+
+        if del_length < r_s3_mod {
+            repulsion += s3_mod * cube(r_s3_mod - inv_mat_stretch);
+        }
+
+        vector_scale(attraction + 4.0 * mat_dist * repulsion, normal)
+    });
+
+    force_iters = iforces;
+    rsq_iters = irsq;
+}
+
 extern fn md_compute_total_kinetic_energy() -> real_t { 0.0 as real_t }
 extern fn md_mpi_initialize() -> () { mpi_initialize(); }
 extern fn md_mpi_finalize() -> () { mpi_finalize(); }
