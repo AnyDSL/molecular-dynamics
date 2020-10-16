@@ -35,7 +35,11 @@ struct Grid {
     particles_region: ArrayData,    // particle regions
     regions: ArrayData,             // regions data
     counter: ArrayData,             // counter
-    resize: ArrayData               // resize
+    resize: ArrayData,              // resize
+
+    // For molecular statics simulations
+    material_positions: ArrayData,  // material position
+    densities: ArrayData            // densities for EAM potential
 }
 
 struct Particle {
@@ -51,7 +55,11 @@ struct Particle {
     set_copy_pos: fn(i32, Vector3D) -> (),
     set_copy_vel: fn(i32, Vector3D) -> (),
     set_neigh:    fn(i32, i32, i32) -> (),
-    neighbors:    fn(i32, fn(i32) -> ()) -> ()
+    neighbors:    fn(i32, fn(i32) -> ()) -> (),
+
+    // For molecular statics simulation
+    set_material_position: fn(i32, Vector3D) -> (),
+    get_material_position: fn(i32) -> Vector3D
 };
 
 fn @ParticleDataLayout() -> ArrayLayout { row_major_order_array(0) }
@@ -83,7 +91,11 @@ fn @make_particle(grid: Grid, target_fn: ArrayTargetFn, vec3_layout: ArrayLayout
             for n in range(0, get_array_i32_ref(array_dev, grid.neighbors_sizes)(i)) {
                 f(array_2d_get_i32(array_dev, nb_layout, grid.neighborlists, i, n));
             }
-        }
+        },
+
+        // For molecular statics simulation
+        set_material_position: @|i, p|  array_2d_set_vec3(target_fn, vec3_layout, grid.material_positions, i, p),
+        get_material_position: @|i|     array_2d_get_vec3(target_fn, vec3_layout, grid.material_positions, i)
     }
 }
 
@@ -154,7 +166,11 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
         particles_region: alloc_i32_array(particle_capacity, true),
         regions: allocate_array(regions_capacity, 6, sizeof[real_t](), true),
         counter: alloc_i32_array(1, true),
-        resize: alloc_i32_array(1, true)
+        resize: alloc_i32_array(1, true),
+
+        // For molecular statics simulations
+        material_positions: alloc_vec3_array(particle_capacity, true),
+        densities: alloc_real_array(particle_capacity, true)
     }
 }
 
@@ -189,6 +205,10 @@ fn deallocate_grid(grid: &mut Grid) -> () {
     release_array(grid.regions);
     release_array(grid.counter);
     release_array(grid.resize);
+
+    // For molecular statics simulations
+    release_array(grid.material_positions);
+    release_array(grid.densities);
 }
 
 fn reallocate_ncells_capacity(grid: &mut Grid, capacity: i32) -> () {
@@ -208,6 +228,9 @@ fn reallocate_particle_capacity(grid: &mut Grid, capacity: i32) -> () {
     reallocate_array(&mut grid.neighbors_sizes, capacity, 1, sizeof[i32](), false);
     reallocate_array(&mut grid.send_flags, capacity, 1, sizeof[i8](), false);
     reallocate_array(&mut grid.neighborlists, capacity, grid.neighborlist_capacity, sizeof[i32](), false);
+
+    // For molecular statics simulations
+    reallocate_array(&mut grid.material_positions, capacity, 3, sizeof[real_t](), true);
     grid.particle_capacity = capacity;
 }
 
@@ -418,6 +441,9 @@ fn copy_to_accelerator(grid: &Grid) -> () {
     transfer_array_to_device(grid.cell_sizes);
     transfer_array_to_device(grid.particles_cell);
     transfer_array_to_device(grid.regions);
+
+    // For molecular statics simulations
+    transfer_array_to_device(grid.material_positions);
 }
 
 fn copy_from_accelerator(grid: &Grid) -> () {
