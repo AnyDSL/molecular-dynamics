@@ -32,7 +32,7 @@ static mut znext: i32;
 fn @communicate_ghost_particles() -> bool { select(use_walberla(), false, true) }
 
 // Maximum number of neighbor ranks
-fn @get_initial_maximum_neighbor_ranks() -> i32 { select(use_walberla(), 30, 6) }
+fn @get_initial_maximum_neighbor_ranks() -> i64 { select(use_walberla(), 30, 6) as i64 }
 
 // Initialize and finalize MPI
 fn mpi_initialize() -> () { mpi().init(); }
@@ -165,9 +165,9 @@ fn @pbc_correct(pos: Vector3D, grid: Grid) -> Vector3D {
 fn alloc_comm(grid: Grid) -> Comm {
     let mpih = mpi();
     let max_neighs = get_initial_maximum_neighbor_ranks();
-    let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz);
-    let send_capacity = max_neighs * max_faces_dim * 20;
-    let recv_capacity = max_neighs * max_faces_dim * 20;
+    let max_faces_dim = math.max(math.max(grid.nx * grid.ny, grid.nx * grid.nz), grid.ny * grid.nz) as i64;
+    let send_capacity = (max_neighs * max_faces_dim) as i32 * 20;
+    let recv_capacity = (max_neighs * max_faces_dim) as i32 * 20;
     let null_buf = Buffer {
         device: 0,
         data: 0 as &[i8],
@@ -192,7 +192,7 @@ fn alloc_comm(grid: Grid) -> Comm {
         recv_rank_lengths: alloc_cpu(max_neighs * sizeof[i32]()),
         recv_capacity: recv_capacity,
         recv_noffsets: 0,
-        max_neighs: max_neighs,
+        max_neighs: max_neighs as i32,
         neighs: 0
     }
 }
@@ -221,7 +221,7 @@ fn release_comm(comm: Comm) -> () {
 fn resize_max_neighbors_capacity(comm: &mut Comm, max_neighs: i32) -> () {
     print_i32_with_rank("resize_max_neighbors_capacity()", max_neighs);
     let realloc_max_neigh_buf = @|buf: &mut Buffer| {
-        let new_buf = alloc_cpu(max_neighs * sizeof[i32]());
+        let new_buf = alloc_cpu(max_neighs as i64 * sizeof[i32]());
         copy(*buf, new_buf);
         release(*buf);
         *buf = new_buf;

@@ -217,8 +217,7 @@ fn initialize_grid(
     positions: &[Vector3D],
     velocities: &[Vector3D],
     nparticles: i32,
-    grid: &mut Grid,
-    allocate: fn(i32) -> Buffer) -> () {
+    grid: &mut Grid) -> () {
 
     let cell_sizes = get_array_i32_ref(array_host, grid.cell_sizes);
 
@@ -227,11 +226,11 @@ fn initialize_grid(
     });
 
     range(0, nparticles, |i| {
-        insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
+        insert_particle(masses(i), positions(i), velocities(i), grid);
     });
 }
 
-fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
+fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid) -> () {
     let particle_index = grid.nparticles;
     let neighbors_sizes = get_array_i32_ref(array_host, grid.neighbors_sizes);
 

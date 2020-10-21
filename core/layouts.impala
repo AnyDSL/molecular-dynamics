@@ -35,13 +35,13 @@ fn @null_array() -> ArrayData {
     }
 }
 
-fn allocate_array(size_x: i32, size_y: i32, elem_size: i32, host_mirror: bool) -> ArrayData {
+fn allocate_array(size_x: i32, size_y: i32, elem_size: i64, host_mirror: bool) -> ArrayData {
     let dev = device();
-    let buffer = dev.alloc(size_x * size_y * elem_size);
+    let buffer = dev.alloc(size_x as i64 * size_y as i64 * elem_size);
 
     ArrayData {
         buffer: buffer,
-        buffer_host: dev.alloc_mirror(buffer, size_x * size_y * elem_size),
+        buffer_host: dev.alloc_mirror(buffer, size_x as i64 * size_y as i64 * elem_size),
         size_x: size_x,
         size_y: size_y,
         host_mirror: host_mirror
@@ -87,10 +87,10 @@ fn @clustered_array(@atomic: i32, @cluster_size: i32) -> ArrayLayout {
     }
 }
 
-fn reallocate_array(array: &mut ArrayData, size_x: i32, size_y: i32, elem_size: i32, @preserve: bool) -> () {
+fn reallocate_array(array: &mut ArrayData, size_x: i32, size_y: i32, elem_size: i64, @preserve: bool) -> () {
     let dev = device();
-    let new_buffer = dev.alloc(size_x * size_y * elem_size);
-    let new_buffer_host = dev.alloc_mirror(new_buffer, size_x * size_y * elem_size);
+    let new_buffer = dev.alloc(size_x as i64 * size_y as i64 * elem_size);
+    let new_buffer_host = dev.alloc_mirror(new_buffer, size_x as i64 * size_y as i64 * elem_size);
 
     if preserve {
         copy(array.buffer_host, new_buffer_host);
