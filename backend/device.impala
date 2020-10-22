@@ -6,6 +6,7 @@ struct Device {
     alloc_mirror: fn(Buffer, i64) -> Buffer,
     transfer: fn(Buffer, Buffer) -> (),
     sqrt: fn(real_t) -> real_t,
+    real_floor: fn(real_t) -> real_t,
     loop_1d: fn(bool, i32, fn(i32) -> ()) -> (),
     add_iterator: fn(&mut i64) -> (),
     atomic_add_i32: fn(dev_i32_ptr, i32) -> i32

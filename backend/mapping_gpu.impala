@@ -41,6 +41,7 @@ fn @device() -> Device {
         alloc_mirror: |buf, size| { alloc_cpu(size) },
         transfer: |from, to| { copy(from, to); },
         sqrt: @|a| { gpu_math.sqrt(a) },
+        real_floor: @|a| { gpu_math.floor(a) },
         loop_1d: loop_1d,
         add_iterator: |iterator| {},
         atomic_add_i32: @|ptr, value| { atomic_add_global_i32(ptr as &mut[1]i32, value) }

@@ -404,9 +404,9 @@ fn get_resize(grid: Grid) -> i32 {
 }
 
 fn compute_cell_position(position: Vector3D, grid: Grid) -> [i32 * 3] {
-    let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
-    let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
-    let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
+    let i = device().real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
+    let j = device().real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
+    let k = device().real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
     [i, j, k]
 }
 
