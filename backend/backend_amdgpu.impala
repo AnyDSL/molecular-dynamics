@@ -2,10 +2,12 @@ fn @accelerator(dev: i32) -> Accelerator { amdgpu_accelerator(dev) }
 
 static device_id = 1;
 static gpu_math = amdgpu_intrinsics;
-static atomic_add_global = amdgcn_atomic_add_global;
-static atomic_add_shared = amdgcn_atomic_add_shared;
-static atomic_min_global = amdgcn_atomic_min_global;
-static atomic_min_shared = amdgcn_atomic_min_shared;
+static atomic_add_global_i32 = amdgcn_atomic_add_global_i32;
+static atomic_add_shared_i32 = amdgcn_atomic_add_shared;
+static atomic_min_global_i32 = amdgcn_atomic_min_global_i32;
+static atomic_min_shared_i32 = amdgcn_atomic_min_shared;
+fn @atomic_add_f32(addr: &mut f32, val: f32) -> f32 { amdgcn_atomic_add_global_f32(addr as &mut[1] f32, val) }
+fn @atomic_add_f64(addr: &mut f64, val: f64) -> f64 { amdgcn_atomic_add_global_f64(addr as &mut[1] f64, val) }
 
 fn @is_nvvm() -> bool { false }
 fn @is_cuda() -> bool { false }

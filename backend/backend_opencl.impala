@@ -2,10 +2,44 @@ fn @accelerator(dev: i32) -> Accelerator { opencl_accelerator(dev) }
 
 static device_id = 0;
 static gpu_math = opencl_intrinsics;
-static atomic_add_global = opencl_atomic_add_global;
-static atomic_add_shared = opencl_atomic_add_shared;
-static atomic_min_global = opencl_atomic_min_global;
-static atomic_min_shared = opencl_atomic_min_shared;
+static atomic_add_global_i32 = opencl_atomic_add_global;
+static atomic_add_shared_i32 = opencl_atomic_add_shared;
+static atomic_min_global_i32 = opencl_atomic_min_global;
+static atomic_min_shared_i32 = opencl_atomic_min_shared;
+
+extern "device" {
+    fn "atomic_cmpxchg" opencl_atomic_cmpxchg_u32(&mut[1]u32, u32, u32) -> u32;
+    fn "atom_cmpxchg"   opencl_atomic_cmpxchg_u64(&mut[1]u64, u64, u64) -> u64;
+}
+
+fn @atomic_op_f32(a: &mut[1]f32, b: f32, cmpxchg: fn(&mut[1]u32, u32, u32) -> u32, op: fn(f32, f32) -> f32) -> f32 {
+    let addr_as_ui  = bitcast[&mut[1]u32](a);
+    let mut assumed = *addr_as_ui;
+    let mut old     = cmpxchg(addr_as_ui, assumed, bitcast[u32](op(b, bitcast[f32](assumed))));
+
+    while assumed != old {
+        assumed = old;
+        old = cmpxchg(addr_as_ui, assumed, bitcast[u32](op(b, bitcast[f32](assumed))));
+    }
+
+    bitcast[f32](old)
+}
+
+fn @atomic_op_f64(a: &mut[1]f64, b: f64, cmpxchg: fn(&mut[1]u64, u64, u64) -> u64, op: fn(f64, f64) -> f64) -> f64 {
+    let addr_as_ui  = bitcast[&mut[1]u64](a);
+    let mut assumed = *addr_as_ui;
+    let mut old     = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))));
+
+    while assumed != old {
+        assumed = old;
+        old = cmpxchg(addr_as_ui, assumed, bitcast[u64](op(b, bitcast[f64](assumed))));
+    }
+
+    bitcast[f64](old)
+}
+
+fn @atomic_add_f32(addr: &mut f32, val: f32) -> f32 { atomic_op_f32(addr as &mut[1]f32, val, opencl_atomic_cmpxchg_u32, @|a, b| a + b) }
+fn @atomic_add_f64(addr: &mut f64, val: f64) -> f64 { atomic_op_f64(addr as &mut[1]f64, val, opencl_atomic_cmpxchg_u64, @|a, b| a + b) }
 
 fn @is_nvvm() -> bool { false }
 fn @is_cuda() -> bool { false }

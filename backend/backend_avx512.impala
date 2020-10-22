@@ -2,3 +2,6 @@ fn @get_vector_width() -> i32 { 8 }
 
 // amount of full vector iterations that trigger loop vectorization
 static simd_iter_threshold = 2;
+
+fn @atomic_add_f32(addr: &mut f32, val: f32) -> f32 { atomic(11u32, addr, val, 7u32, "") }
+fn @atomic_add_f64(addr: &mut f64, val: f64) -> f64 { atomic(11u32, addr, val, 7u32, "") }

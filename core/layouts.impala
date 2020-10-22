@@ -52,7 +52,7 @@ fn @add_fn(atomic: i32, array: ArrayData, index: i32, value: real_t) -> () {
     let data = get_array_real_ref(array_dev, array);
 
     if atomic != 0 {
-        atomic_op_real(&mut data(index), value, @|a, b| { a + b });
+        atomic_add_real(&mut data(index), value);
     } else {
         data(index) += value;
     }
