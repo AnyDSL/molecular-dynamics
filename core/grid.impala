@@ -39,7 +39,7 @@ struct Grid {
 
     // For molecular statics simulations
     material_positions: ArrayData,  // material position
-    densities: ArrayData            // densities for EAM potential
+    derivative_emb_energies: ArrayData            // derivative_emb_energies for EAM potential
 }
 
 struct Particle {
@@ -170,7 +170,7 @@ fn allocate_grid(world_aabb: AABB, aabb: AABB, cell_spacing: f64, cell_capacity:
 
         // For molecular statics simulations
         material_positions: alloc_vec3_array(particle_capacity, true),
-        densities: alloc_real_array(particle_capacity, true)
+        derivative_emb_energies: alloc_real_array(particle_capacity, true)
     }
 }
 
@@ -208,7 +208,7 @@ fn deallocate_grid(grid: &mut Grid) -> () {
 
     // For molecular statics simulations
     release_array(grid.material_positions);
-    release_array(grid.densities);
+    release_array(grid.derivative_emb_energies);
 }
 
 fn reallocate_ncells_capacity(grid: &mut Grid, capacity: i32) -> () {

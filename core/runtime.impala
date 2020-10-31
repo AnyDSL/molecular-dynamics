@@ -335,13 +335,14 @@ extern fn md_compute_eam_pe(@half_neighborlist: bool, @config: bool, cutoff_dist
     let Q1 = 0.4;
     let Q2 = 0.3;
     let inv_h = 1.0 / h;
-    let densities = get_array_real_ref(array_dev, grid.densities);
+    let derivative_emb_eng = get_array_real_ref(array_dev, grid.derivative_emb_energies);
 
     particles_vec(false, grid, |i, particle| {
         let pos_i = particle.get_position(i);
         let mat_pos_i = particle.get_material_position(i);
         let mut density = 0.0;
 
+        // TODO: For half neighbor lists, this should be different
         particle.neighbors(i, |j| {
             let pos_j = particle.get_position(j);
             let mat_pos_j = particle.get_material_position(j);
@@ -358,7 +359,24 @@ extern fn md_compute_eam_pe(@half_neighborlist: bool, @config: bool, cutoff_dist
             }
         });
 
-        densities(i) = density;
+        let d = density - 1.0;
+        let d2 = square(d);
+        let d3 = d2 * d;
+        let d4 = d3 * d;
+        let mut d_emb_eng = F2 * d + 3.0 * q1 * d2;
+
+        if density < 1.0 {
+            let d5 = d4 * d;
+            d_emb_eng += 4.0 * q2 * d3 + 5.0 * q3 * d4 + 6.0 * q4 * d5;
+        } else {
+            let pow_term = 1.0 + Q2 * d3;
+            d_emb_eng += 4.0 * Q1 * d3;
+            d_emb_eng *= pow_term;
+            d_emb_eng -= (F0 + 0.5 * F2 * d2 + q1 * d3 + Q1 * d4) * (3.0 * Q2 * d2);
+            d_emb_eng /= square(pow_term);
+        }
+
+        derivative_emb_eng(i) = d_emb_eng;
     });
 
     let (iforces, irsq) = compute_potential(grid, half_nb, cutoff_distance * cutoff_distance, @|particle, i, j, _, _, del, rsq| {
@@ -426,26 +444,9 @@ extern fn md_compute_eam_pe(@half_neighborlist: bool, @config: bool, cutoff_dist
         }
 
         let fpair = attraction + 4.0 * mat_dist * repulsion;
-        let d = densities(i) - 1.0;
-        let d2 = square(d);
-        let d3 = d2 * d;
-        let d4 = d3 * d;
-        let mut d_emb_eng = F2 * d + 3.0 * q1 * d2;
-        let mut atom_d_emb_eng = 0.0;
 
         // configForceEamEmbedding
-        if densities(i) < 1.0 {
-            let d5 = d4 * d;
-            d_emb_eng += 4.0 * q2 * d3 + 5.0 * q3 * d4 + 6.0 * q4 * d5;
-        } else {
-            let pow_term = 1.0 + Q2 * d3;
-            d_emb_eng += 4.0 * Q1 * d3;
-            d_emb_eng *= pow_term;
-            d_emb_eng -= (F0 + 0.5 * F2 * d2 + q1 * d3 + Q1 * d4) * (3.0 * Q2 * d2);
-            d_emb_eng /= square(pow_term);
-        }
-
-        let femb = (d_emb_eng + atom_d_emb_eng) * d_electron_density;
+        let femb = (derivative_emb_eng(i) + derivative_emb_eng(j)) * d_electron_density;
         vector_scale(-(fpair + femb), normal)
     });
 
