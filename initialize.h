@@ -361,6 +361,58 @@ int init_body_collision(
     );
 }
 
+int init_eam(
+    double aabb[6], double rank_aabb[6], int gridsize[3], double lattice_const,
+    double cell_spacing, int cell_capacity, int neighborlist_capacity,
+    function<bool(double, double, double)> is_within_domain) {
+
+    vector<double> masses;
+    vector<Vector3D> positions;
+    vector<Vector3D> velocities;
+    Vector3D pos, vel;
+
+    vel.x = 0.0;
+    vel.y = 0.0;
+    vel.z = 0.0;
+
+    for(int i = 0; i < gridsize[0]; ++i) {
+        for(int j = 0; j < gridsize[1]; ++j) {
+            for(int k = 0; k < gridsize[2]; ++k) {
+                pos.x = (i / 2) * lattice_const;
+                pos.y = (j / 2) * lattice_const;
+                pos.z = (k / 2) * lattice_const;
+
+                if(j % 2 != 0) {
+                    pos.x += lattice_const * 0.5;
+                    pos.y += lattice_const * 0.5;
+                }
+
+                if(k % 2 == 0) {
+                    pos.z += lattice_const * 0.5;
+                }
+
+                if(is_within_domain(pos.x, pos.y, pos.z)) {
+                    masses.push_back(1.0);
+                    positions.push_back(pos);
+                    velocities.push_back(vel);
+                }
+            }
+        }
+    }
+
+    return md_initialize_grid(
+        masses.data(),
+        positions.data(),
+        velocities.data(),
+        (int) positions.size(),
+        aabb,
+        rank_aabb,
+        cell_spacing,
+        cell_capacity,
+        neighborlist_capacity
+    );
+}
+
 int init_silicon(
     double aabb[6], double rank_aabb[6], int gridsize[3], double lattice_const,
     double cell_spacing, int cell_capacity, int neighborlist_capacity,

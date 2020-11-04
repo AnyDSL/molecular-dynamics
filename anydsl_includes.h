@@ -28,6 +28,8 @@ extern "C" {
     void md_compute_lennard_jones(bool, double, double, double);
     void md_compute_stillinger_weber(bool, double);
     void md_compute_dem(bool, double, double, double, double, double);
+    void md_compute_eam(bool, double);
+    void md_compute_eam_config(bool, double);
     void md_mpi_initialize();
     void md_mpi_finalize();
     void md_synchronize_ghost_layer();
@@ -49,6 +51,14 @@ extern "C" {
     void md_report_particles();
     void md_report_time(double, double, double, double, double, double);
     void md_barrier();
+    void md_get_material_position(int, double *, double *, double *);
+    void md_get_position(int, double *, double *, double *);
+    void md_set_position(int, double, double, double);
+    void md_get_force(int, double *, double *, double *);
+    void md_remove_neighbor(int, int);
+    int md_get_number_of_neighbors(int);
+    int md_get_particle_region(int);
+    int md_sort_particles_by_region(int *, int);
 }
 #endif // ANYDSL_INCLUDES
 

@@ -454,6 +454,86 @@ extern fn md_compute_eam_pe(@half_neighborlist: bool, @config: bool, cutoff_dist
     rsq_iters = irsq;
 }
 
+extern fn md_get_material_position(i: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    let p = part.get_material_position(i);
+    *x = p.x;
+    *y = p.y;
+    *z = p.z;
+}
+
+extern fn md_get_position(i: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    let p = part.get_position(i);
+    *x = p.x;
+    *y = p.y;
+    *z = p.z;
+}
+
+extern fn md_get_force(i: i32, x: &mut real_t, y: &mut real_t, z: &mut real_t) -> () {
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    let p = part.get_force(i);
+    *x = p.x;
+    *y = p.y;
+    *z = p.z;
+}
+
+extern fn md_set_position(i: i32, x: real_t, y: real_t, z: real_t) -> () {
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    part.set_position(i, Vector3D { x: x, y: y, z: z });
+}
+
+extern fn md_remove_neighbor(i: i32, j: i32) -> () {
+    let neighbor_sizes = get_array_i32_ref(array_host, grid_.neighbors_sizes);
+    let nneigh = neighbor_sizes(i);
+    let last_neigh = array_2d_get_real(array_host, NeighborlistLayout(), grid_.neighborlists, i, nneigh - 1);
+    array_2d_set_real(array_host, NeighborlistLayout(), grid_.neighborlists, i, j, last_neigh);
+    neighbor_sizes(i)--;
+}
+
+extern fn md_get_number_of_neighbors(i: i32) -> i32 { get_array_i32_ref(array_host, grid_.neighbors_sizes)(i) }
+extern fn md_get_particle_region(i: i32) -> i32 { get_array_i32_ref(array_host, grid_.particles_region)(i) }
+extern fn md_sort_particles_by_region(regions: &[i32], nregions: i32) -> i32 {
+    let part = make_particle(grid_, array_host, ParticleDataLayout(), null_layout());
+    let particle_regions = get_array_i32_ref(array_host, grid_.particles_region);
+    let mut i = 0;
+    let mut n = grid_.nparticles;
+
+    while i < n {
+        let mut in_region = false;
+
+        range(0, nregions, |r| {
+            in_region = in_region || particle_regions(i) == regions(r);
+        });
+
+        if !in_region {
+            let j       =   n - 1;
+            let mass1   =   part.get_mass(i);
+            let pos1    =   part.get_position(i);
+            let mpos1   =   part.get_material_position(i);
+            let vel1    =   part.get_velocity(i);
+            let mass2   =   part.get_mass(j);
+            let pos2    =   part.get_position(j);
+            let mpos2   =   part.get_material_position(j);
+            let vel2    =   part.get_velocity(j);
+
+            part.set_mass(i, mass2);
+            part.set_position(i, pos2);
+            part.set_material_position(i, mpos2);
+            part.set_velocity(i, vel2);
+            part.set_mass(j, mass1);
+            part.set_position(j, pos1);
+            part.set_material_position(j, mpos1);
+            part.set_velocity(j, vel1);
+            n--;
+        } else {
+            i++;
+        }
+    }
+
+    grid_.nparticles - n
+}
+
 extern fn md_compute_total_kinetic_energy() -> real_t { 0.0 as real_t }
 extern fn md_mpi_initialize() -> () { mpi_initialize(); }
 extern fn md_mpi_finalize() -> () { mpi_finalize(); }

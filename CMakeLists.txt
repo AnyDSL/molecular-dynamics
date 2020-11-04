@@ -96,6 +96,10 @@ target_link_libraries(ms m ${ANYDSL_RUNTIME_LIBRARIES} ${CMAKE_EXE_LINKER_FLAGS}
 set_target_properties(ms PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(ms PROPERTIES CXX_STANDARD 14)
 
+find_package(Ceres REQUIRED)
+include_directories(${CERES_INCLUDE_DIR})
+target_link_libraries(ms ${CERES_LIBRARIES})
+
 if(USE_MPI)
     find_package(MPI REQUIRED)
     include_directories(SYSTEM ${MPI_INCLUDE_PATH})

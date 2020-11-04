@@ -39,7 +39,7 @@ struct Grid {
 
     // For molecular statics simulations
     material_positions: ArrayData,  // material position
-    derivative_emb_energies: ArrayData            // derivative_emb_energies for EAM potential
+    derivative_emb_energies: ArrayData // derivative_emb_energies for EAM potential
 }
 
 struct Particle {
@@ -295,6 +295,7 @@ fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &
     let particle = make_particle(*grid, array_host, ParticleDataLayout(), null_layout());
     particle.set_mass(particle_index, mass);
     particle.set_position(particle_index, position);
+    particle.set_material_position(particle_index, position);
     particle.set_velocity(particle_index, velocity);
     particle.set_force(particle_index, Vector3D { x: 0.0 as real_t, y: 0.0 as real_t, z: 0.0 as real_t });
     neighbors_sizes(particle_index) = 0;

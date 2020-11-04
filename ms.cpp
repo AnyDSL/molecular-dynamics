@@ -9,6 +9,7 @@
 #include "anydsl_includes.h"
 #include "initialize.h"
 #include "vtk.h"
+#include "ceres/ceres.h"
 //---
 #include "MultiTimer.h"
 #ifdef LIKWID_PERFMON
@@ -97,6 +98,47 @@ void vtk_write_aabb_data(string filename) {
     write_vtk_to_file(filename, masses, positions, velocities, forces);
 }
 
+class MolecularStatic : public ceres::FirstOrderFunction {
+private:
+	int dof;
+    bool half_nb;
+    double cutoff_radius;
+
+public:
+    MolecularStatic(int dof_, bool half_nb_, double cutoff_radius_) : dof(dof_), half_nb(half_nb_), cutoff_radius(cutoff_radius_) {}
+	virtual bool Evaluate (const double *parameters, double *cost, double *gradient) const {
+        for(int i = 0; i < dof; i++) {
+            md_set_position(i, parameters[i * 3 + 0], parameters[i * 3 + 1], parameters[i * 3 + 2]);
+        }
+
+        if(gradient != NULL) {
+            md_compute_eam(half_nb, cutoff_radius);
+
+            int iter_force = 0;
+            double fx, fy, fz;
+            for(int i = 0; i < dof; i++) {
+                md_get_force(i, &fx, &fy, &fz);
+                gradient[i * 3 + 0] = fx;
+                gradient[i * 3 + 1] = fy;
+                gradient[i * 3 + 2] = fz;
+
+                //gradient[iter_force]=-1*atom_morse_force.GetXCoord()-1*atom_embedding_force.GetXCoord();
+                //gradient[iter_force+1]=-1*atom_morse_force.GetYCoord()-1*atom_embedding_force.GetYCoord();
+                //gradient[iter_force+2]=-1*atom_morse_force.GetZCoord()-1*atom_embedding_force.GetZCoord();
+            }
+        }
+
+
+        //cost[0] = md_energy_morse() + md_energy_embedding();
+        cout << "eng:" << cost[0] << endl;
+        return true;
+	}
+
+	virtual int NumParameters() const {
+	    return dof;
+	}
+};
+
 int main(int argc, char **argv) {
     using namespace placeholders;
 
@@ -126,7 +168,8 @@ int main(int argc, char **argv) {
     double damping_t = 0.0;
     double stiffness = 0.0;
     double friction = 0.0;
-    double lattice_const = 5.4310;
+    double lattice_const = 3.615;
+    //double lattice_const = 5.4310;
     bool half = false;
     bool half_nb = false;
     bool use_walberla = false;
@@ -382,14 +425,23 @@ int main(int argc, char **argv) {
         init_granular_gas(world_aabb, rank_aabb, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
     } else if(benchmark == "silicon") {
         init_silicon(world_aabb, rank_aabb, gridsize, lattice_const, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
+    } else if(benchmark == "eam") {
+        init_eam(world_aabb, rank_aabb, gridsize, lattice_const, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
     } else {
         init_rectangular_grid(world_aabb, rank_aabb, half, potential_minimum * 0.5, cutoff_radius + verlet_buffer, 60, 100, is_within_domain);
     }
 
-    int bottom_bc = md_add_region(0.0, 110.0, 0.0, 110.0, 0.0, 0.1);
-    int top_bc = md_add_region(0.0, 110.0, 0.0, 110.0, 54.0, 55.0);
-    int crack_top = md_add_region(0.0, 11.0, 0.0, 25.8, 28.4, 28.7);
-    int crack_bottom = md_add_region(0.0, 11.0, 0.0, 27.2, 27.0, 27.2);
+    // EAM test
+    //unrelax_atoms = UnrelaxedConfigGenerator <3> (20, 9, 39, 3.615, 3);
+    int bottom_bc = md_add_region(0.0, 70.0, 0.0, 70.0, 0.0, 0.1);
+    int top_bc = md_add_region(0.0, 70.0, 0.0, 70.0, 54.0, 55.0);
+    int crack_top = md_add_region(0.0, 8.0 * 3.615, 0.0, 4.6 * 3.615, 9.5 * 3.615, 11.5 * 3.615);
+    int crack_bottom = md_add_region(0.0, 8.0 * 3.615, 0.0, 4.6 * 3.615, 7.5 * 3.615, 9.5 * 3.615);
+
+    //int bottom_bc = md_add_region(0.0, 110.0, 0.0, 110.0, 0.0, 0.1);
+    //int top_bc = md_add_region(0.0, 110.0, 0.0, 110.0, 54.0, 55.0);
+    //int crack_top = md_add_region(0.0, 11.0, 0.0, 25.8, 28.4, 28.7);
+    //int crack_bottom = md_add_region(0.0, 11.0, 0.0, 27.2, 27.0, 27.2);
 
     md_barrier();
     md_copy_data_to_accelerator();
@@ -401,24 +453,124 @@ int main(int argc, char **argv) {
     timer.accum(TIME_COMM);
 
     md_assign_particle_regions();
+    int nopt = md_sort_particles_by_regions([crack_top, crack_bottom], 2);
+
     md_distribute_particles();
     md_assemble_neighborlists(half_nb, cutoff_radius + verlet_buffer);
     timer.accum(TIME_NEIGHBORLISTS);
 
+    /*
     if(force_field == "dem") {
         md_compute_dem(half_nb, cutoff_radius, damping_n, damping_t, stiffness, friction);
     } else if(force_field == "sw") {
         md_compute_stillinger_weber(half_nb, cutoff_radius);
+    } else if(force_field == "eam") {
+        md_compute_eam(half_nb, cutoff_radius);
     } else {
         md_compute_lennard_jones(half_nb, cutoff_radius, epsilon, sigma);
     }
+    */
 
+    md_compute_eam_config(half_nb, cutoff_radius);
     timer.accum(TIME_FORCE);
 
-    if(vtk) {
-        vtk_write_local_data(vtk_directory + "particles_0.vtk");
-        vtk_write_ghost_data(vtk_directory + "ghost_0.vtk");
-        vtk_write_aabb_data(vtk_directory + "aabb_0.vtk");
+    double force_norm = 0.0;
+    for(int i = 0; i < md_get_number_of_particles(); ++i) {
+        md_get_force(i, &fx, &fy, &fz);
+        force_norm += sqrt(fx * fx + fy * fy + fz * fz);
+    }
+
+    std::cout << "atom embedding force: " << force_norm << std::endl;
+
+    double parameters[nopt * 3];
+
+    for(int i = 0; i < nopt; ++i) {
+        double x, y, z;
+        md_get_position(i, &x, &y, &z);
+        parameters[i * 3 + 0] = x;
+        parameters[i * 3 + 1] = y;
+        parameters[i * 3 + 2] = z;
+    }
+
+    std::cout << "number of optimized atoms: " << nopt << std::endl;
+
+    double max_load = 24.0;
+    double load = 0.0;
+    double unload = 0.05;
+    double load_secondary = 0.05;
+    int load_step = 0;
+
+    while(load < max_load) {
+        load += 0.05;
+        load_step++;
+
+        ceres::GradientProblem problem(new MolecularStatic(nopt * 3));
+        ceres::GradientProblemSolver::Options options;
+        options.minimizer_progress_to_stdout = true;
+        options.max_num_iterations = 2000;
+        options.gradient_tolerance = 1e-6;
+        options.line_search_direction_type = ceres::LBFGS;
+        ceres::GradientProblemSolver::Summary summary;
+        ceres::Solve(options, problem, parameters, &summary);
+        std::cout << summary.FullReport() << std::endl;
+
+        if(load < 8.0 && load_step > 120) {
+            const double critical_config_force = 10.32;
+            const double crack_line_z = 33.5;
+            const double xmin = 1.0,  xmax = 67.0;
+            const double ymin = -1.0, ymax = 16.0;
+            const double zmin = 32.0, zmax = 35.0;
+            double x, y, z;
+
+            md_compute_eam_config(half_nb, cutoff_radius);
+
+            for(int i = 0; i < md_get_number_of_particles(); ++i) {
+                md_get_material_position(i, &x, &y, &z);
+
+                if(x > xmin && x < xmax && y > ymin && y < ymax && z > zmin && z < zmax) {
+                    double fx, fy, fz;
+                    md_get_force(i, &fx, &fy, &fz);
+                    force_norm += sqrt(fx * fx + fy * fy + fz * fz);
+
+                    if(force_norm > critical_config_force) {
+                        const int nneigh = md_get_number_of_neighbors(i);
+                        for(int j = 0; j < nneigh; ++j) {
+                            int neigh = md_get_neighbor(i, j);
+                            double nx, ny, nz;
+                            md_get_position(neigh, &nx, &ny, &nz);
+                            if((z > crack_line_z && nz > crack_line_z) || (z < crack_line_z && nz < crack_line_z)) {
+                                md_remove_neighbor(i, j);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for(int i = 0; i < md_get_number_of_particles(); ++i) {
+            int particle_region = md_get_particle_region(i);
+            double x, y, z;
+
+            if(load <= 8.0) {
+                if(particle_region == bottom_bc || particle_region == top_bc) {
+                    md_get_material_position(i, &x, &y, &z);
+                    z += (particle_region == bottom_bc) ? -load * 0.5 : load * 0.5;
+                    md_set_position(i, x, y, z);
+                }
+            } else if(load <= 16.0) {
+                if(particle_region == bottom_bc || particle_region == top_bc) {
+                    md_get_position(i, &x, &y, &z);
+                    z += (particle_region == bottom_bc) ? unload * 0.5 : -unload * 0.5;
+                    md_set_position(i, x, y, z);
+                }
+            } else if(load <= 24.0) {
+                if(particle_region == bottom_bc || particle_region == top_bc) {
+                    md_get_position(i, &x, &y, &z);
+                    z += (particle_region == bottom_bc) ? -load_secondary * 0.5 : load_secondary * 0.5;
+                    md_set_position(i, x, y, z);
+                }
+            }
+        }
     }
 
     timer.finishRun();
