@@ -251,8 +251,7 @@ fn initialize_grid(
     positions: &[Vector3D],
     velocities: &[Vector3D],
     nparticles: i32,
-    grid: &mut Grid,
-    allocate: fn(i32) -> Buffer) -> () {
+    grid: &mut Grid) -> () {
 
     let cell_sizes = get_array_i32_ref(array_host, grid.cell_sizes);
 
@@ -261,7 +260,7 @@ fn initialize_grid(
     });
 
     range(0, nparticles, |i| {
-        insert_particle(masses(i), positions(i), velocities(i), grid, allocate);
+        insert_particle(masses(i), positions(i), velocities(i), grid);
     });
 }
 
@@ -283,7 +282,7 @@ fn add_region(grid: &mut Grid, xmin: real_t, xmax: real_t, ymin: real_t, ymax: r
     region_id
 }
 
-fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid, allocate: fn(i32) -> Buffer) -> () {
+fn insert_particle(mass: real_t, position: Vector3D, velocity: Vector3D, grid: &mut Grid) -> () {
     let particle_index = grid.nparticles;
     let neighbors_sizes = get_array_i32_ref(array_host, grid.neighbors_sizes);
 
@@ -485,9 +484,9 @@ fn get_resize(grid: Grid) -> i32 {
 }
 
 fn compute_cell_position(position: Vector3D, grid: Grid) -> [i32 * 3] {
-    let i = real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
-    let j = real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
-    let k = real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
+    let i = device().real_floor(((position.x - grid.aabb.xmin) / grid.spacing) as real_t) as i32;
+    let j = device().real_floor(((position.y - grid.aabb.ymin) / grid.spacing) as real_t) as i32;
+    let k = device().real_floor(((position.z - grid.aabb.zmin) / grid.spacing) as real_t) as i32;
     [i, j, k]
 }
 

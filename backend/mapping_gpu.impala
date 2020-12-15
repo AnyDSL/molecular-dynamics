@@ -40,17 +40,18 @@ fn @device() -> Device {
         alloc: |size| { accelerator(device_id).alloc(size) },
         alloc_mirror: |buf, size| { alloc_cpu(size) },
         transfer: |from, to| { copy(from, to); },
-        sqrt: @|a| { nvvm_intrinsics.sqrt(a) },
+        sqrt: @|a| { gpu_math.sqrt(a) },
+        real_floor: @|a| { gpu_math.floor(a) },
         loop_1d: loop_1d,
         add_iterator: |iterator| {},
-        atomic_add_i32: @|ptr, value| { nvvm_atomic_add_global(ptr as &mut[1]i32, value) }
+        atomic_add_i32: @|ptr, value| { atomic_add_global_i32(ptr as &mut[1]i32, value) }
     }
 }
 
 fn @reserve_reduction_buffers(nelements: i32, elem_size: i32) -> () {
     if reduction_buffers_.capacity < nelements * elem_size {
         let new_capacity = (nelements + 20) * elem_size;
-        reallocate_array(&mut reduction_buffers_.red_array, new_capacity, 1, 1, false);
+        reallocate_array(&mut reduction_buffers_.red_array, new_capacity, 1, 1i64, false);
         reduction_buffers_.capacity = new_capacity;
     }
 }
@@ -63,7 +64,7 @@ fn @reduce_i32(n: i32, b: i32, reduce: fn(i32, i32) -> i32, body: fn(i32) -> i32
     let mut red = b;
 
     if n > 0 {
-        reserve_reduction_buffers(nblocks, sizeof[i32]());
+        reserve_reduction_buffers(nblocks, sizeof[i32]() as i32);
         let blocks_red_host = bitcast[&[i32]](array_host(reduction_buffers_.red_array).data);
         let blocks_red_gpu  = bitcast[&mut[i32]](array_dev(reduction_buffers_.red_array).data);
 
@@ -114,7 +115,7 @@ fn @reduce_aabb(n: i32, b: AABB, reduce: fn(AABB, AABB) -> AABB, body: fn(i32) -
     let mut red = b;
 
     if n > 0 {
-        reserve_reduction_buffers(nblocks, sizeof[AABB]());
+        reserve_reduction_buffers(nblocks, sizeof[AABB]() as i32);
         let blocks_red_host = bitcast[&[AABB]](array_host(reduction_buffers_.red_array).data);
         let blocks_red_gpu  = bitcast[&mut[AABB]](array_dev(reduction_buffers_.red_array).data);
 

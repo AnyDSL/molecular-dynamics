@@ -12,6 +12,7 @@ fn @device() -> Device {
         sqrt: @|a| { cpu_intrinsics.sqrt(a) },
         pow: @|a, p| { cpu_intrinsics.pow(a, p) },
         exp: @|a| { cpu_intrinsics.exp(a) },
+        real_floor: @|a| { cpu_intrinsics.floor(a) },
         loop_1d: @|vec, n, f| { vectorized_range(select(vec, get_vector_width(), 1), 0, n, |i, _| { f(i); }); },
         add_iterator: |iterator| { (*iterator)++; },
         atomic_add_i32: @|ptr, value| {

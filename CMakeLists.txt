@@ -15,7 +15,7 @@ message(STATUS "Selected backend: ${BACKEND}")
 
 set(BACKEND_FILE backend/backend_${BACKEND}.impala)
 
-if(BACKEND STREQUAL "nvvm")
+if(BACKEND STREQUAL "nvvm" OR BACKEND STREQUAL "amdgpu" OR BACKEND STREQUAL "cuda" OR BACKEND STREQUAL "opencl")
     set(MAPPING_FILE backend/mapping_gpu.impala)
 else()
     set(MAPPING_FILE backend/mapping_cpu.impala)
@@ -54,7 +54,6 @@ set(MD_SRCS
     core/thermo.impala
     comm/comm.impala
     comm/lb.impala
-    utils/atomic.impala
     utils/utilities.impala
     utils/print.impala
     ${MPI_FILE}

@@ -29,7 +29,7 @@ fn @get_neighborhood_aabb(nbh: Neighborhood, index: i32) -> AABB {
 
 fn initialize_neighborhood() -> () {
     let rank_capacity = get_initial_maximum_neighbor_ranks();
-    let aabb_capacity = rank_capacity * 8;
+    let aabb_capacity = rank_capacity as i32 * 8;
 
     neighborhood = Neighborhood {
         nranks: 0,
@@ -37,7 +37,7 @@ fn initialize_neighborhood() -> () {
         naabbs: alloc_cpu(rank_capacity * sizeof[i32]()),
         offsets: alloc_cpu(rank_capacity * sizeof[i32]()),
         aabbs: allocate_array(aabb_capacity, 6, sizeof[real_t](), true),
-        rank_capacity: rank_capacity,
+        rank_capacity: rank_capacity as i32,
         aabb_capacity: aabb_capacity
     };
 }
@@ -54,14 +54,14 @@ extern fn md_update_neighborhood(nranks: i32, total_aabbs: i32, ranks: &[i32], n
     neighborhood.nranks = nranks;
 
     if nranks > neighborhood.rank_capacity {
-        let new_capacity = nranks + 10;
+        let new_capacity = (nranks + 10) as i64;
         release(neighborhood.ranks);
         release(neighborhood.naabbs);
         release(neighborhood.offsets);
         neighborhood.ranks = alloc_cpu(new_capacity * sizeof[i32]());
         neighborhood.naabbs = alloc_cpu(new_capacity * sizeof[i32]());
         neighborhood.offsets = alloc_cpu(new_capacity * sizeof[i32]());
-        neighborhood.rank_capacity = new_capacity;
+        neighborhood.rank_capacity = new_capacity as i32;
     }
 
     if total_aabbs > neighborhood.aabb_capacity {

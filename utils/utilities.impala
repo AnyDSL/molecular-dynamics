@@ -1,7 +1,7 @@
 type real_t = f64;
 static math = cpu_intrinsics;
 static real_floor = math.floor;
-static atomic_op_real = atomic_op_f64;
+static atomic_add_real = atomic_add_f64;
 
 struct AABB {
     xmin: real_t,
